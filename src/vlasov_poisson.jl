@@ -1,4 +1,7 @@
 
+using LinearAlgebra: dot
+
+
 struct VPIntegratorParameters{T}
     dt::T          # time step
     nₜ::Int        # number of time steps
@@ -93,9 +96,9 @@ function integrate_vp!(P::ParticleList{T},
     χ = parameters.χ
 
     # initial conditions
-    IC.x .= P.x
-    IC.v .= P.v
-    IC.w .= P.w
+    IC.x .= P.x[1,:]
+    IC.v .= P.v[1,:]
+    IC.w .= P.w[1,:]
 
     # save initial conditions
     if save

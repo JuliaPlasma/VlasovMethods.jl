@@ -1,7 +1,7 @@
 module BumpOnTail
 
 using Parameters
-using ..ParticleMethods: draw_g_accept_reject, draw_g_importance_sampling
+using ..VlasovParticleMethods: draw_g_accept_reject, draw_g_importance_sampling
 
 # x-part of distribution function
 function fₓ(x::T, params::NamedTuple) where {T}

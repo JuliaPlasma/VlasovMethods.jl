@@ -2,8 +2,9 @@ module BumpOnTailSimulation
 
 using LaTeXStrings
 using LinearAlgebra
-using ParticleMethods
-using ParticleMethods.BumpOnTail
+using PoissonSolvers
+using VlasovParticleMethods
+using VlasovParticleMethods.BumpOnTail
 using Plots
 
 
@@ -69,7 +70,7 @@ function run()
     
     # create animation and save to file
     anim = @animate for t in 0:IP.nₜ
-        plot_particles(IC.X[:,t+1], IC.V[:,t+1], P.w, 0, L, vmin, vmax)
+        plot_particles(IC.X[:,t+1], IC.V[:,t+1], reshape(P.w, nₚ), 0, L, vmin, vmax)
     end
     gif(anim, "bump-on-tail.gif", fps=10)
 end

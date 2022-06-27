@@ -2,7 +2,7 @@ module VlasovParticleMethods
 
 using ParticleMethods
 using PoissonSolvers
-using PoissonSolvers: PoissonSolver
+using PoissonSolvers: PoissonSolver, eval_field!
 
 
 include("vlasov_poisson.jl")

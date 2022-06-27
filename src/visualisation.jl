@@ -66,6 +66,17 @@ function plot_distribution(X::AbstractVector, V::AbstractVector, W::AbstractVect
     plot_distribution(F, xGrid, vGrid)
 end
 
+function plot_distribution(x::AbstractMatrix, v::AbstractMatrix, w::AbstractMatrix, args...; kwargs...)
+    @assert size(x, 1) == 1
+    @assert size(v, 1) == 1
+    @assert size(w, 1) == 1
+
+    X = reshape(x, size(x,2))
+    V = reshape(v, size(v,2))
+    W = reshape(w, size(w,2))
+
+    plot_distribution(X, V, W, args...; kwargs...)
+end
 
 function plot_particles(X::AbstractVector, V::AbstractVector, W::AbstractVector, xmin, xmax, vmin, vmax)
     scatter(remap_to_domain(X, xmin, xmax), V,
@@ -80,4 +91,16 @@ end
 
 function plot_particles(X::AbstractVector, V::AbstractVector, W::AbstractVector, xGrid::AbstractVector, vGrid::AbstractVector)
     plot_particles(X, V, W, minimum(xGrid), maximum(xGrid), minimum(vGrid), maximum(vGrid))
+end
+
+function plot_particles(x::AbstractMatrix, v::AbstractMatrix, w::AbstractMatrix, args...; kwargs...)
+    @assert size(x, 1) == 1
+    @assert size(v, 1) == 1
+    @assert size(w, 1) == 1
+
+    X = reshape(x, size(x,2))
+    V = reshape(v, size(v,2))
+    W = reshape(w, size(w,2))
+
+    plot_particles(X, V, W, args...; kwargs...)
 end
