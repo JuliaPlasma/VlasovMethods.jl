@@ -32,7 +32,7 @@ z₀ = collect(hcat(x₀, v₀)')
 
 # vector field
 function lorentz_force!(t, z, ż, p::PoissonSolver)
-    Particles.solve!(p, z[1,:])
+    solve!(p, z[1,:])
     for i in axes(ż, 2)
         ż[1,i] = z[2,i]
         ż[2,i] = eval_field(p, z[1,i])
@@ -55,7 +55,7 @@ function s_advection!(t, z, s, h)
 end
 
 function v_lorentz_force!(t, z, ż, p::PoissonSolver)
-    Particles.solve!(p, z[1,:])
+    solve!(p, z[1,:])
     for i in axes(ż, 2)
         ż[1,i] = 0
         ż[2,i] = eval_field(p, z[1,i])
@@ -63,7 +63,7 @@ function v_lorentz_force!(t, z, ż, p::PoissonSolver)
 end
 
 function s_lorentz_force!(t, z, s, h, p::PoissonSolver)
-    Particles.solve!(p, z[1,:])
+    solve!(p, z[1,:])
     for i in axes(s, 2)
         s[1,i] = z[1,i]
         s[2,i] = z[2,i] + h * eval_field(p, z[1,i])
@@ -76,8 +76,8 @@ function copy_to_hdf5(h5z, z, n)
 end
 
 # create Poisson solver
-p = PoissonSolverFFT{eltype(z₀)}(nx)
-Particles.solve!(p, x₀)
+p = PoissonSolverFFT(nx, xmax)
+solve!(p, x₀)
 
 # create an ODE instance
 # ode = ODE((t, z, ż) -> lorentz_force!(t, z, ż, p), z₀)
