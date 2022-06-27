@@ -18,14 +18,30 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - '1.0'
-          - '1.8'
+          - '1.6'
+          - '1.7'
+          - '^1.8.0-0'
           - 'nightly'
         os:
           - ubuntu-latest
+          - macOS-latest
+          - windows-latest
         arch:
           - x64
-          - x86
+        experimental: [false]
+        include:
+          - version: 'nightly'
+            os: ubuntu-latest
+            arch: x64
+            experimental: true
+          - version: 'nightly'
+            os: macOS-latest
+            arch: x64
+            experimental: true
+          - version: 'nightly'
+            os: windows-latest
+            arch: x64
+            experimental: true
     steps:
       - uses: actions/checkout@v2
       - uses: julia-actions/setup-julia@v1
@@ -39,23 +55,3 @@ jobs:
       - uses: codecov/codecov-action@v2
         with:
           files: lcov.info
-  docs:
-    name: Documentation
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v2
-      - uses: julia-actions/setup-julia@v1
-        with:
-          version: '1'
-      - uses: julia-actions/julia-buildpkg@v1
-      - uses: julia-actions/julia-docdeploy@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - run: |
-          julia --project=docs -e '
-            using Documenter: DocMeta, doctest
-            using VlasovParticleMethods
-            DocMeta.setdocmeta!(VlasovParticleMethods, :DocTestSetup, :(using VlasovParticleMethods); recursive=true)
-            doctest(VlasovParticleMethods)'
