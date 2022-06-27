@@ -1,0 +1,3 @@
+[deps]
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+VlasovParticleMethods = "4a954452-39e6-424b-ae51-38fc4bbc42ef"

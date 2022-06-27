@@ -1,0 +1,13 @@
+name = "VlasovParticleMethods"
+uuid = "4a954452-39e6-424b-ae51-38fc4bbc42ef"
+authors = ["Michael Kraus"]
+version = "0.1.0"
+
+[compat]
+julia = "1"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
