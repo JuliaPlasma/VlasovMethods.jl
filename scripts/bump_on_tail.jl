@@ -3,8 +3,8 @@ module BumpOnTailSimulation
 using LaTeXStrings
 using LinearAlgebra
 using PoissonSolvers
-using VlasovParticleMethods
-using VlasovParticleMethods.BumpOnTail
+using VlasovMethods
+using VlasovMethods.BumpOnTail
 using Plots
 
 

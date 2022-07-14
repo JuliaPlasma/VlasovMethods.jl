@@ -1,6 +1,6 @@
-using VlasovParticleMethods
+using VlasovMethods
 using Test
 
-@testset "VlasovParticleMethods.jl" begin
+@testset "VlasovMethods.jl" begin
     # Write your tests here.
 end

@@ -1,14 +1,14 @@
 ```@meta
-CurrentModule = VlasovParticleMethods
+CurrentModule = VlasovMethods
 ```
 
-# VlasovParticleMethods
+# VlasovMethods
 
-Documentation for [VlasovParticleMethods](https://github.com/JuliaPlasma/VlasovParticleMethods.jl).
+Documentation for [VlasovMethods](https://github.com/JuliaPlasma/VlasovMethods.jl).
 
 ```@index
 ```
 
 ```@autodocs
-Modules = [VlasovParticleMethods]
+Modules = [VlasovMethods]
 ```
