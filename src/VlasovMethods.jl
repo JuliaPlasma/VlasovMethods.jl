@@ -1,4 +1,4 @@
-module VlasovParticleMethods
+module VlasovMethods
 
 using ParticleMethods
 using PoissonSolvers
