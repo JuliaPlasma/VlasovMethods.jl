@@ -3,8 +3,9 @@
 using GeometricIntegrators
 using ProgressMeter
 
-# import ParticleMethods package
+# import ParticleMethods and PoissonSolvers packages
 using ParticleMethods
+using PoissonSolvers
 
 # import HDF5 package for storing solution
 using HDF5
@@ -87,37 +88,49 @@ sode = SODE((v_advection!, (t, z, ż) -> v_lorentz_force!(t, z, ż, p)),
             (s_advection!, (t, z, s, h) -> s_lorentz_force!(t, z, s, h, p)),
             z₀)
 
-# create HDF5 file and copy initial conditions
-h5  = h5open(h5file, "w")
-h5z = create_dataset(h5, "z", eltype(z₀), ((2, np, nt+1), (2, np, -1)), chunk=(2,np,1))
-copy_to_hdf5(h5z, z₀, 0)
 
-# create integrator
-# int = IntegratorExplicitEuler(ode, Δt)
-int = Integrator(sode, TableauStrang(), Δt)
+function integrate_vp(sode, Δt, nt, h5file)
+    # initial conditions
+    z₀ = sode.q₀[1]
 
-# create atomic solution
-# asol = AtomicSolution(ode)
-asol = AtomicSolution(sode)
+    # number of particles
+    nd = size(z₀,1)
+    np = size(z₀,2)
 
-# copy initial conditons to atomic solution
-# set_initial_conditions!(asol, ode)
-set_initial_conditions!(asol, sode)
+    # create HDF5 file and copy initial conditions
+    h5  = h5open(h5file, "w")
+    h5z = create_dataset(h5, "z", eltype(z₀), ((nd, np, nt+1), (nd, np, -1)), chunk=(nd,np,1))
+    copy_to_hdf5(h5z, z₀, 0)
 
-# initilize integrator
-initialize!(int, asol)
+    # create integrator
+    # int = IntegratorExplicitEuler(ode, Δt)
+    int = Integrator(sode, TableauStrang(), Δt)
 
-# loop over time steps showing progress bar
-try
-    @showprogress 5 for n in 1:nt
-        integrate_step!(int, asol)
-        copy_to_hdf5(h5z, asol.q, n)
+    # create atomic solution
+    # asol = AtomicSolution(ode)
+    asol = AtomicSolution(sode)
+
+    # copy initial conditons to atomic solution
+    # set_initial_conditions!(asol, ode)
+    set_initial_conditions!(asol, sode)
+
+    # initilize integrator
+    initialize!(int, asol)
+
+    # loop over time steps showing progress bar
+    try
+        @showprogress 5 for n in 1:nt
+            integrate_step!(int, asol)
+            copy_to_hdf5(h5z, asol.q, n)
+        end
+    finally
+        # close HDF5 file
+        close(h5)
     end
-finally
-    # close HDF5 file
-    close(h5)
 end
 
+# execute integration loop
+integrate_vp(sode, Δt, nt, h5file)
 
 # load Plots package
 using Plots
