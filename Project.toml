@@ -20,7 +20,7 @@ StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 StatsPlots = "f3b207a7-027a-5e70-b257-86293d7955fd"
 
 [compat]
-GeometricIntegrators = "0.8, 0.9"
+GeometricIntegrators = "0.8, 0.9, 0.10"
 HDF5 = "0.15, 0.16"
 LaTeXStrings = "1.2, 1.3"
 Parameters = "0.12"
