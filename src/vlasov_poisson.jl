@@ -93,7 +93,7 @@ function integrate_vp!(P::ParticleList{T},
     ts = 1
     for it in 1:IP.nₜ
         # compute time
-        t = (it+1) * IP.dt
+        t = it * IP.dt
 
         # half an advection step
         IC.x .+= 0.5 .* Δt .* IC.v
