@@ -55,45 +55,29 @@ VPIntegratorCache(IP::VPIntegratorParameters{T}) where {T} = VPIntegratorCache(
                                                                 zeros(T,IP.nₛ)  # M
                                                             )
 
-function save_timestep!(IC::VPIntegratorCache, poisson::PoissonSolver, ts, χ)
+function save_timestep!(IC::VPIntegratorCache, efield::ElectricField, ts)
     IC.X[:,ts] .= IC.x
     IC.V[:,ts] .= IC.v
     IC.A[:,ts] .= IC.a
-    IC.Φ[:,ts] .= poisson.ϕ
+    IC.Φ[:,ts] .= coefficients(efield)
 
-    IC.W[ts] = dot(poisson.ϕ, poisson.S, poisson.ϕ) / 2 * χ^2
+    IC.W[ts] = energy(efield)
     IC.K[ts] = dot(IC.w .* IC.v, IC.v) / 2
     IC.M[ts] = dot(IC.w, IC.v)
 end
 
-function solve_potential!(IC::VPIntegratorCache, poisson::PoissonSolver, ts, χ, Φₑₓₜ, given_phi)
-    if given_phi
-        IC.ϕ .= Φₑₓₜ[:,ts]
-    else
-        solve!(poisson, IC.x, IC.w)
-        poisson.ϕ ./= χ^2
-        IC.ϕ .= poisson.ϕ
-    end
-end
-
 
 function integrate_vp!(P::ParticleList{T},
-                       poisson::PoissonSolver{T},
+                       efield::ElectricField,
                        parameters::NamedTuple,
                        IP::VPIntegratorParameters{T},
                        IC::VPIntegratorCache{T} = VPIntegratorCache(IP);
-                       given_phi = false,
-                       Φₑₓₜ::Array{T} = zeros(T, IP.nₕ, IP.nₚ),
                        save = true) where {T}
 
     nsave = div(IP.nₜ, IP.nₛ-1)
 
-    if given_phi
-        @assert IP.nₛ == IP.nₜ + 1
-    end
-
-    # simulation parameter
-    χ = parameters.χ
+    # effective timestep
+    Δt = IP.dt * parameters.χ
 
     # initial conditions
     IC.x .= P.x[1,:]
@@ -102,31 +86,31 @@ function integrate_vp!(P::ParticleList{T},
 
     # save initial conditions
     if save
-        solve_potential!(IC, poisson, 1, χ, Φₑₓₜ, given_phi)
-        save_timestep!(IC, poisson, 1, χ)
+        update!(efield, IC.x, IC.w, 0.0)
+        save_timestep!(IC, efield, 1)
     end
 
-    tₛ = 1
-    for t in 1:IP.nₜ
-        # half an advection step
-        IC.x .+= 0.5 .* IP.dt .* IC.v .* χ
+    ts = 1
+    for it in 1:IP.nₜ
+        # compute time
+        t = (it+1) * IP.dt
 
-        # solve for potential
-        solve_potential!(IC, poisson, t+1, χ, Φₑₓₜ, given_phi)
+        # half an advection step
+        IC.x .+= 0.5 .* Δt .* IC.v
 
         # evaluate electric field
-        eval_field!(IC.a, poisson, IC.x)
+        efield(IC.a, IC.x, IC.w, t)
 
         # acceleration step
-        IC.v .+= IP.dt .* IC.a .* χ
+        IC.v .+= Δt .* IC.a
 
         # half an advection step
-        IC.x .+= 0.5 .* IP.dt .* IC.v .* χ
+        IC.x .+= 0.5 .* Δt .* IC.v
 
-        if save && t % nsave == 0
-            solve_potential!(IC, poisson, t+1, χ, Φₑₓₜ, given_phi)
-            save_timestep!(IC, poisson, tₛ+1, χ)
-            tₛ += 1
+        if save && it % nsave == 0
+            update!(efield, IC.x, IC.w, t)
+            save_timestep!(IC, efield, ts+1)
+            ts += 1
         end
     end
 

@@ -6,6 +6,7 @@ using PoissonSolvers
 using VlasovMethods
 using VlasovMethods.BumpOnTail
 using Plots
+using VlasovMethods: update!
 
 
 # simulation parameters
@@ -35,13 +36,14 @@ function run()
 
     # B-spline Poisson solver
     poisson = PoissonSolverPBSplines(p, IP.nₕ, L)
+    efield = ScaledPoissonField(poisson, params.χ)
 
     # initial data
     P = BumpOnTail.draw_accept_reject(nₚ, params)
     # P = BumpOnTaildraw_importance_sampling(nₚ, params)
 
     # initial potential
-    solve!(poisson, P.x, P.w)
+    update!(efield, P.x, P.w, 0.0)
 
     # plot initial particle distribution
     F = plot_particles(P.x, P.v, P.w, 0, L, vmin, vmax)
@@ -55,7 +57,7 @@ function run()
 
     # integrate all time steps
     # for t = 1:nₜ
-        integrate_vp!(P, poisson, params, IP, IC)
+        integrate_vp!(P, efield, params, IP, IC)
     # end
 
     # plot diagnostics

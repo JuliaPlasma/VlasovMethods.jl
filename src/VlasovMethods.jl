@@ -1,8 +1,15 @@
 module VlasovMethods
 
+using OffsetArrays
 using ParticleMethods
 using PoissonSolvers
 using PoissonSolvers: PoissonSolver, eval_field!
+
+
+include("electric_field.jl")
+
+export ElectricField, PoissonField, ExternalField
+export ScaledField, ScaledPoissonField, ScaledExternalField
 
 
 include("vlasov_poisson.jl")
