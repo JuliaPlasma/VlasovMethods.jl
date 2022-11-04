@@ -1,5 +1,5 @@
 
-using LinearAlgebra: dot
+using LinearAlgebra: dot, Diagonal
 
 
 struct VPIntegratorParameters{T}
@@ -62,7 +62,7 @@ function save_timestep!(IC::VPIntegratorCache, efield::ElectricField, ts)
     IC.Φ[:,ts] .= coefficients(efield)
 
     IC.W[ts] = energy(efield)
-    IC.K[ts] = dot(IC.w .* IC.v, IC.v) / 2
+    IC.K[ts] = dot(IC.v, Diagonal(IC.w), IC.v) / 2
     IC.M[ts] = dot(IC.w, IC.v)
 end
 
