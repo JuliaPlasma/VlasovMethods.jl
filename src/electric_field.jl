@@ -1,6 +1,15 @@
 
 abstract type ElectricField end
 
+function (f::ElectricField)(e::AbstractArray, x::AbstractArray, w::AbstractArray, t)
+    update!(f, x, w, t)
+    efield!(f, e, x)
+end
+
+function (f::ElectricField)(e::AbstractArray, x::AbstractArray)
+    efield!(f, e, x)
+end
+
 function (f::ElectricField)(x::AbstractArray, w::AbstractArray, t)
     e = zero(x)
     f(e, x, w, t)
@@ -14,8 +23,8 @@ struct ScaledField{FT <: ElectricField, χT} <: ElectricField
     χ::χT
 end
 
-function (f::ScaledField)(e::AbstractArray, x::AbstractArray, w::AbstractArray, t)
-    f.field(e, x, w, t)
+function efield!(f::ScaledField, e::AbstractArray, x::AbstractArray)
+    efield!(f.field, e, x)
     e ./= f.χ^2
 end
 
@@ -31,12 +40,9 @@ struct PoissonField{PT <: PoissonSolver} <: ElectricField
     poisson::PT
 end
 
-update!(f::PoissonField, x::AbstractArray, w::AbstractArray, t) = solve!(f.poisson, x, w)
+efield!(f::PoissonField, e::AbstractArray, x::AbstractArray) = eval_field!(e, f.poisson, x)
 
-function (f::PoissonField)(e::AbstractArray, x::AbstractArray, w::AbstractArray, t)
-    update!(f, x, w, t)
-    eval_field!(e, f.poisson, x)
-end
+update!(f::PoissonField, x::AbstractArray, w::AbstractArray, t) = solve!(f.poisson, x, w)
 
 energy(f::PoissonField) = dot(f.poisson.ϕ, f.poisson.S, f.poisson.ϕ) / 2
 
@@ -62,10 +68,7 @@ function update!(f::ExternalField, x::AbstractArray, w::AbstractArray, t)
     f.poisson.ϕ .= f.coeffs[:, f.ts]
 end
 
-function (f::ExternalField)(e::AbstractArray, x::AbstractArray, w::AbstractArray, t)
-    update!(f, x, w, t)
-    eval_field!(e, f.poisson, x)
-end
+efield!(f::ExternalField, e::AbstractArray, x::AbstractArray) = eval_field!(e, f.poisson, x)
 
 coefficients(f::ExternalField) = f.poisson.ϕ
 
