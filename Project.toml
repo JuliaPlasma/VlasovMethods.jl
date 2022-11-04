@@ -1,7 +1,7 @@
 name = "VlasovMethods"
 uuid = "4a954452-39e6-424b-ae51-38fc4bbc42ef"
 authors = ["Michael Kraus"]
-version = "0.1.1"
+version = "0.1.2"
 
 [deps]
 GeometricIntegrators = "dcce2d33-59f6-5b8d-9047-0defad88ae06"
