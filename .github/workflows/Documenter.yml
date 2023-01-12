@@ -26,6 +26,6 @@ jobs:
       - run: |
           julia --project=docs -e '
             using Documenter: DocMeta, doctest
-            using VlasovParticleMethods
-            DocMeta.setdocmeta!(VlasovParticleMethods, :DocTestSetup, :(using VlasovParticleMethods); recursive=true)
-            doctest(VlasovParticleMethods)'
+            using VlasovMethods
+            DocMeta.setdocmeta!(VlasovMethods, :DocTestSetup, :(using VlasovMethods); recursive=true)
+            doctest(VlasovMethods)'
