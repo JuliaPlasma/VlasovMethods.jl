@@ -17,13 +17,15 @@ function update_entropy!(model::LenardBernstein)
 end
 
 # RHS function for solving collisions using DifferentialEquations.jl
- function LB_rhs!(v̇, v, params, t)
+ function LB_rhs!(v̇, v::AbstractVector{ST}, params, t) where {ST}
 
-    fs = projection(v, params.idist, params.fdist)
+    dist = params.model.ent.cache[ST]
+
+    fs = projection(v, params.idist, dist)
 
     dfdv = Derivative(1) * fs # TODO: does this belong here?
 
-    v̇ = -params.ν .* (dfdv.(v) .+ v .* fs.(v))
+    v̇ .= -params.ν .* (dfdv.(v) .+ v .* fs.(v))
 
  end
 

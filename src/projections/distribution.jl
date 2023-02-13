@@ -34,20 +34,17 @@ Updates final_dist with projected Spline and coefficients.
 
 function projection(velocities::AbstractArray{VT}, dist::ParticleDistribution, final_dist::SplineDistribution) where {VT}
     rhs = zeros(VT, size(final_dist))
-    coeffs = copy(rhs)
-    Mfact = cholesky!(galerkin_matrix(final_dist.basis))
-    # Mfact = cholesky!(final_dist.mass_matrix)
 
     # projection of delta functions to splines of @jipolanco 
     # https://github.com/jipolanco/BSplineKit.jl/issues/48
-    for i in 1:length(velocities)
-        ilast, bs = final_dist.basis(velocities[i])  # same as `evaluate_all`
+    for p in eachindex(velocities)
+        ilast, bs = final_dist.basis(velocities[p])  # same as `evaluate_all`
         # Iterate over evaluated basis functions.
         # The indices of the evaluated basis functions are ilast:-1:(ilast - k + 1),
         # where k is the spline order.
         for (δi, bi) ∈ pairs(bs)
             i = ilast + 1 - δi
-            rhs[i] += bi * dist.particles.w[1,i]
+            rhs[i] += bi * dist.particles.w[1,p]
         end
     end
 
@@ -59,9 +56,9 @@ function projection(velocities::AbstractArray{VT}, dist::ParticleDistribution, f
     # end
 
     # compute and return coeffs
-    ldiv!(coeffs, Mfact, rhs)
+    ldiv!(final_dist.coefficients, final_dist.mass_fact, rhs)
 
-    return Spline(final_dist.basis, coeffs)
+    return final_dist.spline
 end
 
 # TODO 
