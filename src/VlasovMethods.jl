@@ -10,10 +10,12 @@ using ProgressMeter
 using Random
 using Sobol
 using SpecialFunctions
+using LinearAlgebra
 
 import GeometricEquations
 import GeometricEquations: ntime
 import GeometricIntegrators.Integrators
+import DifferentialEquations
 
 
 # abstract types
@@ -24,6 +26,7 @@ include("methods/method.jl")
 include("models/model.jl")
 include("examples/example.jl")
 include("sampling/sampling.jl")
+include("entropies/entropy.jl")
 
 
 export initialize!
@@ -31,39 +34,53 @@ export initialize!
 # distribution functions
 
 include("distributions/particle_distribution.jl")
+include("distributions/spline_distribution.jl")
 
 export ParticleDistribution
+export SplineDistribution
 
+# entropy models
+
+include("entropies/collision_entropy.jl")
+
+export CollisionEntropy
 
 # projections
 
 include("projections/potential.jl")
+include("projections/distribution.jl")
 
+export projection
 
 # numerical methods
 
 include("methods/splitting.jl")
+include("methods/diffeq_integrator.jl")
 
 export run!
+export run
 export SplittingMethod
+export DiffEqIntegrator
 
 
 # Vlasov models
 
 include("models/vlasov_poisson.jl")
+include("models/lenard_bernstein.jl")
 
 export VlasovPoisson
-
+export LenardBernstein
+export LB_rhs
 
 # Example Problems
 
 include("examples/bumpontail.jl")
 include("examples/normal.jl")
 include("examples/twostream.jl")
+include("examples/shiftednormalv.jl")
 
-export BumpOnTail, NormalDistribution
 
-
+export BumpOnTail, NormalDistribution, ShiftedNormalV
 
 
 # include("electric_field.jl")
