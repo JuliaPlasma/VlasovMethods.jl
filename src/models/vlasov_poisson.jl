@@ -67,7 +67,7 @@ function s_lorentz_force!(z, t, z̄, t̄, params)
 end
 
 
-function SplittingMethod(model::VlasovPoisson{1,1}, tspan::Tuple, tstep::Real)
+function SplittingMethod(model::VlasovPoisson{1,1}, tspan::Tuple, tstep::Real, intmethod = Integrators.Strang())
     # collect parameters
     params = (ϕ = model.potential, model = model)
 
@@ -79,7 +79,7 @@ function SplittingMethod(model::VlasovPoisson{1,1}, tspan::Tuple, tstep::Real)
             parameters = params)
 
     # create integrator
-    int = Integrators.Integrator(equ, Integrators.Strang())
+    int = Integrators.Integrator(equ, intmethod)
 
     # put together splitting method
     SplittingMethod(model, equ, int)
