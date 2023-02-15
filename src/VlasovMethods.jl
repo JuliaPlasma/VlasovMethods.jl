@@ -49,6 +49,7 @@ export CollisionEntropy
 
 include("projections/potential.jl")
 include("projections/distribution.jl")
+include("projections/density.jl")
 
 export projection
 
@@ -67,10 +68,13 @@ export DiffEqIntegrator
 
 include("models/vlasov_poisson.jl")
 include("models/lenard_bernstein.jl")
+include("models/conservative_lb.jl")
 
 export VlasovPoisson
 export LenardBernstein
+export ConservativeLenardBernstein
 export LB_rhs
+export CLB_rhs
 
 # Example Problems
 

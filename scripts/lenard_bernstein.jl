@@ -5,12 +5,12 @@ using Plots
 
 # params
 # parameters
-npart = 1000  # number of particles
-nknot = 31     # number of grid points
+npart = 10000  # number of particles
+nknot = 41     # number of grid points
 order = 4      # spline order
 tstep = 0.5    # time step size
 tspan = (0.0, 1e3)    # integration time interval
-domainv = (-6., 6.)
+domainv = (-10., 10.)
 
 # create and initialize particle distribution function
 dist = initialize!(ParticleDistribution(1, 1, npart), NormalDistribution())
@@ -20,7 +20,8 @@ sdist = SplineDistribution(1, 1, nknot, order, domainv, :Dirichlet)
 entropy = CollisionEntropy(sdist)
 
 # create LenardBernstein model
-model = LenardBernstein(dist, entropy)
+model = ConservativeLenardBernstein(dist, entropy)
+# model = LenardBernstein(dist, entropy)
 
 # create integrator
 integrator = DiffEqIntegrator(model, tspan, tstep)
@@ -45,11 +46,12 @@ v = LB_rhs(collect(vgrid), params, f)
 
 anim = @animate for i in 1:step:length(sol)
     println("i=",i)
-    
+
     # compute quantities for plotting
     f = projection(sol[:,i], dist, sdist)
     df = Derivative(1) * f
-    v = LB_rhs(collect(vgrid), params, f)
+    # v = LB_rhs(collect(vgrid), params, f)
+    v = CLB_rhs(collect(vgrid), params, f)
 
     plot(xlims = [-8, +8], ylims = [-0.5, +0.5], size=(1200,800))
 
