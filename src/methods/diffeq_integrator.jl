@@ -10,11 +10,18 @@ struct DiffEqIntegrator{MT, ET, IT, TT} <: ParticleMethod
 end
 
 function run!(method::DiffEqIntegrator, sol)
-    sol = DifferentialEquations.solve(method.equation, method.integrator, dt = method.timestep)
+    sol .= DifferentialEquations.solve(method.equation, method.integrator, dt = method.timestep)
 end
 
 
 function run(method::DiffEqIntegrator)
-    sol = DifferentialEquations.solve(method.equation, method.integrator, dt = method.timestep)
+    sol = DifferentialEquations.solve(
+        method.equation, 
+        method.integrator, 
+        dt = method.timestep, 
+        adaptive = false, 
+        progress = true,
+        progress_steps = 1
+        )
     return sol
 end

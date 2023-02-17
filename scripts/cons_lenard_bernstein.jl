@@ -1,18 +1,16 @@
 # import stuff
-using Logging: global_logger
-using TerminalLoggers: TerminalLogger
-global_logger(TerminalLogger())
-
 using BSplineKit
 using VlasovMethods
-using Plots
+
+# output file
+h5file = "lenard_bernstein.hdf5"
 
 # params
 # parameters
 npart = 1000  # number of particles
 nknot = 41     # number of grid points
 order = 4      # spline order
-tstep = 0.1    # time step size
+tstep = 1e-2    # time step size
 tspan = (0.0, 1e1)    # integration time interval
 domainv = (-10., 10.)
 
@@ -37,37 +35,47 @@ integrator = GeometricIntegrator(model, tspan, tstep)
 # run!(integrator, sol)
 
 println("Running integrator")
-sol = VlasovMethods.run(integrator)
+VlasovMethods.run!(integrator, h5file)
 
-# create animation
-println("producing animation")
-step = 1
+# load HDF5 and Plots packages
+using HDF5
+using Plots
+
+# read array from HDF5 file
+z = h5read(h5file, "z")
+t = h5read(h5file, "t")
+
+mom = [mapreduce(p -> p[1], +, z[:,n]) for n in axes(z,2)]
+enr = [mapreduce(p -> p[1].^2, +, z[:,n]) for n in axes(z,2)]
+
 xgrid = -8.25:0.125:+8.25
 vgrid = -8:0.01:+8
 params = (ν = model.ν, idist = model.dist, fdist = model.ent.dist, model = model)
 
-
-f = projection(sol[:,1], dist, sdist)
-v = LB_rhs(collect(vgrid), params, f)
-mom = [mapreduce(p -> p[1], +, sol[:,i]) for i in 1:step:length(sol)]
-enr = [mapreduce(p -> p[1].^2, +, sol[:,i]) for i in 1:step:length(sol)]
-
-anim = @animate for i in 1:step:length(sol)
-    println("i= $i, mom = $((mom[i] - mom[1])/mom[1]), enr=$((enr[i] - enr[1])/enr[1])")
+# compute plot ranges
+vmax = ceil(maximum(abs.(z[:,begin])))
+xlim = (0, 1)
+vlim = (-vmax, +vmax)
+nplot = 100
+step = size(z,2) ÷ nplot
+# create animation
+anim = @animate for n in 1:step:size(z,2)
+    println("i= $n, mom = $((mom[n] - mom[1])/mom[1]), enr=$((enr[n] - enr[1])/enr[1]), min(v) = $(minimum(z[:,n])), max(v) = $(maximum(z[:,n]))")
 
     # compute quantities for plotting
-    f = projection(sol[:,i], dist, sdist)
+    f = projection(z[:,n], dist, sdist)
     df = Derivative(1) * f
     # v = LB_rhs(collect(vgrid), params, f)
     v = CLB_rhs(collect(vgrid), params, f)
 
     plot(xlims = [-8, +8], ylims = [-0.5, +0.5], size=(1200,800))
 
-    histogram!(sol[:,i], bins=xgrid, normalize=:probability, label=string(sol.t[i]))
+    histogram!(z[:,n], bins=xgrid, normalize=:probability, label=string(t[n]))
     plot!(vgrid, v, color=:red, label="v")
     plot!(xgrid, f.(xgrid), label="f")
     plot!(xgrid, df.(xgrid), label="df")
-end
-println("saving animation")
-gif(anim,"lenard_bernstein.gif",fps=2)
 
+end
+
+# save animation to file
+gif(anim, "lenard_bernstein_anim.gif", fps=10)

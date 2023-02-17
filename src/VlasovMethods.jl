@@ -1,5 +1,9 @@
 module VlasovMethods
 
+using Logging: global_logger
+using TerminalLoggers: TerminalLogger
+global_logger(TerminalLogger())
+
 using BSplineKit
 using HDF5
 using OffsetArrays
@@ -57,11 +61,13 @@ export projection
 
 include("methods/splitting.jl")
 include("methods/diffeq_integrator.jl")
+include("methods/geometric_integrator.jl")
 
 export run!
 export run
 export SplittingMethod
 export DiffEqIntegrator
+export GeometricIntegrator
 
 
 # Vlasov models
