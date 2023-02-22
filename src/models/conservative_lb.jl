@@ -8,20 +8,6 @@ struct ConservativeLenardBernstein{XD, VD, DT <: DistributionFunction{XD,VD}, ET
     end
 end
 
-# helper function to compute coefficients A₁ and A₂ in the expansion of the conservative operator, C[f](v) = ∂ᵥ(∂ᵥf + A₁f + A₂vf).
-# function compute_coefficients(distribution::SplineDistribution, particle_dist::ParticleDistribution)
-
-#     D = zeros(eltype(distribution), 2, 2)
-#     D[1,1], D[1,2], D[2,2] = compute_v_densities(distribution, particle_dist)
-#     D[2,1] = D[1,2]
-
-#     B = zeros(eltype(distribution), 2)
-#     B .= compute_v_densities(distribution, particle_dist; isDerivative=true)
-#     B .*= -1
-    
-#     return D\B
-# end
-
 function compute_coefficients(distribution::SplineDistribution, particle_dist::ParticleDistribution)
     n, nu, neps = compute_f_densities(distribution, particle_dist)
     B1, B2 = compute_df_densities(distribution, particle_dist)
@@ -44,7 +30,7 @@ end
 
     A = compute_coefficients(dist, params.idist)
 
-    v̇ .= -params.ν .* (dfdv.(v) .+ ( A[1] .+ A[2] * v) .* fs.(v))
+    v̇ .= -params.ν .* (dfdv.(v) .+ ( A[1] .+ A[2] .* v) .* fs.(v))
 
  end
 
@@ -58,7 +44,7 @@ end
 
     A = compute_coefficients(dist, params.idist)
 
-    v .= -params.ν .* (dfdv.(q) .+ ( A[1] .+ A[2] * q) .* fs.(q))
+    v .= -params.ν .* (dfdv.(q) .+ ( A[1] .+ A[2] .* q) .* fs.(q))
 
  end
 

@@ -17,7 +17,7 @@ function update_entropy!(model::LenardBernstein)
 end
 
 # RHS function for solving collisions using DifferentialEquations.jl
- function LB_rhs!(v̇, v::AbstractVector{ST}, params, t) where {ST}
+ function LB_rhs!(v̇, v::AbstractArray{ST}, params, t) where {ST}
 
     dist = params.model.ent.cache[ST]
 
@@ -27,6 +27,10 @@ end
 
     v̇ .= -params.ν .* (dfdv.(v) .+ v .* fs.(v))
 
+ end
+
+ function LB_rhs_GI!(v, t, q::AbstractArray{ST}, params) where {ST}
+    LB_rhs!(v, q, params, t)
  end
 
 # used for plotting
@@ -59,3 +63,22 @@ end
 
     DiffEqIntegrator(model, equ, int, tstep)
  end
+
+
+function GeometricIntegrator(model::LenardBernstein{1,1}, tspan::Tuple, tstep::Real)
+    # collect parameters
+    # params = (ϕ = model.potential, model = model)
+    params = (ν = model.ν, idist = model.dist, fdist = model.ent.dist, model = model)
+    # create geometric problem
+    equ = GeometricEquations.ODEProblem(
+            LB_rhs_GI!,
+            tspan, tstep, copy(model.dist.particles.v[1,:]);
+            parameters = params)
+
+    # create integrator
+    int = Integrators.Integrator(equ, Integrators.RK438())
+    # int = Integrators.Integrator(equ, Integrators.CrankNicolson())
+
+    # put together splitting method
+    GeometricIntegrator(model, equ, int)
+end

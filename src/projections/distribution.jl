@@ -48,13 +48,6 @@ function projection(velocities::AbstractArray{VT}, dist::ParticleDistribution, f
         end
     end
 
-    # old implementation
-    # for v in velocities
-    #     for i in eachindex(basis)
-    #         rhs[i] += basis[i,VT](v) * weight[1]
-    #     end
-    # end
-
     # compute and return coeffs
     ldiv!(final_dist.coefficients, final_dist.mass_fact, rhs)
 

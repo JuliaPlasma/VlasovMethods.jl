@@ -15,6 +15,7 @@ using Random
 using Sobol
 using SpecialFunctions
 using LinearAlgebra
+using Random
 
 import GeometricEquations
 import GeometricEquations: ntime

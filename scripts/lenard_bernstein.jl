@@ -28,9 +28,7 @@ model = ConservativeLenardBernstein(dist, entropy)
 # model = LenardBernstein(dist, entropy)
 
 # create integrator
-integrator = GeometricIntegrator(model, tspan, tstep)
-# integrator = DiffEqIntegrator(model, tspan, tstep)
-
+integrator = DiffEqIntegrator(model, tspan, tstep)
 
 # run integrator 
 # sol = ... #TODO need to construct this somehow...
@@ -58,8 +56,8 @@ anim = @animate for i in 1:step:length(sol)
     # compute quantities for plotting
     f = projection(sol[:,i], dist, sdist)
     df = Derivative(1) * f
-    # v = LB_rhs(collect(vgrid), params, f)
-    v = CLB_rhs(collect(vgrid), params, f)
+    v = LB_rhs(collect(vgrid), params, f)
+    # v = CLB_rhs(collect(vgrid), params, f)
 
     plot(xlims = [-8, +8], ylims = [-0.5, +0.5], size=(1200,800))
 

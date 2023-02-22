@@ -4,9 +4,6 @@
 
 # convenience function for computing first three moments of f over v
 function compute_f_densities(distribution::SplineDistribution, particle_dist::ParticleDistribution)
-    # n = zero(eltype(distribution))
-    # μ = copy(n)
-    # ε = copy(n)
 
     n = projection_density(distribution, particle_dist)
     μ = projection_momentum(distribution, particle_dist)
