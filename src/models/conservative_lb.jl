@@ -8,9 +8,10 @@ struct ConservativeLenardBernstein{XD, VD, DT <: DistributionFunction{XD,VD}, ET
     end
 end
 
-function compute_coefficients(distribution::SplineDistribution, particle_dist::ParticleDistribution)
-    n, nu, neps = compute_f_densities(distribution, particle_dist)
-    B1, B2 = compute_df_densities(distribution, particle_dist)
+function compute_coefficients(distribution::SplineDistribution, particle_dist::ParticleDistribution, vp::AbstractArray{VT}) where {VT}
+
+    n, nu, neps = compute_f_densities(distribution, vp)
+    B1, B2 = compute_df_densities(distribution, vp)
     B1 *= -1 
     B2 *= -1 
     A1 = (neps * B1 - nu * B2) / (n * neps - (nu)^2)
@@ -28,7 +29,7 @@ end
 
     dfdv = Derivative(1) * fs 
 
-    A = compute_coefficients(dist, params.idist)
+    A = compute_coefficients(dist, params.idist, v)
 
     v̇ .= -params.ν .* (dfdv.(v) .+ ( A[1] .+ A[2] .* v) .* fs.(v))
 
@@ -42,7 +43,7 @@ end
 
     dfdv = Derivative(1) * fs 
 
-    A = compute_coefficients(dist, params.idist)
+    A = compute_coefficients(dist, params.idist, q)
 
     v .= -params.ν .* (dfdv.(q) .+ ( A[1] .+ A[2] .* q) .* fs.(q))
 
@@ -55,7 +56,7 @@ end
 
     dfdv = Derivative(1) * fs 
 
-    A = compute_coefficients(dist, params.idist)
+    A = compute_coefficients(dist, params.idist, v)
 
     v̇ = -params.ν .* (dfdv.(v) .+( A[1] .+ A[2] * v) .* fs.(v))
 

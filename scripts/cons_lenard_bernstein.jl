@@ -8,8 +8,8 @@ h5file = "lenard_bernstein.hdf5"
 # params
 # parameters
 npart = 1000  # number of particles
-nknot = 121     # number of grid points
-order = 3      # spline order
+nknot = 41     # number of grid points
+order = 4      # spline order
 tstep = 1e-3    # time step size
 tspan = (0.0, 1e1)    # integration time interval
 domainv = (-10., 10.)
