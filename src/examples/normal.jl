@@ -13,7 +13,6 @@ function initialize!(dist::ParticleDistribution, params::NormalDistribution, ::S
 
     # random initial conditions
     x₀ = randn(npart)
-    Random.seed!(1111)
     v₀ = randn(npart)
 
     # shift x₀ to the interval [0,1]

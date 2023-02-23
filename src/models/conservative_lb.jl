@@ -58,7 +58,7 @@ end
 
     A = compute_coefficients(dist, params.idist, v)
 
-    v̇ = -params.ν .* (dfdv.(v) .+( A[1] .+ A[2] * v) .* fs.(v))
+    v̇ = -params.ν .* (dfdv.(v) .+( A[1] .+ A[2] .* v) .* fs.(v))
 
     return v̇
  end

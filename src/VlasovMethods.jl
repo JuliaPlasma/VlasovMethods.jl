@@ -87,11 +87,14 @@ export CLB_rhs
 
 include("examples/bumpontail.jl")
 include("examples/normal.jl")
+include("examples/uniform.jl")
 include("examples/twostream.jl")
 include("examples/shiftednormalv.jl")
+include("examples/shifteduniform.jl")
+include("examples/doublemaxwellian.jl")
 
 
-export BumpOnTail, NormalDistribution, ShiftedNormalV
+export BumpOnTail, NormalDistribution, UniformDistribution, ShiftedNormalV, ShiftedUniformDistribution, DoubleMaxwellian
 
 
 # include("electric_field.jl")

@@ -38,7 +38,7 @@ end
 
     dfdv = Derivative(1) * fs # TODO: does this belong here?
 
-    v̇ = -params.ν .* (dfdv.(v) .+ v.* fs.(v))
+    v̇ = -params.ν .* (dfdv.(v) .+ v .* fs.(v))
 
     return v̇
  end

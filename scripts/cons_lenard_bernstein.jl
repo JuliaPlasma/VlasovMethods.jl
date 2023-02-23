@@ -10,12 +10,13 @@ h5file = "lenard_bernstein.hdf5"
 npart = 1000  # number of particles
 nknot = 41     # number of grid points
 order = 4      # spline order
-tstep = 1e-3    # time step size
-tspan = (0.0, 1e1)    # integration time interval
+tstep = 1e-2    # time step size
+tspan = (0.0, 5e2)    # integration time interval
 domainv = (-10., 10.)
 
 # create and initialize particle distribution function
-dist = initialize!(ParticleDistribution(1, 1, npart), NormalDistribution())
+dist = initialize!(ParticleDistribution(1, 1, npart), DoubleMaxwellian(domainv, 2.0))
+# dist = initialize!(ParticleDistribution(1, 1, npart), NormalDistribution())
 
 # create spline distribution function and entropy 
 sdist = SplineDistribution(1, 1, nknot, order, domainv, :Dirichlet)
