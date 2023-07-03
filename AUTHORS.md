@@ -8,10 +8,13 @@ VlasovMethods' development is coordinated by a group of *principal developers*, 
   Max Planck Institute for Plasma Physics, Garching, Germany
 * Tobias M. Blickhan,
   Max Planck Institute for Plasma Physics, Garching, Germany
+* Sandra Jeyakumar,
+  Mathematical Sciences Institute, Australian National University, Australia
 
 ## Contributors
 
 The following people contributed to VlasovMethods and are listed in alphabetical order:
 
 * Tobias M. Blickhan
+* Sandra Jeyakumar
 * Michael Kraus
