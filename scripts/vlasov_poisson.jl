@@ -1,145 +1,45 @@
 
 # import libraries
-using GeometricIntegrators
-using ProgressMeter
-
-# import ParticleMethods and PoissonSolvers packages
-using ParticleMethods
 using PoissonSolvers
-
-# import HDF5 package for storing solution
-using HDF5
+using VlasovMethods
 
 # parameters
-Δt = 0.1    # time step size
-nt = 200    # number of time steps
-np = 10000  # number of particles
-nx = 16     # number of grid points
+npart = 10000  # number of particles
+nknot = 16     # number of grid points
+order = 3      # spline order
+tstep = 0.1    # time step size
+tspan = (0.0, 20.0)    # integration time interval
+domain = (0.0, 1.0)
 
 # output file
 h5file = "vlasov_poisson.hdf5"
 
-# random initial conditions
-x₀ = randn(np)
-v₀ = randn(np)
+# create and initialize particle distribution function
+dist = initialize!(ParticleDistribution(1, 1, npart), Normal())
+# dist = initialize!(ParticleDistribution(1, 1, npart), BumpOnTail())
 
-# shift x₀ to the interval [0,1]
-xmax = ceil(maximum(abs.(x₀)))
-x₀ .+= xmax
-x₀ ./= 2*xmax
+# create electrostatic potential
+potential = Potential(PeriodicBasisBSplineKit(domain, order, nknot))
 
-# concatenate x₀ and v₀
-z₀ = collect(hcat(x₀, v₀)')
+# create Vlasov-Poisson model
+model = VlasovPoisson(dist, potential)
 
-# vector field
-function lorentz_force!(t, z, ż, p::PoissonSolver)
-    solve!(p, z[1,:])
-    for i in axes(ż, 2)
-        ż[1,i] = z[2,i]
-        ż[2,i] = eval_field(p, z[1,i])
-    end
-end
+# create integrator
+integrator = SplittingMethod(model, tspan, tstep)
 
-# splitting fields
-function v_advection!(t, z, ż)
-    for i in axes(ż, 2)
-        ż[1,i] = z[2,i]
-        ż[2,i] = 0
-    end
-end
-
-function s_advection!(t, z, s, h)
-    for i in axes(s, 2)
-        s[1,i] = z[1,i] + h * z[2,i]
-        s[2,i] = z[2,i]
-    end
-end
-
-function v_lorentz_force!(t, z, ż, p::PoissonSolver)
-    solve!(p, z[1,:])
-    for i in axes(ż, 2)
-        ż[1,i] = 0
-        ż[2,i] = eval_field(p, z[1,i])
-    end
-end
-
-function s_lorentz_force!(t, z, s, h, p::PoissonSolver)
-    solve!(p, z[1,:])
-    for i in axes(s, 2)
-        s[1,i] = z[1,i]
-        s[2,i] = z[2,i] + h * eval_field(p, z[1,i])
-    end
-end
-
-# solution storage
-function copy_to_hdf5(h5z, z, n)
-    h5z[:,:,n+1] = z
-end
-
-# create Poisson solver
-p = PoissonSolverFFT(nx, xmax)
-solve!(p, x₀)
-
-# create an ODE instance
-# ode = ODE((t, z, ż) -> lorentz_force!(t, z, ż, p), z₀)
-
-# create a splitting ODE instance
-sode = SODE((v_advection!, (t, z, ż) -> v_lorentz_force!(t, z, ż, p)),
-            (s_advection!, (t, z, s, h) -> s_lorentz_force!(t, z, s, h, p)),
-            z₀)
+# integrate
+run!(integrator, h5file)
 
 
-function integrate_vp(sode, Δt, nt, h5file)
-    # initial conditions
-    z₀ = sode.q₀[1]
-
-    # number of particles
-    nd = size(z₀,1)
-    np = size(z₀,2)
-
-    # create HDF5 file and copy initial conditions
-    h5  = h5open(h5file, "w")
-    h5z = create_dataset(h5, "z", eltype(z₀), ((nd, np, nt+1), (nd, np, -1)), chunk=(nd,np,1))
-    copy_to_hdf5(h5z, z₀, 0)
-
-    # create integrator
-    # int = IntegratorExplicitEuler(ode, Δt)
-    int = Integrator(sode, TableauStrang(), Δt)
-
-    # create atomic solution
-    # asol = AtomicSolution(ode)
-    asol = AtomicSolution(sode)
-
-    # copy initial conditons to atomic solution
-    # set_initial_conditions!(asol, ode)
-    set_initial_conditions!(asol, sode)
-
-    # initilize integrator
-    initialize!(int, asol)
-
-    # loop over time steps showing progress bar
-    try
-        @showprogress 5 for n in 1:nt
-            integrate_step!(int, asol)
-            copy_to_hdf5(h5z, asol.q, n)
-        end
-    finally
-        # close HDF5 file
-        close(h5)
-    end
-end
-
-# execute integration loop
-integrate_vp(sode, Δt, nt, h5file)
-
-# load Plots package
+# load HDF5 and Plots packages
+using HDF5
 using Plots
 
 # read array from HDF5 file
 z = h5read(h5file, "z")
 
 # compute plot ranges
-vmax = ceil(maximum(abs.(v₀)))
+vmax = ceil(maximum(abs.(z[2,:,begin])))
 xlim = (0, 1)
 vlim = (-vmax, +vmax)
 
@@ -171,3 +71,4 @@ end
 
 # save animation to file
 gif(anim, "vlasov_poisson_anim.gif", fps=10)
+
