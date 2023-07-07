@@ -28,7 +28,7 @@ StatsPlots = "f3b207a7-027a-5e70-b257-86293d7955fd"
 TerminalLoggers = "5d786b92-1e48-4d6f-9151-6b4477ca9bed"
 
 [compat]
-AdaptiveRejectionSampling = "0.1"
+AdaptiveRejectionSampling = "0.1, 0.2"
 BSplineKit = "0.14"
 GeometricEquations = "0.10"
 GeometricIntegrators = "0.12"
