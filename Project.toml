@@ -45,6 +45,7 @@ SpecialFunctions = "2"
 StaticArrays = "1"
 StatsBase = "0.33"
 StatsPlots = "0.14, 0.15"
+TerminalLoggers = "0.1"
 julia = "1.8"
 
 [extras]
