@@ -20,6 +20,7 @@ makedocs(;
 )
 
 deploydocs(;
-    repo="github.com/JuliaPlasma/VlasovMethods.jl",
-    devbranch="main",
+    repo   = "github.com/JuliaPlasma/VlasovMethods.jl",
+    devurl = "latest",
+    devbranch = "main",
 )
