@@ -9,11 +9,12 @@ end
 function initialize!(dist::ParticleDistribution, params::DoubleMaxwellian, ::SamplingMethod = NoSampling())
     # number of particles
     npart = length(dist.particles)
+    vdim = size(dist.particles.v)[1]
 
     # random initial conditions
     x₀ = rand(npart)    # sample uniform dist for x₀
-    v₀ = randn(Int(floor(npart / 2)))   # sample normal dist for v₀
-    v₁ = randn(Int(ceil(npart / 2)))   # sample normal dist for v₀
+    v₀ = randn(vdim, Int(floor(npart / 2)))   # sample normal dist for v₀
+    v₁ = randn(vdim, Int(ceil(npart / 2)))   # sample normal dist for v₀
 
     # # shift x₀ to the interval [0,1]
     # xmax = ceil(maximum(abs.(x₀)))
@@ -27,11 +28,12 @@ function initialize!(dist::ParticleDistribution, params::DoubleMaxwellian, ::Sam
     # shift v₀ to the interval (domain[1] + shift, domain[2] + shift)
     v₀ .+= params.shift
     v₁ .-= params.shift
-    v = vcat(v₀, v₁)
+    v = hcat(v₀, v₁)
+    # v = vcat(v₀, v₁)
 
     # write to particle distribution
     dist.particles.x[1,:] .= x₀
-    dist.particles.v[1,:] .= v
+    dist.particles.v .= v
     dist.particles.w[1,:] .= 1 / npart
 
     return dist

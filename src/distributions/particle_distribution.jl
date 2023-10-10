@@ -1,7 +1,7 @@
 
 struct ParticleDistribution{XD, VD, PT} <: DistributionFunction{XD,VD}
     particles::PT
-
+    
     function ParticleDistribution(xdim, vdim, particles::PT) where {PT <: ParticleList}
         new{xdim, vdim, PT}(particles)
     end

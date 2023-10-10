@@ -15,7 +15,7 @@ domain = (0.0, 1.0)
 h5file = "vlasov_poisson.hdf5"
 
 # create and initialize particle distribution function
-dist = initialize!(ParticleDistribution(1, 1, npart), Normal())
+dist = initialize!(ParticleDistribution(1, 1, npart), NormalDistribution())
 # dist = initialize!(ParticleDistribution(1, 1, npart), BumpOnTail())
 
 # create electrostatic potential
@@ -58,14 +58,20 @@ savefig("vlasov_poisson_z₀.png")
 
 
 # create animation
+ind = z[2,:,1] .>= 0.0 
+# ind2 = setdiff(z[2,:,1], z[2,ind,1])
+ind2 = [findfirst(isequal(x), z[2,:,1]) for x in setdiff(z[2,:,1],z[2,ind,1])]
 anim = @animate for n in axes(z,3)
-    scatter(mod.(z[1,:,n], 1), z[2,:,n],
+    scatter(mod.(z[1,ind,n], 1), z[2,ind,n],
         marker = 3,
         xlim = xlim,
         ylim = vlim,
         title = "Vlasov-Poisson",
         legend = false,
         size = (800, 600)
+    )
+    scatter!(
+        mod.(z[1,ind2,n], 1), z[2,ind2,n]
     )
 end
 

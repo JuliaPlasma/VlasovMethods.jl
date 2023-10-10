@@ -3,13 +3,26 @@
 # function projection!(out, vdensity, distribution) end
 
 # convenience function for computing first three moments of f over v
-function compute_f_densities(distribution::SplineDistribution, vp::AbstractArray{VT}) where {VT}
+function compute_f_densities(distribution::SplineDistribution{1,1}, vp::AbstractArray{VT}) where {VT}
 
     n = projection_density(distribution, vp)
     μ = projection_momentum(distribution, vp)
     ε = projection_energy(distribution, vp)
 
     return n, μ, ε
+end
+
+function compute_f_densities(distribution::SplineDistribution{1,2}, vp::AbstractArray{VT}) where {VT}
+
+    n = projection_density(distribution, vp[1,:])
+    μ = projection_momentum(distribution, vp[1,:])
+    ε = projection_energy(distribution, vp[1,:])
+
+    n2 = projection_density(distribution, vp[2,:])
+    μ2 = projection_momentum(distribution, vp[2,:])
+    ε2 = projection_energy(distribution, vp[2,:])
+
+    return [n, n2], [μ, μ2], [ε, ε2]
 end
 
 function compute_df_densities(distribution::SplineDistribution, vp::AbstractArray{VT}) where {VT}
@@ -43,9 +56,10 @@ end
 function projection(moment::Function, distribution::SplineDistribution, vp::AbstractArray{VT}; isDerivative::Bool=false) where {VT}
     if !(isDerivative)
         out = sum(moment.(vp) .* distribution.spline.(vp))
-    elseif (isDerivative)
+    elseif (isDerivative) && typeof(distribution.spline) <: Spline
         df = Derivative(1) * distribution.spline
         out = sum(moment.(vp) .* df.(vp))
+        
     end
 
     return out

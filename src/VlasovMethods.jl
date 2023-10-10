@@ -5,6 +5,7 @@ using TerminalLoggers: TerminalLogger
 global_logger(TerminalLogger())
 
 using BSplineKit
+using BSplineKit.BSplines
 using HDF5
 using OffsetArrays
 using Parameters
@@ -15,6 +16,9 @@ using Random
 using Sobol
 using SpecialFunctions
 using LinearAlgebra
+using QuadGK
+using HCubature
+using Plots
 
 import GeometricEquations
 import GeometricEquations: ntime
@@ -31,9 +35,12 @@ include("models/model.jl")
 include("examples/example.jl")
 include("sampling/sampling.jl")
 include("entropies/entropy.jl")
+include("distributions/2d_spline.jl")
 
 
 export initialize!
+export TwoDSpline
+export evaluate, evaluate_first_derivative
 
 # distribution functions
 
@@ -75,12 +82,15 @@ export GeometricIntegrator
 include("models/vlasov_poisson.jl")
 include("models/lenard_bernstein.jl")
 include("models/conservative_lb.jl")
+include("models/landau.jl")
 
 export VlasovPoisson
 export LenardBernstein
 export ConservativeLenardBernstein
+export Landau
 export LB_rhs
 export CLB_rhs
+export compute_matrices, compute_U, Landau_rhs!, stuff
 
 # Example Problems
 
@@ -91,9 +101,10 @@ include("examples/twostream.jl")
 include("examples/shiftednormalv.jl")
 include("examples/shifteduniform.jl")
 include("examples/doublemaxwellian.jl")
+include("examples/bump.jl")
 
 
-export BumpOnTail, NormalDistribution, UniformDistribution, ShiftedNormalV, ShiftedUniformDistribution, DoubleMaxwellian
+export BumpOnTail, NormalDistribution, UniformDistribution, ShiftedNormalV, ShiftedUniformDistribution, DoubleMaxwellian, Bump
 
 
 # include("electric_field.jl")

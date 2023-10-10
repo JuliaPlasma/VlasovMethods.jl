@@ -10,11 +10,12 @@ end
 
 function initialize!(dist::ParticleDistribution, params::UniformDistribution, ::SamplingMethod = NoSampling())
     # number of particles
-    npart = length(dist.particles)
+    vdim, npart = size(dist.particles.v)
 
     # random initial conditions
+    # Random.seed!(1234)
     x₀ = rand(npart)
-    v₀ = rand(npart)
+    v₀ = rand(vdim, npart)
 
     # shift x₀ to domain
     x₀ .*= params.xdomain[end] - params.xdomain[begin]
@@ -26,7 +27,7 @@ function initialize!(dist::ParticleDistribution, params::UniformDistribution, ::
 
     # write to particle distribution
     dist.particles.x[1,:] .= x₀
-    dist.particles.v[1,:] .= v₀
+    dist.particles.v .= v₀
     dist.particles.w[1,:] .= 1 / npart
 
     return dist
