@@ -1,7 +1,7 @@
 name = "VlasovMethods"
 uuid = "4a954452-39e6-424b-ae51-38fc4bbc42ef"
 authors = ["Michael Kraus"]
-version = "0.2.0"
+version = "0.2.1"
 
 [deps]
 AdaptiveRejectionSampling = "c75e803d-635f-53bd-ab7d-544e482d8c75"
