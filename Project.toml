@@ -29,7 +29,7 @@ TerminalLoggers = "5d786b92-1e48-4d6f-9151-6b4477ca9bed"
 
 [compat]
 AdaptiveRejectionSampling = "0.1"
-BSplineKit = "0.14, 0.15, 0.16"
+BSplineKit = "0.14, 0.15, 0.16, 0.17"
 DifferentialEquations = "7"
 GeometricEquations = "0.14"
 GeometricIntegrators = "0.13"
