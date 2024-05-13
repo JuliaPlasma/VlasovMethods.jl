@@ -65,8 +65,42 @@ function projection(velocities::AbstractVector{VT}, dist::ParticleDistribution{1
 end
 
 
+# function projection(velocities::AbstractMatrix{VT}, dist::ParticleDistribution{1,2}, final_dist::SplineDistribution{1,2}) where {VT}
+#     rhs = zeros(VT, size(final_dist))
+
+#     # projection of delta functions to splines of @jipolanco 
+#     # https://github.com/jipolanco/BSplineKit.jl/issues/48
+#     for p in eachindex(velocities[1,:])
+#         ilast1, bs1 = final_dist.basis(velocities[1,p])  # same as `evaluate_all`, first component
+#         ilast2, bs2 = final_dist.basis(velocities[2,p])  # same as `evaluate_all`, second component
+#         # Iterate over evaluated basis functions.
+#         # The indices of the evaluated basis functions are ilast:-1:(ilast - k + 1),
+#         # where k is the spline order.
+#         for (δi, bi) ∈ pairs(bs1)
+#             for (δi2, b2) ∈ pairs(bs2)
+#                 i = ilast1 + 1 - δi
+#                 j = ilast2 + 1 - δi2
+#                 if i > 0 && i <= size(final_dist)[1] && j > 0 && j <= size(final_dist)[2]
+#                     rhs[i,j] += bi * b2 * dist.particles.w[1,p]
+#                 elseif ilast1 <= 0 || ilast1 > size(final_dist)[1] || ilast2 <= 0 || ilast2 > size(final_dist)[2]
+#                     println("WARNING: particle outside domain")
+#                 end
+#             end
+#         end
+#     end
+
+#     # compute and return coeffs
+#     # ldiv!(final_dist.coefficients, final_dist.mass_fact, rhs)
+#     invm = inv(final_dist.mass_fact)
+#     final_dist.coefficients .= invm * rhs * invm
+
+#     return final_dist.spline
+# end
+
+
 function projection(velocities::AbstractMatrix{VT}, dist::ParticleDistribution{1,2}, final_dist::SplineDistribution{1,2}) where {VT}
     rhs = zeros(VT, size(final_dist))
+    M = length(final_dist.basis)
 
     # projection of delta functions to splines of @jipolanco 
     # https://github.com/jipolanco/BSplineKit.jl/issues/48
@@ -80,8 +114,8 @@ function projection(velocities::AbstractMatrix{VT}, dist::ParticleDistribution{1
             for (δi2, b2) ∈ pairs(bs2)
                 i = ilast1 + 1 - δi
                 j = ilast2 + 1 - δi2
-                if i > 0 && i <= size(final_dist)[1] && j > 0 && j <= size(final_dist)[2]
-                    rhs[i,j] += bi * b2 * dist.particles.w[1,p]
+                if i > 0 && i <= M && j > 0 && j <= M
+                    rhs[(j-1)*M + i] += bi * b2 * dist.particles.w[1,p]
                 elseif ilast1 <= 0 || ilast1 > size(final_dist)[1] || ilast2 <= 0 || ilast2 > size(final_dist)[2]
                     println("WARNING: particle outside domain")
                 end
@@ -90,13 +124,12 @@ function projection(velocities::AbstractMatrix{VT}, dist::ParticleDistribution{1
     end
 
     # compute and return coeffs
-    # ldiv!(final_dist.coefficients, final_dist.mass_fact, rhs)
-    invm = inv(final_dist.mass_fact)
-    final_dist.coefficients .= invm * rhs * invm
+    ldiv!(final_dist.coefficients, final_dist.mass_fact, rhs)
+    # invm = inv(final_dist.mass_fact)
+    # final_dist.coefficients .= invm * rhs * invm
 
     return final_dist.spline
 end
-
 # TODO 
 function projection!(init_dist::SplineDistribution, final_dist::ParticleDistribution)
 

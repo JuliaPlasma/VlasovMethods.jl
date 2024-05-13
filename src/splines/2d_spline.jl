@@ -1,5 +1,3 @@
-abstract type NDSpline{DT, BT} end
-
 struct TwoDSpline{DT, BT, BT2} <: NDSpline{DT, BT}
     basis::BT
     coefficients::Matrix{DT}

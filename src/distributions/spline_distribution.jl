@@ -8,18 +8,20 @@ struct SplineDistribution{XD, VD, ST, DT, BT, MT, FT} <: DistributionFunction{XD
     mass_fact::FT
 
     function SplineDistribution(xdim, vdim, basis::BT, coefficients::AbstractArray{DT}) where {BT, DT}
+        mass_1d = galerkin_matrix(basis)
         if vdim == 1
             spline = Spline(basis, coefficients)
+            mass_matrix = mass_1d
         elseif vdim == 2
-            spline = TwoDSpline(basis, coefficients)
+                spline = TwoDSpline(basis, coefficients)
+                mass_matrix = kron(mass_1d, mass_1d)
         end
-        mass_matrix = galerkin_matrix(basis)
         mass_fact = cholesky(mass_matrix)
         new{xdim, vdim, typeof(spline), DT, typeof(basis), typeof(mass_matrix), typeof(mass_fact)}(spline, basis, coefficients, mass_matrix, mass_fact)
     end
 end
 
-Base.size(dist::SplineDistribution) = size(dist.coefficients)
+Base.size(dist::SplineDistribution) = length(dist.coefficients)
 Base.eltype(::SplineDistribution{XD, VD, ST, DT, BT, MT, FT}) where {XD, VD, ST, DT, BT, MT, FT} = DT
 
 Cache(AT, s::SplineDistribution{XD, VD, ST, DT, BT, MT, FT}) where {XD, VD, ST, DT, BT, MT, FT} = SplineDistribution(XD, VD, s.basis, zeros(AT, axes(s.coefficients)))
@@ -39,9 +41,7 @@ function SplineDistribution(xdim, vdim, nknots::KT, s_order::OT, domain::Tuple, 
     if vdim == 1
         coefficients = zeros(length(basis))
     elseif vdim == 2
-        @show basis
-        @show length(basis)
-        coefficients = zeros(length(basis), length(basis))
+        coefficients = zeros(length(basis)^2)
     end
     return SplineDistribution(xdim, vdim, basis, coefficients)
 end
