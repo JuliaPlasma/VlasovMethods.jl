@@ -46,7 +46,7 @@ params = (ν = model.ν, idist = model.dist, fdist = model.ent.dist, model = mod
 
 
 f = projection(sol[:,1], dist, sdist)
-v = LB_rhs(collect(vgrid), params, f)
+v = VlasovMethods.LB_rhs(collect(vgrid), params, f)
 mom = [mapreduce(p -> p[1], +, sol[:,i]) for i in 1:step:length(sol)]
 enr = [mapreduce(p -> p[1].^2, +, sol[:,i]) for i in 1:step:length(sol)]
 
@@ -56,8 +56,8 @@ anim = @animate for i in 1:step:length(sol)
     # compute quantities for plotting
     f = projection(sol[:,i], dist, sdist)
     df = Derivative(1) * f
-    v = LB_rhs(collect(vgrid), params, f)
-    # v = CLB_rhs(collect(vgrid), params, f)
+    v = VlasovMethods.LB_rhs(collect(vgrid), params, f)
+    # v = VlasovMethods.CLB_rhs(collect(vgrid), params, f)
 
     plot(xlims = [-8, +8], ylims = [-0.5, +0.5], size=(1200,800))
 

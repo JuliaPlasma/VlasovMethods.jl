@@ -4,7 +4,7 @@ struct SplittingMethod{MT, ET, IT} <: ParticleMethod
     equation::ET
     integrator::IT
 
-    function SplittingMethod(model::MT, equation::ET, integrator::IT) where {MT <: VlasovModel, ET <: GeometricEquations.GeometricProblem, IT}
+    function SplittingMethod(model::MT, equation::ET, integrator::IT) where {MT <: AbstractVlasovModel, ET <: GeometricEquations.GeometricProblem, IT}
         new{MT,ET,IT}(model, equation, integrator)
     end
 end

@@ -1,4 +1,4 @@
-struct LenardBernstein{XD, VD, DT <: DistributionFunction{XD,VD}, ET <: Entropy, T} <: VlasovModel
+struct LenardBernstein{XD, VD, DT <: DistributionFunction{XD,VD}, ET <: Entropy, T} <: CollisionOperator
     dist::DT    # distribution function
     ent::ET     # entropy 
     ν::T        # collision frequency 

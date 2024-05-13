@@ -18,7 +18,7 @@ using LinearAlgebra
 
 import GeometricEquations
 import GeometricEquations: ntime
-import GeometricIntegrators.Integrators
+import GeometricIntegrators
 import DifferentialEquations
 
 
@@ -72,15 +72,16 @@ export GeometricIntegrator
 
 # Vlasov models
 
-include("models/vlasov_poisson.jl")
+include("models/collision_operator.jl")
 include("models/lenard_bernstein.jl")
-include("models/conservative_lb.jl")
+include("models/lenard_bernstein_conservative.jl")
+
+include("models/vlasov_model.jl")
+include("models/vlasov_poisson.jl")
 
 export VlasovPoisson
 export LenardBernstein
 export ConservativeLenardBernstein
-export LB_rhs
-export CLB_rhs
 
 # Example Problems
 

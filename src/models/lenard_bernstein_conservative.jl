@@ -1,4 +1,4 @@
-struct ConservativeLenardBernstein{XD, VD, DT <: DistributionFunction{XD,VD}, ET <: Entropy, T} <: VlasovModel
+struct ConservativeLenardBernstein{XD, VD, DT <: DistributionFunction{XD,VD}, ET <: Entropy, T} <: CollisionOperator
     dist::DT    # distribution function
     ent::ET     # entropy 
     ν::T        # collision frequency 
@@ -96,8 +96,8 @@ function GeometricIntegrator(model::ConservativeLenardBernstein{1,1}, tspan::Tup
             parameters = params)
 
     # create integrator
-    int = Integrators.Integrator(equ, Integrators.RK438())
-    # int = Integrators.Integrator(equ, Integrators.CrankNicolson())
+    int = GeometricIntegrators.GeometricIntegrator(equ, GeometricIntegrators.RK438())
+    # int = GeometricIntegrators.GeometricIntegrator(equ, GeometricIntegrators.CrankNicolson())
 
     # put together splitting method
     GeometricIntegrator(model, equ, int)

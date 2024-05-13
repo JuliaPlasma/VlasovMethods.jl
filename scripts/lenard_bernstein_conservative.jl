@@ -3,7 +3,7 @@ using BSplineKit
 using VlasovMethods
 
 # output file
-h5file = "lenard_bernstein.hdf5"
+h5file = "lenard_bernstein_conservative.hdf5"
 
 # params
 # parameters
@@ -67,7 +67,7 @@ anim = @animate for n in 1:step:size(z,2)
     f = projection(z[:,n], dist, sdist)
     df = Derivative(1) * f
     # v = LB_rhs(collect(vgrid), params, f)
-    v = CLB_rhs(collect(vgrid), params, f)
+    v = VlasovMethods.CLB_rhs(collect(vgrid), params, f)
 
     plot(xlims = [-8, +8], ylims = [-0.5, +0.5], size=(1200,800))
 
@@ -79,4 +79,4 @@ anim = @animate for n in 1:step:size(z,2)
 end
 
 # save animation to file
-gif(anim, "lenard_bernstein_anim.gif", fps=10)
+gif(anim, "lenard_bernstein_conservative_anim.gif", fps=10)

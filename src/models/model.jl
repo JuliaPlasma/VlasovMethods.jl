@@ -1,2 +1,2 @@
 
-abstract type VlasovModel end
+abstract type AbstractVlasovModel end

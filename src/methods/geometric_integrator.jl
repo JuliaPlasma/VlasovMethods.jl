@@ -24,12 +24,12 @@ function run!(method::GeometricIntegrator, h5file)
     h5z[:,1] = z₀
     h5t[1] = t₀
 
-    Integrators.initialize!(method.integrator)
+    GeometricIntegrators.Integrators.initialize!(method.integrator)
 
     # loop over time steps showing progress bar
     try
         @showprogress 5 for n in 1:ntime(method.equation)
-            Integrators.integrate!(method.integrator)
+            GeometricIntegrators.integrate!(method.integrator)
             h5z[:,n+1] = method.integrator.solstep.q
             h5t[n+1] = method.integrator.solstep.t
         end
