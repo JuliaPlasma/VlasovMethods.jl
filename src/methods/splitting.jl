@@ -33,12 +33,12 @@ function run!(method::SplittingMethod, h5file)
     h5z = create_dataset(h5, "z", eltype(z₀), ((nd, np, ntime(method.equation)+1), (nd, np, -1)), chunk=(nd,np,1))
     copy_to_hdf5(h5z, z₀, 0)
 
-    Integrators.initialize!(method.integrator)
+    GeometricIntegrators.Integrators.initialize!(method.integrator)
 
     # loop over time steps showing progress bar
     try
         @showprogress 5 for n in 1:ntime(method.equation)
-            Integrators.integrate!(method.integrator)
+            GeometricIntegrators.integrate!(method.integrator)
             copy_to_hdf5(h5z, method.integrator.solstep.q, n)
         end
     finally

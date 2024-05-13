@@ -1,4 +1,3 @@
-
 # import libraries
 using PoissonSolvers
 using VlasovMethods
@@ -15,7 +14,7 @@ domain = (0.0, 1.0)
 h5file = "vlasov_poisson.hdf5"
 
 # create and initialize particle distribution function
-dist = initialize!(ParticleDistribution(1, 1, npart), Normal())
+dist = initialize!(ParticleDistribution(1, 1, npart), NormalDistribution())
 # dist = initialize!(ParticleDistribution(1, 1, npart), BumpOnTail())
 
 # create electrostatic potential
@@ -70,5 +69,4 @@ anim = @animate for n in axes(z,3)
 end
 
 # save animation to file
-gif(anim, "vlasov_poisson_anim.gif", fps=10)
-
+gif(anim, "vlasov_poisson.gif", fps=10)

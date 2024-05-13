@@ -1,6 +1,6 @@
 
-function projection!(out, potential::PoissonSolvers.Potential{<:PeriodicBSplineBasis}, distribution::ParticleDistribution)
-    b = Splines.PeriodicVector(out)
+function projection!(potential::PoissonSolvers.Potential{<:PeriodicBSplineBasis}, distribution::ParticleDistribution)
+    b = Splines.PeriodicVector(potential.rhs)
     b .= 0
 
     basis = potential.basis
@@ -18,5 +18,5 @@ function projection!(out, potential::PoissonSolvers.Potential{<:PeriodicBSplineB
         end
     end
 
-    return out
+    return potential
 end

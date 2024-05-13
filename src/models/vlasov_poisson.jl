@@ -1,19 +1,17 @@
 
-struct VlasovPoisson{XD, VD, DT <: DistributionFunction{XD,VD}, PT <: Potential, RT <: AbstractVector} <: VlasovModel
+struct VlasovPoisson{XD, VD, DT <: DistributionFunction{XD,VD}, PT <: Potential} <: VlasovModel
     distribution::DT
     potential::PT
-    rhs::RT
 
     function VlasovPoisson(dist::DistributionFunction{XD,VD}, potential) where {XD,VD}
-        rhs = zero(potential.coefficients)
-        new{XD, VD, typeof(dist), typeof(potential), typeof(rhs)}(dist, potential, rhs)
+        new{XD, VD, typeof(dist), typeof(potential)}(dist, potential)
     end
 end
 
 
 function update_potential!(model::VlasovPoisson)
-    projection!(model.rhs, model.potential, model.distribution)
-    PoissonSolvers.update!(model.potential, model.rhs)
+    projection!(model.potential, model.distribution)
+    PoissonSolvers.update!(model.potential)
 end
 
 
@@ -42,8 +40,8 @@ function v_advection!(ż, t, z, params)
     end
 end
 
-# Vector field for Lorentz force
-function v_lorentz_force!(ż, t, z, params)
+# Vector field for acceleration
+function v_acceleration!(ż, t, z, params)
     update_potential!(params.model)
     for i in axes(ż, 2)
         ż[1,i] = 0
@@ -60,7 +58,7 @@ function s_advection!(z, t, z̄, t̄, params)
 end
 
 # Solution for Lorentz force
-function s_lorentz_force!(z, t, z̄, t̄, params)
+function s_acceleration!(z, t, z̄, t̄, params)
     update_potential!(params.model)
     for i in axes(z, 2)
         z[1,i] = z̄[1,i]
@@ -72,20 +70,19 @@ end
 # The problem is setup such that one solution step pushes all particles.
 # While this allows for a simple implementation, it is not well-suited
 # for parallelisation.
-# Have a look at the CollisionalVlasovPoisson model for an alternative approach.
 function SplittingMethod(model::VlasovPoisson{1, 1, <: ParticleDistribution}, tspan::Tuple, tstep::Real)
     # collect parameters
     params = (ϕ = model.potential, model = model)
 
     # create geometric problem
     equ = GeometricEquations.SODEProblem(
-            (v_advection!, v_lorentz_force!),
-            (s_advection!, s_lorentz_force!),
+            (v_advection!, v_acceleration!),
+            (s_advection!, s_acceleration!),
             tspan, tstep, copy(model.distribution.particles.z);
             parameters = params)
 
     # create integrator
-    int = Integrators.Integrator(equ, Integrators.Strang())
+    int = GeometricIntegrators.GeometricIntegrator(equ, GeometricIntegrators.Strang())
 
     # put together splitting method
     SplittingMethod(model, equ, int)

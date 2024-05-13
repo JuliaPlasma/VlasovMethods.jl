@@ -79,4 +79,4 @@ anim = @animate for n in 1:step:size(z,2)
 end
 
 # save animation to file
-gif(anim, "lenard_bernstein_conservative_anim.gif", fps=10)
+gif(anim, "lenard_bernstein_conservative.gif", fps=10)

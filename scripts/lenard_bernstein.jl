@@ -68,4 +68,3 @@ anim = @animate for i in 1:step:length(sol)
 end
 println("saving animation")
 gif(anim,"lenard_bernstein.gif",fps=2)
-

@@ -76,8 +76,8 @@ function GeometricIntegrator(model::LenardBernstein{1,1}, tspan::Tuple, tstep::R
             parameters = params)
 
     # create integrator
-    int = Integrators.Integrator(equ, Integrators.RK438())
-    # int = Integrators.Integrator(equ, Integrators.CrankNicolson())
+    int = GeometricIntegrators.GeometricIntegrator(equ, GeometricIntegrators.RK438())
+    # int = GeometricIntegrators.GeometricIntegrator(equ, GeometricIntegrators.CrankNicolson())
 
     # put together splitting method
     GeometricIntegrator(model, equ, int)

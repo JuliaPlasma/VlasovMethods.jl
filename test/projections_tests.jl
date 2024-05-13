@@ -22,9 +22,9 @@ using VlasovMethods: projection!
     dist.particles.w .= (ones(npart) ./ npart)'
 
     rhs = zero(potential.coefficients)
-    projection!(rhs, potential, dist)
+    projection!(potential, dist)
 
-    ρ = Spline(potential.basis, potential.solver.Mfac \ rhs)
+    ρ = Spline(potential.basis, potential.solver.Mfac \ potential.rhs)
 
     x = domain[begin]:0.1:domain[end]
     
