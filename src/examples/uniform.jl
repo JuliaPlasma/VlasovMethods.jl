@@ -13,7 +13,7 @@ function initialize!(dist::ParticleDistribution, params::UniformDistribution, ::
     vdim, npart = size(dist.particles.v)
 
     # random initial conditions
-    # Random.seed!(1234)
+    Random.seed!(1234)
     x₀ = rand(npart)
     v₀ = rand(vdim, npart)
 

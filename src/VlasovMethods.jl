@@ -19,12 +19,13 @@ using LinearAlgebra
 using QuadGK
 using HCubature
 using Plots
+using SimpleSolvers
 
 import GeometricEquations
 import GeometricEquations: ntime
 import GeometricIntegrators.Integrators
-import DifferentialEquations
-import NaNMath
+import GeometricIntegrators.Extrapolators
+# import DifferentialEquations
 
 
 # abstract types
@@ -75,12 +76,14 @@ export projection
 include("methods/splitting.jl")
 include("methods/diffeq_integrator.jl")
 include("methods/geometric_integrator.jl")
+include("methods/Landau_solver.jl")
 
 export run!
 export run
 export SplittingMethod
 export DiffEqIntegrator
 export GeometricIntegrator
+export Picard_iterate_over_particles
 
 
 # Vlasov models

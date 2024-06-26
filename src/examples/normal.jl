@@ -15,6 +15,8 @@ function initialize!(dist::ParticleDistribution, params::NormalDistribution, ::S
     # random initial conditions
     x₀ = randn(npart)
     # v₀ = randn(npart)
+    Random.seed!(1234)
+    
     v₀ = randn(vsize)
 
 

@@ -116,8 +116,8 @@ function projection(velocities::AbstractMatrix{VT}, dist::ParticleDistribution{1
                 j = ilast2 + 1 - δi2
                 if i > 0 && i <= M && j > 0 && j <= M
                     rhs[(j-1)*M + i] += bi * b2 * dist.particles.w[1,p]
-                elseif ilast1 <= 0 || ilast1 > size(final_dist)[1] || ilast2 <= 0 || ilast2 > size(final_dist)[2]
-                    println("WARNING: particle outside domain")
+                # elseif ilast1 <= 0 || ilast1 > size(final_dist)[1] || ilast2 <= 0 || ilast2 > size(final_dist)[2]
+                #     println("WARNING: particle outside domain")
                 end
             end
         end

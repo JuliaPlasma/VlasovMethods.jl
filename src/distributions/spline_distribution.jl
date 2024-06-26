@@ -13,8 +13,8 @@ struct SplineDistribution{XD, VD, ST, DT, BT, MT, FT} <: DistributionFunction{XD
             spline = Spline(basis, coefficients)
             mass_matrix = mass_1d
         elseif vdim == 2
-                spline = TwoDSpline(basis, coefficients)
-                mass_matrix = kron(mass_1d, mass_1d)
+            spline = TwoDSpline(basis, coefficients)
+            mass_matrix = kron(mass_1d, mass_1d)
         end
         mass_fact = cholesky(mass_matrix)
         new{xdim, vdim, typeof(spline), DT, typeof(basis), typeof(mass_matrix), typeof(mass_fact)}(spline, basis, coefficients, mass_matrix, mass_fact)

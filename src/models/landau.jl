@@ -8,174 +8,165 @@ struct Landau{XD, VD, DT <: DistributionFunction{XD,VD}, ET <: Entropy, T} <: Vl
     end
 end
 
-function compute_L(sdist::SplineDistribution{1,2})
+function compute_J(sdist::SplineDistribution{1,2})
     int = zeros(size(sdist))
     B = sdist.basis
-    # d_start = BSplineKit.knots(B)[1] + 1.0
-    # d_end = BSplineKit.knots(B)[end] - 1.0
-
-    d_start = -3.
-    d_end = 3.
+    d_start = BSplineKit.knots(B)[1] 
+    d_end = BSplineKit.knots(B)[end]
 
     for k in 1:size(sdist)
         i, j = ij_from_k(k, length(B))
-        integrand(v) = B[i](v[1]) * B[j](v[2]) * (1 + log(abs(sdist.spline(v)))) #TODO: need to figure out what to do here...
+        integrand(v) = B[i](v[1]) * B[j](v[2]) * (1. + log(abs(sdist.spline(v)))) 
         int[k], _ = hcubature(integrand,[d_start, d_start], [d_end, d_end], atol = 1e-4, rtol=1e-4)
     end
+
+    ldiv!(sdist.mass_fact, int)
 
     return int
 end
 
-
-# function stuff(S::SplineDistribution{1,2}, i, j, v::AbstractVector{T}) where T
-#     B = S.basis
-#     # @show v
-#     a = B[i,T](v[1])
-#     b = B[j,T](v[2])
-
-#     Sv = S.spline(v)
-#     if a == 0. || b == 0.
-#         return zero(T)
-#     # elseif Sv < 0.0 
-#     #     println("WARNING: NEGATIVE f values")
-#     #     return zero(T)
-#     else 
-#         # vgrid = -6:0.1:6
-#         # f_plot(x,y) = S.spline(x,y)
-#         # plot(vgrid, vgrid, f_plot, st=:surface, xlabel="x", ylabel="y")
-#         # savefig("spline-test")
-#         return a * b * (one(T) .+ log(Sv.^2) / 2.)
-#     end
-# end
-
-# function compute_matrices(distribution::SplineDistribution{1,2})
-#     # B = distribution.basis
-#     n = length(distribution.basis)
-#     k = BSplineKit.order(distribution.basis) 
-#     d_start = BSplineKit.knots(distribution.basis)[1] + 2.
-#     d_end = BSplineKit.knots(distribution.basis)[end] - 2.
-
-#     # int1 = zeros(eltype(distribution),n)
-#     int2 = zeros(eltype(distribution),(n,n))
-
-#     invm = inv(distribution.mass_fact)
-
-#     for i in eachindex(distribution.basis)
-#         # int1[i], _ = quadgk(v -> distribution.basis[i](v), d_start, d_end, rtol=1e-8)
-#         for j in eachindex(distribution.basis)
-#             if j ∈ i-k+1:i+k-1
-#                 # println("i=", i, ", j =", j)
-#                 # f(v::AbstractVector) = B[i](v[1]) * B[j](v[2]) * log(distribution.spline(v))
-#                 integrand(v::AbstractVector) = stuff(distribution, i, j, v)
-#                 int2[i,j], _ = hcubature(integrand, [d_start, d_start], [d_end, d_end], rtol=1e-6)
-#             end
-#         end
-#     end
-
-#     L_ij = invm * int2 * invm
-#     # K_ij = invm * int1 * int1' * invm
- 
-#     return L_ij
-# end
-
-function compute_U(v_α::Vector{T}, v_β::Vector{T}) where T
+function compute_U(v_α, v_β)
     n = length(v_α)
-    U = zeros(T,(n,n))
+    U = zeros(eltype(v_α),(n,n))
+
+    norm_diff = norm(v_α - v_β)
 
     if v_α != v_β
         for i in CartesianIndices(U)
             if i[1] == i[2]
-                U[i] += 1/norm(v_α - v_β)
+                U[i] += 1/norm_diff
             end
-            U[i] -= (v_α[i[1]] - v_β[i[1]])*(v_α[i[2]] - v_β[i[2]])./norm(v_α - v_β)^3
+            U[i] -= (v_α[i[1]] - v_β[i[1]])*(v_α[i[2]] - v_β[i[2]])./norm_diff^3
         end
     end
     return U
 end
 
-# function Landau_rhs!(v̇, v::AbstractArray{ST}, params, t) where {ST}
-#     @show t
-#     # @show v̇
-#     # @show v
-#     dist = params.model.ent.cache[ST]
-#     S = projection(v, params.idist, dist)
-#     B = basis(S)
-#     k = BSplineKit.order(B)
-#     B_t = BSplineKit.knots(B)
-#     L = compute_matrices(dist)
-#     # L, K = compute_matrices(dist)
-
-#     for γ in axes(v̇,2)
-#         ilast1, _ = find_knot_interval(B_t, v[1, γ])
-#         ilast2, _ = find_knot_interval(B_t, v[2, γ])
-#         v̇[:,γ] .= zeros(ST, 2)
-#         for α in axes(v,2)
-#             A = zeros(ST, 2)
-#             ilast3, _ = find_knot_interval(B_t, v[1, α])
-#             ilast4, _ = find_knot_interval(B_t, v[2, α])
-
-#             for i in ilast1:-1:ilast1-k+1
-#                 # A = sum((L_ij[i,j] + K_ij[i,j]) * (eval_bfd(B, i, j, v[:,γ]) -  eval_bfd(B, i, j, v[:,α])) for j in eachindex(B), i in eachindex(B))
-#                 for j in ilast2:-1:ilast2-k+1
-#                     if i > 0 && j > 0 && i <= size(dist)[1] && j <= size(dist)[2]
-#                         A .+= (L[i,j]) * eval_bfd(B, i, j, v[:, γ])
-#                         # A .+= (L[i,j] + K[i, j]) * eval_bfd(B, i, j, v[:, γ])
-#                     end
-#                 end
-#             end
-
-#             for i in ilast3:-1:ilast1-k+1
-#                 # A = sum((L_ij[i,j] + K_ij[i,j]) * (eval_bfd(B, i, j, v[:,γ]) -  eval_bfd(B, i, j, v[:,α])) for j in eachindex(B), i in eachindex(B))
-#                 for j in ilast4:-1:ilast2-k+1
-#                     if i > 0 && j > 0 && i <= size(dist)[1] && j <= size(dist)[2]
-#                         A .-= (L[i,j]) * eval_bfd(B, i, j, v[:, α])
-#                         # A .-= (L[i,j] + K[i, j]) * eval_bfd(B, i, j, v[:, α])
-#                     end
-#                 end
-#             end
-#             # A = sum((L_ij[i,j] + K_ij[i,j]) * (eval_bfd(S, i, j, v[:,γ]) - eval_bfd(S, i, j, v[:,α])) for i in eachindex(B), j in eachindex(B))
-#             v̇[:,γ] -= params.idist.particles.w[1,α]*compute_U(v[:,γ], v[:,α])*A
-#         end
-#     end
-# end
-
-function Landau_rhs!(v̇, v, params, t) where {ST}
+function Landau_rhs!(v̇, v, v_array, L, B, sdist)
     # computes rhs for a single particle, assuming that the projection and other particle velocities are taken from the previous timestep 
     # params.L is the vector L_k, which depends on the projection
     # params.idist.particles.v is the particle velocities
     # params.fdist.basis is the spline basis
 
+    K = size(sdist) # length of tensor product basis (this is the square of the 1d basis length)
 
-    B = params.fdist.basis
-
-    K = size(params.fdist) # length of tensor product basis (this is the square of the 1d basis length)
-
-    for α in axes(params.idist.particles.v, 2)
+    for α in axes(v_array, 2)
+        U = compute_U(v, v_array[:,α])
         for k in 1:K # could make this more precise by using find_knot_interval function 
-            v̇ += params.idist.particles.w[1,α] * compute_U(v, params.idist.particles.v[:,α]) * params.L[k] * (eval_bfd(B, k, v) - eval_bfd(B, k, params.idist.particles.v[:,α]))
+            v̇ .+=  L[k] * U * (eval_bfd(B, k, v) - eval_bfd(B, k, v_array[:, α]))
         end
     end
+
+    return v̇
+end
+
+# particle-to-particle version
+function Landau_rhs(v, params)
+    # computes rhs for a single particle, assuming that the projection and other particle velocities are taken from the previous timestep 
+    # params.L is the vector L_k, which depends on the projection
+    # params.idist.particles.v is the particle velocities
+    # params.fdist.basis is the spline basis
+    v̇ = zero(v)
+    K = size(params.sdist) # length of tensor product basis (this is the square of the 1d basis length)
+
+    ind1, res1 = evaluate_der_2d(params.B, v)
+
+    for α in axes(params.v_array, 2)
+        U = compute_U(v, params.v_array[:,α])
+        ind_α, res_α = evaluate_der_2d(params.B, params.v_array[:, α])
+
+        for (i, k) in pairs(ind1)
+            if k > 0 && k ≤ K
+                v̇ .+=  params.dist.particles.w[1,α] * params.L[k] * U * res1[:, i]
+            end
+        end
+
+        for (i2, k2) in pairs(ind_α)
+            if k2 > 0 && k2 ≤ K
+                v̇ .-=  params.dist.particles.w[1,α] * params.L[k2] * U * res_α[:, i2]
+            end
+        end
+    end
+
+    return v̇
 end
 
 
+function compute_K_plus(v_array, dist, sdist)
+    M = size(sdist)
+    K1 = zeros(M, size(v_array,2))
+    K2 = zeros(M, size(v_array,2))
 
-# function DiffEqIntegrator(model::Landau{1,2}, tspan::Tuple, tstep::Real)
-#     # parameters for computing vector field
-#     params = (ν = model.ν, idist = model.dist, fdist = model.ent.dist, model = model)
-#     # u0 = copy(model.dist.particles.v[1,:])
-#     # construct DifferentialEquations ODEProblem
-#     equ = DifferentialEquations.ODEProblem(
-#         Landau_rhs!,
-#         copy(model.dist.particles.v),
-#         tspan,
-#         params
-#     )
+    for α in axes(v_array, 2)
+        klist, der_array = evaluate_der_2d(sdist.basis, v_array[:,α])
+        for (i, k) in pairs(klist)
+            if k > 0 && k <= M
+                K1[k, α] = dist.particles.w[1,α] * der_array[1,i]
+                K2[k, α] = dist.particles.w[1,α] * der_array[2,i]
+            end
+        end
+    end
 
-#     # choose integrator
-#     # int = DifferentialEquations.TRBDF2()
-#     # int = DifferentialEquations.Trapezoid()
-#     int = DifferentialEquations.Tsit5()
-#     # int = DifferentialEquations.ImplicitMidpoint(autodiff=false)
+    if rank(K1) < M  || rank(K2) < M
+        println("K1 or K2 not full rank")
+        @show size(K1,1) - rank(K1)
+        @show size(K2,1) - rank(K2)
+    end
 
-#     DiffEqIntegrator(model, equ, int, tstep)
-#  end
+    return pinv(K1), pinv(K2)
+end
+
+function f_Maxwellian(v)
+    return 1/(2π) * exp(- norm(v)^2 / 2)
+end
+
+function L_integrand(v, k, sdist)
+    v1 = [v[1], v[2]]
+    v2 = [v[3], v[4]]
+    
+    id_list_1, _ = evaluate_der_2d(sdist.basis, v1)
+    id_list_2, _ = evaluate_der_2d(sdist.basis, v2)
+    
+    if (k[1] in id_list_1 || k[1] in id_list_2) && (k[2] in id_list_1 || k[2] in id_list_2)
+
+        integrand = transpose(eval_bfd(sdist.basis, k[1],v1) .- eval_bfd(sdist.basis, k[1], v2)) * sdist.spline(v1) * compute_U(v1, v2)
+        return integrand * sdist.spline(v2) * (eval_bfd(sdist.basis, k[2],v1) .- eval_bfd(sdist.basis, k[2], v2))
+
+    else
+        return zero(eltype(v))
+    end
+end
+
+function compute_L_ij(sdist)
+    L = zeros(size(sdist), size(sdist))
+    d_start = BSplineKit.knots(sdist.basis)[1] 
+    d_end = BSplineKit.knots(sdist.basis)[end]
+    
+    Threads.@threads for k in CartesianIndices(L)
+        integrand(v) = L_integrand(v, k, sdist)
+        L[k], _ = hcubature(integrand, [d_start, d_start, d_start, d_start], [d_end, d_end, d_end, d_end], atol = 1e-4, rtol = 1e-4)
+    end
+    
+    return L .* 0.5
+end
+
+# spline-to-spline? version 
+function Landau_rhs_2!(v̇, t, v, params)
+    # v̇ = zero(v)
+    # project v onto params.sdist
+    S = projection(v, params.dist, params.sdist)
+
+    # compute K matrices 
+    K1_plus, K2_plus = compute_K_plus(v, params.dist, params.sdist)
+
+    # compute L_ij matrix
+    Lij = compute_L_ij(params.sdist)
+
+    # compute J vector
+    J = compute_J(params.sdist)
+
+    # solve for vector field
+    v̇[1,:] .= K1_plus * Lij * J  
+    v̇[2,:] .= K2_plus * Lij * J  
+
+end
