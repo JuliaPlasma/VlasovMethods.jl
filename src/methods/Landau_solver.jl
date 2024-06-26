@@ -37,8 +37,7 @@ function Picard_iterate_over_particles(f::Function, dist, sdist, tol, Δt)
         println("j=",j)
 
         S = projection(v_prev, dist, sdist)
-        # L = VlasovMethods.compute_L_Maxwellian(sdist)
-        L = VlasovMethods.compute_L(sdist)
+        L = VlasovMethods.compute_J(sdist)
 
         params = (dist = dist, sdist = sdist, B = sdist.basis, L = L, v_array = v_prev)
 
@@ -68,6 +67,8 @@ function Picard_iterate_Landau!(dist, sdist, tol, Δt, ti, t, v_prev_2, rhs_prev
     
     # creating this to store the guess for the moment, for diagnostic purposes
     v_guess = copy(dist.particles.v) 
+
+    params = (dist = dist, sdist = sdist)
     
     if ti ≥ 4
         Extrapolators.extrapolate!(t - 2Δt, v_prev_2, rhs_prev[:,:,2], t - Δt, dist.particles.v, rhs_prev[:,:,1], t, v_guess, Extrapolators.HermiteExtrapolation())
@@ -83,32 +84,12 @@ function Picard_iterate_Landau!(dist, sdist, tol, Δt, ti, t, v_prev_2, rhs_prev
     err = 1.
     while err > tol
         println("j=",j)
+
         v_midpoint = (v_prev .+ dist.particles.v) / 2
-        # Landau_rhs_2!(rhs_prev[1,:,:])
-        S = projection(v_midpoint, dist, sdist)
-
-        # TODO: this should also be done using the rhs function, not implemented here. 
-        # println("computing J")
-        # @time J = VlasovMethods.compute_L(sdist)
-        J = VlasovMethods.compute_L(sdist)
-
-        # println("computing L_ij")
-        # @time Lij = VlasovMethods.compute_L_ij(sdist)
-        Lij = VlasovMethods.compute_L_ij(sdist)
-
-        # println("computing K")
-        # @time K1_plus, K2_plus = VlasovMethods.compute_K_plus(v_midpoint, dist, sdist)
-        K1_plus, K2_plus = VlasovMethods.compute_K_plus(v_midpoint, dist, sdist)
-
-        rhs_prev[1,:,1] .= K1_plus * Lij * J  
-        rhs_prev[2,:,1] .= K2_plus * Lij * J  
-
-        # println("integrating")
-        # @time VlasovMethods.explicit_update!(view(v_new,1,:), dist.particles.v[1,:], Δt, rhs_prev[1,:,1])
-        # @time VlasovMethods.explicit_update!(view(v_new,2,:), dist.particles.v[2,:], Δt, rhs_prev[1,:,2])
-
-        VlasovMethods.explicit_update!(view(v_new,1,:), dist.particles.v[1,:], Δt, rhs_prev[1,:,1])
-        VlasovMethods.explicit_update!(view(v_new,2,:), dist.particles.v[2,:], Δt, rhs_prev[2,:,1])
+        rhs_prev[:,:,1] .= Landau_rhs_2!(rhs_prev[:,:,1], t, v_midpoint, params )
+        
+        explicit_update!(view(v_new,1,:), dist.particles.v[1,:], Δt, rhs_prev[1,:,1])
+        explicit_update!(view(v_new,2,:), dist.particles.v[2,:], Δt, rhs_prev[2,:,1])
 
         err = norm(v_new .- v_prev)
         err_max = norm(v_new .- v_prev, Inf)
@@ -127,13 +108,10 @@ function Picard_iterate_Landau!(dist, sdist, tol, Δt, ti, t, v_prev_2, rhs_prev
         j += 1
     end
 
-    # # updated rhs_prev to store the new rhs
-    # rhs_prev[:,:,2] .= rhs_prev[:,:,1]
-    # rhs_prev[1,:,1] .= rhs_1
-    # rhs_prev[2,:,1] .= rhs_2
-
     # update solution array
     dist.particles.v .= v_new
+
+    # compute some diagnostics
 
     @show v_guess[:,1:5]
     @show v_new[:,1:5]

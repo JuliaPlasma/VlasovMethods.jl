@@ -169,4 +169,6 @@ function Landau_rhs_2!(v̇, t, v, params)
     v̇[1,:] .= K1_plus * Lij * J  
     v̇[2,:] .= K2_plus * Lij * J  
 
+    return v̇
+
 end

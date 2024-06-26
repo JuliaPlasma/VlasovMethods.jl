@@ -99,7 +99,6 @@ export ConservativeLenardBernstein
 export Landau
 export LB_rhs
 export CLB_rhs
-export compute_matrices, compute_U, Landau_rhs!, stuff, compute_L
 
 # Example Problems
 
