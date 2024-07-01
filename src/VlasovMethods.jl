@@ -20,6 +20,7 @@ using QuadGK
 using HCubature
 using Plots
 using SimpleSolvers
+using NLsolve
 
 import GeometricEquations
 import GeometricEquations: ntime

@@ -151,7 +151,7 @@ function compute_L_ij(sdist)
 end
 
 # spline-to-spline? version 
-function Landau_rhs_2!(v̇, t, v, params)
+function Landau_rhs_2!(v̇, v, params)
     # v̇ = zero(v)
     # project v onto params.sdist
     S = projection(v, params.dist, params.sdist)
