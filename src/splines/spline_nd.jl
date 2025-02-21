@@ -159,8 +159,9 @@ function evaluate(s::SplineND{T,2}, x::AbstractVector{T}) where {T}
     return result
 end
 
+
 (s::SplineND{T})(x::AbstractVector{T}) where {T} = evaluate(s, x)
-(s::SplineND{T,D})(x::Vararg{T,D}) where {D,T} = evaluate(s, SVector{D}(x...))
+(s::SplineND{T,D})(x::Vararg{T,D}) where {D, T <: Number} = evaluate(s, SVector{D}(x...))
 
 
 function indices(::SplineND{T,1}, i::Int) where {T}
