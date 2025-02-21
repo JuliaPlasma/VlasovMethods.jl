@@ -4,7 +4,7 @@ using QuadratureRules
 using VlasovMethods
 using Test
 
-using VlasovMethods: evaluate_basis, evaluate_basis_derivative, indices
+using VlasovMethods: evaluate_basis, evaluate_basis_derivative
 
 
 @testset "1D B-spline basis evaluation with natural boundary conditions" begin

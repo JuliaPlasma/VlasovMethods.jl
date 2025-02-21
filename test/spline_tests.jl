@@ -5,7 +5,7 @@ using Random
 using VlasovMethods
 using Test
 
-using VlasovMethods: indices, mass_matrix, order, remap_unit_interval, unique_knots
+using VlasovMethods: cartesian_indices, mass_matrix, order, remap_unit_interval, unique_knots
 
 
 @testset "Spline Utilities" begin
@@ -152,20 +152,20 @@ end
         b = SplineND(d, o, k, :Natural, q)
         @test size(b) == (length(k) + (o-2),)
         @test unique_knots(b) == k
-        @test indices(b, 1) == (1,)
-        @test indices(b, size(b)[1]) == size(b)
+        @test cartesian_indices(b, 1) == (1,)
+        @test cartesian_indices(b, size(b)[1]) == size(b)
             
         b = SplineND(d, o, k, :Dirichlet, q)
         @test size(b) == (length(k) + (o-4),)
         @test unique_knots(b) == k
-        @test indices(b, 1) == (1,)
-        @test indices(b, size(b)[1]) == size(b)
+        @test cartesian_indices(b, 1) == (1,)
+        @test cartesian_indices(b, size(b)[1]) == size(b)
         
         b = SplineND(d, o, k, :Periodic, q)
         @test size(b) == (length(k)-1,)
         @test unique_knots(b) == k
-        @test indices(b, 1) == (1,)
-        @test indices(b, size(b)[1]) == size(b)
+        @test cartesian_indices(b, 1) == (1,)
+        @test cartesian_indices(b, size(b)[1]) == size(b)
     end
 
 end
@@ -242,20 +242,20 @@ end
         b = SplineND(d, o, k, :Natural, q)
         @test size(b) == (length(k) + (o-2), length(k) + (o-2))
         @test unique_knots(b) == k
-        @test indices(b, 1) == (1,1)
-        @test indices(b, size(b)[1] * size(b)[2]) == size(b)
+        @test cartesian_indices(b, 1) == (1,1)
+        @test cartesian_indices(b, size(b)[1] * size(b)[2]) == size(b)
         
         b = SplineND(d, o, k, :Dirichlet, q)
         @test size(b) == (length(k) + (o-4), length(k) + (o-4))
         @test unique_knots(b) == k
-        @test indices(b, 1) == (1,1)
-        @test indices(b, size(b)[1] * size(b)[2]) == size(b)
+        @test cartesian_indices(b, 1) == (1,1)
+        @test cartesian_indices(b, size(b)[1] * size(b)[2]) == size(b)
         
         b = SplineND(d, o, k, :Periodic, q)
         @test size(b) == (length(k)-1, length(k)-1)
         @test unique_knots(b) == k
-        @test indices(b, 1) == (1,1)
-        @test indices(b, size(b)[1] * size(b)[2]) == size(b)
+        @test cartesian_indices(b, 1) == (1,1)
+        @test cartesian_indices(b, size(b)[1] * size(b)[2]) == size(b)
     end
 
 end

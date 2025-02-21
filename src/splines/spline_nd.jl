@@ -164,11 +164,11 @@ end
 (s::SplineND{T,D})(x::Vararg{T,D}) where {D, T <: Number} = evaluate(s, SVector{D}(x...))
 
 
-function indices(::SplineND{T,1}, i::Int) where {T}
+function cartesian_indices(::SplineND{T,1}, i::Int) where {T}
     return (i,)
 end
 
-function indices(s::SplineND{T,2}, inds::Int) where {T}
+function cartesian_indices(s::SplineND{T,2}, inds::Int) where {T}
     L = length(basis(s))
     i = mod1(inds, L)
     j = div(inds - i, L) + 1
@@ -192,7 +192,7 @@ function evaluate_basis(s::SplineND, x::AbstractVector, I::Tuple)
 end
 
 function evaluate_basis(s::SplineND, x::AbstractVector, i::Int)
-    evaluate_basis(s, x, indices(s, i))
+    evaluate_basis(s, x, cartesian_indices(s, i))
 end
 
 
@@ -210,5 +210,5 @@ function evaluate_basis_derivative(s::SplineND{T,D}, x::AbstractVector{T}, I::Tu
 end
 
 function evaluate_basis_derivative(s::SplineND, x::AbstractVector, i::Int)
-    evaluate_basis_derivative(s, x, indices(s, i))
+    evaluate_basis_derivative(s, x, cartesian_indices(s, i))
 end
