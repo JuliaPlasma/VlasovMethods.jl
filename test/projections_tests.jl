@@ -1,6 +1,8 @@
 using AdaptiveRejectionSampling
 using BSplineKit
 using PoissonSolvers
+using Test
+using VlasovMethods
 using VlasovMethods: projection!
 
 @testset "Projections" begin
