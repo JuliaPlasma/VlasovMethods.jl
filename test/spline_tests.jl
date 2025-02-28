@@ -5,7 +5,8 @@ using Random
 using VlasovMethods
 using Test
 
-using VlasovMethods: cartesian_indices, mass_matrix, order, remap_unit_interval, unique_knots
+using VlasovMethods: cartesian_index, linear_index, evaluate_indices
+using VlasovMethods: mass_matrix, order, remap_unit_interval, unique_knots
 
 
 @testset "Spline Utilities" begin
@@ -114,6 +115,14 @@ end
     @test s(k[begin]) == s([k[begin]]) == s.coefficients[begin]
     @test s(k[end]) == s([k[end]]) == s.coefficients[end]
 
+    @test evaluate_indices(s, [0.0]) == [2,1]
+    @test evaluate_indices(s, [0.1]) == [3,2]
+    @test evaluate_indices(s, [1.0]) == [12,11]
+    @test evaluate_indices(s, [1.89]) == [20,19]
+    @test evaluate_indices(s, [1.90]) == [21,20]
+    @test evaluate_indices(s, [1.99]) == [21,20]
+    @test evaluate_indices(s, [2.0]) == [23,22]
+
 
     ### B-spline with Dirichlet boundary conditions ###
 
@@ -130,6 +139,14 @@ end
     @test s(k[begin]) == s([k[begin]]) == 0
     @test s(k[end]) == s([k[end]]) == 0
 
+    @test evaluate_indices(s, [0.0]) == [2,1]
+    @test evaluate_indices(s, [0.1]) == [3,2]
+    @test evaluate_indices(s, [1.0]) == [12,11]
+    @test evaluate_indices(s, [1.89]) == [20,19]
+    @test evaluate_indices(s, [1.90]) == [21,20]
+    @test evaluate_indices(s, [1.99]) == [21,20]
+    @test evaluate_indices(s, [2.0]) == [23,22]
+
 
     ### B-spline with periodic boundary conditions ###
 
@@ -145,27 +162,39 @@ end
 
     @test s(k[begin]) == s(k[end])
 
+    @test evaluate_indices(s, [0.0]) == [2,1]
+    @test evaluate_indices(s, [0.1]) == [3,2]
+    @test evaluate_indices(s, [1.0]) == [12,11]
+    @test evaluate_indices(s, [1.89]) == [20,19]
+    @test evaluate_indices(s, [1.90]) == [1,20]
+    @test evaluate_indices(s, [1.99]) == [1,20]
+    @test evaluate_indices(s, [2.0]) == [2,1]
+
     
     ### Check size, knots, and indices
+    function check_indices(b)
+        @test cartesian_index(b, 1) == (1,)
+        @test cartesian_index(b, size(b)[1]) == size(b)
+        @test linear_index(b, 1) == 1
+        @test linear_index(b, size(b)...) == size(b)[1]
+        @test cartesian_index(b, linear_index(b, size(b)...)) == size(b)
+    end
 
     for o in 2:8
         b = SplineND(d, o, k, :Natural, q)
         @test size(b) == (length(k) + (o-2),)
         @test unique_knots(b) == k
-        @test cartesian_indices(b, 1) == (1,)
-        @test cartesian_indices(b, size(b)[1]) == size(b)
+        check_indices(b)
             
         b = SplineND(d, o, k, :Dirichlet, q)
         @test size(b) == (length(k) + (o-4),)
         @test unique_knots(b) == k
-        @test cartesian_indices(b, 1) == (1,)
-        @test cartesian_indices(b, size(b)[1]) == size(b)
+        check_indices(b)
         
         b = SplineND(d, o, k, :Periodic, q)
         @test size(b) == (length(k)-1,)
         @test unique_knots(b) == k
-        @test cartesian_indices(b, 1) == (1,)
-        @test cartesian_indices(b, size(b)[1]) == size(b)
+        check_indices(b)
     end
 
 end
@@ -238,24 +267,29 @@ end
 
     ### Check size and knots
 
+    function check_indices(b)
+        @test cartesian_index(b, 1) == (1,1)
+        @test cartesian_index(b, size(b)[1] * size(b)[2]) == size(b)
+        @test linear_index(b, 1, 1) == 1
+        @test linear_index(b, size(b)...) == size(b)[1] * size(b)[2]
+        @test cartesian_index(b, linear_index(b, size(b)...)) == size(b)
+    end
+
     for o in 2:8
         b = SplineND(d, o, k, :Natural, q)
         @test size(b) == (length(k) + (o-2), length(k) + (o-2))
         @test unique_knots(b) == k
-        @test cartesian_indices(b, 1) == (1,1)
-        @test cartesian_indices(b, size(b)[1] * size(b)[2]) == size(b)
-        
+        check_indices(b)
+
         b = SplineND(d, o, k, :Dirichlet, q)
         @test size(b) == (length(k) + (o-4), length(k) + (o-4))
         @test unique_knots(b) == k
-        @test cartesian_indices(b, 1) == (1,1)
-        @test cartesian_indices(b, size(b)[1] * size(b)[2]) == size(b)
-        
+        check_indices(b)
+
         b = SplineND(d, o, k, :Periodic, q)
         @test size(b) == (length(k)-1, length(k)-1)
         @test unique_knots(b) == k
-        @test cartesian_indices(b, 1) == (1,1)
-        @test cartesian_indices(b, size(b)[1] * size(b)[2]) == size(b)
+        check_indices(b)
     end
 
 end

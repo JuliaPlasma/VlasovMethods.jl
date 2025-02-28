@@ -164,15 +164,38 @@ end
 (s::SplineND{T,D})(x::Vararg{T,D}) where {D, T <: Number} = evaluate(s, SVector{D}(x...))
 
 
-function cartesian_indices(::SplineND{T,1}, i::Int) where {T}
+function cartesian_index(::SplineND{T,1}, i::Int) where {T}
     return (i,)
 end
 
-function cartesian_indices(s::SplineND{T,2}, inds::Int) where {T}
+function cartesian_index(s::SplineND{T,2}, inds::Int) where {T}
     L = length(basis(s))
     i = mod1(inds, L)
     j = div(inds - i, L) + 1
     return (i, j)
+end
+
+function linear_index(::SplineND{T,1}, i::Int) where {T}
+    return i
+end
+
+function linear_index(s::SplineND{T,2}, i::Int, j::Int) where {T}
+    return (j - 1) * length(basis(s)) + i
+end
+
+function linear_indices(::SplineND{T,1}, i::AbstractVector{Int}) where {T}
+    SVector{length(i)}(i)
+end
+
+function linear_indices(s::SplineND{T,2}, i::AbstractVector{Int}, j::AbstractVector{Int}) where {T}
+    i_stat = SVector{length(i)}(i)
+    j_stat = SVector{length(j)}(j)
+    i_ones = @SVector ones(Int, length(i))
+    j_ones = @SVector ones(Int, length(j))
+
+    index_list = (i_ones * j_stat' .- 1) .* length(basis(s)) .+ i_stat * j_ones'
+
+    return vec(index_list)
 end
 
 
@@ -192,7 +215,7 @@ function evaluate_basis(s::SplineND, x::AbstractVector, I::Tuple)
 end
 
 function evaluate_basis(s::SplineND, x::AbstractVector, i::Int)
-    evaluate_basis(s, x, cartesian_indices(s, i))
+    evaluate_basis(s, x, cartesian_index(s, i))
 end
 
 
@@ -210,5 +233,14 @@ function evaluate_basis_derivative(s::SplineND{T,D}, x::AbstractVector{T}, I::Tu
 end
 
 function evaluate_basis_derivative(s::SplineND, x::AbstractVector, i::Int)
-    evaluate_basis_derivative(s, x, cartesian_indices(s, i))
+    evaluate_basis_derivative(s, x, cartesian_index(s, i))
 end
+
+
+function evaluate_indices(s::SplineND{T,D}, x::AbstractVector{T}) where {T,D}
+    lastind = (searchsortedlast(knots(s), x[i]) for i in 1:D)
+    indices = (map_index.(basis(s), l .+ 1 .- SVector{order(s)}(1:order(s))) for l in lastind)
+    linear_indices(s, indices...)
+end
+
+evaluate_indices(s::SplineND{T,D}, x::Vararg{T,D}) where {T,D} = evaluate_indices(s, SVector{D}(x...))
