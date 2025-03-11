@@ -238,7 +238,8 @@ end
 
 
 function evaluate_indices(s::SplineND{T,D}, x::AbstractVector{T}) where {T,D}
-    lastind = (searchsortedlast(knots(s), x[i]) for i in 1:D)
+    offset = BSplineKit.Recombinations.num_constraints(basis(s))[1]
+    lastind = (BSplineKit.find_knot_interval(knots(s), x[i])[1] - offset for i in 1:D)
     indices = (map_index.(basis(s), l .+ 1 .- SVector{order(s)}(1:order(s))) for l in lastind)
     linear_indices(s, indices...)
 end

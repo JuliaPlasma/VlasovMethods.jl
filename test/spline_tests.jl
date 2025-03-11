@@ -121,7 +121,7 @@ end
     @test evaluate_indices(s, [1.89]) == [20,19]
     @test evaluate_indices(s, [1.90]) == [21,20]
     @test evaluate_indices(s, [1.99]) == [21,20]
-    @test evaluate_indices(s, [2.0]) == [23,22]
+    @test evaluate_indices(s, [2.0]) == [21,20]
 
 
     ### B-spline with Dirichlet boundary conditions ###
@@ -139,13 +139,13 @@ end
     @test s(k[begin]) == s([k[begin]]) == 0
     @test s(k[end]) == s([k[end]]) == 0
 
-    @test evaluate_indices(s, [0.0]) == [2,1]
-    @test evaluate_indices(s, [0.1]) == [3,2]
-    @test evaluate_indices(s, [1.0]) == [12,11]
-    @test evaluate_indices(s, [1.89]) == [20,19]
-    @test evaluate_indices(s, [1.90]) == [21,20]
-    @test evaluate_indices(s, [1.99]) == [21,20]
-    @test evaluate_indices(s, [2.0]) == [23,22]
+    @test evaluate_indices(s, [0.0]) == [1,0]
+    @test evaluate_indices(s, [0.1]) == [2,1]
+    @test evaluate_indices(s, [1.0]) == [11,10]
+    @test evaluate_indices(s, [1.89]) == [19,18]
+    @test evaluate_indices(s, [1.90]) == [20,19]
+    @test evaluate_indices(s, [1.99]) == [20,19]
+    @test evaluate_indices(s, [2.0]) == [20,19]
 
 
     ### B-spline with periodic boundary conditions ###
