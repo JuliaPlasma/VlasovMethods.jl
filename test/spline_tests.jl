@@ -94,6 +94,8 @@ end
     k = 0:0.1:2
     q = GaussLegendreQuadrature(2)
 
+    l = -2:0.2:+2
+
     @test_nowarn SplineND(d, o, k, q)
     @test_nowarn SplineND(d, o, k, :Natural, q)
     @test_nowarn SplineND(d, o, k, :Dirichlet, q)
@@ -170,7 +172,10 @@ end
     @test all(isapprox.(s.coefficients, 0; atol=8eps()))
     @test all(isapprox.(s.(k), 0; atol=8eps()))
 
-    L2projection!(x -> sin(π * x[1]), s)
+    s = L2projection!(x -> abs(x[1]) - 2, SplineND(d, o, l, :Dirichlet, q))
+    @test all(isapprox.(s.(l), abs.(l) .- 2; atol=8eps()))
+
+    s = L2projection!(x -> sin(π * x[1]), SplineND(d, o, k, :Dirichlet, q))
     @test all(isapprox.(s.(k), sin.(π * k); atol=1E-2))
 
     s = L2projection!(x -> sin(π * x[1]), SplineND(d, 10, k, :Dirichlet, q))
@@ -253,8 +258,13 @@ end
 
     x = vec(k * ones(axes(k))')
     y = vec(ones(axes(k)) * k')
-    t = [[x[i], y[i]] for i in eachindex(x, y)]
-    r = x .* y
+    z = [[x[i], y[i]] for i in eachindex(x, y)]
+
+    l = -2:0.1:+2
+    m = vec(l * ones(axes(l))')
+    n = vec(ones(axes(l)) * l')
+    t = [[m[i], n[i]] for i in eachindex(m, n)]
+    r = [m .* n for (m,n) in t]
 
     @test_nowarn SplineND(d, o, k, q)
     @test_nowarn SplineND(d, o, k, :Natural, q)
@@ -282,22 +292,17 @@ end
 
     L2projection!(x -> 0.0, s)
     @test all(isapprox.(s.coefficients, 0; atol=8eps()))
-    @test all(isapprox.(s.(t), 0; atol=8eps()))
+    @test all(isapprox.(s.(z), 0; atol=8eps()))
 
-    s = L2projection!(x -> 1.0, SplineND(d, 2, k, :Natural, q))
-    # @test all(isapprox.(s.coefficients, 1; atol=8eps()))
-    # @test all(isapprox.(s.(t), 1; atol=8eps()))
-    # println(s.(t))
-    # println(s.coefficients)
+    L2projection!(x -> 1.0, s)
+    @test all(isapprox.(s.coefficients, 1; atol=32eps()))
+    @test all(isapprox.(s.(z), 1; atol=16eps()))
 
-    # L2projection!(x -> x[1] * x[2], s)
-    # @test all(isapprox.(s.(t), r; atol=8eps()))
+    s = L2projection!(x -> x[1] * x[2], SplineND(d, 2, l, :Natural, q))
+    @test all(isapprox.(s.(t), r; atol=32eps()))
 
-    # L2projection!(x -> sin(π * x[1]) * sin(π * x[2]), s)
-    # @test all(isapprox.(s.(t), sin.(π * x) .* sin.(π * y); atol=1E-2))
-
-    # s = L2projection!(x -> sin(π * x[1]) * sin(π * x[2]), SplineND(d, 10, k, :Natural, q))
-    # @test all(isapprox.(s.(t), sin.(π * x) .* sin.(π * y); atol=sqrt(eps())))
+    s = L2projection!(x -> sin(π * x[1]) * sin(π * x[2]), SplineND(d, o, l, :Natural, q))
+    @test all(isapprox.(s.(t), sin.(π .* m) .* sin.(π .* n); atol=1E-2))
 
 
 
@@ -321,7 +326,10 @@ end
 
     L2projection!(x -> 0.0, s)
     @test all(isapprox.(s.coefficients, 0; atol=8eps()))
-    @test all(isapprox.(s.(t), 0; atol=8eps()))
+    @test all(isapprox.(s.(z), 0; atol=8eps()))
+
+    s = L2projection!(x -> sin(π * x[1]) * sin(π * x[2]), SplineND(d, o, l, :Natural, q))
+    @test all(isapprox.(s.(t), sin.(π .* m) .* sin.(π .* n); atol=1E-2))
 
 
     ### B-spline with periodic boundary conditions ###
@@ -343,13 +351,18 @@ end
 
     L2projection!(x -> 0.0, s)
     @test all(isapprox.(s.coefficients, 0; atol=8eps()))
-    @test all(isapprox.(s.(t), 0; atol=8eps()))
+    @test all(isapprox.(s.(z), 0; atol=8eps()))
 
-    s = L2projection!(x -> 1.0, SplineND(d, 2, k, :Periodic, q))
-    # @test all(isapprox.(s.(t), 1; atol=8eps()))
-    # @test all(isapprox.(s.coefficients, 1; atol=8eps()))
-    # println(s.(t))
-    # println(s.coefficients)
+    L2projection!(x -> 1.0, s)
+    @test all(isapprox.(s.coefficients, 1; atol=32eps()))
+    @test all(isapprox.(s.(z), 1; atol=16eps()))
+
+    s = L2projection!(x -> abs(x[1] * x[2]), SplineND(d, 2, l, :Periodic, q))
+    @test all(isapprox.(s.(t), abs.(r); atol=32eps()))
+
+    s = L2projection!(x -> sin(π * x[1]) * sin(π * x[2]), SplineND(d, o, l, :Periodic, q))
+    L2projection!(x -> sin(π * x[1]) * sin(π * x[2]), s)
+    @test all(isapprox.(s.(t), sin.(π .* m) .* sin.(π .* n); atol=1E-4))
 
 
     ### Check size and knots

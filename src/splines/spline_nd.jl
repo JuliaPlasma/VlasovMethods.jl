@@ -280,12 +280,11 @@ function L2product_quadrature(f::Callable, basis::AbstractBSplineBasis, knots, q
             integrand = (u, v) -> remap_basis_from_unit_to_knot_interval(i, basis, knots, k)(u) *
                                   remap_basis_from_unit_to_knot_interval(j, basis, knots, l)(v) *
                                   remap_unit_to_knot_interval(f, knots, k, l)(SA_F64[u, v])
-
-            quad = (i, j) -> quadrature.weights[i] * quadrature.weights[j] * integrand(quadrature.nodes[i], quadrature.nodes[j])
-
+            quadfunc = (i, j) -> quadrature.weights[i] * quadrature.weights[j] * integrand(quadrature.nodes[i], quadrature.nodes[j])
+            quadinds = zip(eachindex(quadrature) * ones(Int, nnodes(quadrature))', ones(Int, nnodes(quadrature)) * eachindex(quadrature)')
             interval = (knots[k+1] - knots[k]) * (knots[l+1] - knots[l])
 
-            m += mapreduce(ind -> quad(ind...), +, zip(eachindex(quadrature), eachindex(quadrature))) * interval
+            m += mapreduce(ind -> quadfunc(ind...), +, quadinds) * interval
         end
     end
 
