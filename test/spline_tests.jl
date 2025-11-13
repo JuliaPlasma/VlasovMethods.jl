@@ -35,11 +35,11 @@ end
     smass = mass_matrix(sbasis, GaussLegendreQuadrature(2))
     rmass = galerkin_matrix(sbasis)
 
-    @test all(isapprox.(smass, rmass; atol = 2eps()))
+    @test all(isapprox.(smass, rmass; atol=2eps()))
 
     # Dirichlet BCs with trapezoidal quadrature
     smass = mass_matrix(sbasis, TrapezoidalQuadrature())
-    rmass = Diagonal([0.5, repeat([1.0], nbasis-2)..., 0.5] ./ 2)
+    rmass = Diagonal([0.5, repeat([1.0], nbasis - 2)..., 0.5] ./ 2)
 
     @test all(smass .== rmass)
 
@@ -51,12 +51,12 @@ end
     smass = mass_matrix(sbasis, GaussLegendreQuadrature(2))
     rmass = galerkin_matrix(sbasis)
 
-    @test all(isapprox.(smass, rmass; atol = 2eps()))
+    @test all(isapprox.(smass, rmass; atol=2eps()))
 
     # Periodic BCs with trapezoidal quadrature
     smass = mass_matrix(sbasis, TrapezoidalQuadrature())
     rmass = Matrix(1.0I, nbasis, nbasis) ./ 2
-    
+
     @test all(smass .== rmass)
 
 
@@ -70,17 +70,17 @@ end
         smass = mass_matrix(sbasis, GaussLegendreQuadrature(sorder))
         rmass = galerkin_matrix(sbasis)
 
-        @test all(isapprox.(smass, rmass; atol = 2eps()))
+        @test all(isapprox.(smass, rmass; atol=2eps()))
 
 
         # B-spline basis with Periodic BCs
         sbasis = PeriodicBSplineBasis(BSplineOrder(sorder), copy(sknots))
-        
+
         # Periodic BCs with (exact) Gauss-Legendre quadrature
         smass = mass_matrix(sbasis, GaussLegendreQuadrature(sorder))
         rmass = galerkin_matrix(sbasis)
 
-        @test all(isapprox.(smass, rmass; atol = 2eps()))
+        @test all(isapprox.(smass, rmass; atol=2eps()))
 
     end
 
@@ -107,7 +107,8 @@ end
     @test eltype(s) == Float64
     @test ndims(s) == d
     @test order(s) == o
-    @test size(s) == (length(k)+(o-2),)
+    @test size(s) == (length(k) + (o - 2),)
+    @test length(s) == size(s)[1]
     @test unique_knots(s) == k
 
     rand!(s.coefficients)
@@ -115,13 +116,30 @@ end
     @test s(k[begin]) == s([k[begin]]) == s.coefficients[begin]
     @test s(k[end]) == s([k[end]]) == s.coefficients[end]
 
-    @test evaluate_indices(s, [0.0]) == [2,1]
-    @test evaluate_indices(s, [0.1]) == [3,2]
-    @test evaluate_indices(s, [1.0]) == [12,11]
-    @test evaluate_indices(s, [1.89]) == [20,19]
-    @test evaluate_indices(s, [1.90]) == [21,20]
-    @test evaluate_indices(s, [1.99]) == [21,20]
-    @test evaluate_indices(s, [2.0]) == [21,20]
+    @test evaluate_indices(s, [0.0]) == [2, 1]
+    @test evaluate_indices(s, [0.1]) == [3, 2]
+    @test evaluate_indices(s, [1.0]) == [12, 11]
+    @test evaluate_indices(s, [1.89]) == [20, 19]
+    @test evaluate_indices(s, [1.90]) == [21, 20]
+    @test evaluate_indices(s, [1.99]) == [21, 20]
+    @test evaluate_indices(s, [2.0]) == [21, 20]
+
+    L2projection!(x -> 0.0, s)
+    @test all(isapprox.(s.coefficients, 0; atol=8eps()))
+    @test all(isapprox.(s.(k), 0; atol=8eps()))
+
+    L2projection!(x -> 1.0, s)
+    @test all(isapprox.(s.coefficients, 1; atol=8eps()))
+    @test all(isapprox.(s.(k), 1; atol=8eps()))
+
+    L2projection!(x -> x[1], s)
+    @test all(isapprox.(s.(k), k; atol=8eps()))
+
+    L2projection!(x -> sin(π * x[1]), s)
+    @test all(isapprox.(s.(k), sin.(π * k); atol=1E-2))
+
+    s = L2projection!(x -> sin(π * x[1]), SplineND(d, 10, k, :Natural, q))
+    @test all(isapprox.(s.(k), sin.(π * k); atol=1E-7))
 
 
     ### B-spline with Dirichlet boundary conditions ###
@@ -131,7 +149,8 @@ end
     @test eltype(s) == Float64
     @test ndims(s) == d
     @test order(s) == o
-    @test size(s) == (length(k)-2,)
+    @test size(s) == (length(k) - 2,)
+    @test length(s) == size(s)[1]
     @test unique_knots(s) == k
 
     rand!(s.coefficients)
@@ -139,13 +158,23 @@ end
     @test s(k[begin]) == s([k[begin]]) == 0
     @test s(k[end]) == s([k[end]]) == 0
 
-    @test evaluate_indices(s, [0.0]) == [1,0]
-    @test evaluate_indices(s, [0.1]) == [2,1]
-    @test evaluate_indices(s, [1.0]) == [11,10]
-    @test evaluate_indices(s, [1.89]) == [19,18]
-    @test evaluate_indices(s, [1.90]) == [20,19]
-    @test evaluate_indices(s, [1.99]) == [20,19]
-    @test evaluate_indices(s, [2.0]) == [20,19]
+    @test evaluate_indices(s, [0.0]) == [1, 0]
+    @test evaluate_indices(s, [0.1]) == [2, 1]
+    @test evaluate_indices(s, [1.0]) == [11, 10]
+    @test evaluate_indices(s, [1.89]) == [19, 18]
+    @test evaluate_indices(s, [1.90]) == [20, 19]
+    @test evaluate_indices(s, [1.99]) == [20, 19]
+    @test evaluate_indices(s, [2.0]) == [20, 19]
+
+    L2projection!(x -> 0.0, s)
+    @test all(isapprox.(s.coefficients, 0; atol=8eps()))
+    @test all(isapprox.(s.(k), 0; atol=8eps()))
+
+    L2projection!(x -> sin(π * x[1]), s)
+    @test all(isapprox.(s.(k), sin.(π * k); atol=1E-2))
+
+    s = L2projection!(x -> sin(π * x[1]), SplineND(d, 10, k, :Dirichlet, q))
+    @test all(isapprox.(s.(k), sin.(π * k); atol=1E-12))
 
 
     ### B-spline with periodic boundary conditions ###
@@ -155,22 +184,37 @@ end
     @test eltype(s) == Float64
     @test ndims(s) == d
     @test order(s) == o
-    @test size(s) == (length(k)-1,)
+    @test size(s) == (length(k) - 1,)
+    @test length(s) == size(s)[1]
     @test unique_knots(s) == k
 
     rand!(s.coefficients)
 
     @test s(k[begin]) == s(k[end])
 
-    @test evaluate_indices(s, [0.0]) == [2,1]
-    @test evaluate_indices(s, [0.1]) == [3,2]
-    @test evaluate_indices(s, [1.0]) == [12,11]
-    @test evaluate_indices(s, [1.89]) == [20,19]
-    @test evaluate_indices(s, [1.90]) == [1,20]
-    @test evaluate_indices(s, [1.99]) == [1,20]
-    @test evaluate_indices(s, [2.0]) == [2,1]
+    @test evaluate_indices(s, [0.0]) == [2, 1]
+    @test evaluate_indices(s, [0.1]) == [3, 2]
+    @test evaluate_indices(s, [1.0]) == [12, 11]
+    @test evaluate_indices(s, [1.89]) == [20, 19]
+    @test evaluate_indices(s, [1.90]) == [1, 20]
+    @test evaluate_indices(s, [1.99]) == [1, 20]
+    @test evaluate_indices(s, [2.0]) == [2, 1]
 
-    
+    L2projection!(x -> 0.0, s)
+    @test all(isapprox.(s.coefficients, 0; atol=8eps()))
+    @test all(isapprox.(s.(k), 0; atol=8eps()))
+
+    L2projection!(x -> 1.0, s)
+    @test all(isapprox.(s.coefficients, 1; atol=8eps()))
+    @test all(isapprox.(s.(k), 1; atol=8eps()))
+
+    L2projection!(x -> sin(π * x[1]), s)
+    @test all(isapprox.(s.(k), sin.(π * k); atol=1E-2))
+
+    s = L2projection!(x -> sin(π * x[1]), SplineND(d, 10, k, :Periodic, q))
+    @test all(isapprox.(s.(k), sin.(π * k); atol=1E-12))
+
+
     ### Check size, knots, and indices
     function check_indices(b)
         @test cartesian_index(b, 1) == (1,)
@@ -182,17 +226,17 @@ end
 
     for o in 2:8
         b = SplineND(d, o, k, :Natural, q)
-        @test size(b) == (length(k) + (o-2),)
+        @test size(b) == (length(k) + (o - 2),)
         @test unique_knots(b) == k
         check_indices(b)
-            
+
         b = SplineND(d, o, k, :Dirichlet, q)
-        @test size(b) == (length(k) + (o-4),)
+        @test size(b) == (length(k) + (o - 4),)
         @test unique_knots(b) == k
         check_indices(b)
-        
+
         b = SplineND(d, o, k, :Periodic, q)
-        @test size(b) == (length(k)-1,)
+        @test size(b) == (length(k) - 1,)
         @test unique_knots(b) == k
         check_indices(b)
     end
@@ -207,6 +251,11 @@ end
     k = -2:0.1:+1
     q = GaussLegendreQuadrature(3)
 
+    x = vec(k * ones(axes(k))')
+    y = vec(ones(axes(k)) * k')
+    t = [[x[i], y[i]] for i in eachindex(x, y)]
+    r = x .* y
+
     @test_nowarn SplineND(d, o, k, q)
     @test_nowarn SplineND(d, o, k, :Natural, q)
     @test_nowarn SplineND(d, o, k, :Dirichlet, q)
@@ -219,7 +268,8 @@ end
     @test eltype(s) == Float64
     @test ndims(s) == d
     @test order(s) == o
-    @test size(s) == (length(k)+(o-2), length(k)+(o-2))
+    @test size(s) == (length(k) + (o - 2), length(k) + (o - 2))
+    @test length(s) == size(s)[1] * size(s)[2]
     @test unique_knots(s) == k
 
     rand!(s.coefficients)
@@ -230,6 +280,27 @@ end
     @test s(k[end], k[end]) == s.coefficients[end, end]
 
 
+    L2projection!(x -> 0.0, s)
+    @test all(isapprox.(s.coefficients, 0; atol=8eps()))
+    @test all(isapprox.(s.(t), 0; atol=8eps()))
+
+    s = L2projection!(x -> 1.0, SplineND(d, 2, k, :Natural, q))
+    # @test all(isapprox.(s.coefficients, 1; atol=8eps()))
+    # @test all(isapprox.(s.(t), 1; atol=8eps()))
+    # println(s.(t))
+    # println(s.coefficients)
+
+    # L2projection!(x -> x[1] * x[2], s)
+    # @test all(isapprox.(s.(t), r; atol=8eps()))
+
+    # L2projection!(x -> sin(π * x[1]) * sin(π * x[2]), s)
+    # @test all(isapprox.(s.(t), sin.(π * x) .* sin.(π * y); atol=1E-2))
+
+    # s = L2projection!(x -> sin(π * x[1]) * sin(π * x[2]), SplineND(d, 10, k, :Natural, q))
+    # @test all(isapprox.(s.(t), sin.(π * x) .* sin.(π * y); atol=sqrt(eps())))
+
+
+
     ### B-spline with Dirichlet boundary conditions ###
 
     s = SplineND(d, o, k, :Dirichlet, q)
@@ -237,7 +308,8 @@ end
     @test eltype(s) == Float64
     @test ndims(s) == d
     @test order(s) == o
-    @test size(s) == (length(k)-1, length(k)-1)
+    @test size(s) == (length(k) - 1, length(k) - 1)
+    @test length(s) == size(s)[1] * size(s)[2]
     @test unique_knots(s) == k
 
     rand!(s.coefficients)
@@ -247,6 +319,10 @@ end
     @test s(k[end], k[begin]) == 0
     @test s(k[end], k[end]) == 0
 
+    L2projection!(x -> 0.0, s)
+    @test all(isapprox.(s.coefficients, 0; atol=8eps()))
+    @test all(isapprox.(s.(t), 0; atol=8eps()))
+
 
     ### B-spline with periodic boundary conditions ###
 
@@ -255,20 +331,31 @@ end
     @test eltype(s) == Float64
     @test ndims(s) == d
     @test order(s) == o
-    @test size(s) == (length(k)-1, length(k)-1)
+    @test size(s) == (length(k) - 1, length(k) - 1)
+    @test length(s) == size(s)[1] * size(s)[2]
     @test unique_knots(s) == k
 
     rand!(s.coefficients)
 
     @test s(k[begin], k[begin]) ≈ s(k[begin], k[end]) atol = 2eps()
     @test s(k[begin], k[begin]) ≈ s(k[end], k[begin]) atol = 2eps()
-    @test s(k[begin], k[begin]) ≈ s(k[end], k[end])   atol = 2eps()
+    @test s(k[begin], k[begin]) ≈ s(k[end], k[end]) atol = 2eps()
+
+    L2projection!(x -> 0.0, s)
+    @test all(isapprox.(s.coefficients, 0; atol=8eps()))
+    @test all(isapprox.(s.(t), 0; atol=8eps()))
+
+    s = L2projection!(x -> 1.0, SplineND(d, 2, k, :Periodic, q))
+    # @test all(isapprox.(s.(t), 1; atol=8eps()))
+    # @test all(isapprox.(s.coefficients, 1; atol=8eps()))
+    # println(s.(t))
+    # println(s.coefficients)
 
 
     ### Check size and knots
 
     function check_indices(b)
-        @test cartesian_index(b, 1) == (1,1)
+        @test cartesian_index(b, 1) == (1, 1)
         @test cartesian_index(b, size(b)[1] * size(b)[2]) == size(b)
         @test linear_index(b, 1, 1) == 1
         @test linear_index(b, size(b)...) == size(b)[1] * size(b)[2]
@@ -277,17 +364,17 @@ end
 
     for o in 2:8
         b = SplineND(d, o, k, :Natural, q)
-        @test size(b) == (length(k) + (o-2), length(k) + (o-2))
+        @test size(b) == (length(k) + (o - 2), length(k) + (o - 2))
         @test unique_knots(b) == k
         check_indices(b)
 
         b = SplineND(d, o, k, :Dirichlet, q)
-        @test size(b) == (length(k) + (o-4), length(k) + (o-4))
+        @test size(b) == (length(k) + (o - 4), length(k) + (o - 4))
         @test unique_knots(b) == k
         check_indices(b)
 
         b = SplineND(d, o, k, :Periodic, q)
-        @test size(b) == (length(k)-1, length(k)-1)
+        @test size(b) == (length(k) - 1, length(k) - 1)
         @test unique_knots(b) == k
         check_indices(b)
     end
