@@ -1,14 +1,34 @@
-struct ConservativeLenardBernstein{XD, VD, DT <: DistributionFunction{XD,VD}, ET <: Entropy, T} <: CollisionOperator
+struct CLBCache{T, PT <: ParticleDistribution, ST <: SplineDistribution{T}} <: Cache{T}
+    pdist::PT
+    sdist::ST
+
+    function CLBCache{T}(pdist, sdist) where {T}
+        new{T, typeof(pdist), typeof(sdist)}(pdist, sdist)
+    end
+end
+
+CLBCache(pdist::ParticleDistribution{T}, sdist::SplineDistribution{T}) where {T} = CLBCache{T}(pdist, sdist)
+
+Cache(AT, c::CLBCache{DT, PT, ST}) where {DT, PT, ST} = CLBCache{AT}(c.pdist, similar(AT, c.sdist))
+CacheType(AT, c::CLBCache{DT, PT, ST}) where {DT, PT, ST} = CLBCache{AT, PT, similar_type(AT, c.sdist)}
+
+struct ConservativeLenardBernstein{XD, VD, DT <: DistributionFunction{XD,VD}, ET <: Entropy, T, CT <: CacheDict} <: CollisionOperator
     dist::DT    # distribution function
     ent::ET     # entropy 
     ν::T        # collision frequency 
     
+    cache::CT
+
     function ConservativeLenardBernstein(dist::DistributionFunction{XD,VD}, ent::Entropy; ν::T=1.) where {XD, VD, T}
-        new{XD, VD, typeof(dist), typeof(ent), T}(dist, ent, ν)
+        cache = CacheDict(CLBCache(dist, ent.dist))
+        new{XD, VD, typeof(dist), typeof(ent), T, typeof(cache)}(dist, ent, ν, cache)
     end
 end
 
-function compute_coefficients(distribution::SplineDistribution{1,1}, particle_dist::ParticleDistribution, vp::AbstractArray{VT}) where {VT}
+Cache(AT, clb::ConservativeLenardBernstein) = CLBCache{AT}(clb.dist, similar(AT,clb.ent.dist))
+CacheType(AT, c::ConservativeLenardBernstein) = CLBCache{AT, typeof(clb.dist), similar_type(AT, clb.ent.dist)}
+
+function compute_coefficients(distribution::SplineDistribution, particle_dist::ParticleDistribution, vp::AbstractArray{VT}) where {VT}
 
     n, nu, neps = compute_f_densities(distribution, vp)
     u_fs = sum(distribution.spline(v_α) for v_α in vp)
@@ -35,18 +55,9 @@ function compute_coefficients(distribution::SplineDistribution{1,1}, particle_di
     A1 = (neps * B1 - nu * B2) / (n * neps - (nu)^2)
     A2 = -  (nu * B1 - n * B2) / (n * neps - (nu)^2)
 
-    # A1 = 0.0
-    # A2 = 1.0
+
     if isnan(A1) || isnan(A2)
-        println("n= ", n, ", nu = ", nu, ", neps = ", neps)
-        # B1_v = [one(VT)/distribution.spline(v_α)*dfs(v_α) for v_α in vp]
-        @show vp
-        @show distribution.spline.(vp)
-        @show B1_v
-        @show A1
-        @show A2
-        @show B1
-        @show B2
+        throw(ErrorException("NaNs in computation of A1 or A2, use a smaller timestep."))
     end
 
     return A1, A2
@@ -61,24 +72,24 @@ function compute_derivative_spline(sdist::SplineDistribution{1,1})
 end
 
 
-function compute_coefficients(distribution::SplineDistribution{1,2}, particle_dist::ParticleDistribution, vp::AbstractArray{VT}) where {VT}
-    n = zeros(T, 2)
-    nu = similar(n)
-    neps = similar(n)
-    n, nu, neps = compute_f_densities(distribution, vp)
-    B1, B2 = compute_df_densities(distribution, vp)
-    B1 *= -1 
-    B2 *= -1 
-    A1 = (neps * B1 - nu * B2) / (n * neps - (nu)^2)
-    A2 = -  (nu * B1 - n * B2) / (n * neps - (nu)^2)
+# function compute_coefficients(distribution::SplineDistribution{1,2}, particle_dist::ParticleDistribution, vp::AbstractArray{VT}) where {VT}
+#     n = zeros(T, 2)
+#     nu = similar(n)
+#     neps = similar(n)
+#     n, nu, neps = compute_f_densities(distribution, vp)
+#     B1, B2 = compute_df_densities(distribution, vp)
+#     B1 *= -1 
+#     B2 *= -1 
+#     A1 = (neps * B1 - nu * B2) / (n * neps - (nu)^2)
+#     A2 = -  (nu * B1 - n * B2) / (n * neps - (nu)^2)
 
-    return A1, A2
-end
+#     return A1, A2
+# end
 
 # RHS function for solving collisions using DifferentialEquations.jl
  function CLB_rhs!(v̇, v::AbstractVector{ST}, params, t) where {ST}
 
-    dist = params.model.ent.cache[ST]
+    dist = params.model.cache[ST]
 
     fs = projection(v, params.idist, dist)
 
@@ -93,7 +104,7 @@ end
 
  function CLB_rhs_GI!(v, t, q::AbstractArray{ST}, params) where {ST}
 
-    dist = params.model.ent.cache[ST]
+    dist = params.model.cache[ST].sdist
 
     fs = projection(q, params.idist, dist)
 
@@ -109,7 +120,7 @@ end
 # used for plotting
  function CLB_rhs(v::AbstractVector{ST}, params, fs::BSplineKit.Spline) where {ST}
 
-    dist = params.model.ent.cache[ST]
+    dist = params.model.cache[ST].sdist
 
     dfdv = BSplineKit.Derivative(1) * fs 
 
@@ -142,7 +153,7 @@ end
  end
 
 
-function GeometricIntegrator(model::ConservativeLenardBernstein{1,1}, tspan::Tuple, tstep::Real)
+function GeometricIntegrator(model::ConservativeLenardBernstein, tspan::Tuple, tstep::Real) where {DT}
     # collect parameters
     # params = (ϕ = model.potential, model = model)
     params = (ν = model.ν, idist = model.dist, fdist = model.ent.dist, model = model)
@@ -153,10 +164,12 @@ function GeometricIntegrator(model::ConservativeLenardBernstein{1,1}, tspan::Tup
             parameters = params)
 
     # create integrator
-    int = Integrators.Integrator(equ, Integrators.ImplicitMidpoint())
+    int = Integrators.GeometricIntegrator(equ, Integrators.ImplicitMidpoint())
+    # int = Integrators.Integrator(equ, Integrators.ImplicitMidpoint())
     # int = Integrators.Integrator(equ, Integrators.RK438())
     # int = Integrators.Integrator(equ, Integrators.CrankNicolson())
 
     # put together splitting method
     GeometricIntegrator(model, equ, int)
+    # return int
 end

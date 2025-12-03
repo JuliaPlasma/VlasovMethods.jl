@@ -3,7 +3,7 @@
 # function projection!(out, vdensity, distribution) end
 
 # convenience function for computing first three moments of f over v
-function compute_f_densities(distribution::SplineDistribution{1,1}, vp::AbstractArray{VT}) where {VT}
+function compute_f_densities(distribution::SplineDistribution, vp::AbstractArray{VT}) where {VT}
 
     n = projection_density(distribution, vp)
     μ = projection_momentum(distribution, vp)
@@ -12,18 +12,18 @@ function compute_f_densities(distribution::SplineDistribution{1,1}, vp::Abstract
     return n, μ, ε
 end
 
-function compute_f_densities(distribution::SplineDistribution{1,2}, vp::AbstractArray{VT}) where {VT}
+# function compute_f_densities(distribution::SplineDistribution{1,2}, vp::AbstractArray{VT}) where {VT}
 
-    n = projection_density(distribution, vp[1,:])
-    μ = projection_momentum(distribution, vp[1,:])
-    ε = projection_energy(distribution, vp[1,:])
+#     n = projection_density(distribution, vp[1,:])
+#     μ = projection_momentum(distribution, vp[1,:])
+#     ε = projection_energy(distribution, vp[1,:])
 
-    n2 = projection_density(distribution, vp[2,:])
-    μ2 = projection_momentum(distribution, vp[2,:])
-    ε2 = projection_energy(distribution, vp[2,:])
+#     n2 = projection_density(distribution, vp[2,:])
+#     μ2 = projection_momentum(distribution, vp[2,:])
+#     ε2 = projection_energy(distribution, vp[2,:])
 
-    return [n, n2], [μ, μ2], [ε, ε2]
-end
+#     return [n, n2], [μ, μ2], [ε, ε2]
+# end
 
 function compute_df_densities(distribution::SplineDistribution, vp::AbstractArray{VT}) where {VT}
     n = projection_density(distribution, vp; isDerivative=true)

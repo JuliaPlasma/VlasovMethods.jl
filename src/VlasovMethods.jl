@@ -17,6 +17,7 @@ using ParticleMethods
 using PoissonSolvers
 using ProgressMeter
 using QuadratureRules
+using QuadGK
 using Random
 using Sobol
 using SimpleSolvers
@@ -114,11 +115,15 @@ include("models/collision_operator.jl")
 include("models/landau.jl")
 include("models/lenard_bernstein.jl")
 include("models/lenard_bernstein_conservative.jl")
+include("models/lenard_bernstein_metriplectic.jl")
+include("models/rescaled_lenard_bernstein_conservative.jl")
 include("models/vlasov_poisson.jl")
 
 export VlasovPoisson
 export LenardBernstein
 export ConservativeLenardBernstein
+export RescaledConservativeLenardBernstein
+export MetriplecticLenardBernstein
 export Landau
 
 # Example Problems
@@ -131,9 +136,10 @@ include("examples/shiftednormalv.jl")
 include("examples/shifteduniform.jl")
 include("examples/doublemaxwellian.jl")
 include("examples/bump.jl")
+include("examples/sum_maxwellian.jl")
 
 
-export BumpOnTail, NormalDistribution, UniformDistribution, ShiftedNormalV, ShiftedUniformDistribution, DoubleMaxwellian, Bump
+export BumpOnTail, NormalDistribution, UniformDistribution, ShiftedNormalV, ShiftedUniformDistribution, DoubleMaxwellian, Bump, SumMaxwellian
 
 
 # include("electric_field.jl")

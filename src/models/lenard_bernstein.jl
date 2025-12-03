@@ -23,7 +23,7 @@ end
 
     fs = projection(v, params.idist, dist)
 
-    dfdv = Derivative(1) * fs # TODO: does this belong here?
+    dfdv = Derivative(1) * fs # TODO: does this belong here? NO.
 
     v̇ .= -params.ν .* (dfdv.(v) .+ v .* fs.(v))
 

@@ -13,7 +13,7 @@ function initialize!(dist::ParticleDistribution, params::DoubleMaxwellian, ::Sam
 
     # random initial conditions
     x₀ = rand(npart)    # sample uniform dist for x₀
-    Random.seed!(1234)
+    # Random.seed!(1234)
     v₀ = randn(vdim, Int(floor(npart / 2)))   # sample normal dist for v₀
     v₁ = randn(vdim, Int(ceil(npart / 2)))   # sample normal dist for v₀
 

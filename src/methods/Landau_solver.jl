@@ -4,58 +4,64 @@
 
 
 function IM_rule!(g, x, y, f, Δt, params)
+    # g is the function to find the zero of 
+    # x is the root 
+    # y is the previous timestep for IM 
+    # f is the vector field 
+    # 1/2 * (x + y) is the midpoint 
     g .= x .- y .- Δt .* f((y .+ x) ./ 2, params)
 end
 
-function IM_update!(y_new, y_new_guess, yₙ, f, Δt, params)
-    # println("define F!")
-    F!(g, x) = IM_rule!(g, x, yₙ, f, Δt, params)
-    obj = zero(yₙ)
-    opt = Options(x_reltol = 1e-8, f_reltol = 1e-8, x_abstol = 1e-12, f_abstol = 1e-12)
-    # println("construct NewtonSolver")
-    nl = NewtonSolver(y_new_guess, obj, config = opt)
-    # println("Newton solve")
-    SimpleSolvers.solve!(y_new, F!, nl)
+# function IM_update!(y_new, y_new_guess, yₙ, f, Δt, params, ::Landau)
+#     # println("define F!")
+#     F!(g, x) = IM_rule!(g, x, yₙ, f, Δt, params)
+#     obj = zero(yₙ)
+#     opt = Options(x_reltol = 1e-8, f_reltol = 1e-8, x_abstol = 1e-12, f_abstol = 1e-12)
+#     # println("construct NewtonSolver")
+#     nl = NewtonSolver(y_new_guess, obj, config = opt)
+#     # println("Newton solve")
+#     SimpleSolvers.solve!(y_new, F!, nl)
 
-    return y_new
-end
+#     return y_new
+# end
+
 
 # function explicit_update!(rhs, v, Δt)
 #     @. rhs = v + Δt * rhs
 # end
 
-function Picard_iterate_over_particles(f::Function, dist, sdist, tol, Δt)
-    # j is the Picard iteration index
-    # create vectors to store the current iteration and the two previous iterations
-    v_new = zero(dist.particles.v)
-    v_prev = copy(dist.particles.v) #TODO: this should be updated to computing an initial guess using Hermite extrapolation
+# function Picard_iterate_over_particles(f::Function, dist, sdist, tol, Δt)
+#     # j is the Picard iteration index
+#     # create vectors to store the current iteration and the two previous iterations
+#     v_new = zero(dist.particles.v)
+#     v_prev = copy(dist.particles.v) #TODO: this should be updated to computing an initial guess using Hermite extrapolation
     
-    err = 1.
-    j = 0
-    println("entering Picard loop")
-    while err > tol
-        println("j=", j)
+#     err = 1.
+#     j = 0
+#     println("entering Picard loop")
+#     while err > tol
+#         println("j=", j)
 
-        S = projection(v_prev, dist, sdist)
-        L = VlasovMethods.compute_J(sdist)
+#         S = projection(v_prev, dist, sdist)
+#         L = VlasovMethods.compute_J(sdist)
 
-        params = (dist = dist, sdist = sdist, B = sdist.basis, L = L, v_array = v_prev)
+#         params = (dist = dist, sdist = sdist, B = sdist.basis, L = L, v_array = v_prev)
 
-        @time for i in axes(v_prev,2)
-        # @time for i in axes(v_prev,2)
-            # @show i
-            IM_update!(view(v_new, :, i), view(v_prev, :, i), view(dist.particles.v, :, i), f, Δt, params)
-        end
+#         @time for i in axes(v_prev,2)
+#         # @time for i in axes(v_prev,2)
+#             # @show i
+#             IM_update!(view(v_new, :, i), view(v_prev, :, i), view(dist.particles.v, :, i), f, Δt, params)
+#         end
 
-        @show err = sqeuclidean(v_new, v_prev)
-        v_prev .= v_new
-        j += 1
-    end
+#         @show err = sqeuclidean(v_new, v_prev)
+#         v_prev .= v_new
+#         j += 1
+#     end
 
-    dist.particles.v .= v_new
+#     dist.particles.v .= v_new
     
-    return v_new
-end
+#     return v_new
+# end
 
 function f!(f::AbstractArray{T}, vn::AbstractArray{T}, vp, params, Δt, landau) where T
     v_midpoint  = landau.cache[T].v

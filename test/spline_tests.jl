@@ -123,6 +123,15 @@ end
     @test evaluate_indices(s, [1.99]) == [21,20]
     @test evaluate_indices(s, [2.0]) == [21,20]
 
+    s = SplineND(d, 3, k, :Natural, q)
+
+    @test evaluate_indices(s, [0.0]) == [3,2,1]
+    @test evaluate_indices(s, [0.1]) == [4,3,2]
+    @test evaluate_indices(s, [1.0]) == [13,12,11]
+    @test evaluate_indices(s, [1.89]) == [21,20,19]
+    @test evaluate_indices(s, [1.90]) == [22,21,20]
+    @test evaluate_indices(s, [1.99]) == [22,21,20]
+    @test evaluate_indices(s, [2.0]) == [22,21,20]
 
     ### B-spline with Dirichlet boundary conditions ###
 
@@ -147,6 +156,15 @@ end
     @test evaluate_indices(s, [1.99]) == [20,19]
     @test evaluate_indices(s, [2.0]) == [20,19]
 
+    s = SplineND(d, 3, k, :Dirichlet, q)
+
+    @test evaluate_indices(s, [0.0]) == [2,1,0]
+    @test evaluate_indices(s, [0.1]) == [3,2,1]
+    @test evaluate_indices(s, [1.0]) == [12,11,10]
+    @test evaluate_indices(s, [1.89]) == [20,19,18]
+    @test evaluate_indices(s, [1.90]) == [21,20,19]
+    @test evaluate_indices(s, [1.99]) == [21,20,19]
+    @test evaluate_indices(s, [2.0]) == [21,20,19]
 
     ### B-spline with periodic boundary conditions ###
 
@@ -211,7 +229,7 @@ end
     @test_nowarn SplineND(d, o, k, :Natural, q)
     @test_nowarn SplineND(d, o, k, :Dirichlet, q)
     @test_nowarn SplineND(d, o, k, :Periodic, q)
-
+    
     ### B-spline with natural boundary conditions ###
 
     s = SplineND(d, o, k, :Natural, q)
@@ -230,6 +248,26 @@ end
     @test s(k[end], k[end]) == s.coefficients[end, end]
 
 
+    @test evaluate_indices(s, [-2.,-2.]) == [67,66,65,35,34,33,3,2,1]
+    @test evaluate_indices(s, [-2.,-1.]) == [387,386,385,355,354,353,323,322,321]
+    @test evaluate_indices(s, [-2., 0.]) == [707,706,705,675,674,673,643,642,641]
+    @test evaluate_indices(s, [-2.,+1.]) == [995,994,993,963,962,961,931,930,929]
+
+    @test evaluate_indices(s, [-1.,-2.]) == [77,76,75,45,44,43,13,12,11]
+    @test evaluate_indices(s, [-1.,-1.]) == [397,396,395,365,364,363,333,332,331]
+    @test evaluate_indices(s, [-1., 0.]) == [717,716,715,685,684,683,653,652,651]
+    @test evaluate_indices(s, [-1.,+1.]) == [1005,1004,1003,973,972,971,941,940,939]
+
+    @test evaluate_indices(s, [ 0.,-2.]) == [87,86,85,55,54,53,23,22,21]
+    @test evaluate_indices(s, [ 0.,-1.]) == [407,406,405,375,374,373,343,342,341]
+    @test evaluate_indices(s, [ 0., 0.]) == [727,726,725,695,694,693,663,662,661]
+    @test evaluate_indices(s, [ 0.,+1.]) == [1015,1014,1013,983,982,981,951,950,949]
+
+    @test evaluate_indices(s, [+1.,-2.]) == [96,95,94,64,63,62,32,31,30]
+    @test evaluate_indices(s, [+1.,-1.]) == [416,415,414,384,383,382,352,351,350]
+    @test evaluate_indices(s, [+1., 0.]) == [736,735,734,704,703,702,672,671,670]
+    @test evaluate_indices(s, [+1.,+1.]) == [1024,1023,1022,992,991,990,960,959,958]
+
     ### B-spline with Dirichlet boundary conditions ###
 
     s = SplineND(d, o, k, :Dirichlet, q)
@@ -246,6 +284,26 @@ end
     @test s(k[begin], k[end]) == 0
     @test s(k[end], k[begin]) == 0
     @test s(k[end], k[end]) == 0
+
+    # @test evaluate_indices(s, [-2.,-2.]) == []
+    # @test evaluate_indices(s, [-2.,-1.]) == []
+    # @test evaluate_indices(s, [-2., 0.]) == []
+    # @test evaluate_indices(s, [-2.,+1.]) == []
+
+    # @test evaluate_indices(s, [-1.,-2.]) == []
+    @test evaluate_indices(s, [-1.,-1.]) == [342,341,340,312,311,310,282,281,280]
+    @test evaluate_indices(s, [-1., 0.]) == [642,641,640,612,611,610,582,581,580]
+    @test evaluate_indices(s, [-1.,+1.]) == [912,911,910,882,881,880,852,851,850]
+
+    # @test evaluate_indices(s, [ 0.,-2.]) == []
+    @test evaluate_indices(s, [ 0.,-1.]) == [352,351,350,322,321,320,292,291,290]
+    @test evaluate_indices(s, [ 0., 0.]) == [652,651,650,622,621,620,592,591,590]
+    @test evaluate_indices(s, [ 0.,+1.]) == [922,921,920,892,891,890,862,861,860]
+
+    # @test evaluate_indices(s, [+1.,-2.]) == []
+    # @test evaluate_indices(s, [+1.,-1.]) == []
+    # @test evaluate_indices(s, [+1., 0.]) == []
+    # @test evaluate_indices(s, [+1.,+1.]) == []
 
 
     ### B-spline with periodic boundary conditions ###

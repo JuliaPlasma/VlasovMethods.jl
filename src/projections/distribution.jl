@@ -33,7 +33,7 @@ Updates final_dist with projected Spline and coefficients.
 
 
 function projection(velocities::AbstractVector{VT}, dist::ParticleDistribution{PT,1,1}, final_dist::SplineDistribution{ST,1,1}) where {VT,PT,ST}
-    rhs = zeros(VT, size(final_dist))
+    rhs = zeros(VT, length(final_dist))
 
     # projection of delta functions to splines of @jipolanco 
     # https://github.com/jipolanco/BSplineKit.jl/issues/48
@@ -42,13 +42,15 @@ function projection(velocities::AbstractVector{VT}, dist::ParticleDistribution{P
         # Iterate over evaluated basis functions.
         # The indices of the evaluated basis functions are ilast:-1:(ilast - k + 1),
         # where k is the spline order.
-        if ilast > 0 && ilast <= size(final_dist)[1]
+        if ilast > 0 && ilast <= length(final_dist)
             for (δi, bi) ∈ pairs(bs)
                 i = ilast + 1 - δi
-                if i < 1 || i > 41
-                    println("i=", i)
-                    println("ilast = ", ilast)
-                    println("bs = ", bs)
+                if i < 1 || i > length(final_dist)
+                    if abs(bi) > eps()
+                        println("i=", i)
+                        println("ilast = ", ilast)
+                        println("bs = ", bs)
+                    end
                 else
                     rhs[i] += bi * dist.particles.w[1,p]
                 end

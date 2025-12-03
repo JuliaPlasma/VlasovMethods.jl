@@ -9,75 +9,63 @@ using QuadGK
 
 # output file
 # run_name = "fixed_coefficient_N=1000_double_maxwellian_T=2_tstep=5e-3"
-run_name = "test_warning"
-h5file = "lenard_bernstein_" * run_name * ".hdf5"
+run_name = "test_rescaled_clb_doublemax"
+h5file = "rescaled_lenard_bernstein_" * run_name * ".hdf5"
 
 # params
 # parameters
-npart = 1000000  # number of particles
+npart = 1000  # number of particles
 nknot = 41     # number of grid points
 order = 4      # spline order
-tstep = 0.1    # time step size
-tspan = (0.0, 1)    # integration time interval
+tstep = 5e-5    # time step size
+tspan = (0.0, 5e-1)    # integration time interval
 length_big_cell = 0.
-domainv = (-8., 8.)
+domainv = (-10., 10.)
 domainv_p = (-2., 2.)
 
 # create and initialize particle distribution function
 # dist = initialize!(ParticleDistribution(1, 1, npart), NormalDistribution())
 # dist = initialize!(ParticleDistribution(1, 1, npart), ShiftedNormalV())
 # dist = initialize!(ParticleDistribution(1, 1, npart), UniformDistribution((0.,1.0), domainv_p))
-dist = initialize!(ParticleDistribution(1, 1, npart), DoubleMaxwellian(shift = 2.))
+dist = initialize!(ParticleDistribution(1, 1, npart), DoubleMaxwellian(shift = 1.))
 # dist = initialize!(ParticleDistribution(1, 1, npart), Bump(a = 2., b = 1.))
 # dist = initialize!(ParticleDistribution(1, 1, npart), ShiftedUniformDistribution())
 
 # create spline distribution function and entropy 
-sdist = SplineDistribution(1, 1, nknot, 3, domainv, length_big_cell, :nothing)
+sdist = SplineDistribution(1, 1, nknot, 3, domainv, length_big_cell, :Dirichlet)
 entropy = CollisionEntropy(sdist)
 
 # create LenardBernstein model
-model = ConservativeLenardBernstein(dist, entropy)
+model = RescaledConservativeLenardBernstein(dist, entropy)
 # model = LenardBernstein(dist, entropy)
 
-params = (ν = model.ν, idist = model.dist, fdist = model.ent.dist, model = model)
+# create integrator
+integrator = VlasovMethods.GeometricIntegrator(model, tspan, tstep)
+# integrator = DiffEqIntegrator(model, tspan, tstep)
 
-v̇ = zeros(npart)
-v = zeros(npart)
-v .= transpose(dist.particles.v)
-
-VlasovMethods.CLB_rhs_GI!(v̇, nothing, v, params)
-
-scatter(v, v̇)
+# run integrator 
+println("Running integrator")
+VlasovMethods.run!(integrator, h5file)
 
 
-# # create integrator
-# integrator = VlasovMethods.GeometricIntegrator(model, tspan, tstep)
-# # integrator = DiffEqIntegrator(model, tspan, tstep)
+# load HDF5 and Plots packages
+using HDF5
+using Plots
+using LaTeXStrings
 
-# # run integrator 
-# println("Running integrator")
-# VlasovMethods.run!(integrator, h5file)
-# # sol = VlasovMethods.run(integrator)
+# read array from HDF5 file
+z = h5read(h5file, "z")
+t = h5read(h5file, "t")
 
-
-# # load HDF5 and Plots packages
-# using HDF5
-# using Plots
-# using LaTeXStrings
-
-# # read array from HDF5 file
-# z = h5read(h5file, "z")
-# t = h5read(h5file, "t")
-
-# t ./= npart
+t ./= npart
 
 # # z = z[:, 1:201]
 # # t = t[1:201]
 # # z = sol
 # # t = sol.t
 
-# mom = [mapreduce(p -> p[1], +, z[:,n]) for n in axes(z,2)]./npart
-# enr = [mapreduce(p -> p[1].^2, +, z[:,n]) for n in axes(z,2)]./npart
+mom = [mapreduce(p -> p[1], +, z[:,n]) for n in axes(z,2)]./npart
+enr = [mapreduce(p -> p[1].^2, +, z[:,n]) for n in axes(z,2)]./npart
 # # third_mom = [mapreduce(p -> (p[1].^3)./npart + 2*mom[n]^3 - 3*mom[n]*enr[n], +, z[:,n]) for n in axes(z,2)]
 # # third_mom = [mapreduce(p -> (p[1] - mom[n]).^3, +, z[:,n]) for n in axes(z,2)]./npart
 # # # fourth_mom = [mapreduce(p -> (p[1] - mom[1]).^4, +, z[:,n]) for n in axes(z,2)]./npart
@@ -112,9 +100,9 @@ scatter(v, v̇)
 # # savefig("cumulant_decay_" * run_name * ".pdf")
 
 
-# xgrid = -8.:0.25:+8.
-# vgrid = -8:0.01:+8
-# params = (ν = model.ν, idist = model.dist, fdist = model.ent.dist, model = model)
+xgrid = -8.:0.25:+8.
+vgrid = -8:0.01:+8
+params = (ν = model.ν, idist = model.dist, fdist = model.ent.dist, model = model)
 
 # # compute plot ranges
 # vmax = ceil(maximum(abs.(z[:,begin])))
@@ -161,33 +149,33 @@ scatter(v, v̇)
 # # # savefig(p, "dSdt_" * run_name * ".pdf")
 
 
-# function plot_distributions(t_ind, z,  dist::ParticleDistribution, sdist::SplineDistribution, xgrid, vgrid)
-#     f = projection(z[:,t_ind], dist, sdist)
-#     # df = Derivative(1) * f
-#     v̇ = VlasovMethods.CLB_rhs(z[:, t_ind], params, f)
-#     scalefontsizes()
-#     p = plot(xlabel = "v", xlims = [-7., +7], ylims = [0., +0.4], size = [1200,800], legendfontsize=14)
-#     histogram!(p, z[:,t_ind], bins=xgrid, normalize=:pdf, label="particle distribution")
-#     # scatter!(z[:, t_ind], v̇, color=:red, label=L"\partial_t v")
-#     plot!(p, vgrid, f.(vgrid), lw = 3, label="spline-projected distribution")
-#     return p
-# end
+function plot_distributions(t_ind, z,  dist::ParticleDistribution, sdist::SplineDistribution, xgrid, vgrid)
+    f = projection(z[:,t_ind], dist, sdist)
+    # df = Derivative(1) * f
+    # v̇ = VlasovMethods.RCLB_rhs(z[:, t_ind], params, f)
+    scalefontsizes()
+    p = plot(xlabel = "v", xlims = [-7., +7], ylims = [0., +0.4], size = [1200,800], legendfontsize=14)
+    histogram!(p, z[:,t_ind], bins=xgrid, normalize=:pdf, label="particle distribution")
+    # scatter!(z[:, t_ind], v̇, color=:red, label=L"\partial_t v")
+    plot!(p, vgrid, f.(vgrid), lw = 3, label="spline-projected distribution")
+    return p
+end
 
-# # plot initial condition and final result
-# p1 = plot_distributions(1, z, dist, sdist, xgrid, vgrid)
-# scalefontsizes(1.5)
-# savefig(p1, "initial_distribution_" * run_name * ".pdf")
+# plot initial condition and final result
+p1 = plot_distributions(1, z, dist, sdist, xgrid, vgrid)
+scalefontsizes(1.5)
+savefig(p1, "initial_distribution_" * run_name * ".pdf")
 
-# n_end = length(t)
-# p2 = plot_distributions(n_end, z, dist, sdist, xgrid, vgrid)
-# savefig(p2, "final_distribution_" * run_name * ".pdf")
+n_end = length(t)
+p2 = plot_distributions(n_end, z, dist, sdist, xgrid, vgrid)
+savefig(p2, "final_distribution_" * run_name * ".pdf")
 
 
-# plot(p1, p2, layout=(1,2))
-# savefig("initial_final_distribution_" * run_name * ".pdf")
+plot(p1, p2, layout=(1,2))
+savefig("initial_final_distribution_" * run_name * ".pdf")
 
-# plot(t, (mom .- mom[1])/mom[1], label = "momentum", xlabel="t", ylabel = "relative error")
-# plot!(t, (enr .- enr[1])/enr[1], label = "energy")
+plot(t, (mom .- mom[1])/mom[1], label = "momentum", xlabel="t", ylabel = "relative error")
+plot!(t, (enr .- enr[1])/enr[1], label = "energy")
 
 
 # # f_eval = zeros(npart, length(t))

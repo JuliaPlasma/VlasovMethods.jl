@@ -29,7 +29,7 @@ Base.similar(AT, s::SplineDistribution{DT,XD,VD}) where {DT,XD,VD} =
     SplineDistribution(XD, VD, s.basis, zeros(AT, axes(s.coefficients)), s.mass_matrix)
 
 similar_type(AT, ::SplineDistribution{DT, XD, VD, TwoDSpline{DT, BT, BT2}, BT, MT, FT}) where {DT, XD, VD, BT, MT, FT, BT2} = SplineDistribution{AT, XD, VD, TwoDSpline{AT, BT, BT2}, BT, MT, FT}
-similar_type(AT, ::SplineDistribution{DT, XD, VD, BSplineKit.Spline{DT, BT, Vector{DT}}, BT, MT, FT}) where {DT, XD, VD, BT, MT, FT} = SplineDistribution{AT, XD, VD, Spline{AT, BT, Vector{AT}}, BT, MT, FT}
+similar_type(AT, ::SplineDistribution{DT, XD, VD, BSplineKit.Spline{DT, BT, Vector{DT}}, BT, MT, FT}) where {DT, XD, VD, BT, MT, FT} = SplineDistribution{AT, XD, VD, BSplineKit.Spline{AT, BT, Vector{AT}}, BT, MT, FT}
 
 
 function SplineDistribution(xdim, vdim, nknots::KT, s_order::OT, domain::Tuple, length_big_cell, bc::Symbol=:Dirichlet, compute_mass_galerkin::Bool=true) where {KT, OT}
@@ -54,7 +54,7 @@ function SplineDistribution(xdim, vdim, nknots::KT, s_order::OT, domain::Tuple, 
     end
 
     if compute_mass_galerkin
-        mass_1d = galerkin_matrix(basis, Matrix{Float64})
+        mass_1d = BSplineKit.galerkin_matrix(basis, Matrix{Float64})
         # mass_1d = galerkin_matrix(basis)
     else
         mass_1d = mass_matrix(basis, TrapezoidalQuadrature())
