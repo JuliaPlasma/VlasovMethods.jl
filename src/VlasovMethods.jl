@@ -28,6 +28,8 @@ using Trapz
 # import DifferentialEquations
 # import NaNMath
 
+import Base: Callable
+
 import BSplineKit
 import BSplineKit: AbstractBSplineBasis, BSplineBasis, PeriodicBSplineBasis, RecombinedBSplineBasis
 import BSplineKit: BSplineOrder
@@ -62,7 +64,7 @@ export initialize!
 
 include("splines/spline_nd.jl")
 
-export SplineND
+export SplineND, L2projection!
 
 # include("splines/2d_spline.jl")
 include("splines/2d_spline_new.jl")

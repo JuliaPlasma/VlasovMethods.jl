@@ -1,35 +1,47 @@
 
 remap_unit_interval(y, x₀, x₁) = x₀ + y * (x₁ - x₀)
 
-unique_knots(basis::AbstractBSplineBasis) = sort([Set(BSplineKit.knots(basis))...])
-unique_knots(basis::PeriodicBSplineBasis) = sort([Set(BSplineKit.knots(basis))...])[begin+div(BSplineKit.order(basis),2):end-div(BSplineKit.order(basis)-1,2)]
-
-
-function mass_matrix_integrand(basis::AbstractBSplineBasis, knots, i, j, k)
-    remap = y -> remap_unit_interval(y, knots[k], knots[k+1])
-    v -> (basis[i] ∘ remap)(v) * (basis[j] ∘ remap)(v)
+function remap_unit_to_knot_interval(f::Callable, knots, k)
+    v -> f(SA_F64[remap_unit_interval(v[1], knots[k], knots[k+1])])
 end
 
-function mass_matrix_integrand(basis::PeriodicBSplineBasis, knots, i, j, k)
-    remap  = y -> remap_unit_interval(y, knots[k], knots[k+1])
-    remapm = y -> remap_unit_interval(y, knots[k], knots[k+1]) - (knots[end] - knots[begin])
-    remapp = y -> remap_unit_interval(y, knots[k], knots[k+1]) + (knots[end] - knots[begin])
-    v -> ((basis[i] ∘ remap)(v) + (basis[i] ∘ remapm)(v) + (basis[i] ∘ remapp)(v)) *
-         ((basis[j] ∘ remap)(v) + (basis[j] ∘ remapm)(v) + (basis[j] ∘ remapp)(v))
+function remap_unit_to_knot_interval(f::Callable, knots, k, l)
+    v -> f(SA_F64[remap_unit_interval(v[1], knots[k], knots[k+1]), remap_unit_interval(v[2], knots[l], knots[l+1])])
+end
+
+function remap_basis_from_unit_to_knot_interval(i::Int, basis::AbstractBSplineBasis, knots, k)
+    v -> basis[i](remap_unit_interval(v, knots[k], knots[k+1]))
+end
+
+function remap_basis_from_unit_to_knot_interval(i::Int, basis::PeriodicBSplineBasis, knots, k)
+    v -> basis[i](remap_unit_interval(v, knots[k], knots[k+1])) +
+         basis[i](remap_unit_interval(v, knots[k], knots[k+1]) - (knots[end] - knots[begin])) +
+         basis[i](remap_unit_interval(v, knots[k], knots[k+1]) + (knots[end] - knots[begin]))
+end
+
+unique_knots(basis::AbstractBSplineBasis) = sort([Set(BSplineKit.knots(basis))...])
+unique_knots(basis::PeriodicBSplineBasis) = sort([Set(BSplineKit.knots(basis))...])[begin+div(BSplineKit.order(basis), 2):end-div(BSplineKit.order(basis) - 1, 2)]
+
+function mass_matrix_quadrature(basis::AbstractBSplineBasis, knots, quadrature::QuadratureRule, i, j)
+    m = 0.0
+    for k in eachindex(knots[begin:end-1])
+        integrand = v -> remap_basis_from_unit_to_knot_interval(i, basis, knots, k)(v) *
+                         remap_basis_from_unit_to_knot_interval(j, basis, knots, k)(v)
+        m += quadrature(integrand) * (knots[k+1] - knots[k])
+    end
+    return m
 end
 
 function mass_matrix(basis::AbstractBSplineBasis, quadrature::QuadratureRule)
     M = zeros(length(basis), length(basis))
     knots = unique_knots(basis)
 
-    for i in axes(M,1)
-        for j in axes(M,2)
-            for k in eachindex(knots[begin:end-1])
-                M[i,j] += quadrature(mass_matrix_integrand(basis, knots, i, j, k)) * (knots[k+1] - knots[k])
-            end
+    for i in axes(M, 1)
+        for j in axes(M, 2)
+            M[i, j] = mass_matrix_quadrature(basis, knots, quadrature, i, j)
         end
-    end  
-    
+    end
+
     return M
 end
 
@@ -60,7 +72,7 @@ function _mass_kron(D, mass_mat)
 end
 
 
-struct SplineND{T, D, BT <: AbstractBSplineBasis, DT, CT1 <: AbstractArray{T}, CT2 <: AbstractVector{T}, MT <: AbstractMatrix{T}, FT, QT <: QuadratureRule{T}}
+struct SplineND{T,D,BT<:AbstractBSplineBasis,DT,CT1<:AbstractArray{T},CT2<:AbstractVector{T},MT<:AbstractMatrix{T},FT,QT<:QuadratureRule{T}}
     basis::BT
     derivative::DT
     coefficients::CT1
@@ -69,7 +81,7 @@ struct SplineND{T, D, BT <: AbstractBSplineBasis, DT, CT1 <: AbstractArray{T}, C
     mass_factor::FT
     quadrature::QT
 
-    function SplineND{T,D}(basis::AbstractBSplineBasis, quadrature::QuadratureRule; mass_quadrature = quadrature) where {T,D}
+    function SplineND{T,D}(basis::AbstractBSplineBasis, quadrature::QuadratureRule; mass_quadrature=quadrature) where {T,D}
         basis_der = spline_basis_derivative(basis)
 
         mass_mat = _mass_kron(D, mass_matrix(basis, mass_quadrature))
@@ -86,9 +98,9 @@ struct SplineND{T, D, BT <: AbstractBSplineBasis, DT, CT1 <: AbstractArray{T}, C
             typeof(coefficients),
             typeof(coeff_vector),
             typeof(mass_mat),
-            typeof(mass_fac), 
+            typeof(mass_fac),
             typeof(quadrature)
-           }(
+        }(
             basis,
             basis_der,
             coefficients,
@@ -96,7 +108,7 @@ struct SplineND{T, D, BT <: AbstractBSplineBasis, DT, CT1 <: AbstractArray{T}, C
             mass_mat,
             mass_fac,
             quadrature
-            )
+        )
     end
 end
 
@@ -119,6 +131,7 @@ order(::SplineND{T,D,BT}) where {T,D,BT} = BSplineKit.order(BT)
 Base.eltype(::SplineND{T,D}) where {T,D} = T
 Base.ndims(::SplineND{T,D}) where {T,D} = D
 Base.size(s::SplineND{T,D}) where {T,D} = Tuple(length(basis(s)) for _ in 1:D)
+Base.length(s::SplineND{T,D}) where {T,D} = *((length(basis(s)) for _ in 1:D)...)
 
 
 map_index(::AbstractBSplineBasis, i) = i
@@ -135,7 +148,7 @@ function evaluate(s::SplineND{T,1}, x::AbstractVector{T}) where {T}
             result += s.coefficients[i] * bi
         end
     end
-    
+
     return result
 end
 
@@ -151,17 +164,17 @@ function evaluate(s::SplineND{T,2}, x::AbstractVector{T}) where {T}
             j = map_index(basis(s), jlast - δj + 1)
             if i ≥ 1 && i ≤ length(basis(s)) &&
                j ≥ 1 && j ≤ length(basis(s))
-                result += s.coefficients[i,j] * bi * bj
+                result += s.coefficients[i, j] * bi * bj
             end
         end
     end
-    
+
     return result
 end
 
 
 (s::SplineND{T})(x::AbstractVector{T}) where {T} = evaluate(s, x)
-(s::SplineND{T,D})(x::Vararg{T,D}) where {D, T <: Number} = evaluate(s, SVector{D}(x...))
+(s::SplineND{T,D})(x::Vararg{T,D}) where {D,T<:Number} = evaluate(s, SVector{D}(x...))
 
 
 function cartesian_index(::SplineND{T,1}, i::Int) where {T}
@@ -222,7 +235,7 @@ end
 function _evaluate_basis_derivative(B::AbstractBSplineBasis{O,T}, x::AbstractVector{T}, I::Tuple, j::Int) where {O,T}
     result = one(T)
     for d in eachindex(x)
-        result *= d == j ? B[I[d],T](x[d], BSplineKit.Derivative(1)) : B[I[d],T](x[d])
+        result *= d == j ? B[I[d], T](x[d], BSplineKit.Derivative(1)) : B[I[d], T](x[d])
     end
     return result
 end
@@ -245,3 +258,41 @@ function evaluate_indices(s::SplineND{T,D}, x::AbstractVector{T}) where {T,D}
 end
 
 evaluate_indices(s::SplineND{T,D}, x::Vararg{T,D}) where {T,D} = evaluate_indices(s, SVector{D}(x...))
+
+
+function L2product_quadrature(f::Callable, basis::AbstractBSplineBasis, knots, quadrature::QuadratureRule, i)
+    m = 0.0
+
+    for k in eachindex(knots[begin:end-1])
+        g = v -> remap_basis_from_unit_to_knot_interval(i, basis, knots, k)(v) *
+                 remap_unit_to_knot_interval(f, knots, k)(SA_F64[v])
+        m += quadrature(g) * (knots[k+1] - knots[k])
+    end
+
+    return m
+end
+
+function L2product_quadrature(f::Callable, basis::AbstractBSplineBasis, knots, quadrature::QuadratureRule, i, j)
+    m = 0.0
+
+    for k in eachindex(knots[begin:end-1])
+        for l in eachindex(knots[begin:end-1])
+            integrand = (u, v) -> remap_basis_from_unit_to_knot_interval(i, basis, knots, k)(u) *
+                                  remap_basis_from_unit_to_knot_interval(j, basis, knots, l)(v) *
+                                  remap_unit_to_knot_interval(f, knots, k, l)(SA_F64[u, v])
+            quadfunc = (i, j) -> quadrature.weights[i] * quadrature.weights[j] * integrand(quadrature.nodes[i], quadrature.nodes[j])
+            quadinds = zip(eachindex(quadrature) * ones(Int, nnodes(quadrature))', ones(Int, nnodes(quadrature)) * eachindex(quadrature)')
+            interval = (knots[k+1] - knots[k]) * (knots[l+1] - knots[l])
+
+            m += mapreduce(ind -> quadfunc(ind...), +, quadinds) * interval
+        end
+    end
+
+    return m
+end
+
+function L2projection!(f::Callable, s::SplineND{T}) where {T}
+    L = [L2product_quadrature(f, basis(s), unique_knots(s), s.quadrature, cartesian_index(s, l)...) for l in 1:length(s)]
+    ldiv!(s.coeff_vector, s.mass_factor, L)
+    return s
+end
