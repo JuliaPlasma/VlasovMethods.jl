@@ -127,21 +127,53 @@ function Picard_iterate_Landau_nls!(landau, tol, ftol, β, Δt, ti, t, v_prev, v
     #     reltol = 5e-3, show_trace=Val(true), trace_level = TraceWithJacobianConditionNumber())
     
     # NonlinearSolve.jl using Picard w/ anderson acceleration
-    @time sol = NonlinearSolve.solve(probN, 
-        NonlinearSolve.NLsolveJL(; method=:anderson, m = m, beta = β); 
-        reltol = 5e-3, show_trace=Val(true))
+    # @time sol = NonlinearSolve.solve(probN, 
+    #     NonlinearSolve.NLsolveJL(; method = :anderson, m = m, beta = β); 
+    #     reltol = 5e-3, maxiters = 10, show_trace=Val(true))
+
+    # @time sol = NonlinearSolve.solve(probN, TrustRegion();
+    #     reltol = 5e-3, maxiters = 10, show_trace=Val(true))
 
     # @time sol = nlsolve(g!, v_guess, method=:anderson, iterations = max_iters, m = m, beta = β, xtol = tol, ftol = ftol, show_trace = true)
+
+    v_midpoint = landau.cache[eltype(v_guess)].v
+    v̇_midpoint = landau.cache[eltype(v_guess)].v̇
+
+    v_midpoint .= (v_guess .+ v_prev) ./ 2
+    collisional_vectorfield!(v̇_midpoint, v_midpoint, params, landau)
+    println("   |f(v_0)| = ", euclidean(v_guess, v_prev .+ Δt .* v̇_midpoint))
+
+    v_sol = [copy(v_guess)]
+    v̇_sol = [copy(v̇_midpoint)]
+
+    for i in 1:5
+        v_guess .= v_prev .+ Δt .* v̇_midpoint
+
+        v_midpoint .= (v_guess .+ v_prev) ./ 2
+    
+        collisional_vectorfield!(v̇_midpoint, v_midpoint, params, landau)
+
+        println("   |f(v_$i)| = ", euclidean(v_guess, v_prev .+ Δt .* v̇_midpoint))
+
+        push!(v_sol, copy(v_guess))
+        push!(v̇_sol, copy(v̇_midpoint))
+    end
+
+    sol = (v = v_sol, v̇ = v̇_sol)
+
+    println()
 
     # v_new = sol.u
 
     # update solution array
-    dist.particles.v .= sol.u
+    # dist.particles.v .= sol.u
+    dist.particles.v .= v_guess
 
     # update rhs storage
     # rhs_prev[:,:,1] .= Landau_rhs_2!(view(rhs_prev, :, :, 1), dist.particles.v, params)
     rhs_prev[:,:,2] .= rhs_prev[:,:,1]
-    collisions_rhs!(view(rhs_prev, :, :, 1), dist.particles.v, params, landau)
+    rhs_prev[:,:,1] .= v̇_midpoint
+    # collisions_rhs!(view(rhs_prev, :, :, 1), dist.particles.v, params, landau)
 
     # return solution at t
     return sol
