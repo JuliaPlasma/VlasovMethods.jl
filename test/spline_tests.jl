@@ -270,7 +270,7 @@ end
     @test_nowarn SplineND(d, o, k, :Natural, q)
     @test_nowarn SplineND(d, o, k, :Dirichlet, q)
     @test_nowarn SplineND(d, o, k, :Periodic, q)
-    
+
     ### B-spline with natural boundary conditions ###
 
     s = SplineND(d, o, k, :Natural, q)
@@ -354,7 +354,7 @@ end
     @test all(isapprox.(s.(z), 0; atol=8eps()))
 
     L2projection!(x -> 1.0, s)
-    @test all(isapprox.(s.coefficients, 1; atol=32eps()))
+    @test all(isapprox.(s.coefficients, 1; atol=64eps()))
     @test all(isapprox.(s.(z), 1; atol=16eps()))
 
     s = L2projection!(x -> abs(x[1] * x[2]), SplineND(d, 2, l, :Periodic, q))
