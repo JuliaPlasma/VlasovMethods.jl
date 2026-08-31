@@ -1,7 +1,8 @@
-struct ShiftedNormalV{DT,ST} <: VlasovExample
+struct ShiftedNormalV{DT, ST} <: VlasovExample
     domain::DT      # domain for x-dist
     shift::ST       # shift for v-dist
-    function ShiftedNormalV(domain::DT = (-5.0, 5.0), shift::ST = 2.0) where {DT <: Tuple, ST}
+    function ShiftedNormalV(domain::DT = (-5.0, 5.0), shift::ST = 2.0) where {
+            DT <: Tuple, ST}
         new{DT, ST}(domain, shift)
     end
 end
@@ -28,10 +29,9 @@ function initialize!(dist::ParticleDistribution, params::ShiftedNormalV, ::Sampl
     v₀ .+= params.shift
 
     # write to particle distribution
-    dist.particles.x[1,:] .= x₀
-    dist.particles.v[1,:] .= v₀
-    dist.particles.w[1,:] .= 1 / npart
+    dist.particles.x[1, :] .= x₀
+    dist.particles.v[1, :] .= v₀
+    dist.particles.w[1, :] .= 1 / npart
 
     return dist
-
 end

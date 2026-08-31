@@ -1,19 +1,18 @@
 
-struct VlasovPoisson{XD, VD, DT <: DistributionFunction{XD,VD}, PT <: Potential} <: VlasovModel
+struct VlasovPoisson{XD, VD, DT <: DistributionFunction{XD, VD}, PT <: Potential} <:
+       VlasovModel
     distribution::DT
     potential::PT
 
-    function VlasovPoisson(dist::DistributionFunction{XD,VD}, potential) where {XD,VD}
+    function VlasovPoisson(dist::DistributionFunction{XD, VD}, potential) where {XD, VD}
         new{XD, VD, typeof(dist), typeof(potential)}(dist, potential)
     end
 end
-
 
 function update_potential!(model::VlasovPoisson)
     projection!(model.potential, model.distribution)
     PoissonSolvers.update!(model.potential)
 end
-
 
 ####################################################
 # Define Splitting Method for Vlasov-Poisson Model #
@@ -23,8 +22,8 @@ end
 function lorentz_force!(ż, t, z, params)
     update_potential!(params.model)
     for i in axes(ż, 2)
-        ż[1,i] = z[2,i]
-        ż[2,i] = - params.ϕ(z[1,i], Derivative(1))
+        ż[1, i] = z[2, i]
+        ż[2, i] = - params.ϕ(z[1, i], Derivative(1))
     end
 end
 
@@ -35,8 +34,8 @@ end
 # Vector field for advection
 function v_advection!(ż, t, z, params)
     for i in axes(ż, 2)
-        ż[1,i] = z[2,i]
-        ż[2,i] = 0
+        ż[1, i] = z[2, i]
+        ż[2, i] = 0
     end
 end
 
@@ -44,16 +43,16 @@ end
 function v_acceleration!(ż, t, z, params)
     update_potential!(params.model)
     for i in axes(ż, 2)
-        ż[1,i] = 0
-        ż[2,i] = - params.ϕ(z[1,i], Derivative(1))
+        ż[1, i] = 0
+        ż[2, i] = - params.ϕ(z[1, i], Derivative(1))
     end
 end
 
 # Solution for advection
 function s_advection!(z, t, z̄, t̄, params)
     for i in axes(z, 2)
-        z[1,i] = z̄[1,i] + (t-t̄) * z̄[2,i]
-        z[2,i] = z̄[2,i]
+        z[1, i] = z̄[1, i] + (t-t̄) * z̄[2, i]
+        z[2, i] = z̄[2, i]
     end
 end
 
@@ -61,8 +60,8 @@ end
 function s_acceleration!(z, t, z̄, t̄, params)
     update_potential!(params.model)
     for i in axes(z, 2)
-        z[1,i] = z̄[1,i]
-        z[2,i] = z̄[2,i] - (t-t̄) * params.ϕ(z̄[1,i], Derivative(1))
+        z[1, i] = z̄[1, i]
+        z[2, i] = z̄[2, i] - (t-t̄) * params.ϕ(z̄[1, i], Derivative(1))
     end
 end
 
@@ -76,10 +75,10 @@ function SplittingMethod(model::VlasovPoisson{1, 1, <: ParticleDistribution}, ts
 
     # create geometric problem
     equ = GeometricEquations.SODEProblem(
-            (v_advection!, v_acceleration!),
-            (s_advection!, s_acceleration!),
-            tspan, tstep, copy(model.distribution.particles.z);
-            parameters = params)
+        (v_advection!, v_acceleration!),
+        (s_advection!, s_acceleration!),
+        tspan, tstep, copy(model.distribution.particles.z);
+        parameters = params)
 
     # create integrator
     int = GeometricIntegrators.GeometricIntegrator(equ, GeometricIntegrators.Strang())

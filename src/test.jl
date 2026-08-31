@@ -2,7 +2,7 @@ using VlasovMethods
 using BSplineKit
 
 nknots = 20
-domain = [0., 10.]
+domain = [0.0, 10.0]
 ord = 4
 knots = collect(LinRange(domain..., nknots))
 b = BSplineBasis(BSplineOrder(ord), knots)
@@ -11,4 +11,4 @@ coefs = zeros(nknots, nknots)
 
 S = TwoDSpline(basis, coefs)
 
-S([1.,1.])
+S([1.0, 1.0])

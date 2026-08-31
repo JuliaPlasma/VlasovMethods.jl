@@ -3,7 +3,7 @@ struct SumMaxwellian{T} <: VlasovExample
     var_one::T
     mean_two::T
     var_two::T
-    function SumMaxwellian(;mean_one=0., var_one = 1., mean_two=0., var_two = 2.0)
+    function SumMaxwellian(; mean_one = 0.0, var_one = 1.0, mean_two = 0.0, var_two = 2.0)
         new{typeof(mean_one)}(mean_one, var_one, mean_two, var_two)
     end
 end
@@ -20,7 +20,7 @@ function initialize!(dist::ParticleDistribution, params::SumMaxwellian, ::Sampli
     # adjust variance of the two distributions
     v₀ .*= sqrt(params.var_one)
     v₁ .*= sqrt(params.var_two)
-    
+
     # adjust means of the two distributions
     v₀ .+= params.mean_one
     v₁ .+= params.mean_two
@@ -30,8 +30,7 @@ function initialize!(dist::ParticleDistribution, params::SumMaxwellian, ::Sampli
 
     # write to particle distribution
     dist.particles.v .= v
-    dist.particles.w[1,:] .= 1 / npart
+    dist.particles.w[1, :] .= 1 / npart
 
     return dist
-
 end

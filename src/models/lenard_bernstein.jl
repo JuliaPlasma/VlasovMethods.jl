@@ -1,9 +1,11 @@
-struct LenardBernstein{XD, VD, DT <: DistributionFunction{XD,VD}, ET <: Entropy, T} <: CollisionOperator
+struct LenardBernstein{XD, VD, DT <: DistributionFunction{XD, VD}, ET <: Entropy, T} <:
+       CollisionOperator
     dist::DT    # distribution function
     ent::ET     # entropy 
     ν::T        # collision frequency 
-    
-    function LenardBernstein(dist::DistributionFunction{XD,VD}, ent::Entropy; ν::T=1.) where {XD, VD, T}
+
+    function LenardBernstein(dist::DistributionFunction{XD, VD}, ent::Entropy; ν::T = 1.0) where {
+            XD, VD, T}
         new{XD, VD, typeof(dist), typeof(ent), T}(dist, ent, ν)
     end
 end
@@ -17,8 +19,7 @@ function update_entropy!(model::LenardBernstein)
 end
 
 # RHS function for solving collisions using DifferentialEquations.jl
- function LB_rhs!(v̇, v::AbstractArray{ST}, params, t) where {ST}
-
+function LB_rhs!(v̇, v::AbstractArray{ST}, params, t) where {ST}
     dist = params.model.ent.cache[ST]
 
     fs = projection(v, params.idist, dist)
@@ -26,33 +27,29 @@ end
     dfdv = Derivative(1) * fs # TODO: does this belong here? NO.
 
     v̇ .= -params.ν .* (dfdv.(v) .+ v .* fs.(v))
+end
 
- end
-
- function LB_rhs_GI!(v, t, q::AbstractArray{ST}, params) where {ST}
+function LB_rhs_GI!(v, t, q::AbstractArray{ST}, params) where {ST}
     LB_rhs!(v, q, params, t)
- end
+end
 
 # used for plotting
- function LB_rhs(v, params, fs::BSplineKit.Spline)
-
+function LB_rhs(v, params, fs::BSplineKit.Spline)
     dfdv = Derivative(1) * fs # TODO: does this belong here?
 
     v̇ = -params.ν .* (dfdv.(v) .+ v .* fs.(v))
 
     return v̇
- end
+end
 
- 
-
- function DiffEqIntegrator(model::LenardBernstein{1,1}, tspan::Tuple, tstep::Real)
+function DiffEqIntegrator(model::LenardBernstein{1, 1}, tspan::Tuple, tstep::Real)
     # parameters for computing vector field
     params = (ν = model.ν, idist = model.dist, fdist = model.ent.dist, model = model)
     # u0 = copy(model.dist.particles.v[1,:])
     # construct DifferentialEquations ODEProblem
     equ = DifferentialEquations.ODEProblem(
         LB_rhs!,
-        copy(model.dist.particles.v[1,:]),
+        copy(model.dist.particles.v[1, :]),
         tspan,
         params
     )
@@ -62,18 +59,17 @@ end
     # int = DifferentialEquations.Trapezoid()
 
     DiffEqIntegrator(model, equ, int, tstep)
- end
+end
 
-
-function GeometricIntegrator(model::LenardBernstein{1,1}, tspan::Tuple, tstep::Real)
+function GeometricIntegrator(model::LenardBernstein{1, 1}, tspan::Tuple, tstep::Real)
     # collect parameters
     # params = (ϕ = model.potential, model = model)
     params = (ν = model.ν, idist = model.dist, fdist = model.ent.dist, model = model)
     # create geometric problem
     equ = GeometricEquations.ODEProblem(
-            LB_rhs_GI!,
-            tspan, tstep, copy(model.dist.particles.v[1,:]);
-            parameters = params)
+        LB_rhs_GI!,
+        tspan, tstep, copy(model.dist.particles.v[1, :]);
+        parameters = params)
 
     # create integrator
     int = GeometricIntegrators.GeometricIntegrator(equ, GeometricIntegrators.RK438())

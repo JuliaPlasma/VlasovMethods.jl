@@ -7,39 +7,53 @@ struct CLBCache{T, PT <: ParticleDistribution, ST <: SplineDistribution{T}} <: C
     end
 end
 
-CLBCache(pdist::ParticleDistribution{T}, sdist::SplineDistribution{T}) where {T} = CLBCache{T}(pdist, sdist)
+function CLBCache(pdist::ParticleDistribution{T}, sdist::SplineDistribution{T}) where {T}
+    CLBCache{T}(pdist, sdist)
+end
 
-Cache(AT, c::CLBCache{DT, PT, ST}) where {DT, PT, ST} = CLBCache{AT}(c.pdist, similar(AT, c.sdist))
-CacheType(AT, c::CLBCache{DT, PT, ST}) where {DT, PT, ST} = CLBCache{AT, PT, similar_type(AT, c.sdist)}
+function Cache(AT, c::CLBCache{DT, PT, ST}) where {DT, PT, ST}
+    CLBCache{AT}(c.pdist, similar(AT, c.sdist))
+end
+function CacheType(AT, c::CLBCache{DT, PT, ST}) where {DT, PT, ST}
+    CLBCache{AT, PT, similar_type(AT, c.sdist)}
+end
 
-struct ConservativeLenardBernstein{XD, VD, DT <: DistributionFunction{XD,VD}, ET <: Entropy, T, CT <: CacheDict} <: CollisionOperator
+struct ConservativeLenardBernstein{
+    XD, VD, DT <: DistributionFunction{XD, VD}, ET <: Entropy, T, CT <: CacheDict} <:
+       CollisionOperator
     dist::DT    # distribution function
     ent::ET     # entropy 
     ν::T        # collision frequency 
-    
+
     cache::CT
 
-    function ConservativeLenardBernstein(dist::DistributionFunction{XD,VD}, ent::Entropy; ν::T=1.) where {XD, VD, T}
+    function ConservativeLenardBernstein(
+            dist::DistributionFunction{XD, VD}, ent::Entropy; ν::T = 1.0) where {XD, VD, T}
         cache = CacheDict(CLBCache(dist, ent.dist))
         new{XD, VD, typeof(dist), typeof(ent), T, typeof(cache)}(dist, ent, ν, cache)
     end
 end
 
-Cache(AT, clb::ConservativeLenardBernstein) = CLBCache{AT}(clb.dist, similar(AT,clb.ent.dist))
-CacheType(AT, c::ConservativeLenardBernstein) = CLBCache{AT, typeof(clb.dist), similar_type(AT, clb.ent.dist)}
+function Cache(AT, clb::ConservativeLenardBernstein)
+    CLBCache{AT}(clb.dist, similar(AT, clb.ent.dist))
+end
+function CacheType(AT, c::ConservativeLenardBernstein)
+    CLBCache{AT, typeof(clb.dist), similar_type(AT, clb.ent.dist)}
+end
 
-function compute_coefficients(distribution::SplineDistribution, particle_dist::ParticleDistribution, vp::AbstractArray{VT}) where {VT}
-
+function compute_coefficients(
+        distribution::SplineDistribution, particle_dist::ParticleDistribution,
+        vp::AbstractArray{VT}) where {VT}
     n, nu, neps = compute_f_densities(distribution, vp)
     u_fs = sum(distribution.spline(v_α) for v_α in vp)
-    n = length(vp) 
+    n = length(vp)
     nu = sum(vp)
-    neps = sum(vp.^2)
+    neps = sum(vp .^ 2)
     # B1, B2 = compute_df_densities(distribution, vp)
     dfs = Derivative(1) * distribution.spline
     B1_v = [one(VT)/distribution.spline(v_α)*dfs(v_α) for v_α in vp]
     B2_v = [v_α/distribution.spline(v_α)*dfs(v_α) for v_α in vp]
-    
+
     # dlogf = compute_derivative_spline(distribution)
     # B1_v = [dlogf(v_α) for v_α in vp]
     # B2_v = [v_α * dlogf(v_α) for v_α in vp]
@@ -50,11 +64,10 @@ function compute_coefficients(distribution::SplineDistribution, particle_dist::P
     # B2_v[isnan.(B2_v)] .= zero(VT)
     B1 = sum(B1_v)
     B2 = sum(B2_v)
-    B1 *= -1 
-    B2 *= -1 
+    B1 *= -1
+    B2 *= -1
     A1 = (neps * B1 - nu * B2) / (n * neps - (nu)^2)
-    A2 = -  (nu * B1 - n * B2) / (n * neps - (nu)^2)
-
+    A2 = - (nu * B1 - n * B2) / (n * neps - (nu)^2)
 
     if isnan(A1) || isnan(A2)
         throw(ErrorException("NaNs in computation of A1 or A2, use a smaller timestep."))
@@ -63,14 +76,13 @@ function compute_coefficients(distribution::SplineDistribution, particle_dist::P
     return A1, A2
 end
 
-function compute_derivative_spline(sdist::SplineDistribution{1,1})
+function compute_derivative_spline(sdist::SplineDistribution{1, 1})
     g(x) = log(sdist.spline(x))
 
     g_spline = approximate(g, sdist.basis)
 
     return Derivative(1) * g_spline
 end
-
 
 # function compute_coefficients(distribution::SplineDistribution{1,2}, particle_dist::ParticleDistribution, vp::AbstractArray{VT}) where {VT}
 #     n = zeros(T, 2)
@@ -87,60 +99,56 @@ end
 # end
 
 # RHS function for solving collisions using DifferentialEquations.jl
- function CLB_rhs!(v̇, v::AbstractVector{ST}, params, t) where {ST}
-
+function CLB_rhs!(v̇, v::AbstractVector{ST}, params, t) where {ST}
     dist = params.model.cache[ST]
 
     fs = projection(v, params.idist, dist)
 
-    dfdv = BSplineKit.Derivative(1) * fs 
+    dfdv = BSplineKit.Derivative(1) * fs
 
     A = compute_coefficients(dist, params.idist, v)
-    v̇ .= -params.ν .* ((one(ST) ./ fs.(v)) .* dfdv.(v) .+ ( A[1] .+ A[2] .* v))
+    v̇ .= -params.ν .* ((one(ST) ./ fs.(v)) .* dfdv.(v) .+ (A[1] .+ A[2] .* v))
     # v̇ .= -params.ν .* params.idist.particles.w[1] .* ((one(ST) ./ fs.(v)) .* dfdv.(v) .+ ( A[1] .+ A[2] .* v))
     # v̇ .= -params.ν .* (dfdv.(v) .+ ( A[1] .+ A[2] .* v) .* fs.(v))
 
- end
+end
 
- function CLB_rhs_GI!(v, t, q::AbstractArray{ST}, params) where {ST}
-
+function CLB_rhs_GI!(v, t, q::AbstractArray{ST}, params) where {ST}
     dist = params.model.cache[ST].sdist
 
     fs = projection(q, params.idist, dist)
 
-    dfdv = BSplineKit.Derivative(1) * fs 
+    dfdv = BSplineKit.Derivative(1) * fs
 
     A = compute_coefficients(dist, params.idist, q)
 
-    v .= -params.ν .* ((one(ST) ./ fs.(q)) .* dfdv.(q) .+ ( A[1] .+ A[2] .* q))
+    v .= -params.ν .* ((one(ST) ./ fs.(q)) .* dfdv.(q) .+ (A[1] .+ A[2] .* q))
     # v .= -params.ν .* (dfdv.(q) .+ ( A[1] .+ A[2] .* q) .* fs.(q))
 
- end
+end
 
 # used for plotting
- function CLB_rhs(v::AbstractVector{ST}, params, fs::BSplineKit.Spline) where {ST}
-
+function CLB_rhs(v::AbstractVector{ST}, params, fs::BSplineKit.Spline) where {ST}
     dist = params.model.cache[ST].sdist
 
-    dfdv = BSplineKit.Derivative(1) * fs 
+    dfdv = BSplineKit.Derivative(1) * fs
 
     A = compute_coefficients(dist, params.idist, v)
 
-    v̇ = -params.ν .* ((one(ST) ./ fs.(v)) .* dfdv.(v) .+( A[1] .+ A[2] .* v))
+    v̇ = -params.ν .* ((one(ST) ./ fs.(v)) .* dfdv.(v) .+ (A[1] .+ A[2] .* v))
     # v̇ = -params.ν .* (dfdv.(v) .+( A[1] .+ A[2] .* v) .* fs.(v))
 
     return v̇
- end
+end
 
-
- function DiffEqIntegrator(model::ConservativeLenardBernstein{1,1}, tspan::Tuple, tstep::Real)
+function DiffEqIntegrator(model::ConservativeLenardBernstein{1, 1}, tspan::Tuple, tstep::Real)
     # parameters for computing vector field
     params = (ν = model.ν, idist = model.dist, fdist = model.ent.dist, model = model)
     # u0 = copy(model.dist.particles.v[1,:])
     # construct DifferentialEquations ODEProblem
     equ = DifferentialEquations.ODEProblem(
         CLB_rhs!,
-        copy(model.dist.particles.v[1,:]),
+        copy(model.dist.particles.v[1, :]),
         tspan,
         params
     )
@@ -150,8 +158,7 @@ end
     int = DifferentialEquations.Trapezoid()
 
     DiffEqIntegrator(model, equ, int, tstep)
- end
-
+end
 
 function GeometricIntegrator(model::ConservativeLenardBernstein, tspan::Tuple, tstep::Real) where {DT}
     # collect parameters
@@ -159,9 +166,9 @@ function GeometricIntegrator(model::ConservativeLenardBernstein, tspan::Tuple, t
     params = (ν = model.ν, idist = model.dist, fdist = model.ent.dist, model = model)
     # create geometric problem
     equ = GeometricEquations.ODEProblem(
-            CLB_rhs_GI!,
-            tspan, tstep, copy(model.dist.particles.v[1,:]);
-            parameters = params)
+        CLB_rhs_GI!,
+        tspan, tstep, copy(model.dist.particles.v[1, :]);
+        parameters = params)
 
     # create integrator
     int = Integrators.GeometricIntegrator(equ, Integrators.ImplicitMidpoint())

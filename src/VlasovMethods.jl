@@ -31,7 +31,8 @@ using Trapz
 import Base: Callable
 
 import BSplineKit
-import BSplineKit: AbstractBSplineBasis, BSplineBasis, PeriodicBSplineBasis, RecombinedBSplineBasis
+import BSplineKit: AbstractBSplineBasis, BSplineBasis, PeriodicBSplineBasis,
+                   RecombinedBSplineBasis
 import BSplineKit: BSplineOrder
 import BSplineKit.BSplines
 
@@ -40,11 +41,9 @@ import GeometricEquations: ntime
 import GeometricIntegrators.Integrators
 import GeometricIntegrators.Extrapolators
 
-
 # utilities
 
 include("cache.jl")
-
 
 # abstract types
 
@@ -58,7 +57,6 @@ include("entropies/entropy.jl")
 include("splines/nd_spline.jl")
 
 export initialize!
-
 
 # splines
 
@@ -108,7 +106,6 @@ export DiffEqIntegrator
 export GeometricIntegrator
 export Picard_iterate_over_particles
 
-
 # Vlasov models
 
 include("models/vlasov_model.jl")
@@ -140,29 +137,24 @@ include("examples/doublemaxwellian.jl")
 include("examples/bump.jl")
 include("examples/sum_maxwellian.jl")
 
-
-export BumpOnTail, NormalDistribution, UniformDistribution, ShiftedNormalV, ShiftedUniformDistribution, DoubleMaxwellian, Bump, SumMaxwellian
-
+export BumpOnTail, NormalDistribution, UniformDistribution, ShiftedNormalV,
+       ShiftedUniformDistribution, DoubleMaxwellian, Bump, SumMaxwellian
 
 # include("electric_field.jl")
 
 # export ElectricField, PoissonField, ExternalField
 # export ScaledField, ScaledPoissonField, ScaledExternalField
 
-
 # include("vlasov_poisson.jl")
 
 # export VPIntegratorParameters, VPIntegratorCache, integrate_vp!
-
 
 # include("sampling.jl")
 
 # export draw_g_accept_reject, draw_g_importance_sampling, weight_f
 
-
 # include("visualisation.jl")
 
 # export plot_particles, plot_distribution
-
 
 end

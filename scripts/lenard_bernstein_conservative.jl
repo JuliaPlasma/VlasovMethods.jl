@@ -19,15 +19,15 @@ nknot = 41     # number of grid points
 order = 4      # spline order
 tstep = 0.1    # time step size
 tspan = (0.0, 1)    # integration time interval
-length_big_cell = 0.
-domainv = (-8., 8.)
-domainv_p = (-2., 2.)
+length_big_cell = 0.0
+domainv = (-8.0, 8.0)
+domainv_p = (-2.0, 2.0)
 
 # create and initialize particle distribution function
 # dist = initialize!(ParticleDistribution(1, 1, npart), NormalDistribution())
 # dist = initialize!(ParticleDistribution(1, 1, npart), ShiftedNormalV())
 # dist = initialize!(ParticleDistribution(1, 1, npart), UniformDistribution((0.,1.0), domainv_p))
-dist = initialize!(ParticleDistribution(1, 1, npart), DoubleMaxwellian(shift = 2.))
+dist = initialize!(ParticleDistribution(1, 1, npart), DoubleMaxwellian(shift = 2.0))
 # dist = initialize!(ParticleDistribution(1, 1, npart), Bump(a = 2., b = 1.))
 # dist = initialize!(ParticleDistribution(1, 1, npart), ShiftedUniformDistribution())
 
@@ -49,7 +49,6 @@ VlasovMethods.CLB_rhs_GI!(v̇, nothing, v, params)
 
 scatter(v, v̇)
 
-
 # # create integrator
 # integrator = VlasovMethods.GeometricIntegrator(model, tspan, tstep)
 # # integrator = DiffEqIntegrator(model, tspan, tstep)
@@ -58,7 +57,6 @@ scatter(v, v̇)
 # println("Running integrator")
 # VlasovMethods.run!(integrator, h5file)
 # # sol = VlasovMethods.run(integrator)
-
 
 # # load HDF5 and Plots packages
 # using HDF5
@@ -100,7 +98,6 @@ scatter(v, v̇)
 #     κ₅[i] = sum((z[:,i] .- mom[i]).^5)./npart - 10*(enr[i] - mom[i]^2)*κ₃[i]
 # end
 
-
 # scalefontsizes()
 # # # plot(t, abs.(κ₃./κ₃[1]), yaxis=:log10, label=L"\kappa_3 / \kappa_3(t=0)")
 # # plot(t, abs.(κ₄./κ₄[1]), label=L"\kappa_4_s / \kappa_4(t=0)", yaxis=:log10, xlabel = "t", legendfontsize = 12)
@@ -110,7 +107,6 @@ scatter(v, v̇)
 # # plot!(t, exp.(-5 .* t), linestyle=:dash, label=L"y = \exp{(-5t)}")
 # # scalefontsizes(1.25)
 # # savefig("cumulant_decay_" * run_name * ".pdf")
-
 
 # xgrid = -8.:0.25:+8.
 # vgrid = -8:0.01:+8
@@ -141,7 +137,6 @@ scatter(v, v̇)
 #     v̇[i, :] = VlasovMethods.CLB_rhs(z[:,n], params, f)
 #     dSdt[i, :] .= df.(z[:,n]) .* v̇[i, :]
 
-
 #     plot(xlabel = "v", xlims = [-8, +8], ylims = [-0.5, 0.5], size=(1200,800),legendfontsize = 12)
 
 #     histogram!(z[:,n], bins=xgrid, normalize=:pdf, label="particle distribution (t ="*string(t[n])*")")
@@ -159,7 +154,6 @@ scatter(v, v̇)
 
 # # # p = plot(t[1:step:step * nplot], sum(dSdt, dims=2), label="dS/dt")
 # # # savefig(p, "dSdt_" * run_name * ".pdf")
-
 
 # function plot_distributions(t_ind, z,  dist::ParticleDistribution, sdist::SplineDistribution, xgrid, vgrid)
 #     f = projection(z[:,t_ind], dist, sdist)
@@ -182,13 +176,11 @@ scatter(v, v̇)
 # p2 = plot_distributions(n_end, z, dist, sdist, xgrid, vgrid)
 # savefig(p2, "final_distribution_" * run_name * ".pdf")
 
-
 # plot(p1, p2, layout=(1,2))
 # savefig("initial_final_distribution_" * run_name * ".pdf")
 
 # plot(t, (mom .- mom[1])/mom[1], label = "momentum", xlabel="t", ylabel = "relative error")
 # plot!(t, (enr .- enr[1])/enr[1], label = "energy")
-
 
 # # f_eval = zeros(npart, length(t))
 # # for i in 1:length(t)

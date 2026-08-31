@@ -18,12 +18,11 @@ end
 #     new{DT, typeof(basis), typeof(basis)}(basis, basis, coefficients)
 # end
 
-
 knots(S::TwoDSpline) = BSplineKit.knots(S.basis)
 basis(S::TwoDSpline) = S.basis
 # order(S::TwoDSpline) = order(S.basis)
 
-order(::Type{<:TwoDSpline{T,Basis}}) where {T,Basis} = BSplineKit.order(Basis)
+order(::Type{<:TwoDSpline{T, Basis}}) where {T, Basis} = BSplineKit.order(Basis)
 order(S::TwoDSpline) = order(typeof(S))
 
 # (S::TwoDSpline)(x, y) = (S::TwoDSpline)([x, y])
@@ -36,26 +35,26 @@ function evaluate(S::TwoDSpline{T}, x::AbstractVector) where {T}
     M = length(B)
     # k = order(S)
     result::T = 0
-    
+
     ilast1, bs1 = BSplineKit.evaluate_all(B, x[1])
     ilast2, bs2 = BSplineKit.evaluate_all(B, x[2])
 
-    for (δi, bi) ∈ pairs(bs1)
-        for (δi2, b2) ∈ pairs(bs2)
+    for (δi, bi) in pairs(bs1)
+        for (δi2, b2) in pairs(bs2)
             if typeof(B) <: PeriodicBSplineBasis
                 i = mod1(ilast1 + 1 - δi, M)
                 j = mod1(ilast2 + 1 - δi2, M)
-                result += S.coefficients[(j - 1)* M + i] * bi * b2
+                result += S.coefficients[(j - 1) * M + i] * bi * b2
             else
                 i = ilast1 + 1 - δi
                 j = ilast2 + 1 - δi2
-                if i > 0 && i <= M && j > 0 && j <= M 
-                    result += S.coefficients[(j - 1)* M + i] * bi * b2
+                if i > 0 && i <= M && j > 0 && j <= M
+                    result += S.coefficients[(j - 1) * M + i] * bi * b2
                 end
             end
         end
     end
-    
+
     return result
 end
 
@@ -64,7 +63,7 @@ end
 #     M = length(B)
 #     k = order(S)
 #     result = zero(eltype(S.coefficients))
-    
+
 #     ilast1, bs1 = evaluate_all(B, x1)
 #     ilast2, bs2 = evaluate_all(B, x2)
 
@@ -81,9 +80,9 @@ end
 # end
 
 function eval_2d_basis_func(B::AbstractBSplineBasis, x::AbstractVector, index::Int)
-    i,j = ij_from_k(index, length(B))
+    i, j = ij_from_k(index, length(B))
 
-    return B[i,T](x[1]) * B[j,T](x[2])
+    return B[i, T](x[1]) * B[j, T](x[2])
 end
 
 function ij_from_k(k::Int, M::Int)
@@ -99,26 +98,26 @@ end
 #     return [a(v[1], Derivative(1)) * b(v[2]), a(v[1]) * b(v[2], Derivative(1))]
 # end
 
-function eval_bfd(B::AbstractBSplineBasis, k, v::AbstractVector{T}) where T
+function eval_bfd(B::AbstractBSplineBasis, k, v::AbstractVector{T}) where {T}
     # M = length(B)
     i, j = ij_from_k(k, length(B))
 
-    a = B[i,T]
-    b = B[j,T]
+    a = B[i, T]
+    b = B[j, T]
 
-    @SVector [a(v[1], BSplineKit.Derivative(1)) * b(v[2]), a(v[1]) * b(v[2], BSplineKit.Derivative(1))]
+    @SVector [a(v[1], BSplineKit.Derivative(1)) * b(v[2]),
+        a(v[1]) * b(v[2], BSplineKit.Derivative(1))]
 end
 
-
-function eval_bfd(B::AbstractBSplineBasis, k, v1::T, v2::T) where T
+function eval_bfd(B::AbstractBSplineBasis, k, v1::T, v2::T) where {T}
     i, j = ij_from_k(k, length(B))
 
-    a = B[i,T]
-    b = B[j,T]
+    a = B[i, T]
+    b = B[j, T]
 
-    @SVector [a(v1, BSplineKit.Derivative(1)) * b(v2), a(v1) * b(v2, BSplineKit.Derivative(1))]
+    @SVector [
+        a(v1, BSplineKit.Derivative(1)) * b(v2), a(v1) * b(v2, BSplineKit.Derivative(1))]
 end
-
 
 # function eval_bfd!(derivative::AbstractVector{T}, B::AbstractBSplineBasis, k, v, α, β) where T
 #     # M = length(B)
@@ -142,7 +141,7 @@ end
 #     derivative[2] = α * derivative[2] + β * a(v1) * b(v2, Derivative(1))
 # end
 
-function evaluate_der_2d(B::AbstractBSplineBasis, v::AbstractVector{T}) where T
+function evaluate_der_2d(B::AbstractBSplineBasis, v::AbstractVector{T}) where {T}
     M = length(B)
 
     i1, bs1 = BSplineKit.evaluate_all(B, v[1])
@@ -156,9 +155,8 @@ function evaluate_der_2d(B::AbstractBSplineBasis, v::AbstractVector{T}) where T
     result = zeros(T, (2, length(bs1) * length(bs2)))
 
     count = 1 #TODO: should make this indexing cleaner
-    for (δi, bi) ∈ pairs(bs1)
-        for (δi2, b2) ∈ pairs(bs2)
-
+    for (δi, bi) in pairs(bs1)
+        for (δi2, b2) in pairs(bs2)
             i = i1 + 1 - δi
             j = i2 + 1 - δi2
             k = (j - 1)*M + i
@@ -175,8 +173,7 @@ function evaluate_der_2d(B::AbstractBSplineBasis, v::AbstractVector{T}) where T
     return index_list, result
 end
 
-
-function evaluate_der_2d_indices(B::AbstractBSplineBasis, v::AbstractVector{T}) where T
+function evaluate_der_2d_indices(B::AbstractBSplineBasis, v::AbstractVector{T}) where {T}
     # performes the following calculation
     # for δi1 ∈ eachindex(bs1)
     #     for δi2 ∈ eachindex(bs2)
@@ -202,8 +199,7 @@ function evaluate_der_2d_indices(B::AbstractBSplineBasis, v::AbstractVector{T}) 
     return vec(index_list)
 end
 
-
-function evaluate_der_2d_indices(B::AbstractBSplineBasis, v1::T, v2::T) where T
+function evaluate_der_2d_indices(B::AbstractBSplineBasis, v1::T, v2::T) where {T}
     M = length(B)
 
     i1, bs1 = BSplineKit.evaluate_all(B, v1)
@@ -217,9 +213,8 @@ function evaluate_der_2d_indices(B::AbstractBSplineBasis, v1::T, v2::T) where T
     # result = zeros(T,(2,length(bs1) * length(bs2)))
 
     count = 1 #TODO: should make this indexing cleaner
-    for (δi, bi) ∈ pairs(bs1)
-        for (δi2, b2) ∈ pairs(bs2)
-
+    for (δi, bi) in pairs(bs1)
+        for (δi2, b2) in pairs(bs2)
             i = i1 + 1 - δi
             j = i2 + 1 - δi2
             k = (j - 1)*M + i
@@ -236,14 +231,13 @@ function evaluate_der_2d_indices(B::AbstractBSplineBasis, v1::T, v2::T) where T
     return index_list
 end
 
-
 function shift_scale(i, knots)
     # @show 0.5 * (knots[i] + knots[i+1])
     # @show 0.5 * (knots[i + 1] - knots[i])
-    return (knots[i] + knots[i+1]) / 2, (knots[i + 1] - knots[i]) / 2
+    return (knots[i] + knots[i + 1]) / 2, (knots[i + 1] - knots[i]) / 2
 end
 
-function linear_transform(x::T, shift::T, scale::T) where T
+function linear_transform(x::T, shift::T, scale::T) where {T}
     return x .* scale .+ shift
 end
 
@@ -251,7 +245,7 @@ function gauss_quad(f::Function, basis::AbstractBSplineBasis, n::Int, params)
     T = eltype(params.sdist)
     # k = BSplineKit.order(basis)
     # knots = BSplineKit.knots(basis)[k:end-k+1]
-    knots = BSplineKit.knots(basis)[3:end-1]
+    knots = BSplineKit.knots(basis)[3:(end - 1)]
     M = length(knots) - 1
     x, w = gausslegendre(n)
 
@@ -271,11 +265,12 @@ function gauss_quad(f::Function, basis::AbstractBSplineBasis, n::Int, params)
         for i1 in 1:n, j1 in 1:n, l1 in 1:n, m1 in 1:n
             x_ij = @SVector [x[i1], x[j1]]
             x_lm = @SVector [x[l1], x[m1]]
-    
+
             v1 = linear_transform(x_ij, shift_ij, scale_ij)
             v2 = linear_transform(x_lm, shift_lm, scale_lm)
 
-            res += f(v1, v2, params) * w[i1] * w[j1] * w[l1] * w[m1] * scale_i * scale_j * scale_l * scale_m
+            res += f(v1, v2, params) * w[i1] * w[j1] * w[l1] * w[m1] * scale_i * scale_j *
+                   scale_l * scale_m
         end
     end
 
@@ -313,13 +308,14 @@ function gauss_quad_2d(f::Function, basis::AbstractBSplineBasis, n::Int, params)
     # M = length(basis) + 1
     # k = BSplineKit.order(basis)
     # knots = BSplineKit.knots(basis)[k:end-k+1]
-    knots = BSplineKit.knots(basis)[3:end-1]
+    knots = BSplineKit.knots(basis)[3:(end - 1)]
     M = length(knots) - 1
     x, w = gausslegendre(n)
 
     res::T = 0
 
     for i in 1:M, j in 1:M
+
         shift_i, scale_i = shift_scale(i, knots)
         shift_j, scale_j = shift_scale(j, knots)
 
@@ -327,6 +323,7 @@ function gauss_quad_2d(f::Function, basis::AbstractBSplineBasis, n::Int, params)
         scale_ij = @SVector [scale_i, scale_j]
 
         for i1 in 1:n, j1 in 1:n
+
             x_ij = @SVector [x[i1], x[j1]]
 
             v1 = linear_transform(x_ij, shift_ij, scale_ij)
@@ -337,7 +334,6 @@ function gauss_quad_2d(f::Function, basis::AbstractBSplineBasis, n::Int, params)
 
     return res
 end
-
 
 function gauss_quad_1d(f::Function, basis::AbstractBSplineBasis, n::Int, params)
     T = eltype(params.sdist)

@@ -10,7 +10,6 @@ Updates final_dist with projected Spline and coefficients.
 #     rhs = zero(final_dist.coefficients)
 #     Mfact = cholesky!(galerkin_matrix(B))
 
-
 #     # projection of delta functions to splines of @jipolanco 
 #     # https://github.com/jipolanco/BSplineKit.jl/issues/48
 #     for p in init_dist.particles
@@ -31,8 +30,8 @@ Updates final_dist with projected Spline and coefficients.
 #     final_dist.spline = Spline(B, final_dist.coefficients)
 # end
 
-
-function projection(velocities::AbstractVector{VT}, dist::ParticleDistribution{PT,1,1}, final_dist::SplineDistribution{ST,1,1}) where {VT,PT,ST}
+function projection(velocities::AbstractVector{VT}, dist::ParticleDistribution{PT, 1, 1},
+        final_dist::SplineDistribution{ST, 1, 1}) where {VT, PT, ST}
     rhs = zeros(VT, length(final_dist))
 
     # projection of delta functions to splines of @jipolanco 
@@ -43,7 +42,7 @@ function projection(velocities::AbstractVector{VT}, dist::ParticleDistribution{P
         # The indices of the evaluated basis functions are ilast:-1:(ilast - k + 1),
         # where k is the spline order.
         if ilast > 0 && ilast <= length(final_dist)
-            for (δi, bi) ∈ pairs(bs)
+            for (δi, bi) in pairs(bs)
                 i = ilast + 1 - δi
                 if i < 1 || i > length(final_dist)
                     if abs(bi) > eps()
@@ -52,7 +51,7 @@ function projection(velocities::AbstractVector{VT}, dist::ParticleDistribution{P
                         println("bs = ", bs)
                     end
                 else
-                    rhs[i] += bi * dist.particles.w[1,p]
+                    rhs[i] += bi * dist.particles.w[1, p]
                 end
             end
         end
@@ -65,7 +64,6 @@ function projection(velocities::AbstractVector{VT}, dist::ParticleDistribution{P
 
     return final_dist.spline
 end
-
 
 # function projection(velocities::AbstractMatrix{VT}, dist::ParticleDistribution{1,2}, final_dist::SplineDistribution{1,2}) where {VT}
 #     rhs = zeros(VT, size(final_dist))
@@ -99,14 +97,13 @@ end
 #     return final_dist.spline
 # end
 
-function project_Maxwellian(sdist::SplineDistribution{T,1,2}) where {T}
+function project_Maxwellian(sdist::SplineDistribution{T, 1, 2}) where {T}
     B = sdist.basis
     M = length(B)
     rhs = zeros(M^2)
     d_start = BSplineKit.knots(sdist.basis)[1]
     d_end = BSplineKit.knots(sdist.basis)[end]
     domain = ([d_start, d_start], [d_end, d_end])
-
 
     for k in eachindex(rhs)
         i, j = ij_from_k(k, M)
@@ -122,8 +119,8 @@ function project_Maxwellian(sdist::SplineDistribution{T,1,2}) where {T}
     return sdist.spline
 end
 
-
-function projection(velocities::AbstractMatrix{VT}, dist::ParticleDistribution{PT,1,2}, final_dist::SplineDistribution{ST,1,2}) where {VT,PT,ST}
+function projection(velocities::AbstractMatrix{VT}, dist::ParticleDistribution{PT, 1, 2},
+        final_dist::SplineDistribution{ST, 1, 2}) where {VT, PT, ST}
     rhs = zeros(VT, length(final_dist))
     M = length(final_dist.basis)
     d_start = BSplineKit.knots(final_dist.basis)[begin]
@@ -133,21 +130,22 @@ function projection(velocities::AbstractMatrix{VT}, dist::ParticleDistribution{P
     # projection of delta functions to splines of @jipolanco 
     # https://github.com/jipolanco/BSplineKit.jl/issues/48
     for p in axes(velocities, 2)
-        ilast1, bs1 = final_dist.basis(velocities[1,p])  # same as `evaluate_all`, first component
-        ilast2, bs2 = final_dist.basis(velocities[2,p])  # same as `evaluate_all`, second component
+        ilast1, bs1 = final_dist.basis(velocities[1, p])  # same as `evaluate_all`, first component
+        ilast2, bs2 = final_dist.basis(velocities[2, p])  # same as `evaluate_all`, second component
         # Iterate over evaluated basis functions.
         # The indices of the evaluated basis functions are ilast:-1:(ilast - k + 1),
         # where k is the spline order.
-        for (δi1, bi1) ∈ pairs(bs1)
-            for (δi2, bi2) ∈ pairs(bs2)
+        for (δi1, bi1) in pairs(bs1)
+            for (δi2, bi2) in pairs(bs2)
                 i = ilast1 + 1 - δi1
                 j = ilast2 + 1 - δi2
                 if i > 0 && i <= M && j > 0 && j <= M
-                    rhs[(j-1) * M + i] += bi1 * bi2 * dist.particles.w[1,p]
-                # elseif ilast1 <= 0 || ilast1 > M || ilast2 <= 0 || ilast2 > M
-                elseif velocities[1,p] < d_start ||  velocities[2,p] < d_start || velocities[1,p] > d_end || velocities[2,p] > d_end 
+                    rhs[(j - 1) * M + i] += bi1 * bi2 * dist.particles.w[1, p]
+                    # elseif ilast1 <= 0 || ilast1 > M || ilast2 <= 0 || ilast2 > M
+                elseif velocities[1, p] < d_start || velocities[2, p] < d_start ||
+                       velocities[1, p] > d_end || velocities[2, p] > d_end
                     println("WARNING: particle outside domain")
-                    @show velocities[:,p]
+                    @show velocities[:, p]
                 end
             end
         end
@@ -163,15 +161,11 @@ end
 
 # TODO 
 function projection!(init_dist::SplineDistribution, final_dist::ParticleDistribution)
-
-
 end
-
 
 function projection!(init_dist::ParticleDistribution, final_dist::ParticleDistribution)
     final_dist = init_dist
 end
-
 
 function projection!(init_dist::SplineDistribution, final_dist::SplineDistribution)
     final_dist = init_dist

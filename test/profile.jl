@@ -13,7 +13,7 @@ nknot = 41     # number of grid points
 order = 4      # spline order
 tstep = 1e-3   # time step size
 tspan = (0.0, 1e-2)    # integration time interval
-domainv = (-10., 10.)
+domainv = (-10.0, 10.0)
 
 # create and initialize particle distribution function
 dist = initialize!(ParticleDistribution(1, 1, npart), NormalDistribution())

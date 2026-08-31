@@ -22,28 +22,39 @@ struct MLBCache{T, PT <: ParticleDistribution, ST <: SplineDistribution{T}} <: C
     end
 end
 
-MLBCache(pdist::ParticleDistribution{T}, sdist::SplineDistribution{T}) where {T} = MLBCache{T}(pdist, sdist)
+function MLBCache(pdist::ParticleDistribution{T}, sdist::SplineDistribution{T}) where {T}
+    MLBCache{T}(pdist, sdist)
+end
 
+function Cache(AT, c::MLBCache{DT, PT, ST}) where {DT, PT, ST}
+    MLBCache{AT}(c.pdist, similar(AT, c.sdist))
+end
+function CacheType(AT, c::MLBCache{DT, PT, ST}) where {DT, PT, ST}
+    MLBCache{AT, PT, similar_type(AT, c.sdist)}
+end
 
-Cache(AT, c::MLBCache{DT, PT, ST}) where {DT, PT, ST} = MLBCache{AT}(c.pdist, similar(AT, c.sdist))
-CacheType(AT, c::MLBCache{DT, PT, ST}) where {DT, PT, ST} = MLBCache{AT, PT, similar_type(AT, c.sdist)}
-
-
-struct MetriplecticLenardBernstein{D, XD, VD, DT <: DistributionFunction{XD, VD}, ET <: Entropy,  CT <: CacheDict} <: VlasovModel
+struct MetriplecticLenardBernstein{
+    D, XD, VD, DT <: DistributionFunction{XD, VD}, ET <: Entropy, CT <: CacheDict} <:
+       VlasovModel
     dist::DT
     entropy::ET
     ν::D
 
     cache::CT
 
-    function MetriplecticLenardBernstein(dist::DistributionFunction{XD, VD}, ent::Entropy; ν::D=1.) where {D, XD, VD}
+    function MetriplecticLenardBernstein(
+            dist::DistributionFunction{XD, VD}, ent::Entropy; ν::D = 1.0) where {D, XD, VD}
         cache = CacheDict(MLBCache(dist, ent.dist))
         new{D, XD, VD, typeof(dist), typeof(ent), typeof(cache)}(dist, ent, ν, cache)
     end
 end
 
-Cache(AT, mlb::MetriplecticLenardBernstein) = MLBCache{AT}(mlb.pdist, similar(AT, mlb.sdist))
-CacheType(AT, mlb::MetriplecticLenardBernstein) = MLBCache{AT, typeof(mlb.pdist), similar_type(AT, mlb.sdist)}
+function Cache(AT, mlb::MetriplecticLenardBernstein)
+    MLBCache{AT}(mlb.pdist, similar(AT, mlb.sdist))
+end
+function CacheType(AT, mlb::MetriplecticLenardBernstein)
+    MLBCache{AT, typeof(mlb.pdist), similar_type(AT, mlb.sdist)}
+end
 
 function compute_J!(J, sdist::SplineDistribution{T, 1, 1}, ::MetriplecticLenardBernstein) where {T}
     # knot_list = BSplineKit.knots(sdist.basis)
@@ -52,12 +63,10 @@ function compute_J!(J, sdist::SplineDistribution{T, 1, 1}, ::MetriplecticLenardB
     # end
     J .= BSplineKit.galerkin_projection(x -> 1 + 0.5 * log((sdist.spline(x))^2), sdist.basis)
     ldiv!(sdist.mass_fact, J)
-
 end
 
-
-function compute_dS!(dS, J, v::AbstractArray{ST}, sdist::SplineDistribution{ST, 1, 1}, ::MetriplecticLenardBernstein) where {ST}
-
+function compute_dS!(dS, J, v::AbstractArray{ST}, sdist::SplineDistribution{ST, 1, 1},
+        ::MetriplecticLenardBernstein) where {ST}
     dS .= 0
     for i in eachindex(dS)
         ilast, bs = BSplineKit.evaluate_all(sdist.basis, v[i], BSplineKit.Derivative(1))
@@ -77,46 +86,53 @@ end
 
 function compute_entropy(f, mlb::MetriplecticLenardBernstein)
     k = BSplineKit.knots(mlb.entropy.dist.basis)
-    S, err = quadgk(x ->  f(x) * 0.5 * log((f(x))^2), k[1], k[end], atol = 1e-14)
+    S, err = quadgk(x -> f(x) * 0.5 * log((f(x))^2), k[1], k[end], atol = 1e-14)
     return S, err
 end
 
-
-function compute_dS_discrete_gradient!(dS_dg, dS_midpoint, v_new::AbstractArray{ST}, vn::AbstractArray{ST}, mlb::MetriplecticLenardBernstein) where {ST}
-    
+function compute_dS_discrete_gradient!(dS_dg, dS_midpoint, v_new::AbstractArray{ST},
+        vn::AbstractArray{ST}, mlb::MetriplecticLenardBernstein) where {ST}
     sdist = mlb.cache[ST].sdist
-    
+
     projection(vn, mlb.dist, sdist)
     @show S_n, err_n = compute_entropy(x -> sdist.spline(x), mlb)
 
     projection(v_new, mlb.dist, sdist)
     @show S_n_plus_1, err_n_plus_1 = compute_entropy(x -> sdist.spline(x), mlb)
 
-    dS_dg .= dS_midpoint .+ (v_new .- vn) .* (S_n_plus_1 - S_n - dot(v_new .- vn, dS_midpoint)) ./ norm(v_new .- vn).^2
-
+    dS_dg .= dS_midpoint .+
+             (v_new .- vn) .* (S_n_plus_1 - S_n - dot(v_new .- vn, dS_midpoint)) ./
+             norm(v_new .- vn) .^ 2
 end
 
-function compute_moments(v::AbstractArray{ST}, pdist::ParticleDistribution, ::MetriplecticLenardBernstein) where {ST}
+function compute_moments(v::AbstractArray{ST}, pdist::ParticleDistribution,
+        ::MetriplecticLenardBernstein) where {ST}
     n = sum(pdist.particles.w)
     u = dot(pdist.particles.w, v) / n
-    eps = dot(pdist.particles.w, v.^2) / n
+    eps = dot(pdist.particles.w, v .^ 2) / n
 
     return n, u, eps
 end
 
-function rhs!(v̇::AbstractArray{ST}, v::AbstractArray{ST}, pdist::ParticleDistribution, n, u, eps, dS::AbstractArray{ST}, dS_sum, dS_v_sum, ::MetriplecticLenardBernstein) where {ST}
+function rhs!(
+        v̇::AbstractArray{ST}, v::AbstractArray{ST}, pdist::ParticleDistribution, n, u, eps,
+        dS::AbstractArray{ST}, dS_sum, dS_v_sum, ::MetriplecticLenardBernstein) where {ST}
     # dS_sum = sum(dS)
-    v̇ .= - n / pdist.particles.w[1] * (eps - u^2) .* dS .+ (eps .- u .* v) * dS_sum .+ (v .- u) * dS_v_sum
+    v̇ .= - n / pdist.particles.w[1] * (eps - u^2) .* dS .+ (eps .- u .* v) * dS_sum .+
+         (v .- u) * dS_v_sum
 end
 
-function rhs_downstairs_factor!(v̇::AbstractArray{ST}, v::AbstractArray{ST}, pdist::ParticleDistribution, n, u, eps, dS::AbstractArray{ST}, dS_sum, dS_v_sum, ::MetriplecticLenardBernstein) where {ST}
+function rhs_downstairs_factor!(
+        v̇::AbstractArray{ST}, v::AbstractArray{ST}, pdist::ParticleDistribution, n, u, eps,
+        dS::AbstractArray{ST}, dS_sum, dS_v_sum, ::MetriplecticLenardBernstein) where {ST}
     # dS_sum = sum(dS)
     # v̇ .= - one(ST) / pdist.particles.w[1] .* dS .+ (eps .- u .* v) ./ (eps - u^2) * dS_sum .+ (v .- u) ./ (eps - u^2) * dS_v_sum
-    v̇ .= - n / pdist.particles.w[1] .* dS .+ (eps .- u .* v) ./ (eps - u^2) * dS_sum .+ (v .- u) ./ (eps - u^2) * dS_v_sum
+    v̇ .= - n / pdist.particles.w[1] .* dS .+ (eps .- u .* v) ./ (eps - u^2) * dS_sum .+
+         (v .- u) ./ (eps - u^2) * dS_v_sum
 end
 
-function collisional_vectorfield!(v̇::AbstractArray{ST}, v::AbstractArray{ST}, params, mlb::MetriplecticLenardBernstein) where {ST}
-
+function collisional_vectorfield!(v̇::AbstractArray{ST}, v::AbstractArray{ST}, params,
+        mlb::MetriplecticLenardBernstein) where {ST}
     cache = mlb.cache[ST]
 
     sdist = cache.sdist
@@ -134,7 +150,6 @@ function collisional_vectorfield!(v̇::AbstractArray{ST}, v::AbstractArray{ST}, 
 
     # rhs!(v̇, v, mlb.dist, n, u, eps, cache.dS, ds_sum, ds_v_sum, mlb)
     rhs_downstairs_factor!(v̇, v, mlb.dist, n, u, eps, cache.dS, ds_sum, ds_v_sum, mlb)
-
 end
 
 # # single particle rhs for Newton solve
@@ -150,7 +165,8 @@ end
 #     return v̇
 # end
 
-function f!(f::AbstractArray{T}, vn::AbstractArray{T}, vp, params, Δt, mlb::MetriplecticLenardBernstein) where T
+function f!(f::AbstractArray{T}, vn::AbstractArray{T}, vp, params,
+        Δt, mlb::MetriplecticLenardBernstein) where {T}
     v_midpoint = mlb.cache[T].v
     v_midpoint .= (vn .+ vp) ./ 2
 
@@ -177,8 +193,9 @@ end
 #     return y_new
 # end
 
-
-function Picard_iterate_over_particles(dv::AbstractArray{ST}, vn::AbstractArray{ST}, vn_minus_one::AbstractArray{ST}, dv_history, ti, t,  Δt, m, β, abstol, reltol, mlb::MetriplecticLenardBernstein) where {ST}
+function Picard_iterate_over_particles(dv::AbstractArray{ST}, vn::AbstractArray{ST},
+        vn_minus_one::AbstractArray{ST}, dv_history, ti, t, Δt, m, β,
+        abstol, reltol, mlb::MetriplecticLenardBernstein) where {ST}
 
     # err = 1
     f = 1
@@ -200,19 +217,22 @@ function Picard_iterate_over_particles(dv::AbstractArray{ST}, vn::AbstractArray{
 
     # use Hermite extrapolation to get an initial guess
     if ti ≥ 4
-        Extrapolators.extrapolate!(t - 2Δt, vn_minus_one, dv_history[:, 2], t - Δt, vn, dv_history[:, 1], t, v_prev, Extrapolators.HermiteExtrapolation())
+        Extrapolators.extrapolate!(t - 2Δt, vn_minus_one, dv_history[:, 2], t - Δt, vn,
+            dv_history[:, 1], t, v_prev, Extrapolators.HermiteExtrapolation())
     else
-        problemGNI = GeometricEquations.ODEProblem((v̇,t,v, params) -> collisional_vectorfield!(v̇,v,params,mlb), (t, t+Δt), Δt, vn; parameters = params)
-        Extrapolators.extrapolate!(t - Δt, vn, t, v_prev, problemGNI, Extrapolators.MidpointExtrapolation(5))
+        problemGNI = GeometricEquations.ODEProblem(
+            (v̇, t, v, params) -> collisional_vectorfield!(v̇, v, params, mlb),
+            (t, t+Δt), Δt, vn; parameters = params)
+        Extrapolators.extrapolate!(
+            t - Δt, vn, t, v_prev, problemGNI, Extrapolators.MidpointExtrapolation(5))
     end
 
     probN = NonlinearProblem{true}((f, v, p) -> f!(f, v, vn, params, Δt, mlb), v_prev)
 
     # NonlinearSolve.jl using Picard w/ anderson acceleration
-    @time sol = NonlinearSolve.solve(probN, 
-        NonlinearSolve.NLsolveJL(; method=:anderson, m = m, beta = β); 
-        abstol = abstol, reltol = reltol, show_trace=Val(true))
-    
+    @time sol = NonlinearSolve.solve(probN,
+        NonlinearSolve.NLsolveJL(; method = :anderson, m = m, beta = β);
+        abstol = abstol, reltol = reltol, show_trace = Val(true))
 
     dv_history[:, 2] .= dv_history[:, 1]
     # dv_history[:, 1] .= dv
@@ -222,8 +242,6 @@ function Picard_iterate_over_particles(dv::AbstractArray{ST}, vn::AbstractArray{
     # return v_new, v_prev, j, err, f 
 
 end
-
-
 
 # function Picard_iterate_over_particles(dv::AbstractArray{ST}, vn::AbstractArray{ST}, vn_minus_one::AbstractArray{ST}, dv_history, ti, t,  Δt, max_iters, tol, ftol, mlb::MetriplecticLenardBernstein) where {ST}
 
@@ -305,7 +323,7 @@ end
 #             IM_update!(vnew_vec, [v_prev[i]], [vn[i]], rhs, Δt, params_i, mlb)
 #             v_new[i] = vnew_vec[1]
 #         end
-        
+
 #         v_midpoint = (v_new .+ vn)./2
 
 #         projection(v_midpoint, mlb.dist, sdist)
@@ -336,24 +354,24 @@ end
 
 #         # collisional_vectorfield!(dv, (v_prev .+ vn)./2, params, mlb)
 #         # v_new .= vn .+ Δt * dv
-        
+
 #         # @show err_sqeuc = sqeuclidean(v_new, v_prev) 
 #         @show err = norm((v_new .- v_prev)./v_new)
-        
+
 #         # check rhs of fixed point map
 #         # collisional_vectorfield!(dv, (v_new .+ vn)./2, params, mlb)
 #         # @show f = norm(v_new .- vn .- Δt .* dv)
 #         @show f = norm(fvec)
-        
+
 #         j += 1
-        
+
 #         if j == max_iters
 #             println("WARNING: MAX Picard iterations reached")
 #             @show err, f
 #         end
 
 #         v_prev .= v_new
-        
+
 #     end
 
 #     dv_history[:, 2] .= dv_history[:, 1]
@@ -363,7 +381,7 @@ end
 #     # @show j
 
 #     # v_midpoint = (v_prev .+ vn)./2
-    
+
 #     # projection(v_midpoint, mlb.dist, sdist)
 
 #     # compute_J!(cache.J, sdist, mlb)
@@ -381,5 +399,3 @@ end
 #     # return v_new, v_prev, j, err, f 
 
 # end
-
-

@@ -1,7 +1,8 @@
-struct DoubleMaxwellian{DT,ST} <: VlasovExample
+struct DoubleMaxwellian{DT, ST} <: VlasovExample
     domain::DT      # domain for x-dist
     shift::ST       # shift away from 0 for both peaks of v-dist
-    function DoubleMaxwellian(;domain::DT = (-5.0, 5.0), shift::ST = 3.0) where {DT <: Tuple, ST}
+    function DoubleMaxwellian(; domain::DT = (-5.0, 5.0), shift::ST = 3.0) where {
+            DT <: Tuple, ST}
         new{DT, ST}(domain, shift)
     end
 end
@@ -33,10 +34,9 @@ function initialize!(dist::ParticleDistribution, params::DoubleMaxwellian, ::Sam
     # v = vcat(v₀, v₁)
 
     # write to particle distribution
-    dist.particles.x[1,:] .= x₀
+    dist.particles.x[1, :] .= x₀
     dist.particles.v .= v
-    dist.particles.w[1,:] .= 1 / npart
+    dist.particles.w[1, :] .= 1 / npart
 
     return dist
-
 end

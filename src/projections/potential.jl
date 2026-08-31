@@ -1,5 +1,6 @@
 
-function projection!(potential::PoissonSolvers.Potential{<:PeriodicBSplineBasis}, distribution::ParticleDistribution)
+function projection!(potential::PoissonSolvers.Potential{<:PeriodicBSplineBasis},
+        distribution::ParticleDistribution)
     b = Splines.PeriodicVector(potential.rhs)
     b .= 0
 
@@ -12,7 +13,7 @@ function projection!(potential::PoissonSolvers.Potential{<:PeriodicBSplineBasis}
         # Iterate over evaluated basis functions.
         # The indices of the evaluated basis functions are ilast:-1:(ilast - k + 1),
         # where k is the spline order.
-        for (δi, bi) ∈ pairs(bs)
+        for (δi, bi) in pairs(bs)
             i = ilast + 1 - δi
             b[i] += w * bi
         end

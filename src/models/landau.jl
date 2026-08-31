@@ -18,30 +18,38 @@ struct LandauCache{T, PT <: ParticleDistribution, ST <: SplineDistribution{T}} <
         v = zero(pdist.particles.v)
         v̇ = zero(pdist.particles.v)
 
-        J  = zeros(T, M)
-        L  = zeros(T, (M,M))
+        J = zeros(T, M)
+        L = zeros(T, (M, M))
         LJ = zeros(T, M)
-        K1 = zeros(T, (M,N))
-        K2 = zeros(T, (M,N))
-        
+        K1 = zeros(T, (M, N))
+        K2 = zeros(T, (M, N))
+
         new{T, typeof(pdist), typeof(sdist)}(pdist, sdist, v, v̇, J, L, LJ, K1, K2)
     end
 end
 
-LandauCache(pdist::ParticleDistribution{T}, sdist::SplineDistribution{T}) where {T} = LandauCache{T}(pdist, sdist)
+function LandauCache(pdist::ParticleDistribution{T}, sdist::SplineDistribution{T}) where {T}
+    LandauCache{T}(pdist, sdist)
+end
 
-Cache(AT, c::LandauCache{DT, PT, ST}) where {DT, PT, ST} = LandauCache{AT}(c.pdist, similar(AT, c.sdist))
-CacheType(AT, c::LandauCache{DT, PT, ST}) where {DT, PT, ST} = LandauCache{AT, PT, similar_type(AT, c.sdist)}
+function Cache(AT, c::LandauCache{DT, PT, ST}) where {DT, PT, ST}
+    LandauCache{AT}(c.pdist, similar(AT, c.sdist))
+end
+function CacheType(AT, c::LandauCache{DT, PT, ST}) where {DT, PT, ST}
+    LandauCache{AT, PT, similar_type(AT, c.sdist)}
+end
 
-
-struct Landau{D, XD, VD, DT <: DistributionFunction{XD,VD}, ET <: Entropy, CT <: CacheDict} <: VlasovModel
+struct Landau{
+    D, XD, VD, DT <: DistributionFunction{XD, VD}, ET <: Entropy, CT <: CacheDict} <:
+       VlasovModel
     dist::DT    # distribution function
     entropy::ET # entropy
     ν::D        # collision frequency
 
     cache::CT
-    
-    function Landau(dist::DistributionFunction{XD,VD}, ent::Entropy; ν::D = 1.) where {D, XD, VD}
+
+    function Landau(dist::DistributionFunction{XD, VD}, ent::Entropy; ν::D = 1.0) where {
+            D, XD, VD}
         cache = CacheDict(LandauCache(dist, ent.dist))
         new{D, XD, VD, typeof(dist), typeof(ent), typeof(cache)}(dist, ent, ν, cache)
     end
@@ -50,13 +58,11 @@ end
 Cache(AT, l::Landau) = LandauCache{AT}(l.pdist, similar(AT, l.sdist))
 CacheType(AT, l::Landau) = LandauCache{AT, typeof(l.pdist), similar_type(AT, l.sdist)}
 
-
-
-function integrand_J(v::AbstractArray{T}, B, i, j, sdist::SplineDistribution) where T
+function integrand_J(v::AbstractArray{T}, B, i, j, sdist::SplineDistribution) where {T}
     B[i, T](v[1]) * B[j, T](v[2]) * (one(T) + log(sdist.spline(v)))
 end
 
-function integrand_J(v::AbstractArray{T}, params) where T
+function integrand_J(v::AbstractArray{T}, params) where {T}
     integrand_J(v, params.B, params.i, params.j, params.sdist)
 end
 
@@ -80,7 +86,7 @@ end
 #     return int
 # end
 
-function compute_J!(J, sdist::SplineDistribution{T,1,2}, n, ::Landau) where {T}
+function compute_J!(J, sdist::SplineDistribution{T, 1, 2}, n, ::Landau) where {T}
     for k in 1:length(sdist)
         i, j = ij_from_k(k, length(sdist.basis))
         params = (sdist = sdist, B = sdist.basis, i = i, j = j)
@@ -92,7 +98,6 @@ function compute_J!(J, sdist::SplineDistribution{T,1,2}, n, ::Landau) where {T}
     return J
 end
 
-
 function kernel(v_α::AbstractVector{T}, v_β::AbstractVector{T}, ::Landau) where {T}
     norm_diff = euclidean(v_α, v_β)
 
@@ -102,14 +107,13 @@ function kernel(v_α::AbstractVector{T}, v_β::AbstractVector{T}, ::Landau) wher
         U21 = - (v_α[2] - v_β[2]) * (v_α[1] - v_β[1]) / norm_diff^3
         U22 = - (v_α[2] - v_β[2]) * (v_α[2] - v_β[2]) / norm_diff^3 + inv(norm_diff)
 
-        return @SMatrix [ U11  U12 ;
-                          U21  U22 ]
+        return @SMatrix [U11 U12;
+                         U21 U22]
     else
-        return @SMatrix [ zero(T)  zero(T) ;
-                          zero(T)  zero(T) ]
+        return @SMatrix [zero(T) zero(T);
+                         zero(T) zero(T)]
     end
 end
-
 
 # particle-to-particle version
 # function Landau_rhs(v, params)
@@ -145,14 +149,13 @@ end
 #     return v̇
 # end
 
-
 function compute_K!(K1, K2, v_array::AbstractArray{T}, sdist, landau::Landau) where {T}
     for α in axes(v_array, 2)
-        klist, der_array = evaluate_der_2d(sdist.basis, v_array[:,α])
+        klist, der_array = evaluate_der_2d(sdist.basis, v_array[:, α])
         for (i, k) in pairs(klist)
             if k > 0 && k <= length(sdist)
-                K1[k,α] = landau.dist.particles.w[1,α] * der_array[1,i]
-                K2[k,α] = landau.dist.particles.w[1,α] * der_array[2,i]
+                K1[k, α] = landau.dist.particles.w[1, α] * der_array[1, i]
+                K2[k, α] = landau.dist.particles.w[1, α] * der_array[2, i]
             end
         end
     end
@@ -175,10 +178,10 @@ end
 # function L_integrand_vec(v::AbstractVector{T}, params) where T
 #     v1 = [v[1], v[2]]
 #     v2 = [v[3], v[4]]
-    
+
 #     id_list_1 = evaluate_der_2d_indices(params.sdist.basis, v1)
 #     id_list_2 = evaluate_der_2d_indices(params.sdist.basis, v2)
-    
+
 #     if (params.k[1] in id_list_1 || params.k[1] in id_list_2) && (params.k[2] in id_list_1 || params.k[2] in id_list_2)
 #         # U = compute_U(v1, v2)
 #         basis_derivative = zeros(T, 2)
@@ -198,7 +201,6 @@ end
 #     end
 # end
 
-
 # function compute_L_ij(sdist)
 #     T = eltype(sdist)
 #     L = zeros(T, (length(sdist), length(sdist)))
@@ -208,7 +210,7 @@ end
 #     # d_start = T(BSplineKit.knots(sdist.basis)[1])
 #     # d_end = T(BSplineKit.knots(sdist.basis)[end])
 #     # domain = ([d_start, d_start, d_start, d_start], [d_end, d_end, d_end, d_end])
-    
+
 #     Threads.@threads for k in CartesianIndices(L)
 #         i1, j1 = ij_from_k(k[1], M)
 #         i2, j2 = ij_from_k(k[2], M)
@@ -235,18 +237,19 @@ end
 #     return L .* 0.5
 # end
 
-
-function L_integrand(v1::AbstractVector{T}, v2::AbstractVector{T}, sdist, i, j, landau::Landau) where T
+function L_integrand(
+        v1::AbstractVector{T}, v2::AbstractVector{T}, sdist, i, j, landau::Landau) where {T}
     basis_derivative1 = eval_bfd(sdist.basis, i, v1) - eval_bfd(sdist.basis, i, v2)
     basis_derivative2 = eval_bfd(sdist.basis, j, v1) - eval_bfd(sdist.basis, j, v2)
 
-    sdist.spline(v1) * dot(basis_derivative1, kernel(v1, v2, landau) * basis_derivative2) * sdist.spline(v2)
+    sdist.spline(v1) * dot(basis_derivative1, kernel(v1, v2, landau) * basis_derivative2) *
+    sdist.spline(v2)
 end
 
-function L_integrand(v1::AbstractVector{T}, v2::AbstractVector{T}, params, landau::Landau) where T
+function L_integrand(v1::AbstractVector{T}, v2::AbstractVector{T}, params, landau::Landau) where {T}
     id_list_1 = evaluate_der_2d_indices(params.sdist.basis, v1)
     id_list_2 = evaluate_der_2d_indices(params.sdist.basis, v2)
-    
+
     for i in eachindex(params.k)
         params.k[i] in id_list_1 || params.k[i] in id_list_2 || return zero(T)
     end
@@ -254,31 +257,30 @@ function L_integrand(v1::AbstractVector{T}, v2::AbstractVector{T}, params, landa
     L_integrand(v1, v2, params.sdist, params.k[1], params.k[2], landau)
 end
 
-function compute_L!(L, sdist::SplineDistribution{T,1,2}, n::Int, landau::Landau) where {T}
+function compute_L!(L, sdist::SplineDistribution{T, 1, 2}, n::Int, landau::Landau) where {T}
     integrand = (v1, v2, params) -> L_integrand(v1, v2, params, landau)
 
-    for i in axes(L,1)
-        for j in axes(L,2)[i:end]
+    for i in axes(L, 1)
+        for j in axes(L, 2)[i:end]
             # i1, j1 = ij_from_k(i, M)
             # i2, j2 = ij_from_k(j, M)
 
             # iknots = BSplines.common_support(B[i1], B[i2])
             # jknots = BSplines.common_support(B[j1], B[j2])
 
-            params = (k = (i,j), sdist = sdist)
-            L[i,j] = gauss_quad(integrand, sdist.basis, n, params) / 2
+            params = (k = (i, j), sdist = sdist)
+            L[i, j] = gauss_quad(integrand, sdist.basis, n, params) / 2
         end
     end
 
-    for i in axes(L,1)
-        for j in axes(L,2)[begin:i-1]
-            L[i,j] = L[j,i]
+    for i in axes(L, 1)
+        for j in axes(L, 2)[begin:(i - 1)]
+            L[i, j] = L[j, i]
         end
     end
 
     return L
 end
-
 
 # spline-to-spline? version 
 function collisional_vectorfield!(v̇::AbstractArray{ST}, v::AbstractArray{ST}, params, landau::Landau) where {ST}
@@ -298,8 +300,8 @@ function collisional_vectorfield!(v̇::AbstractArray{ST}, v::AbstractArray{ST}, 
 
     if rank(cache.K1) < length(sdist) || rank(cache.K2) < length(sdist)
         println("K1 or K2 not full rank")
-        @show size(cache.K1,1) - rank(cache.K1)
-        @show size(cache.K2,1) - rank(cache.K2)
+        @show size(cache.K1, 1) - rank(cache.K1)
+        @show size(cache.K2, 1) - rank(cache.K2)
     end
 
     # compute L_ij matrix
@@ -313,8 +315,8 @@ function collisional_vectorfield!(v̇::AbstractArray{ST}, v::AbstractArray{ST}, 
     # solve for vector field
     mul!(cache.LJ, cache.L, cache.J)
 
-    v̇[1,:] .= cache.K1 \ cache.LJ
-    v̇[2,:] .= cache.K2 \ cache.LJ
+    v̇[1, :] .= cache.K1 \ cache.LJ
+    v̇[2, :] .= cache.K2 \ cache.LJ
 
     # v̇[1,:] .*= -1
     # v̇[2,:] .*= -1

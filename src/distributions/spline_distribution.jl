@@ -1,4 +1,4 @@
-struct SplineDistribution{DT, XD, VD, ST, BT, MT, FT} <: DistributionFunction{DT,XD,VD}
+struct SplineDistribution{DT, XD, VD, ST, BT, MT, FT} <: DistributionFunction{DT, XD, VD}
     spline::ST
     # spline::Spline{DT, BT, Vector{DT}}
     basis::BT
@@ -6,7 +6,8 @@ struct SplineDistribution{DT, XD, VD, ST, BT, MT, FT} <: DistributionFunction{DT
     mass_matrix::MT
     mass_fact::FT
 
-    function SplineDistribution(xdim, vdim, basis::BT, coefficients::AbstractArray{DT}, mass_matrix) where {BT, DT}
+    function SplineDistribution(xdim, vdim, basis::BT, coefficients::AbstractArray{DT},
+            mass_matrix) where {BT, DT}
         _coefficients = Vector(coefficients)
         # mass_1d = galerkin_matrix(basis)
         if vdim == 1
@@ -18,21 +19,33 @@ struct SplineDistribution{DT, XD, VD, ST, BT, MT, FT} <: DistributionFunction{DT
         end
         # mass_fact = lu(mass_matrix)
         mass_fact = cholesky(mass_matrix)
-        new{DT, xdim, vdim, typeof(spline), typeof(basis), typeof(mass_matrix), typeof(mass_fact)}(spline, basis, _coefficients, mass_matrix, mass_fact)
+        new{DT, xdim, vdim, typeof(spline), typeof(basis),
+            typeof(mass_matrix), typeof(mass_fact)}(
+            spline, basis, _coefficients, mass_matrix, mass_fact)
     end
 end
 
 Base.eltype(::SplineDistribution{DT}) where {DT} = DT
 Base.length(dist::SplineDistribution) = length(dist.coefficients)
 
-Base.similar(AT, s::SplineDistribution{DT,XD,VD}) where {DT,XD,VD} =
+function Base.similar(AT, s::SplineDistribution{DT, XD, VD}) where {DT, XD, VD}
     SplineDistribution(XD, VD, s.basis, zeros(AT, axes(s.coefficients)), s.mass_matrix)
+end
 
-similar_type(AT, ::SplineDistribution{DT, XD, VD, TwoDSpline{DT, BT, BT2}, BT, MT, FT}) where {DT, XD, VD, BT, MT, FT, BT2} = SplineDistribution{AT, XD, VD, TwoDSpline{AT, BT, BT2}, BT, MT, FT}
-similar_type(AT, ::SplineDistribution{DT, XD, VD, BSplineKit.Spline{DT, BT, Vector{DT}}, BT, MT, FT}) where {DT, XD, VD, BT, MT, FT} = SplineDistribution{AT, XD, VD, BSplineKit.Spline{AT, BT, Vector{AT}}, BT, MT, FT}
+function similar_type(AT,
+        ::SplineDistribution{DT, XD, VD, TwoDSpline{DT, BT, BT2}, BT, MT, FT}) where {
+        DT, XD, VD, BT, MT, FT, BT2}
+    SplineDistribution{AT, XD, VD, TwoDSpline{AT, BT, BT2}, BT, MT, FT}
+end
+function similar_type(AT,
+        ::SplineDistribution{DT, XD, VD, BSplineKit.Spline{DT, BT, Vector{DT}}, BT, MT, FT}) where {
+        DT, XD, VD, BT, MT, FT}
+    SplineDistribution{AT, XD, VD, BSplineKit.Spline{AT, BT, Vector{AT}}, BT, MT, FT}
+end
 
-
-function SplineDistribution(xdim, vdim, nknots::KT, s_order::OT, domain::Tuple, length_big_cell, bc::Symbol=:Dirichlet, compute_mass_galerkin::Bool=true) where {KT, OT}
+function SplineDistribution(
+        xdim, vdim, nknots::KT, s_order::OT, domain::Tuple, length_big_cell,
+        bc::Symbol = :Dirichlet, compute_mass_galerkin::Bool = true) where {KT, OT}
     ts = collect(LinRange(domain..., nknots))
     if length_big_cell > 0
         extended_knots = [domain[1] - length_big_cell, ts..., domain[2] + length_big_cell]

@@ -19,15 +19,15 @@ nknot = 41     # number of grid points
 order = 4      # spline order
 tstep = 5e-5    # time step size
 tspan = (0.0, 5e-1)    # integration time interval
-length_big_cell = 0.
-domainv = (-10., 10.)
-domainv_p = (-2., 2.)
+length_big_cell = 0.0
+domainv = (-10.0, 10.0)
+domainv_p = (-2.0, 2.0)
 
 # create and initialize particle distribution function
 # dist = initialize!(ParticleDistribution(1, 1, npart), NormalDistribution())
 # dist = initialize!(ParticleDistribution(1, 1, npart), ShiftedNormalV())
 # dist = initialize!(ParticleDistribution(1, 1, npart), UniformDistribution((0.,1.0), domainv_p))
-dist = initialize!(ParticleDistribution(1, 1, npart), DoubleMaxwellian(shift = 1.))
+dist = initialize!(ParticleDistribution(1, 1, npart), DoubleMaxwellian(shift = 1.0))
 # dist = initialize!(ParticleDistribution(1, 1, npart), Bump(a = 2., b = 1.))
 # dist = initialize!(ParticleDistribution(1, 1, npart), ShiftedUniformDistribution())
 
@@ -47,7 +47,6 @@ integrator = VlasovMethods.GeometricIntegrator(model, tspan, tstep)
 println("Running integrator")
 VlasovMethods.run!(integrator, h5file)
 
-
 # load HDF5 and Plots packages
 using HDF5
 using Plots
@@ -64,8 +63,8 @@ t ./= npart
 # # z = sol
 # # t = sol.t
 
-mom = [mapreduce(p -> p[1], +, z[:,n]) for n in axes(z,2)]./npart
-enr = [mapreduce(p -> p[1].^2, +, z[:,n]) for n in axes(z,2)]./npart
+mom = [mapreduce(p -> p[1], +, z[:, n]) for n in axes(z, 2)] ./ npart
+enr = [mapreduce(p -> p[1] .^ 2, +, z[:, n]) for n in axes(z, 2)] ./ npart
 # # third_mom = [mapreduce(p -> (p[1].^3)./npart + 2*mom[n]^3 - 3*mom[n]*enr[n], +, z[:,n]) for n in axes(z,2)]
 # # third_mom = [mapreduce(p -> (p[1] - mom[n]).^3, +, z[:,n]) for n in axes(z,2)]./npart
 # # # fourth_mom = [mapreduce(p -> (p[1] - mom[1]).^4, +, z[:,n]) for n in axes(z,2)]./npart
@@ -88,7 +87,6 @@ enr = [mapreduce(p -> p[1].^2, +, z[:,n]) for n in axes(z,2)]./npart
 #     κ₅[i] = sum((z[:,i] .- mom[i]).^5)./npart - 10*(enr[i] - mom[i]^2)*κ₃[i]
 # end
 
-
 # scalefontsizes()
 # # # plot(t, abs.(κ₃./κ₃[1]), yaxis=:log10, label=L"\kappa_3 / \kappa_3(t=0)")
 # # plot(t, abs.(κ₄./κ₄[1]), label=L"\kappa_4_s / \kappa_4(t=0)", yaxis=:log10, xlabel = "t", legendfontsize = 12)
@@ -99,8 +97,7 @@ enr = [mapreduce(p -> p[1].^2, +, z[:,n]) for n in axes(z,2)]./npart
 # # scalefontsizes(1.25)
 # # savefig("cumulant_decay_" * run_name * ".pdf")
 
-
-xgrid = -8.:0.25:+8.
+xgrid = -8.0:0.25:+8.0
 vgrid = -8:0.01:+8
 params = (ν = model.ν, idist = model.dist, fdist = model.ent.dist, model = model)
 
@@ -129,7 +126,6 @@ params = (ν = model.ν, idist = model.dist, fdist = model.ent.dist, model = mod
 #     v̇[i, :] = VlasovMethods.CLB_rhs(z[:,n], params, f)
 #     dSdt[i, :] .= df.(z[:,n]) .* v̇[i, :]
 
-
 #     plot(xlabel = "v", xlims = [-8, +8], ylims = [-0.5, 0.5], size=(1200,800),legendfontsize = 12)
 
 #     histogram!(z[:,n], bins=xgrid, normalize=:pdf, label="particle distribution (t ="*string(t[n])*")")
@@ -148,16 +144,18 @@ params = (ν = model.ν, idist = model.dist, fdist = model.ent.dist, model = mod
 # # # p = plot(t[1:step:step * nplot], sum(dSdt, dims=2), label="dS/dt")
 # # # savefig(p, "dSdt_" * run_name * ".pdf")
 
-
-function plot_distributions(t_ind, z,  dist::ParticleDistribution, sdist::SplineDistribution, xgrid, vgrid)
-    f = projection(z[:,t_ind], dist, sdist)
+function plot_distributions(
+        t_ind, z, dist::ParticleDistribution, sdist::SplineDistribution, xgrid, vgrid)
+    f = projection(z[:, t_ind], dist, sdist)
     # df = Derivative(1) * f
     # v̇ = VlasovMethods.RCLB_rhs(z[:, t_ind], params, f)
     scalefontsizes()
-    p = plot(xlabel = "v", xlims = [-7., +7], ylims = [0., +0.4], size = [1200,800], legendfontsize=14)
-    histogram!(p, z[:,t_ind], bins=xgrid, normalize=:pdf, label="particle distribution")
+    p = plot(xlabel = "v", xlims = [-7.0, +7], ylims = [0.0, +0.4],
+        size = [1200, 800], legendfontsize = 14)
+    histogram!(
+        p, z[:, t_ind], bins = xgrid, normalize = :pdf, label = "particle distribution")
     # scatter!(z[:, t_ind], v̇, color=:red, label=L"\partial_t v")
-    plot!(p, vgrid, f.(vgrid), lw = 3, label="spline-projected distribution")
+    plot!(p, vgrid, f.(vgrid), lw = 3, label = "spline-projected distribution")
     return p
 end
 
@@ -170,13 +168,11 @@ n_end = length(t)
 p2 = plot_distributions(n_end, z, dist, sdist, xgrid, vgrid)
 savefig(p2, "final_distribution_" * run_name * ".pdf")
 
-
-plot(p1, p2, layout=(1,2))
+plot(p1, p2, layout = (1, 2))
 savefig("initial_final_distribution_" * run_name * ".pdf")
 
-plot(t, (mom .- mom[1])/mom[1], label = "momentum", xlabel="t", ylabel = "relative error")
+plot(t, (mom .- mom[1])/mom[1], label = "momentum", xlabel = "t", ylabel = "relative error")
 plot!(t, (enr .- enr[1])/enr[1], label = "energy")
-
 
 # # f_eval = zeros(npart, length(t))
 # # for i in 1:length(t)

@@ -16,8 +16,6 @@ function (f::ElectricField)(x::AbstractArray, w::AbstractArray, t)
     return e
 end
 
-
-
 struct ScaledField{FT <: ElectricField, χT} <: ElectricField
     field::FT
     χ::χT
@@ -34,8 +32,6 @@ energy(f::ScaledField) = energy(f.field) / f.χ^2
 
 coefficients(f::ScaledField) = coefficients(f.field)
 
-
-
 struct PoissonField{PT <: PoissonSolver} <: ElectricField
     poisson::PT
 end
@@ -50,18 +46,23 @@ coefficients(f::PoissonField) = f.poisson.ϕ
 
 ScaledPoissonField(poisson::PoissonSolver, χ) = ScaledField(PoissonField(poisson), χ)
 
-
-
-mutable struct ExternalField{PT <: PoissonSolver, DT, TT, AT <: AbstractArray{DT}} <: ElectricField
+mutable struct ExternalField{PT <: PoissonSolver, DT, TT, AT <: AbstractArray{DT}} <:
+               ElectricField
     poisson::PT
-    coeffs::OffsetMatrix{DT,AT}
+    coeffs::OffsetMatrix{DT, AT}
     Δt::TT
     ts::Int
 
-    ExternalField(poisson::PoissonSolver, coeffs::OffsetMatrix{DT,AT}, Δt::TT) where {DT,TT,AT} = new{typeof(poisson), DT, TT, AT}(poisson, coeffs, Δt, 0)
+    function ExternalField(
+            poisson::PoissonSolver, coeffs::OffsetMatrix{
+                DT, AT}, Δt::TT) where {DT, TT, AT}
+        new{typeof(poisson), DT, TT, AT}(poisson, coeffs, Δt, 0)
+    end
 end
 
-ExternalField(poisson::PoissonSolver, coeffs::AbstractMatrix, Δt) = ExternalField(poisson, OffsetArray(coeffs, axes(coeffs,1), axes(coeffs,2) .- 1), Δt)
+function ExternalField(poisson::PoissonSolver, coeffs::AbstractMatrix, Δt)
+    ExternalField(poisson, OffsetArray(coeffs, axes(coeffs, 1), axes(coeffs, 2) .- 1), Δt)
+end
 
 function update!(f::ExternalField, x::AbstractArray, w::AbstractArray, t)
     f.ts = round(t / f.Δt)
@@ -74,4 +75,6 @@ coefficients(f::ExternalField) = f.poisson.ϕ
 
 energy(f::ExternalField) = dot(f.poisson.ϕ, f.poisson.S, f.poisson.ϕ) / 2
 
-ScaledExternalField(poisson::PoissonSolver, coeffs, Δt, χ) = ScaledField(ExternalField(poisson, coeffs, Δt), χ)
+function ScaledExternalField(poisson::PoissonSolver, coeffs, Δt, χ)
+    ScaledField(ExternalField(poisson, coeffs, Δt), χ)
+end

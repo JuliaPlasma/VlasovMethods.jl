@@ -3,12 +3,15 @@ struct ShiftedUniformDistribution{XT, VT, ST} <: VlasovExample
     xdomain::XT
     vdomain::VT
     shift::ST
-    function ShiftedUniformDistribution(xdomain::XT = (0.0, 1.0), vdomain::VT = (-2.0, 2.0), shift::ST = 2.0) where {XT <: Tuple, VT <: Tuple, ST}
+    function ShiftedUniformDistribution(
+            xdomain::XT = (0.0, 1.0), vdomain::VT = (-2.0, 2.0),
+            shift::ST = 2.0) where {XT <: Tuple, VT <: Tuple, ST}
         new{XT, VT, ST}(xdomain, vdomain, shift)
     end
 end
 
-function initialize!(dist::ParticleDistribution, params::ShiftedUniformDistribution, ::SamplingMethod = NoSampling())
+function initialize!(dist::ParticleDistribution, params::ShiftedUniformDistribution,
+        ::SamplingMethod = NoSampling())
     # number of particles
     npart = length(dist.particles)
 
@@ -28,10 +31,9 @@ function initialize!(dist::ParticleDistribution, params::ShiftedUniformDistribut
     v₀ .+= params.shift
 
     # write to particle distribution
-    dist.particles.x[1,:] .= x₀
-    dist.particles.v[1,:] .= v₀
-    dist.particles.w[1,:] .= 1 / npart
+    dist.particles.x[1, :] .= x₀
+    dist.particles.v[1, :] .= v₀
+    dist.particles.w[1, :] .= 1 / npart
 
     return dist
-
 end

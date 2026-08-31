@@ -1,11 +1,9 @@
 
-
 abstract type SamplingMethod end
 
 struct NoSampling <: SamplingMethod end
 struct ImportanceSampling <: SamplingMethod end
 struct AcceptRejectSampling <: SamplingMethod end
-
 
 """
 Returns re-weighted particles according to new parameters.

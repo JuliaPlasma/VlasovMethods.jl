@@ -17,31 +17,29 @@ end
 #     new{DT, typeof(basis), typeof(basis)}(basis, basis, coefficients)
 # end
 
-
 knots(S::TwoDSpline) = BSplineKit.knots(S.basis)
 basis(S::TwoDSpline) = S.basis
 # order(S::TwoDSpline) = order(S.basis)
 
-order(::Type{<:TwoDSpline{T,Basis}}) where {T,Basis} = BSplineKit.order(Basis)
+order(::Type{<:TwoDSpline{T, Basis}}) where {T, Basis} = BSplineKit.order(Basis)
 order(S::TwoDSpline) = order(typeof(S))
 
-(S::TwoDSpline)(x,y) = (S::TwoDSpline)([x, y])
+(S::TwoDSpline)(x, y) = (S::TwoDSpline)([x, y])
 (S::TwoDSpline)(x) = evaluate(S, x)
 
 function evaluate(S::TwoDSpline, x::AbstractVector)
     B = basis(S)
     k = order(S)
-    
+
     i1, bs1 = evaluate_all(B, x[1])
     i2, bs2 = evaluate_all(B, x[2])
 
     eval_b1 = collect(bs1[end:-1:1])
     eval_b2 = collect(bs2[end:-1:1])
-    coefs = S.coefficients[i1-k+1:i1,i2-k+1:i2]
-    
+    coefs = S.coefficients[(i1 - k + 1):i1, (i2 - k + 1):i2]
+
     return transpose(eval_b1)*coefs*eval_b2
 end
-
 
 function _first_derivative(S::TwoDSpline, component::Int)
     coefs = S.coefficients
@@ -51,30 +49,28 @@ function _first_derivative(S::TwoDSpline, component::Int)
     d_coefs = similar(coefs)
     component == 1 ? copy!(d_coefs, transpose(coefs)) : copy!(d_coefs, coefs) # make sure axes of d_coefs matches with what we assume in the for loop below. 
     # du_i = similar(coefs[1,:])
-    
+
     # assumes the first axis of coefs is invariant, and the second is being differentiated.
     for i in axes(coefs, 1)
         # du_i .= coefs[i,:] # get vector in coefficient matrix corresponding to the i-th spline in the non-differentiated direction 
         for j in Iterators.Reverse(axes(coefs, 2)) # now loop over other direction (in which we are differentiating)
-            dt = t[j + k - 1] - t[j] 
+            dt = t[j + k - 1] - t[j]
             if iszero(dt) || j == firstindex(view(coefs, i, :)) # check for zeros in denom. 
-                d_coefs[i,j] = zero(eltype(d_coefs))
+                d_coefs[i, j] = zero(eltype(d_coefs))
             else
-                d_coefs[i,j] = (k - 1) * (d_coefs[i,j] - d_coefs[i,j-1]) / dt
+                d_coefs[i, j] = (k - 1) * (d_coefs[i, j] - d_coefs[i, j - 1]) / dt
             end
         end
     end
 
-    d_coefs = d_coefs[:,2:end]
+    d_coefs = d_coefs[:, 2:end]
 
     component == 1 ? d_coefs = transpose(d_coefs) : nothing
 
     return d_coefs
 end
 
-function evaluate_all_derivative(B::AbstractBSplineBasis, v::Vector{T}) where T
-
-
+function evaluate_all_derivative(B::AbstractBSplineBasis, v::Vector{T}) where {T}
 end
 
 function evaluate_first_derivative(S::TwoDSpline, v::Vector{DT}) where {DT}
@@ -101,7 +97,7 @@ function evaluate_first_derivative(S::TwoDSpline, v::Vector{DT}) where {DT}
     #     m1 = j1-k+2
     # end
     m1 = j1-k+2
-    dSdx = transpose(eval_ds1)*coefs_dx[m1:j1,i2-k+1:i2]*eval_b2
+    dSdx = transpose(eval_ds1)*coefs_dx[m1:j1, (i2 - k + 1):i2]*eval_b2
 
     # compute ∂S/∂y
     coefs_dy = _first_derivative(S, 2)
@@ -115,12 +111,11 @@ function evaluate_first_derivative(S::TwoDSpline, v::Vector{DT}) where {DT}
     #     m2 = j2-k+2
     # end
     m2 = j2-k+2
-    dSdy = transpose(eval_b1)*coefs_dy[i1-k+1:i1,m2:j2]*eval_ds2
+    dSdy = transpose(eval_b1)*coefs_dy[(i1 - k + 1):i1, m2:j2]*eval_ds2
 
     # return evaluated gradient vector
     return dSdx, dSdy, coefs_dx
 end
-
 
 # TODO: Can we delete this??
 # function DB_ik(B_d, t, i, k, v::T) where T
@@ -161,9 +156,9 @@ end
 #     return [f(v[1]), g(v[2])]::Vector{T}
 # end
 
-function eval_bfd(B::AbstractBSplineBasis, i, j, v::Vector{T}) where T
-    a = B[i,T]
-    b = B[j,T]
+function eval_bfd(B::AbstractBSplineBasis, i, j, v::Vector{T}) where {T}
+    a = B[i, T]
+    b = B[j, T]
 
     return [a(v[1], Derivative(1)) * b(v[2]), a(v[1]) * b(v[2], Derivative(1))]
 end

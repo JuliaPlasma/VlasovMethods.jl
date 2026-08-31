@@ -29,7 +29,6 @@ integrator = SplittingMethod(model, tspan, tstep)
 # integrate
 run!(integrator, h5file)
 
-
 # load HDF5 and Plots packages
 using HDF5
 using Plots
@@ -38,30 +37,29 @@ using Plots
 z = h5read(h5file, "z")
 
 # compute plot ranges
-vmax = ceil(maximum(abs.(z[2,:,begin])))
+vmax = ceil(maximum(abs.(z[2, :, begin])))
 xlim = (0, 1)
 vlim = (-vmax, +vmax)
 
 # plot initial condition
-scatter(mod.(z[1,:,begin], 1), z[2,:,begin],
-        marker = 3,
-        xlim = xlim,
-        ylim = vlim,
-        title = "Vlasov-Poisson",
-        legend = false,
-        size = (800, 600)
+scatter(mod.(z[1, :, begin], 1), z[2, :, begin],
+    marker = 3,
+    xlim = xlim,
+    ylim = vlim,
+    title = "Vlasov-Poisson",
+    legend = false,
+    size = (800, 600)
 )
 
 # save figure to file
 savefig("vlasov_poisson_z₀.png")
 
-
 # create animation
-ind = z[2,:,1] .>= 0.0 
+ind = z[2, :, 1] .>= 0.0
 # ind2 = setdiff(z[2,:,1], z[2,ind,1])
-ind2 = [findfirst(isequal(x), z[2,:,1]) for x in setdiff(z[2,:,1],z[2,ind,1])]
-anim = @animate for n in axes(z,3)
-    scatter(mod.(z[1,ind,n], 1), z[2,ind,n],
+ind2 = [findfirst(isequal(x), z[2, :, 1]) for x in setdiff(z[2, :, 1], z[2, ind, 1])]
+anim = @animate for n in axes(z, 3)
+    scatter(mod.(z[1, ind, n], 1), z[2, ind, n],
         marker = 3,
         xlim = xlim,
         ylim = vlim,
@@ -70,9 +68,9 @@ anim = @animate for n in axes(z,3)
         size = (800, 600)
     )
     scatter!(
-        mod.(z[1,ind2,n], 1), z[2,ind2,n]
+        mod.(z[1, ind2, n], 1), z[2, ind2, n]
     )
 end
 
 # save animation to file
-gif(anim, "vlasov_poisson.gif", fps=10)
+gif(anim, "vlasov_poisson.gif", fps = 10)
