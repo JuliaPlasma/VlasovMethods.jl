@@ -1,7 +1,7 @@
 name = "VlasovMethods"
 uuid = "4a954452-39e6-424b-ae51-38fc4bbc42ef"
-authors = ["Michael Kraus"]
 version = "0.2.1"
+authors = ["Michael Kraus"]
 
 [deps]
 AdaptiveRejectionSampling = "c75e803d-635f-53bd-ab7d-544e482d8c75"
@@ -45,6 +45,7 @@ GeometricEquations = "0.21"
 GeometricIntegrators = "0.16"
 HDF5 = "0.16, 0.17"
 LaTeXStrings = "1"
+LinearSolve = "5"
 OffsetArrays = "1"
 Parameters = "0.12"
 ParticleMethods = "0.1"
