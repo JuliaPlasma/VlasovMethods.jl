@@ -1,7 +1,7 @@
 name = "VlasovMethods"
 uuid = "4a954452-39e6-424b-ae51-38fc4bbc42ef"
-authors = ["Michael Kraus"]
 version = "0.2.1"
+authors = ["Michael Kraus"]
 
 [deps]
 AdaptiveRejectionSampling = "c75e803d-635f-53bd-ab7d-544e482d8c75"
@@ -40,6 +40,7 @@ Trapz = "592b5752-818d-11e9-1e9a-2b8ca4a44cd1"
 [compat]
 AdaptiveRejectionSampling = "0.1"
 BSplineKit = "0.14, 0.15, 0.16, 0.17, 0.18, 0.19"
+Cthulhu = "3"
 Distances = "0.10.11"
 GeometricEquations = "0.21"
 GeometricIntegrators = "0.16"
