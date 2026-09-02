@@ -186,6 +186,22 @@ first entry is written.
   and `lenard_bernstein.jl` no longer qualifies names as `GeometricIntegrators.` where
   `Integrators.` is meant.
 
+- **`test/particle_distribution_tests.jl` was flaky at roughly one run in four**, and had never
+  run at all: `runtests.jl` included only the two spline test files. It asserts
+  `mean(v) ≈ centre atol = 3.5/sqrt(np)`, which for a uniform distribution of width `w` — whose
+  standard error of the mean is `w/sqrt(12 np)` — is about 3.0 standard errors, so each of the
+  120 such assertions fails about 0.27 % of the time. Adding the file to the suite also made it
+  sensitive to whatever RNG state the preceding testset left behind. Now seeded, so the outcome
+  is deterministic and a failure is reproducible. The 3σ tolerance is left as it was; widening it
+  would change what the tests assert. Its `using Statistics` also had to be declared in
+  `[targets] test`.
+
+- **`Cthulhu` is removed from `[deps]`.** Dead — the only occurrences anywhere are two
+  commented-out `using Cthulhu` lines in scripts — with no `[compat]` entry, and it does not
+  precompile against Julia 1.14-DEV (`UndefVarError: ConstPropResult not defined in Compiler`),
+  which was the sole cause of the advisory `nightly` CI job failing. Anyone using it
+  interactively should add it to their own environment rather than to the package's dependencies.
+
 - **Three Landau driver scripts contained invalid Julia and had never been runnable.**
   `const landau_rhs!(v̇, v, params) = …` is a syntax error — `const` takes an assignment, not a
   function definition — in `scripts/landau_new.jl`, `scripts/landau_newer.jl` and
