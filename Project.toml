@@ -5,7 +5,6 @@ version = "0.2.1"
 
 [deps]
 AdaptiveRejectionSampling = "c75e803d-635f-53bd-ab7d-544e482d8c75"
-Cthulhu = "f68482b8-f384-11e8-15f7-abe071a5a75f"
 Distances = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
 GeometricEquations = "c85262ba-a08a-430a-b926-d29770767bf2"
 GeometricIntegrators = "dcce2d33-59f6-5b8d-9047-0defad88ae06"

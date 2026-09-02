@@ -1,6 +1,23 @@
+using Random
+using Statistics
 using Test
 using VlasovMethods
-using Statistics
+
+# The mean-of-a-sample assertions below use `atol = 3.5/sqrt(np)`. For a uniform distribution of
+# width w the standard error of the mean is w/sqrt(12 np), so on the widest domain here that
+# tolerance is about 3.0 standard errors — each such assertion therefore fails about 0.27 % of
+# the time, and there are 120 of them across the uniform and shifted-uniform testsets. That is
+# roughly a one-in-four chance that some assertion fails on any given run.
+#
+# Seeding fixes the stream, so the outcome is deterministic and a failure is reproducible rather
+# than intermittent. It matters here specifically because this file did not used to run at all:
+# `runtests.jl` included only the two spline test files, so nothing depended on the RNG state at
+# entry, and adding it to the suite made it sensitive to whatever the preceding testset had
+# consumed.
+#
+# The 3σ tolerance is left as it was. Widening it to 5/sqrt(np) would make the tests robust
+# rather than merely reproducible, but that is a change to what they assert.
+Random.seed!(0x5c1f2a08)
 
 npart_list = [10, 100, 1000, 10000, 100000]
 domainx = (-5.0, 5.0)
