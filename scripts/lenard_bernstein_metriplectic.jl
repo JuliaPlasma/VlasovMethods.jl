@@ -4,7 +4,6 @@
 
 # import stuff
 using ProgressMeter
-using BSplineKit
 using VlasovMethods
 using QuadGK
 using SciMLBase

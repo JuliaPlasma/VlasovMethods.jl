@@ -1,8 +1,21 @@
 
-# function projection!(out, xdensity, distribution) end
-# function projection!(out, vdensity, distribution) end
+@doc raw"""
+Particle-sampled moments of the spline distribution function.
 
-# convenience function for computing first three moments of f over v
+Each of these is a sum **over the particles** of a moment weighted by the spline evaluated at
+the particle,
+
+```math
+\sum_\alpha \pi(v_\alpha) \, f_s(v_\alpha) ,
+```
+
+not the integral ``\int \pi(v) f(v) \, dv``. The two are different quantities and the
+distinction matters: it is the particle-sampled form that appears in the coefficient system of
+the conservative Lenard-Bernstein operator, where the same sum appears on both sides and the
+sampling error cancels.
+"""
+
+# convenience function for computing the first three particle-sampled moments of f over v
 function compute_f_densities(distribution::SplineDistribution, vp::AbstractArray{VT}) where {VT}
     n = projection_density(distribution, vp)
     μ = projection_momentum(distribution, vp)
@@ -11,19 +24,6 @@ function compute_f_densities(distribution::SplineDistribution, vp::AbstractArray
     return n, μ, ε
 end
 
-# function compute_f_densities(distribution::SplineDistribution{1,2}, vp::AbstractArray{VT}) where {VT}
-
-#     n = projection_density(distribution, vp[1,:])
-#     μ = projection_momentum(distribution, vp[1,:])
-#     ε = projection_energy(distribution, vp[1,:])
-
-#     n2 = projection_density(distribution, vp[2,:])
-#     μ2 = projection_momentum(distribution, vp[2,:])
-#     ε2 = projection_energy(distribution, vp[2,:])
-
-#     return [n, n2], [μ, μ2], [ε, ε2]
-# end
-
 function compute_df_densities(distribution::SplineDistribution, vp::AbstractArray{VT}) where {VT}
     n = projection_density(distribution, vp; isDerivative = true)
     μ = projection_momentum(distribution, vp; isDerivative = true)
@@ -31,21 +31,21 @@ function compute_df_densities(distribution::SplineDistribution, vp::AbstractArra
     return n, μ
 end
 
-# compute density, i.e. n = ∫f dv
+# Σ_α f_s(v_α)
 function projection_density(distribution::SplineDistribution, vp::AbstractArray{VT}; kwargs...) where {VT}
     @inline f(v) = one(eltype(v))
 
     return density = projection(f, distribution, vp; kwargs...)
 end
 
-# compute mean momentum, i.e. nu = ∫vf dv
+# Σ_α v_α f_s(v_α)
 function projection_momentum(distribution::SplineDistribution, vp::AbstractArray{VT}; kwargs...) where {VT}
     @inline f(v) = v
 
     return momentum = projection(f, distribution, vp; kwargs...)
 end
 
-# compute mean energy density, i.e. nε = ∫v²f dv
+# Σ_α v_α² f_s(v_α)
 function projection_energy(distribution::SplineDistribution, vp::AbstractArray{VT}; kwargs...) where {VT}
     @inline f(v) = v .^ 2
 
@@ -54,12 +54,11 @@ end
 
 function projection(moment::Function, distribution::SplineDistribution,
         vp::AbstractArray{VT}; isDerivative::Bool = false) where {VT}
-    if !(isDerivative)
-        out = sum(moment.(vp) .* distribution.spline.(vp))
-    elseif (isDerivative) && typeof(distribution.spline) <: Spline
-        df = Derivative(1) * distribution.spline
-        out = sum(moment.(vp) .* df.(vp))
-    end
+    # `derivative` shares the coefficient array with the spline, so this needs no rebuild and
+    # sees whatever the last projection wrote. The earlier version tested
+    # `typeof(spline) <: Spline` against a name that was never imported, so the derivative
+    # branch raised `UndefVarError` rather than taking the derivative.
+    fs = isDerivative ? derivative(distribution.spline) : distribution.spline
 
-    return out
+    return sum(moment.(vp) .* fs.(vp))
 end

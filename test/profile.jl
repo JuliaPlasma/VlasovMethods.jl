@@ -1,6 +1,5 @@
 # run with julia --project --track-allocation=user test/profile.jl
 
-using BSplineKit
 using Profile
 using VlasovMethods
 
@@ -19,7 +18,7 @@ domainv = (-10.0, 10.0)
 dist = initialize!(ParticleDistribution(1, 1, npart), NormalDistribution())
 
 # create spline distribution function and entropy 
-sdist = SplineDistribution(1, 1, nknot, order, domainv, :Dirichlet)
+sdist = SplineDistribution(1, 1, nknot, order, domainv, 0, :Dirichlet)
 entropy = CollisionEntropy(sdist)
 
 # create LenardBernstein model

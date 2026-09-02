@@ -12,7 +12,10 @@ struct MLBCache{T, PT <: ParticleDistribution, ST <: SplineDistribution{T}} <: C
         M = length(sdist)
         N = size(pdist.particles.v, 2)
 
-        v = zeros(N)
+        # zeros(T, N), not zeros(N): `f!` writes the midpoint (vn .+ vp) ./ 2 into this
+        # buffer, and a Float64 buffer truncates it under any wider element type -- a dual
+        # number from a Jacobian, or extended precision.
+        v = zeros(T, N)
 
         J = zeros(T, M)
         dS = zeros(T, N)
@@ -49,45 +52,118 @@ struct MetriplecticLenardBernstein{
     end
 end
 
+# `mlb.dist` and `mlb.entropy.dist`: the fields are named `dist` and `entropy`, so the earlier
+# `mlb.pdist` / `mlb.sdist` would have thrown. Unreachable in practice — `CacheDict`'s parent
+# is an `MLBCache`, so the `::MLBCache` methods above are the ones that fire — but wrong as
+# written.
 function Cache(AT, mlb::MetriplecticLenardBernstein)
-    MLBCache{AT}(mlb.pdist, similar(AT, mlb.sdist))
+    MLBCache{AT}(mlb.dist, similar(AT, mlb.entropy.dist))
 end
 function CacheType(AT, mlb::MetriplecticLenardBernstein)
-    MLBCache{AT, typeof(mlb.pdist), similar_type(AT, mlb.sdist)}
+    MLBCache{AT, typeof(mlb.dist), similar_type(AT, mlb.entropy.dist)}
 end
 
-function compute_J!(J, sdist::SplineDistribution{T, 1, 1}, ::MetriplecticLenardBernstein) where {T}
-    # knot_list = BSplineKit.knots(sdist.basis)
-    # for i in eachindex(J)
-    #     J[i], _ = quadgk(x -> (1 + 0.5 * log((sdist.spline(x))^2))*sdist.basis[i](x), knot_list[1], knot_list[end], atol = 1e-14)
-    # end
-    J .= BSplineKit.galerkin_projection(x -> 1 + 0.5 * log((sdist.spline(x))^2), sdist.basis)
-    ldiv!(sdist.mass_fact, J)
+@doc raw"""
+    compute_J!(J, sdist, ::MetriplecticLenardBernstein)
+
+The vector ``\mathbb{L}_k = \sum_i \mathbb{M}^{-1}_{ik} \int \varphi_i \, (1 + \log f_s) \, dv``
+of the Landau manuscript's `eq:defn_Lk`, which is exactly the ``L^2`` projection of
+``1 + \log f_s`` onto the basis.
+
+This discretisation projects ``1 + \log f_s`` onto the spline space and differentiates the
+*projection*, where `eq:velocity_ode` of the Lenard-Bernstein manuscript uses the pointwise
+ratio ``f_s'(v_\alpha)/f_s(v_\alpha)``. The two agree only up to the projection error of the
+logarithm. That is deliberate and is what makes this a genuine discrete-gradient system: `J`
+is ``\partial S_h / \partial f_i`` for ``S_h = \int f_s \log f_s \, dv``.
+
+!!! warning "The logarithm is unguarded in the manuscripts and guarded here"
+    The earlier implementation wrote `0.5 * log(f_s^2)`. That is `log|f_s|` exactly, and its
+    derivative is `f_s'/f_s` for either sign, so the drift it produces is finite and
+    plausible-looking wherever `f_s < 0`. What it is not is the entropy: `S = ∫ f log f`
+    requires `f > 0`, and where `f_s < 0` the H-theorem reverses — `dS/dt = -ν ∫ F²/f dv`
+    becomes *positive*. So the construction converted a positivity violation from a visible
+    `DomainError` into an invisible wrong answer, and removed the only diagnostic that would
+    have caught it. Positivity is checked here instead.
+"""
+function compute_J!(J, sdist::SplineDistribution{T, XD, 1},
+        ::MetriplecticLenardBernstein) where {T, XD}
+    q = sdist.quadrature
+    fs = sdist.spline
+    x = quadrature_nodes(q)
+
+    # Sampled on the quadrature grid the basis already carries, then contracted and solved
+    # against the mass operator -- which is what `l2_projection!` does. The earlier version
+    # called `BSplineKit.galerkin_projection` and then `ldiv!` with the mass factorisation,
+    # i.e. the same two steps through a different package.
+    g = similar(J, length(x))
+    for r in eachindex(x)
+        f = fs(x[r])
+        f > 0 || throw(ErrorException(
+            "the projected distribution is non-positive, f_s = $(f) at v = $(x[r]), so " *
+            "log f_s and hence the discrete entropy are undefined there. Writing this as " *
+            "0.5*log(f_s^2) would return log|f_s| and hide the violation; the H-theorem " *
+            "reverses where f_s < 0."))
+        g[r] = 1 + log(f)
+    end
+
+    l2_projection!(J, q, g)
+    return J
 end
 
-function compute_dS!(dS, J, v::AbstractArray{ST}, sdist::SplineDistribution{ST, 1, 1},
-        ::MetriplecticLenardBernstein) where {ST}
+@doc raw"""
+    compute_dS!(dS, J, v, sdist, ::MetriplecticLenardBernstein)
+
+``\partial S_h / \partial v_\alpha = w_\alpha \sum_k \mathbb{L}_k \, \varphi_k'(v_\alpha)``,
+the Landau manuscript's `eq:entropy_derivative` up to its overall sign.
+
+The particle weight is ``w_\alpha``. The earlier version divided by `length(dS)` instead,
+which equals ``w_\alpha`` only when every weight is ``1/N`` — true of every initialiser in
+`examples/`, and false for the importance-sampling one.
+"""
+function compute_dS!(dS, J, v::AbstractArray{ST}, sdist::SplineDistribution{ST, XD, 1},
+        ::MetriplecticLenardBernstein, pdist::ParticleDistribution) where {ST, XD}
+    b = sdist.basis
+    N = nbasis(b)
+    w = pdist.particles.w
+    buf = zeros(ST, local_width(b))
+
     dS .= 0
     for i in eachindex(dS)
-        ilast, bs = BSplineKit.evaluate_all(sdist.basis, v[i], BSplineKit.Derivative(1))
-        for (δi, bi) in pairs(bs)
-            if abs(bi) > eps()
-                j = ilast + 1 - δi
-                dS[i] += J[j] * bi / length(dS)
-                if isnan(dS[i])
-                    println("NANs")
-                end
-            else
-                continue
-            end
+        j₀ = evaluate_all!(buf, b, v[i], 1)
+        for t in eachindex(buf)
+            j = basis_index(b, j₀ + t - 1)
+            1 ≤ j ≤ N || continue
+            dS[i] += w[1, i] * J[j] * buf[t]
         end
     end
+    return dS
 end
 
+@doc raw"""
+    compute_entropy(f, mlb::MetriplecticLenardBernstein)
+
+``S_h = \int f_s \log f_s \, dv``, the quantity the manuscript's entropy figures report.
+
+Integrated on the Gauß-Legendre grid of the basis rather than adaptively, so that it is the
+same quadrature the discretisation itself uses. Returns the value alone; the earlier version
+returned a `quadgk` error estimate alongside it and wrote `0.5*log(f^2)`, so it reported
+``\int f \log|f|`` rather than the entropy.
+"""
 function compute_entropy(f, mlb::MetriplecticLenardBernstein)
-    k = BSplineKit.knots(mlb.entropy.dist.basis)
-    S, err = quadgk(x -> f(x) * 0.5 * log((f(x))^2), k[1], k[end], atol = 1e-14)
-    return S, err
+    sdist = mlb.entropy.dist
+    q = sdist.quadrature
+    x = quadrature_nodes(q)
+    w = quadrature_weights(q)
+
+    S = zero(eltype(w))
+    for r in eachindex(x)
+        fr = f(x[r])
+        fr > 0 || throw(ErrorException(
+            "the distribution is non-positive, f = $(fr) at v = $(x[r]), so the entropy " *
+            "∫ f log f dv is undefined there"))
+        S += w[r] * fr * log(fr)
+    end
+    return S
 end
 
 function compute_dS_discrete_gradient!(dS_dg, dS_midpoint, v_new::AbstractArray{ST},
@@ -95,10 +171,10 @@ function compute_dS_discrete_gradient!(dS_dg, dS_midpoint, v_new::AbstractArray{
     sdist = mlb.cache[ST].sdist
 
     projection(vn, mlb.dist, sdist)
-    @show S_n, err_n = compute_entropy(x -> sdist.spline(x), mlb)
+    S_n = compute_entropy(x -> sdist.spline(x), mlb)
 
     projection(v_new, mlb.dist, sdist)
-    @show S_n_plus_1, err_n_plus_1 = compute_entropy(x -> sdist.spline(x), mlb)
+    S_n_plus_1 = compute_entropy(x -> sdist.spline(x), mlb)
 
     dS_dg .= dS_midpoint .+
              (v_new .- vn) .* (S_n_plus_1 - S_n - dot(v_new .- vn, dS_midpoint)) ./
@@ -114,21 +190,39 @@ function compute_moments(v::AbstractArray{ST}, pdist::ParticleDistribution,
     return n, u, eps
 end
 
+@doc raw"""
+The metriplectic Lenard-Bernstein right-hand side, ``\dot{v} = \mathbb{L} \, \partial S_h / \partial v``
+with the bracket
+
+```math
+\mathbb{L}_{\alpha\beta} = - \frac{n_h}{w_\alpha} \, \delta_{\alpha\beta}
+  + \frac{(\varepsilon_h - u_h v_\alpha) + (v_\alpha - u_h) v_\beta}{\varepsilon_h - u_h^2} .
+```
+
+``\mathbb{L}`` is symmetric and satisfies ``\sum_\alpha w_\alpha \mathbb{L}_{\alpha\beta} = 0``
+and ``\sum_\alpha w_\alpha v_\alpha \mathbb{L}_{\alpha\beta} = 0``, so momentum and energy are
+exact Casimirs of the bracket **whatever** `dS` is — a stronger structure than the
+manuscript's, and the reason these runs conserve.
+
+The weight is per particle. Both right-hand sides used `pdist.particles.w[1]`, particle one's
+weight, for every particle; the commented-out single-particle version above them had it right.
+The two degeneracies above are what fail when it is wrong, so with non-uniform weights the
+conservation the bracket is built for is lost.
+"""
 function rhs!(
         v̇::AbstractArray{ST}, v::AbstractArray{ST}, pdist::ParticleDistribution, n, u, eps,
         dS::AbstractArray{ST}, dS_sum, dS_v_sum, ::MetriplecticLenardBernstein) where {ST}
-    # dS_sum = sum(dS)
-    v̇ .= - n / pdist.particles.w[1] * (eps - u^2) .* dS .+ (eps .- u .* v) * dS_sum .+
-         (v .- u) * dS_v_sum
+    w = view(pdist.particles.w, 1, :)
+    v̇ .= .-n ./ w .* (eps - u^2) .* dS .+ (eps .- u .* v) .* dS_sum .+
+         (v .- u) .* dS_v_sum
 end
 
 function rhs_downstairs_factor!(
         v̇::AbstractArray{ST}, v::AbstractArray{ST}, pdist::ParticleDistribution, n, u, eps,
         dS::AbstractArray{ST}, dS_sum, dS_v_sum, ::MetriplecticLenardBernstein) where {ST}
-    # dS_sum = sum(dS)
-    # v̇ .= - one(ST) / pdist.particles.w[1] .* dS .+ (eps .- u .* v) ./ (eps - u^2) * dS_sum .+ (v .- u) ./ (eps - u^2) * dS_v_sum
-    v̇ .= - n / pdist.particles.w[1] .* dS .+ (eps .- u .* v) ./ (eps - u^2) * dS_sum .+
-         (v .- u) ./ (eps - u^2) * dS_v_sum
+    w = view(pdist.particles.w, 1, :)
+    v̇ .= .-n ./ w .* dS .+ (eps .- u .* v) ./ (eps - u^2) .* dS_sum .+
+         (v .- u) ./ (eps - u^2) .* dS_v_sum
 end
 
 function collisional_vectorfield!(v̇::AbstractArray{ST}, v::AbstractArray{ST}, params,
@@ -141,15 +235,18 @@ function collisional_vectorfield!(v̇::AbstractArray{ST}, v::AbstractArray{ST}, 
 
     compute_J!(cache.J, sdist, mlb)
 
-    compute_dS!(cache.dS, cache.J, v, sdist, mlb)
+    compute_dS!(cache.dS, cache.J, v, sdist, mlb, mlb.dist)
 
     ds_sum = sum(cache.dS)
     ds_v_sum = dot(v, cache.dS)
 
     n, u, eps = compute_moments(v, mlb.dist, mlb)
 
-    # rhs!(v̇, v, mlb.dist, n, u, eps, cache.dS, ds_sum, ds_v_sum, mlb)
+    # The collision frequency was declared, stored, and then never read: `ν` appeared nowhere
+    # after the constructor, so `MetriplecticLenardBernstein(dist, ent; ν = 0.1)` silently ran
+    # at ν = 1. Every other collision model here multiplies by it.
     rhs_downstairs_factor!(v̇, v, mlb.dist, n, u, eps, cache.dS, ds_sum, ds_v_sum, mlb)
+    v̇ .*= mlb.ν
 end
 
 # # single particle rhs for Newton solve
@@ -217,14 +314,14 @@ function Picard_iterate_over_particles(dv::AbstractArray{ST}, vn::AbstractArray{
 
     # use Hermite extrapolation to get an initial guess
     if ti ≥ 4
-        Extrapolators.extrapolate!(t - 2Δt, vn_minus_one, dv_history[:, 2], t - Δt, vn,
-            dv_history[:, 1], t, v_prev, Extrapolators.HermiteExtrapolation())
+        extrapolate!(t - 2Δt, vn_minus_one, dv_history[:, 2], t - Δt, vn,
+            dv_history[:, 1], t, v_prev, HermiteExtrapolation())
     else
         problemGNI = GeometricEquations.ODEProblem(
             (v̇, t, v, params) -> collisional_vectorfield!(v̇, v, params, mlb),
             (t, t+Δt), Δt, vn; parameters = params)
-        Extrapolators.extrapolate!(
-            t - Δt, vn, t, v_prev, problemGNI, Extrapolators.MidpointExtrapolation(5))
+        extrapolate!(
+            t - Δt, vn, t, v_prev, problemGNI, MidpointExtrapolation(5))
     end
 
     probN = NonlinearProblem{true}((f, v, p) -> f!(f, v, vn, params, Δt, mlb), v_prev)

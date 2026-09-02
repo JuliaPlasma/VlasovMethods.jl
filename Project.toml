@@ -5,10 +5,7 @@ version = "0.2.1"
 
 [deps]
 AdaptiveRejectionSampling = "c75e803d-635f-53bd-ab7d-544e482d8c75"
-BSplineKit = "093aae92-e908-43d7-9660-e50ee39d5a0a"
-Cthulhu = "f68482b8-f384-11e8-15f7-abe071a5a75f"
 Distances = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
-FastGaussQuadrature = "442a2c76-b920-505d-bb47-c5924d526838"
 GeometricEquations = "c85262ba-a08a-430a-b926-d29770767bf2"
 GeometricIntegrators = "dcce2d33-59f6-5b8d-9047-0defad88ae06"
 HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
@@ -24,10 +21,15 @@ ParticleMethods = "b097825d-39ce-45b2-a4ab-941e2c2df7e8"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PoissonSolvers = "8f9e8900-be71-40de-a258-603fdc860a2d"
 ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
-QuadGK = "1fd47b50-473d-5c70-9696-f719f8f3bcdc"
 QuadratureRules = "a08977f5-a20d-4b99-b11f-f5ea535e0575"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
+# SimpleSplines is not yet registered in General, so it carries no [compat] bound: its
+# only version is the unreleased 1.0.0-DEV, which is not a parseable compat spec. Add
+# `SimpleSplines = "1"` the moment it is registered — and note that until then this
+# package cannot be registered either, and needs a scratch environment with both
+# developed to resolve.
+SimpleSplines = "ac480f6c-9a94-4d53-a283-9db69f109154"
 SimpleSolvers = "36b790f5-6434-4fbe-b711-1f64a1e2f6a2"
 Sobol = "ed01d8cd-4d21-5b2a-85b4-cc3bdc58bad4"
 SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
@@ -39,10 +41,9 @@ Trapz = "592b5752-818d-11e9-1e9a-2b8ca4a44cd1"
 
 [compat]
 AdaptiveRejectionSampling = "0.1"
-BSplineKit = "0.14, 0.15, 0.16, 0.17, 0.18, 0.19"
 Distances = "0.10.11"
 GeometricEquations = "0.21"
-GeometricIntegrators = "0.16"
+GeometricIntegrators = "0.18"
 HDF5 = "0.16, 0.17"
 LaTeXStrings = "1"
 OffsetArrays = "1"
@@ -51,23 +52,39 @@ ParticleMethods = "0.1"
 Plots = "1"
 PoissonSolvers = "0.3.5"
 ProgressMeter = "1"
-QuadGK = "2.11.2"
-QuadratureRules = "0.1.6"
+QuadratureRules = "0.2"
 SciMLBase = "2.48.1"
 Sobol = "1.5"
 SpecialFunctions = "2"
 StaticArrays = "1"
+Statistics = "1"
 StatsBase = "0.33, 0.34"
 StatsPlots = "0.14, 0.15"
 TerminalLoggers = "0.1"
-julia = "1.10"
+# 1.11, not the tree's LTS floor of 1.10, because [sources] below is a Pkg 1.11 feature. Revert
+# to "1.10" together with that table.
+julia = "1.11"
+
+# SimpleSplines is not yet registered in General, so it is resolved from git.
+#
+# TWO THINGS TO UNDO once it is registered:
+#   1. delete this table, and
+#   2. add `SimpleSplines = "<version>"` to [compat] and put `julia = "1.10"` back.
+#
+# Until then this package CANNOT be registered: RegistryCI rejects a [sources] table outright.
+# The `rev` pins the branch of JuliaDEC/SimpleSplines.jl#6, because the default branch does not
+# yet carry the tensor-product and boundary-condition work this package now requires — drop the
+# `rev` when that merges, or better, do step 2 and remove the table entirely.
+[sources]
+SimpleSplines = {url = "https://github.com/JuliaDEC/SimpleSplines.jl", rev = "boundary-conditions-and-tensor-products"}
 
 [extras]
 OffsetArrays = "6fe1bfb0-de20-5000-8ca7-80f57d26f881"
 PoissonSolvers = "8f9e8900-be71-40de-a258-603fdc860a2d"
 SafeTestsets = "1bc83da4-3b8d-516f-aca4-4fe02f6d838f"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["OffsetArrays", "PoissonSolvers", "SafeTestsets", "StaticArrays", "Test"]
+test = ["OffsetArrays", "PoissonSolvers", "SafeTestsets", "Statistics", "StaticArrays", "Test"]

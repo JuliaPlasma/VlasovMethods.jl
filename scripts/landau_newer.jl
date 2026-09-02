@@ -1,5 +1,4 @@
 # import stuff
-using BSplineKit
 using VlasovMethods
 using SciMLBase
 
@@ -10,7 +9,6 @@ using SciMLBase
 # using Cthulhu
 using Profile
 
-
 # parameters
 # npart = 200   # number of particles
 npart = 2000  # number of particles
@@ -20,7 +18,7 @@ tstep = 1e-3    # time step size
 tspan = (0.0, 1e-1)     # integration time interval
 # tspan = (0.0, 1.0)     # integration time interval
 domainv = (-1.75, +1.75) # size of interior domain (i.e. excluding outer "big" cell on either side)
-boundary_layer = 6. # set this to 0 to not construct a grid with a large cell on either side
+boundary_layer = 6.0 # set this to 0 to not construct a grid with a large cell on either side
 ν = 1.0  # collision frequency
 
 tol = 5e-4 # Picard iteration tolerance for |x|_2
@@ -32,11 +30,9 @@ n = 1 # number of quadrature nodes
 m = 2 # depth for anderson acceleration
 chunksize = 100
 
-
 filename = "nknot=$(nknot)_tstep=1e-3_tend=$(tspan[end])_"
 
 trange = (tspan[1] - tstep):tstep:tspan[2]
-
 
 # create and initialize particle distribution function
 dist = initialize!(ParticleDistribution(1, 2, npart), NormalDistribution())
@@ -44,10 +40,10 @@ dist = initialize!(ParticleDistribution(1, 2, npart), NormalDistribution())
 # dist = initialize!(ParticleDistribution(1, 2, npart), DoubleMaxwellian(shift = 1.))
 
 # create spline distribution function and entropy 
-sdist = SplineDistribution(1, 2, nknot, order, domainv, boundary_layer, :Periodic, false)
+sdist = SplineDistribution(1, 2, nknot, order, domainv, boundary_layer, :Periodic)
 
 # second spline dist for diagnostics 
-sdist2 = SplineDistribution(1, 2, nknot, order, domainv, boundary_layer, :Periodic, false)
+sdist2 = SplineDistribution(1, 2, nknot, order, domainv, boundary_layer, :Periodic)
 
 # construct entropy 
 entropy = CollisionEntropy(sdist)
@@ -60,7 +56,7 @@ s[2] = entropy()
 landau = Landau(dist, entropy; ν = ν)
 
 # closure for vector field
-const landau_rhs!(v̇, v, params) = VlasovMethods.collisional_vectorfield!(v̇, v, params, landau)
+landau_rhs!(v̇, v, params) = VlasovMethods.collisional_vectorfield!(v̇, v, params, landau)
 
 params = (sdist2 = sdist2, n = n)
 rhs = zero(dist.particles.v)
@@ -72,35 +68,36 @@ v_iter = zeros(2, npart, length(trange), niter+1)
 v̇_iter = zeros(2, npart, length(trange), niter+1)
 
 v_full = zeros(2, npart, length(trange))
-v_full[:,:,2] .= dist.particles.v
+v_full[:, :, 2] .= dist.particles.v
 
 rhs_full = zeros(2, npart, length(trange))
 landau_rhs!(view(rhs_full, :, :, 2), dist.particles.v, params)
 
-v_iter[:,:,2,1] .= dist.particles.v
-v̇_iter[:,:,2,1] .= rhs_full[:,:,2]
+v_iter[:, :, 2, 1] .= dist.particles.v
+v̇_iter[:, :, 2, 1] .= rhs_full[:, :, 2]
 
 rhs_prev = zeros(2, npart, 2)
 
-
 ### Run actual code
 
-@time for (i,t) in pairs(trange[3:end])
+@time for (i, t) in pairs(trange[3:end])
     println("i = ", i, ", t = ", t)
     # v_full[:,:,i+2] = VlasovMethods.Picard_iterate_Landau!(dist, sdist, tol, β, tstep, i+2, t, v_full[:,:,i], rhs_prev, sdist2, max_iters, m )
-    sol = VlasovMethods.Picard_iterate_Landau_nls!(landau, tol, ftol, β, tstep, i+2, t, v_full[:,:,i+1], v_full[:,:,i], rhs_prev, m, n, chunksize)
-    v_full[:,:,i+2] .= dist.particles.v
-    rhs_full[:,:,i+2] .= rhs_prev[:,:,1]
+    sol = VlasovMethods.Picard_iterate_Landau_nls!(
+        landau, tol, ftol, β, tstep, i+2, t, v_full[:, :, i + 1],
+        v_full[:, :, i], rhs_prev, m, n, chunksize)
+    v_full[:, :, i + 2] .= dist.particles.v
+    rhs_full[:, :, i + 2] .= rhs_prev[:, :, 1]
 
     for q in eachindex(sol.v, sol.v̇)
-        v_iter[:,:,i+2,q] .= sol.v[q]
-        v̇_iter[:,:,i+2,q] .= sol.v̇[q]
+        v_iter[:, :, i + 2, q] .= sol.v[q]
+        v̇_iter[:, :, i + 2, q] .= sol.v̇[q]
     end
 
     # compute entropy
     projection(dist.particles.v, dist, sdist)
-    s[2+i] = entropy()
-    println("   Entropy = ", s[2+i])
+    s[2 + i] = entropy()
+    println("   Entropy = ", s[2 + i])
     println()
 
     # SciMLBase.successful_retcode(sol.retcode) || break
@@ -108,7 +105,6 @@ end
 
 # mom = [mapreduce(p -> p, +, v_full[:,:,n]) for n in axes(v_full,3)]./npart
 # enr = [mapreduce(p -> p[1].^2, +, v_full[:,:,n]) for n in axes(v_full,3)]./npart
-
 
 # using JLD2
 # jldsave("data_" * filename;v_full)
@@ -118,8 +114,8 @@ end
 using GLMakie
 
 stepsize = 0.1
-x = domainv[1]-boundary_layer:stepsize:domainv[2]+boundary_layer
-y = domainv[1]-boundary_layer:stepsize:domainv[2]+boundary_layer
+x = (domainv[1] - boundary_layer):stepsize:(domainv[2] + boundary_layer)
+y = (domainv[1] - boundary_layer):stepsize:(domainv[2] + boundary_layer)
 
 smin = minimum(s[2:end])
 smax = maximum(s[2:end])
@@ -184,7 +180,6 @@ smax = maximum(s[2:end])
 #     ylims!(ax2, -3, +3)
 #     zlims!(ax2, -9, +9)
 # end
-
 
 ### Plot evolution of iterations of one time step ###
 

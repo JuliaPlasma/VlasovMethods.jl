@@ -3,7 +3,6 @@ using Logging: global_logger
 using TerminalLoggers: TerminalLogger
 global_logger(TerminalLogger())
 
-using BSplineKit
 using VlasovMethods
 using Plots
 
@@ -20,7 +19,7 @@ domainv = (-10.0, 10.0)
 dist = initialize!(ParticleDistribution(1, 1, npart), NormalDistribution())
 
 # create spline distribution function and entropy 
-sdist = SplineDistribution(1, 1, nknot, order, domainv, :Dirichlet)
+sdist = SplineDistribution(1, 1, nknot, order, domainv, 0, :Dirichlet)
 entropy = CollisionEntropy(sdist)
 
 # create LenardBernstein model
