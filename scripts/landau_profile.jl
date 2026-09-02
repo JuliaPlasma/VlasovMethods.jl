@@ -1,4 +1,3 @@
-using BSplineKit
 using VlasovMethods
 using Profile
 
@@ -18,7 +17,7 @@ trange = tspan[begin]:tstep:tspan[end]
 pdist = initialize!(ParticleDistribution(1, 2, npart), NormalDistribution())
 
 # create spline distribution function and entropy 
-sdist = SplineDistribution(1, 2, nknot, order, domainv, length_big_cell, :Periodic, false)
+sdist = SplineDistribution(1, 2, nknot, order, domainv, length_big_cell, :Periodic)
 
 # construct entropy 
 entropy = CollisionEntropy(sdist)
@@ -27,7 +26,7 @@ entropy = CollisionEntropy(sdist)
 landau = Landau(dist, entropy; ν = ν)
 
 # closure for vector field
-const landau_rhs!(v̇, v, params) = VlasovMethods.collisions_rhs!(v̇, v, params, landau)
+landau_rhs!(v̇, v, params) = VlasovMethods.collisional_vectorfield!(v̇, v, params, landau)
 
 # initial projection
 S = projection(dist.particles.v, dist, sdist)

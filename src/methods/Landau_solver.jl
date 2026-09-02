@@ -110,15 +110,15 @@ function Picard_iterate_Landau_nls!(
 
     # use Hermite extrapolation to get an initial guess
     if ti ≥ 4
-        Extrapolators.extrapolate!(
+        extrapolate!(
             t - 2Δt, v_prev_2, view(rhs_prev, :, :, 2), t - Δt, v_prev,
-            view(rhs_prev, :, :, 1), t, v_guess, Extrapolators.HermiteExtrapolation())
+            view(rhs_prev, :, :, 1), t, v_guess, HermiteExtrapolation())
     else
         problemGNI = GeometricEquations.ODEProblem(
             (v̇, t, v, params) -> collisional_vectorfield!(v̇, v, params, landau),
             (t, t+Δt), Δt, v_prev; parameters = params)
-        Extrapolators.extrapolate!(
-            t - Δt, v_prev, t, v_guess, problemGNI, Extrapolators.MidpointExtrapolation(5))
+        extrapolate!(
+            t - Δt, v_prev, t, v_guess, problemGNI, MidpointExtrapolation(5))
     end
 
     probN = NonlinearProblem{true}((f, v, p) -> f!(f, v, v_prev, params, Δt, landau), v_guess)
@@ -200,7 +200,7 @@ end
 
 #     # use Hermite extrapolation to get an initial guess
 #     if ti ≥ 4
-#         Extrapolators.extrapolate!(t - 2Δt, v_prev_2, rhs_prev[:,:,2], t - Δt, dist.particles.v, rhs_prev[:,:,1], t, v_guess, Extrapolators.HermiteExtrapolation())
+#         extrapolate!(t - 2Δt, v_prev_2, rhs_prev[:,:,2], t - Δt, dist.particles.v, rhs_prev[:,:,1], t, v_guess, HermiteExtrapolation())
 #     end
 
 #     rhs_prev[:,:,2] .= rhs_prev[:,:,1]

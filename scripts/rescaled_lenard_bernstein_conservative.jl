@@ -3,7 +3,6 @@
 # global_logger(TerminalLogger())
 
 # import stuff
-using BSplineKit
 using VlasovMethods
 using QuadGK
 

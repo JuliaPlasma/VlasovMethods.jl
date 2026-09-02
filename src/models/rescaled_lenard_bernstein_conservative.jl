@@ -41,69 +41,105 @@ function CacheType(AT, clb::RescaledConservativeLenardBernstein)
     RCLBCache{AT, typeof(clb.dist), similar_type(AT, clb.ent.dist)}
 end
 
+@doc raw"""
+    compute_coefficients_rclb(distribution, particle_dist, vp)
+
+The coefficients of the **rescaled** parametrisation, in which the coefficient of ``v`` is
+normalised to one:
+
+```math
+\dot{v}_\alpha = - \nu \left( A_1 \frac{f_s'(v_\alpha)}{f_s(v_\alpha)} + A_2 + v_\alpha \right) .
+```
+
+This is the conservative operator with time rescaled by ``\varepsilon_h - u_h^2``, so that
+``A_1^{\mathrm{resc}} = 1 / A_2^{\mathrm{cons}} = \varepsilon_h - u_h^2`` and
+``A_2^{\mathrm{resc}} = A_1^{\mathrm{cons}} / A_2^{\mathrm{cons}} = -u_h``. It is *not* the
+fixed-coefficient cumulant-scaling experiment of the manuscript appendix, which sets the
+coefficients by hand rather than solving for them.
+
+The particle weights appear in every sum, for the reason given at
+[`compute_coefficients`](@ref).
+"""
 function compute_coefficients_rclb(
         distribution::SplineDistribution, particle_dist::ParticleDistribution,
         vp::AbstractArray{VT}) where {VT}
-    # function compute_coefficients(distribution::SplineDistribution, particle_dist::ParticleDistribution, vp::AbstractArray{VT}) where {VT}
+    w = particle_dist.particles.w
+    fs = distribution.spline
+    dfs = derivative(fs)
 
-    # compute discrete moments of fₚ
-    n = length(vp)
-    nu = sum(vp)
-    neps = sum(vp .^ 2)
+    n = zero(VT)
+    nu = zero(VT)
+    neps = zero(VT)
+    B1 = zero(VT)
+    B2 = zero(VT)
 
-    # compute derivative of fₛ and required terms for A1 and A2
-    dfs = Derivative(1) * distribution.spline
-    B1_α = [one(VT)/distribution.spline(v_α)*dfs(v_α) for v_α in vp]
-    B2_α = [v_α/distribution.spline(v_α)*dfs(v_α) for v_α in vp]
+    for α in eachindex(vp)
+        wα = w[1, α]
+        vα = vp[α]
+        fα = fs(vα)
 
-    B1 = sum(B1_α)
-    B2 = sum(B2_α)
+        fα > 0 || throw(ErrorException(
+            "the projected distribution is non-positive, f_s(v) = $(fα) at v = $(vα); see " *
+            "the positivity note in `compute_coefficients`"))
 
-    # directly compute A1 and A2 coefficients 
-    A1 = (n * neps - (nu)^2) / (nu * B1 - n * B2)
-    A2 = (nu * B2 - neps * B1) / (nu * B1 - n * B2)
+        n += wα
+        nu += wα * vα
+        neps += wα * vα^2
 
-    # check for NaNs
+        g = dfs(vα) / fα
+        B1 += wα * g
+        B2 += wα * vα * g
+    end
+
+    den = nu * B1 - n * B2
+    A1 = (n * neps - nu^2) / den
+    A2 = (nu * B2 - neps * B1) / den
+
     if isnan(A1) || isnan(A2)
-        throw(ErrorException("NaNs in computation of A1 or A2, use a smaller timestep."))
+        throw(ErrorException(
+            "the rescaled coefficient system is singular: n = $(n), nu = $(nu), " *
+            "neps = $(neps), denominator $(den)."))
     end
 
     return A1, A2
 end
 
+# `compute_coefficients_rclb`, not `compute_coefficients`. Both call sites here used the
+# *conservative* coefficients, which belong to a different parametrisation: A₁ᶜᵒⁿˢ = -u/σ²
+# was being used as the multiplier of f'/f and A₂ᶜᵒⁿˢ = 1/σ² as the constant drift, giving a
+# vector field with no conservation property at all.
 function RCLB_rhs_GI!(v, t, q::AbstractArray{ST}, params) where {ST}
     dist = params.model.cache[ST].sdist
 
     fs = projection(q, params.idist, dist)
+    dfdv = derivative(fs)
 
-    dfdv = BSplineKit.Derivative(1) * fs
+    A = compute_coefficients_rclb(dist, params.idist, q)
 
-    A = compute_coefficients(dist, params.idist, q)
-
-    v .= -params.ν .* ((A[1] ./ fs.(q)) .* dfdv.(q) .+ (A[2] .+ q))
+    v .= -params.ν .* (A[1] .* dfdv.(q) ./ fs.(q) .+ (A[2] .+ q))
 end
 
 # used for plotting
-function RCLB_rhs(v::AbstractVector{ST}, params, fs::BSplineKit.Spline) where {ST}
+function RCLB_rhs(v::AbstractVector{ST}, params, fs::Spline) where {ST}
     dist = params.model.cache[ST].sdist
 
-    dfdv = BSplineKit.Derivative(1) * fs
+    dfdv = derivative(fs)
 
-    A = compute_coefficients(dist, params.idist, v)
-    v̇ = -params.ν .* ((A[1] ./ fs.(v)) .* dfdv.(v) .+ (A[2] .+ v))
-    # v̇ = -params.ν .* ((one(ST) ./ fs.(v)) .* dfdv.(v) .+( A[1] .+ A[2] .* v))
-    # v̇ = -params.ν .* (dfdv.(v) .+( A[1] .+ A[2] .* v) .* fs.(v))
+    A = compute_coefficients_rclb(dist, params.idist, v)
 
-    return v̇
+    return -params.ν .* (A[1] .* dfdv.(v) ./ fs.(v) .+ (A[2] .+ v))
 end
 
-function GeometricIntegrator(model::RescaledConservativeLenardBernstein, tspan::Tuple, tstep::Real) where {DT}
+function GeometricIntegrator(model::RescaledConservativeLenardBernstein, tspan::Tuple, tstep::Real)
     # collect parameters
     # params = (ϕ = model.potential, model = model)
     params = (ν = model.ν, idist = model.dist, fdist = model.ent.dist, model = model)
     # create geometric problem
     equ = GeometricEquations.ODEProblem(
-        CLB_rhs_GI!,
+        # `RCLB_rhs_GI!`, not `CLB_rhs_GI!`. This constructor wired the *conservative*
+        # right-hand side, so every run built as a RescaledConservativeLenardBernstein
+        # actually integrated the unrescaled operator and `RCLB_rhs_GI!` was dead code.
+        RCLB_rhs_GI!,
         tspan, tstep, copy(model.dist.particles.v[1, :]);
         parameters = params)
 

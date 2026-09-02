@@ -1,10 +1,10 @@
 using SafeTestsets
 
-@safetestset SplineTests = "$(rpad("Spline",80))" begin
-    include("spline_tests.jl")
+@safetestset SplineDistributionTests = "$(rpad("Spline Distribution",80))" begin
+    include("spline_distribution_tests.jl")
 end
-@safetestset SplineBasisTests = "$(rpad("Spline Basis Evaluation",80))" begin
-    include("spline_basis_tests.jl")
+@safetestset ParticleDistributionTests = "$(rpad("Particle Distribution",80))" begin
+    include("particle_distribution_tests.jl")
 end
 # @safetestset ProjectionTests = "$(rpad("Projections",80))" begin
 #     include("projections_tests.jl")
