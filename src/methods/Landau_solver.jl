@@ -93,7 +93,7 @@ end
 # end
 
 function Picard_iterate_Landau_nls!(
-        landau, tol, ftol, β, Δt, ti, t, v_prev, v_prev_2, rhs_prev, m, n, chunksize)
+        landau, tol, ftol, β, Δt, ti, t, v_prev, v_prev_2, rhs_prev, m, chunksize)
     # β is the damping parameter for damped Picard iterations, with β = 1 yielding regular Picard iterations
     # ti is the time index at which v_new is being computed, i.e. for t = ti * Δt
     # v_prev is v at the previous timestep 
@@ -106,19 +106,19 @@ function Picard_iterate_Landau_nls!(
     # creating this to store the guess for the moment, for diagnostic purposes
     v_guess = copy(dist.particles.v)
 
-    params = (dist = dist, ent = ent, n = n)
+    params = (dist = dist, ent = ent)
 
     # use Hermite extrapolation to get an initial guess
     if ti ≥ 4
-        Extrapolators.extrapolate!(
+        extrapolate!(
             t - 2Δt, v_prev_2, view(rhs_prev, :, :, 2), t - Δt, v_prev,
-            view(rhs_prev, :, :, 1), t, v_guess, Extrapolators.HermiteExtrapolation())
+            view(rhs_prev, :, :, 1), t, v_guess, HermiteExtrapolation())
     else
         problemGNI = GeometricEquations.ODEProblem(
             (v̇, t, v, params) -> collisional_vectorfield!(v̇, v, params, landau),
             (t, t+Δt), Δt, v_prev; parameters = params)
-        Extrapolators.extrapolate!(
-            t - Δt, v_prev, t, v_guess, problemGNI, Extrapolators.MidpointExtrapolation(5))
+        extrapolate!(
+            t - Δt, v_prev, t, v_guess, problemGNI, MidpointExtrapolation(5))
     end
 
     probN = NonlinearProblem{true}((f, v, p) -> f!(f, v, v_prev, params, Δt, landau), v_guess)
@@ -200,7 +200,7 @@ end
 
 #     # use Hermite extrapolation to get an initial guess
 #     if ti ≥ 4
-#         Extrapolators.extrapolate!(t - 2Δt, v_prev_2, rhs_prev[:,:,2], t - Δt, dist.particles.v, rhs_prev[:,:,1], t, v_guess, Extrapolators.HermiteExtrapolation())
+#         extrapolate!(t - 2Δt, v_prev_2, rhs_prev[:,:,2], t - Δt, dist.particles.v, rhs_prev[:,:,1], t, v_guess, HermiteExtrapolation())
 #     end
 
 #     rhs_prev[:,:,2] .= rhs_prev[:,:,1]

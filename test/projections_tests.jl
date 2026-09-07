@@ -1,5 +1,4 @@
 using AdaptiveRejectionSampling
-using BSplineKit
 using PoissonSolvers
 using Test
 using VlasovMethods

@@ -1,1 +1,0 @@
-abstract type NDSpline{DT, BT} end

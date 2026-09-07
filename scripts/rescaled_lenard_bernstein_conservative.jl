@@ -3,9 +3,7 @@
 # global_logger(TerminalLogger())
 
 # import stuff
-using BSplineKit
 using VlasovMethods
-using QuadGK
 
 # output file
 # run_name = "fixed_coefficient_N=1000_double_maxwellian_T=2_tstep=5e-3"

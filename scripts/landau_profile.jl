@@ -1,4 +1,3 @@
-using BSplineKit
 using VlasovMethods
 using Profile
 
@@ -18,28 +17,28 @@ trange = tspan[begin]:tstep:tspan[end]
 pdist = initialize!(ParticleDistribution(1, 2, npart), NormalDistribution())
 
 # create spline distribution function and entropy 
-sdist = SplineDistribution(1, 2, nknot, order, domainv, length_big_cell, :Periodic, false)
+sdist = SplineDistribution(1, 2, nknot, order, domainv, length_big_cell, :Periodic)
 
 # construct entropy 
 entropy = CollisionEntropy(sdist)
 
 # construct Landau operator
-landau = Landau(dist, entropy; ν = ν)
+landau = Landau(pdist, entropy; ν = ν)
 
 # closure for vector field
-const landau_rhs!(v̇, v, params) = VlasovMethods.collisions_rhs!(v̇, v, params, landau)
+landau_rhs!(v̇, v, params) = VlasovMethods.collisional_vectorfield!(v̇, v, params, landau)
 
 # initial projection
-S = projection(dist.particles.v, dist, sdist)
+S = projection(pdist.particles.v, pdist, sdist)
 
-params = (sdist2 = sdist2, n = 2)
-rhs = zero(dist.particles.v)
+params = (dist = pdist, ent = entropy)
+rhs = zero(pdist.particles.v)
 
 v_full = zeros(2, npart, length(trange))
-v_full[:, :, 2] .= dist.particles.v
+v_full[:, :, 2] .= pdist.particles.v
 
 rhs_full = zeros(2, npart, length(trange))
-landau_rhs!(rhs_full[:, :, 2], dist.particles.v, params)
+landau_rhs!(view(rhs_full, :, :, 2), pdist.particles.v, params)
 
 rhs_prev = zeros(2, npart, 2)
 
@@ -48,7 +47,6 @@ ftol = 5e-3 # Picard iteration tolerance for |f(x)|_∞
 max_iters = 15 # max number of Picard iterations
 β = 1.0 #damping parameter for the Picard iterations
 m = 2 # depth for anderson acceleration
-n = 2
 chunksize = 100
 
 ### Run profiler
@@ -57,12 +55,12 @@ i = 3
 t = trange[i]
 
 VlasovMethods.Picard_iterate_Landau_nls!(
-    landau, tol, ftol, β, tstep, i+2, t, v_full[:, :, i + 1],
-    v_full[:, :, i], rhs_prev, m, n, chunksize)
+    landau, tol, ftol, β, tstep, i+2, t, view(v_full, :, :, i + 1),
+    view(v_full, :, :, i), rhs_prev, m, chunksize)
 
 Profile.clear()
 Profile.clear_malloc_data()
 
 Profile.Allocs.@profile VlasovMethods.Picard_iterate_Landau_nls!(
-    landau, tol, ftol, β, tstep, i+2, t, v_full[:, :, i + 1],
-    v_full[:, :, i], rhs_prev, m, n, chunksize)
+    landau, tol, ftol, β, tstep, i+2, t, view(v_full, :, :, i + 1),
+    view(v_full, :, :, i), rhs_prev, m, chunksize)
