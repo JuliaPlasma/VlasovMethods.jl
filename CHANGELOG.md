@@ -75,6 +75,31 @@ first entry is written.
   asserted in `SimpleSplines`, and `test/spline_distribution_tests.jl` covers the
   `SplineDistribution` level.
 
+- **The guards throw typed exceptions rather than `ErrorException`.** A caller can now tell the
+  three failures apart, and a test can assert which one it got. A non-positive `f_s`, and a
+  particle outside the velocity domain, throw `DomainError`; a singular conservative-coefficient
+  system throws `ArgumentError`. Nine sites across `landau.jl`, `collision_entropy.jl`,
+  `projections/distribution.jl` and the three Lenard-Bernstein models. Code catching
+  `ErrorException` around a projection or an entropy needs updating.
+
+- **`Picard_iterate_Landau_nls!` no longer takes `n`.** The argument was threaded into
+  `params.n` and read by nothing once the quadrature became the basis's own; the drivers passed
+  it under the comment `n = 1 # number of quadrature nodes`, which named a quantity that no
+  longer exists. The parameter is dropped rather than kept as an ignored placeholder.
+
+- **`SplineDistribution`'s `domain` argument is typed `Union{Tuple, AbstractVector}`.** Left
+  untyped it made every array-valued domain an ambiguous call against the low-level
+  `SplineDistribution(xdim, vdim, basis, quadrature, coefficients)` constructor, so
+  `SplineDistribution(1, 1, 41, 4, [-10.0, 10.0])` was a `MethodError` — while the docstring
+  reads `domain` only through `first`/`last`, so a vector or a range is the natural thing to
+  pass. All three forms now work and agree.
+
+- **`:Natural` is not a boundary-condition symbol.** It belonged to the deleted `SplineND` API,
+  never to `SplineDistribution`, and the migration mapped it to `Free()` — while the exported
+  `Natural` type means something else, giving a different spline space (23 basis functions and
+  polynomial reproduction 3, against 21 and 1). Passing it is now an `ArgumentError`. Nothing
+  in `src/`, `test/` or `scripts/` used it.
+
 ### New Features
 
 - **`scripts/verify_conservation.jl`** measures the two conservation claims of the manuscripts
@@ -95,6 +120,19 @@ first entry is written.
   **`project_Maxwellian`** now works in any number of velocity dimensions. It previously existed
   only for `VD == 2` and called `Integrals.solve` with `HCubatureJL`, neither of which was
   imported, so it raised `UndefVarError` whenever it was reached.
+
+- **`L` is now checked against the double sum it rearranges.** `compute_L!` expands the two
+  gradient differences of `eq:discrete-landau-matrix` into four terms and folds them in pairs
+  using the symmetry of `U`. The suite previously asserted only that `L` was finite and
+  symmetric, both of which survive a wrong folding; it now also evaluates the defining
+  `O(Q²M²)` sum directly on a deliberately tiny basis (`M = 16`, `Q = 36`) and compares. This
+  is what makes the identity claim in the docstring a verified one.
+
+- **A deposition allocation test.** `test/spline_distribution_tests.jl` asserts that the cost of
+  `projection` is independent of the particle count, so a boxed closure in `_deposit!` cannot
+  come back unnoticed — nothing else in the suite would see it, since the results stay correct
+  and only the run time changes. Guarded on `--check-bounds=auto`, because `Pkg.test()`'s
+  default `=yes` inflates allocation counts and would make the ceiling meaningless.
 
 ### Bug Fixes
 
@@ -131,6 +169,53 @@ first entry is written.
   the conservative `compute_coefficients`, feeding `A₁ = -u/σ²` in as the multiplier of
   `f_s'/f_s` and `A₂ = 1/σ²` as the constant drift. Fixing the wiring is what first exposed the
   second bug.
+
+- **The two-dimensional deposition allocated once per particle.** The `ntuple(D) do k … end`
+  closure in `_deposit!` assigned to two captured variables, which boxes them, and `_deposit!`
+  is the innermost loop of every step. Measured on a cubic 11-knot tensor basis with 2000
+  particles: **4 611 136 B → 3 136 B** per `projection`, i.e. 2305.6 B per particle down to a
+  fixed cost, with `Core.Box` gone from `code_typed`. The one-dimensional method never had it.
+  At five Picard iterations per step this was ~23 MB of garbage per time step, in the operator
+  whose headline is the `O(M²n⁴n_q⁴) → O(Q²)` speedup.
+
+- **`compute_L!` evaluated the collision kernel five times per node pair.** `A^{cd}` swept the
+  `Q²` pairs once, and the chunked second term then swept them again for each of the four
+  `(c,d)` components, discarding three of the four returned components every time. The kernel is
+  symmetric in `(c,d)`, so one sweep per block now fills all three independent components and
+  the four contractions are read off them. The chained triple product also allocated a fresh
+  `M×Q` and `M×M` per pass and now goes through scratch. Measured at `M = 169`, `Q = 2500`:
+  **0.89 s → 0.49 s** and **49.1 MB → 36.4 MB** per call, agreeing with the previous result to
+  `7.8e-16` relative.
+
+- **`scripts/landau_profile.jl` still did not run.** It bound `pdist` and then read `dist` at
+  five sites and `sdist2` at one, neither of which exists; the previous round fixed the same
+  class of defect two lines away and stopped short. It also passed `rhs_full[:, :, 2]` — a copy
+  — as an output argument, so the write went to a temporary. `scripts/landau_new.jl` had the
+  same copy-as-output bug; `landau_newer.jl` already used a `view`.
+
+- **Three docstrings documented nothing.** A comment between a docstring and its definition
+  detaches it silently: `(ent::CollisionEntropy)()` produced *no* documentation at all, and the
+  file-header blocks in `projections/density.jl` and `projections/distribution.jl` were inert.
+  The comment now precedes the docstring, and the two header blocks — which are file prose, not
+  API documentation — are `#` comments. The formatter, the linters, the load test and
+  `Pkg.test()` all pass either way; only a docs build sees it.
+
+- **The metriplectic bracket docstring sat on the wrong function.** It states `L_αβ` with the
+  `ε_h - u_h²` denominator, which is what `rhs_downstairs_factor!` computes and is the live
+  right-hand side; it was attached to `rhs!`, which computes `(ε-u²)·L·dS`. The two now carry
+  their own. `compute_dS!`'s signature line was also missing the `pdist` argument it takes.
+
+- **`evaluate` is exported again.** It was dropped from the export list while two
+  `evaluate(::SplineDistribution, …)` methods remained and the `DistributionFunction` call
+  operators dispatched through it, so `using VlasovMethods` could not reach it and the tests
+  worked around it with `VM.evaluate`.
+
+- **`similar(AT, ::SplineDistribution)` no longer collides with five dependencies.** `AT` is an
+  element type, but the argument was untyped, so the method read as
+  `similar(::Any, ::SplineDistribution)` and was ambiguous against the `similar` of
+  `Polynomials` (three), `RecursiveArrayTools` and `GeometricEquations`. Annotating it `::Type`
+  takes `detect_ambiguities` from **7 to 1**; the remaining pair is the pre-existing
+  `DistributionFunction{T,XD,0}` / `{T,0,VD}` call operators.
 
 - **`compute_K!` left stale entries in `K1` and `K2`.** They are cache arrays written only at
   the entries the current particle positions overlap, and were never cleared, so as particles
@@ -240,7 +325,8 @@ not take on.
 
 - **The Landau Picard solver does not iterate to convergence.** `Landau_solver.jl` runs exactly
   five iterations and prints the residual without testing it. `tol`, `ftol`, `β`, `m` and
-  `chunksize` are accepted and unused, and `probN` is constructed and never solved. Every
+  `chunksize` are accepted and unused, and `probN` is constructed and never solved — it is left
+  in place, with the commented-out `NonlinearSolve` calls it belongs to, rather than deleted. Every
   conservation property in the appendix is a property of the *exactly* solved implicit system, so
   momentum and energy drift at the size of that printed residual.
 
@@ -285,9 +371,17 @@ not take on.
 
 - **Dependencies that are no longer used are still declared.** `NaNMath` appears only in a
   commented import; `Plots`, `LaTeXStrings`, `StatsPlots`, `StatsBase`, `SciMLBase` and
-  `AdaptiveRejectionSampling` have no occurrences by name in `src/`. Seven non-stdlib dependencies
-  still carry no `[compat]` entry. `ExplicitImports.jl` is what settles this and has not been run.
-  Four driver scripts also `using` `GLMakie`, `Printf` and `Profile`, none of which are declared.
+  `AdaptiveRejectionSampling` have no occurrences by name in `src/`. Nine non-stdlib
+  dependencies still carry no `[compat]` entry. Four driver scripts also `using` `GLMakie`,
+  `Printf` and `Profile`, none of which are declared. `ExplicitImports.jl` *has* now been run
+  and reports no stale or improper explicit imports, so what remains is `[deps]` hygiene rather
+  than dead `import` lines — `Aqua.test_stale_deps` is the check that settles it.
+
+- **`fatou lint` reports 10 warnings, of which one is deliberate and nine are a known false
+  positive.** The nine are `unused-import` on `src/VlasovMethods.jl`, where the rule does not
+  follow `include` and so flags the module file's load-bearing imports; `ExplicitImports`
+  contradicts all nine. The tenth is `probN` below. An earlier version of this changelog and of
+  the pull request described `fatou lint` as clean, which was not reproducible.
 
 - **This package cannot be registered until `SimpleSplines` is.** `SimpleSplines` is not in
   General, so it is resolved through a `[sources]` table — which RegistryCI rejects outright — and

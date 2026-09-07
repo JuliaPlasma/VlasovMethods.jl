@@ -46,7 +46,7 @@ landau = Landau(dist, entropy; ν = ν)
 # closure for vector field
 landau_rhs!(v̇, v, params) = VlasovMethods.collisional_vectorfield!(v̇, v, params, landau)
 
-params = (sdist2 = sdist2, n = 2)
+params = (dist = dist, ent = entropy)
 rhs = zero(dist.particles.v)
 
 # J = VlasovMethods.compute_J_gl(sdist, 2)
@@ -56,7 +56,7 @@ v_full = zeros(2, npart, length(trange))
 v_full[:, :, 2] .= dist.particles.v
 
 rhs_full = zeros(2, npart, length(trange))
-landau_rhs!(rhs_full[:, :, 2], dist.particles.v, params)
+landau_rhs!(view(rhs_full, :, :, 2), dist.particles.v, params)
 
 rhs_prev = zeros(2, npart, 2)
 
@@ -65,7 +65,6 @@ ftol = 5e-3 # Picard iteration tolerance for |f(x)|_∞
 max_iters = 15 # max number of Picard iterations
 β = 1.0 #damping parameter for the Picard iterations
 m = 2 # depth for anderson acceleration
-n = 2
 chunksize = 100
 
 ### Run profiler
@@ -87,7 +86,7 @@ chunksize = 100
     # v_full[:,:,i+2] = VlasovMethods.Picard_iterate_Landau!(dist, sdist, tol, β, tstep, i+2, t, v_full[:,:,i], rhs_prev, sdist2, max_iters, m )
     sol = VlasovMethods.Picard_iterate_Landau_nls!(
         landau, tol, ftol, β, tstep, i+2, t, v_full[:, :, i + 1],
-        v_full[:, :, i], rhs_prev, m, n, chunksize)
+        v_full[:, :, i], rhs_prev, m, chunksize)
     v_full[:, :, i + 2] .= dist.particles.v
     rhs_full[:, :, i + 2] .= rhs_prev[:, :, 1]
     if !SciMLBase.successful_retcode(sol.retcode)

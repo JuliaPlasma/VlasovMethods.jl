@@ -93,7 +93,7 @@ end
 # end
 
 function Picard_iterate_Landau_nls!(
-        landau, tol, ftol, β, Δt, ti, t, v_prev, v_prev_2, rhs_prev, m, n, chunksize)
+        landau, tol, ftol, β, Δt, ti, t, v_prev, v_prev_2, rhs_prev, m, chunksize)
     # β is the damping parameter for damped Picard iterations, with β = 1 yielding regular Picard iterations
     # ti is the time index at which v_new is being computed, i.e. for t = ti * Δt
     # v_prev is v at the previous timestep 
@@ -106,7 +106,7 @@ function Picard_iterate_Landau_nls!(
     # creating this to store the guess for the moment, for diagnostic purposes
     v_guess = copy(dist.particles.v)
 
-    params = (dist = dist, ent = ent, n = n)
+    params = (dist = dist, ent = ent)
 
     # use Hermite extrapolation to get an initial guess
     if ti ≥ 4

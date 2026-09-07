@@ -7,6 +7,10 @@ struct CollisionEntropy{XD, VD, DT <: DistributionFunction{XD, VD}} <: Entropy
     end
 end
 
+# One method per velocity dimensionality, because the two quadratures report their grid
+# differently and must not be conflated: a `SplineQuadrature` returns the nodes as a plain
+# vector, a `TensorProductQuadrature` as a tuple of per-axis vectors. Splatting the former into
+# `Iterators.product` produces one point of as many components as there are nodes.
 @doc raw"""
     (ent::CollisionEntropy)()
 
@@ -19,23 +23,12 @@ S_h = \int_\Omega f_s \, \log f_s \, dv ,
 evaluated on the Gauß-Legendre grid the spline basis already carries, in any number of velocity
 dimensions.
 
-!!! note "The sign is the manuscripts' `S`, and this used not to work at all"
+!!! note "The sign is the manuscripts' `S`"
     Both manuscripts define ``S = -\int f \log f`` in the continuum and then report
     ``\int f_s \log f_s`` in their figures; this returns the latter, so it *decreases*
     monotonically. Read as "entropy" with the manuscripts' continuum sign it is ``-S``, and a
     plot of it labelled "entropy" and expected to grow is inverted.
-
-    The earlier implementation routed a one-dimensional spline through a hard-coded
-    two-dimensional quadrature that built `SVector{2}` sample points, so a `VD == 1`
-    distribution could not be evaluated at them at all; it also took `nquad` as a positional
-    default rather than a keyword and applied `log` without checking positivity. There was
-    consequently no working entropy diagnostic, which is why every entropy computation in
-    `scripts/` is commented out.
 """
-# One method per velocity dimensionality, because the two quadratures report their grid
-# differently and must not be conflated: a `SplineQuadrature` returns the nodes as a plain
-# vector, a `TensorProductQuadrature` as a tuple of per-axis vectors. Splatting the former into
-# `Iterators.product` produces one point of as many components as there are nodes.
 function (ent::CollisionEntropy{XD, 1})() where {XD}
     sdist = ent.dist
     q = sdist.quadrature
@@ -70,8 +63,8 @@ function (ent::CollisionEntropy{XD, VD})() where {XD, VD}
 end
 
 function _check_positive(f, v)
-    f > 0 || throw(ErrorException(
-        "the projected distribution is non-positive, f_s = $(f) at v = $(v), so the " *
+    f > 0 || throw(DomainError(f,
+        "the projected distribution is non-positive at v = $(v), so the " *
         "entropy ∫ f log f dv is undefined there"))
     return nothing
 end

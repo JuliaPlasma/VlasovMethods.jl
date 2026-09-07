@@ -127,8 +127,8 @@ function compute_coefficients(
         # Lenard-Bernstein H-theorem is stated "provided that f is non-negative". Neither
         # solves it. Failing here names the open problem instead of continuing with a value
         # whose sign is wrong.
-        fα > 0 || throw(ErrorException(
-            "the projected distribution is non-positive, f_s(v) = $(fα) at v = $(vα), so " *
+        fα > 0 || throw(DomainError(fα,
+            "the projected distribution is non-positive at v = $(vα), so " *
             "f_s'/f_s is not meaningful there. This is the positivity problem both " *
             "manuscripts name and neither solves: an L² projection of a particle " *
             "distribution undershoots where the sampling is thin. Use more particles, a " *
@@ -143,18 +143,17 @@ function compute_coefficients(
         B2 -= wα * vα * g
     end
 
-    det = n * neps - nu^2
-    A1 = (neps * B1 - nu * B2) / det
-    A2 = -(nu * B1 - n * B2) / det
+    Δ = n * neps - nu^2
+    A1 = (neps * B1 - nu * B2) / Δ
+    A2 = -(nu * B1 - n * B2) / Δ
 
     if !isfinite(A1) || !isfinite(A2)
         # The velocity spread has collapsed: n εₕ = (n uₕ)² makes the 2×2 system singular.
-        # The earlier message blamed the timestep, which is not the cause of any of the ways
-        # this can happen. `isfinite`, not `isnan`: a zero determinant gives 0/0 = NaN only
-        # when the numerator vanishes too, and ±Inf otherwise — both are the singular case.
-        throw(ErrorException(
+        # `isfinite`, not `isnan`: a zero determinant gives 0/0 = NaN only when the numerator
+        # vanishes too, and ±Inf otherwise — both are the singular case.
+        throw(ArgumentError(
             "the coefficient system is singular: n = $(n), nu = $(nu), neps = $(neps), " *
-            "determinant $(det). The particle velocities have no spread in energy about " *
+            "determinant $(Δ). The particle velocities have no spread in energy about " *
             "their mean, so momentum and energy conservation are not independent conditions."))
     end
 

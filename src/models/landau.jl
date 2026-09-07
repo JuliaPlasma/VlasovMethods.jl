@@ -120,8 +120,8 @@ function compute_J!(J, sdist::SplineDistribution{T, XD, VD}, ::Landau) where {T,
         # version of the metriplectic operator did — returns log|f| and hides the violation
         # behind a finite number, while the H-theorem it is used to prove reverses wherever
         # f_s < 0.
-        f > 0 || throw(ErrorException(
-            "the projected distribution is non-positive, f_s = $(f) at v = $(pt), so " *
+        f > 0 || throw(DomainError(f,
+            "the projected distribution is non-positive at v = $(pt), so " *
             "log f_s in eq:defn_Lk is undefined there. An L² projection of a particle " *
             "distribution undershoots where the sampling is thin; use more particles or a " *
             "coarser spline basis."))
@@ -251,7 +251,9 @@ function compute_K!(K1, K2, v_array::AbstractArray{T}, sdist, landau::Landau) wh
         wα = w[1, α]
 
         j₀ = ntuple(k -> evaluate_all!(vals[k], bs[k], v[k], 0), 2)
-        ntuple(k -> evaluate_all!(ders[k], bs[k], v[k], 1), 2)
+        for k in 1:2
+            evaluate_all!(ders[k], bs[k], v[k], 1)
+        end
 
         for t1 in eachindex(vals[1]), t2 in eachindex(vals[2])
 
@@ -395,15 +397,9 @@ Both terms are sparse-times-dense products. The first is a single pass over the 
 second is the genuinely coupled one, and its ``Q \times Q`` kernel is built and consumed in
 row blocks of `chunk` so that nothing of that size is ever held.
 
-# What this replaces
-
-The earlier implementation filled ``M^2/2`` entries, and for **each** of them called a
-`gauss_quad` that looped over every cell **quadruple** and then every node quadruple, applying
-the support test *inside* the integrand so the iterations were executed and discarded. That is
-``O(M^2 \, n^4 \, n_q^4)`` against the ``O(Q^2)`` here — at ``M = 100``, ``n = 10``,
-``n_q = 3`` roughly ``4 \times 10^9`` integrand calls through closures, against ``4 \times
-10^7`` flops in BLAS. It is also why the driver scripts ran with `n = 1`, which is what made
-the coincident-node problem in [`kernel`](@ref) fire on every diagonal cell.
+``U^{cd}`` is symmetric in ``(c,d)``, so each block is swept once and its three independent
+components serve all four contractions. The whole assembly therefore costs ``O(Q^2)`` kernel
+evaluations, two sweeps of the grid pairs in total: one for ``A^{cd}`` and one for the blocks.
 """
 function compute_L!(L, sdist::SplineDistribution{T, XD, 2}, landau::Landau;
         chunk::Int = 256) where {T, XD}
@@ -457,28 +453,53 @@ function compute_L!(L, sdist::SplineDistribution{T, XD, 2}, landau::Landau;
     # First term: a diagonal weighting of the grid, one sparse contraction per component pair.
     for c in 1:2, d in 1:2
 
-        L .+= Matrix(D[c] * Diagonal(s .* Acd[c][d]) * D[d]')
+        L .+= D[c] * Diagonal(s .* Acd[c][d]) * D[d]'
     end
 
     # Second term: the coupled one. Xc = D^c diag(s), and the Q×Q kernel is built in row
-    # blocks so that only `chunk × Q` of it exists at a time.
+    # blocks so that only `chunk × Q` of it exists at a time. One sweep per block fills all
+    # three independent components -- the kernel is symmetric in (c,d) -- and the four
+    # contractions are read off them. Calling `kernel` inside the (c,d) loop instead would
+    # sweep the Q² pairs four more times and discard three components of every result.
     Xs = (D[1] * Diagonal(s), D[2] * Diagonal(s))
-    Ublock = Matrix{T}(undef, min(chunk, Q), Q)
+    nblk = min(chunk, Q)
+    U11 = Matrix{T}(undef, nblk, Q)
+    U12 = Matrix{T}(undef, nblk, Q)
+    U22 = Matrix{T}(undef, nblk, Q)
+
+    # Scratch for the two products, allocated once: the M×Q intermediate and the M×M block
+    # that is subtracted from L. Writing the chained product as an expression instead would
+    # allocate both afresh on each of the 4 × ceil(Q/chunk) passes.
+    XU = Matrix{T}(undef, M, Q)
+    block = Matrix{T}(undef, M, M)
+
+    # The right factor is contracted over Q on every pass, so it is worth one dense copy:
+    # `mul!` against a sparse adjoint goes through the generic path, while this is gemm.
+    Xsd = (Matrix(Xs[1]), Matrix(Xs[2]))
 
     for lo in 1:chunk:Q
         hi = min(lo + chunk - 1, Q)
         nb = hi - lo + 1
 
+        Ub11 = view(U11, 1:nb, :)
+        Ub12 = view(U12, 1:nb, :)
+        Ub22 = view(U22, 1:nb, :)
+        for (ii, a) in enumerate(lo:hi)
+            @inbounds for b in 1:Q
+                U = kernel(pts[a], pts[b], landau)
+                Ub11[ii, b] = U[1, 1]
+                Ub12[ii, b] = U[1, 2]
+                Ub22[ii, b] = U[2, 2]
+            end
+        end
+        Ucd = ((Ub11, Ub12), (Ub12, Ub22))
+
         for c in 1:2, d in 1:2
 
-            Ub = view(Ublock, 1:nb, :)
-            for (ii, a) in enumerate(lo:hi)
-                @inbounds for b in 1:Q
-                    Ub[ii, b] = kernel(pts[a], pts[b], landau)[c, d]
-                end
-            end
-            # (M × nb) * (nb × Q) * (Q × M)
-            L .-= Matrix(view(Xs[c], :, lo:hi) * Ub * Xs[d]')
+            # (M × nb) * (nb × Q) * (Q × M), through the scratch above.
+            mul!(XU, view(Xs[c], :, lo:hi), Ucd[c][d])
+            mul!(block, XU, Xsd[d]')
+            L .-= block
         end
     end
 
@@ -498,8 +519,7 @@ end
 function collisional_vectorfield!(v̇::AbstractArray{ST}, v::AbstractArray{ST}, params, landau::Landau) where {ST}
     cache = landau.cache[ST]
 
-    # project v onto params.sdist
-    # println("sdist")
+    # project v onto the cache's spline distribution
     sdist = cache.sdist
 
     # println("projection")
@@ -524,17 +544,13 @@ function collisional_vectorfield!(v̇::AbstractArray{ST}, v::AbstractArray{ST}, 
     # xGELSY — so this is `pinv(K) * LJ` without forming the pseudo-inverse.
     #
     # The step from eq(147) to eq:particle_ode_final in the appendix uses K K⁺ = I, which needs
-    # K to have full row rank. The earlier version computed `rank(K1)` and `rank(K2)` — two
-    # SVDs of an M×N matrix, on *every* vector-field evaluation — printed a line when the
-    # hypothesis failed, and then proceeded with the simplified formula anyway. Detecting the
-    # failure of a hypothesis and continuing regardless is the thing to avoid; the rank check
-    # is therefore gone from the hot path, and belongs in a diagnostic script instead.
+    # K to have full row rank. That hypothesis is not checked here: a rank check costs two SVDs
+    # of an M×N matrix per vector-field evaluation, and there is nothing this function could do
+    # with the answer other than proceed anyway. It belongs in a diagnostic script.
     v̇[1, :] .= cache.K1 \ cache.LJ
     v̇[2, :] .= cache.K2 \ cache.LJ
 
-    # The collision frequency was declared and stored but never read anywhere in this file, so
-    # `Landau(dist, ent; ν = 0.1)` silently ran at ν = 1. Every other collision model here
-    # multiplies by it.
+    # Scale by the collision frequency, as every other collision model here does.
     v̇ .*= landau.ν
 
     return nothing

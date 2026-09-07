@@ -19,7 +19,7 @@ function initialize!(dist::ParticleDistribution, params::NormalDistribution, ::S
     v₀ = randn(vsize)
 
     # shift x₀ to the interval [0,1]
-    xmax = ceil(maximum(abs.(x₀)))
+    xmax = ceil(maximum(abs, x₀))
     x₀ .+= xmax
     x₀ ./= 2*xmax
 

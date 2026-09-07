@@ -78,8 +78,8 @@ function compute_coefficients_rclb(
         vα = vp[α]
         fα = fs(vα)
 
-        fα > 0 || throw(ErrorException(
-            "the projected distribution is non-positive, f_s(v) = $(fα) at v = $(vα); see " *
+        fα > 0 || throw(DomainError(fα,
+            "the projected distribution is non-positive at v = $(vα); see " *
             "the positivity note in `compute_coefficients`"))
 
         n += wα
@@ -97,7 +97,7 @@ function compute_coefficients_rclb(
 
     if !isfinite(A1) || !isfinite(A2)
         # `isfinite` rather than `isnan`, for the reason given in `compute_coefficients`.
-        throw(ErrorException(
+        throw(ArgumentError(
             "the rescaled coefficient system is singular: n = $(n), nu = $(nu), " *
             "neps = $(neps), denominator $(den)."))
     end

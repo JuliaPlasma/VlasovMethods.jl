@@ -26,23 +26,20 @@ using Trapz
 # import DifferentialEquations
 # import NaNMath
 
-import Base: Callable
-
 using SimpleSplines
 import SimpleSplines: basis, coefficients, derivative, evaluate, mass_matrix, mass_operator
 
 import GeometricEquations
 import GeometricEquations: ntime
 
-# `import A.B` binds only `B`, so the bare name has to be imported in its own right: four
-# call sites qualify names as `GeometricIntegrators.…` and were throwing `UndefVarError`.
+# `import A.B` binds only `B`, so the bare module name needs an import of its own for the call
+# sites that qualify names as `GeometricIntegrators.…`.
 import GeometricIntegrators
 import GeometricIntegrators.Integrators
 
-# The `Extrapolators` submodule was flattened in GeometricIntegrators 0.18 — the names now
-# live in GeometricIntegratorsBase and are re-exported at the top level. `import
-# GeometricIntegrators.Extrapolators` therefore only warns rather than failing, and leaves
-# the binding undefined, so the eight call sites throw at run time instead of at load.
+# The `Extrapolators` submodule was flattened in GeometricIntegrators 0.18: the names live in
+# GeometricIntegratorsBase and are re-exported at the top level, so they are imported from
+# there rather than through a submodule path.
 import GeometricIntegrators: extrapolate!, HermiteExtrapolation, MidpointExtrapolation
 
 # utilities
@@ -61,11 +58,11 @@ include("entropies/entropy.jl")
 
 export initialize!
 
-# The spline machinery lives in SimpleSplines. Everything the four files that used to sit in
-# `src/splines/` provided — the tensor-product basis, its mass matrix, the L² projection, the
-# local evaluation of a basis and its gradient at a point — is there, with per-axis degrees,
-# domains and boundary conditions, and with the Kronecker structure of the mass operator used
-# rather than assembled.
+# The spline machinery lives in SimpleSplines: the tensor-product basis, its mass matrix, the
+# L² projection and the local evaluation of a basis and its gradient at a point, with per-axis
+# degrees, domains and boundary conditions, and with the Kronecker structure of the mass
+# operator used rather than assembled. These names are re-exported so that a caller working
+# with a `SplineDistribution` does not have to depend on SimpleSplines directly.
 export Spline, derivative
 export BSplineBasis, PeriodicBSplineBasis, RecombinedBSplineBasis, TensorProductBasis
 export UniformMesh, GradedMesh, RandomMesh, GeneralMesh
@@ -76,7 +73,7 @@ export polynomial_reproduction
 # defined` is a poor first experience.
 export ..
 export ncells, nbasis, degree, order, breakpoints, meshwidth, domain
-export evaluate_all, evaluate_all!, basis_index, local_width
+export evaluate, evaluate_all, evaluate_all!, basis_index, local_width
 export quadrature_nodes, quadrature_weights, basis_values
 export l2_projection, l2_projection!, mass_operator, mass_matrix, mass_solve!
 

@@ -25,7 +25,6 @@ tol = 5e-4 # Picard iteration tolerance for |x|_2
 ftol = 5e-3 # Picard iteration tolerance for |f(x)|_∞  
 niter = 5 # fixed number of Picard iterations
 max_iters = 15 # max number of Picard iterations
-n = 1 # number of quadrature nodes
 β = 1.0 # damping parameter for the Picard iterations
 m = 2 # depth for anderson acceleration
 chunksize = 100
@@ -58,7 +57,7 @@ landau = Landau(dist, entropy; ν = ν)
 # closure for vector field
 landau_rhs!(v̇, v, params) = VlasovMethods.collisional_vectorfield!(v̇, v, params, landau)
 
-params = (sdist2 = sdist2, n = n)
+params = (dist = dist, ent = entropy)
 rhs = zero(dist.particles.v)
 
 # J = VlasovMethods.compute_J_gl(sdist, 2)
@@ -85,7 +84,7 @@ rhs_prev = zeros(2, npart, 2)
     # v_full[:,:,i+2] = VlasovMethods.Picard_iterate_Landau!(dist, sdist, tol, β, tstep, i+2, t, v_full[:,:,i], rhs_prev, sdist2, max_iters, m )
     sol = VlasovMethods.Picard_iterate_Landau_nls!(
         landau, tol, ftol, β, tstep, i+2, t, v_full[:, :, i + 1],
-        v_full[:, :, i], rhs_prev, m, n, chunksize)
+        v_full[:, :, i], rhs_prev, m, chunksize)
     v_full[:, :, i + 2] .= dist.particles.v
     rhs_full[:, :, i + 2] .= rhs_prev[:, :, 1]
 

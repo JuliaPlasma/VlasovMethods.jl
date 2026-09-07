@@ -92,14 +92,12 @@ function compute_J!(J, sdist::SplineDistribution{T, XD, 1},
     x = quadrature_nodes(q)
 
     # Sampled on the quadrature grid the basis already carries, then contracted and solved
-    # against the mass operator -- which is what `l2_projection!` does. The earlier version
-    # called `BSplineKit.galerkin_projection` and then `ldiv!` with the mass factorisation,
-    # i.e. the same two steps through a different package.
+    # against the mass operator -- which is what `l2_projection!` does.
     g = similar(J, length(x))
     for r in eachindex(x)
         f = fs(x[r])
-        f > 0 || throw(ErrorException(
-            "the projected distribution is non-positive, f_s = $(f) at v = $(x[r]), so " *
+        f > 0 || throw(DomainError(f,
+            "the projected distribution is non-positive at v = $(x[r]), so " *
             "log f_s and hence the discrete entropy are undefined there. Writing this as " *
             "0.5*log(f_s^2) would return log|f_s| and hide the violation; the H-theorem " *
             "reverses where f_s < 0."))
@@ -111,14 +109,14 @@ function compute_J!(J, sdist::SplineDistribution{T, XD, 1},
 end
 
 @doc raw"""
-    compute_dS!(dS, J, v, sdist, ::MetriplecticLenardBernstein)
+    compute_dS!(dS, J, v, sdist, ::MetriplecticLenardBernstein, pdist)
 
 ``\partial S_h / \partial v_\alpha = w_\alpha \sum_k \mathbb{L}_k \, \varphi_k'(v_\alpha)``,
 the Landau manuscript's `eq:entropy_derivative` up to its overall sign.
 
-The particle weight is ``w_\alpha``. The earlier version divided by `length(dS)` instead,
-which equals ``w_\alpha`` only when every weight is ``1/N`` — true of every initialiser in
-`examples/`, and false for the importance-sampling one.
+The weight ``w_\alpha`` is read from `pdist`, which is why the particle distribution is passed
+in: it equals ``1/N`` for every initialiser in `examples/` but not for the importance-sampling
+one, so `1/length(dS)` is not a substitute.
 """
 function compute_dS!(dS, J, v::AbstractArray{ST}, sdist::SplineDistribution{ST, XD, 1},
         ::MetriplecticLenardBernstein, pdist::ParticleDistribution) where {ST, XD}
@@ -158,8 +156,8 @@ function compute_entropy(f, mlb::MetriplecticLenardBernstein)
     S = zero(eltype(w))
     for r in eachindex(x)
         fr = f(x[r])
-        fr > 0 || throw(ErrorException(
-            "the distribution is non-positive, f = $(fr) at v = $(x[r]), so the entropy " *
+        fr > 0 || throw(DomainError(fr,
+            "the distribution is non-positive at v = $(x[r]), so the entropy " *
             "∫ f log f dv is undefined there"))
         S += w[r] * fr * log(fr)
     end
@@ -191,6 +189,21 @@ function compute_moments(v::AbstractArray{ST}, pdist::ParticleDistribution,
 end
 
 @doc raw"""
+``(\varepsilon_h - u_h^2) \, \mathbb{L} \, \partial S_h / \partial v``, i.e. the bracket of
+[`rhs_downstairs_factor!`](@ref) with its denominator cleared.
+
+Useful where the common factor is supplied elsewhere; it is **not** ``\dot{v}``, which is what
+`rhs_downstairs_factor!` returns.
+"""
+function rhs!(
+        v̇::AbstractArray{ST}, v::AbstractArray{ST}, pdist::ParticleDistribution, n, u, eps,
+        dS::AbstractArray{ST}, dS_sum, dS_v_sum, ::MetriplecticLenardBernstein) where {ST}
+    w = view(pdist.particles.w, 1, :)
+    v̇ .= .-n ./ w .* (eps - u^2) .* dS .+ (eps .- u .* v) .* dS_sum .+
+         (v .- u) .* dS_v_sum
+end
+
+@doc raw"""
 The metriplectic Lenard-Bernstein right-hand side, ``\dot{v} = \mathbb{L} \, \partial S_h / \partial v``
 with the bracket
 
@@ -204,19 +217,10 @@ and ``\sum_\alpha w_\alpha v_\alpha \mathbb{L}_{\alpha\beta} = 0``, so momentum 
 exact Casimirs of the bracket **whatever** `dS` is — a stronger structure than the
 manuscript's, and the reason these runs conserve.
 
-The weight is per particle. Both right-hand sides used `pdist.particles.w[1]`, particle one's
-weight, for every particle; the commented-out single-particle version above them had it right.
-The two degeneracies above are what fail when it is wrong, so with non-uniform weights the
-conservation the bracket is built for is lost.
+The weight is per particle, read from `pdist` for each ``\alpha``: the two degeneracies above
+are what fail if a single weight is used for every particle, so with non-uniform weights the
+conservation the bracket is built for would be lost.
 """
-function rhs!(
-        v̇::AbstractArray{ST}, v::AbstractArray{ST}, pdist::ParticleDistribution, n, u, eps,
-        dS::AbstractArray{ST}, dS_sum, dS_v_sum, ::MetriplecticLenardBernstein) where {ST}
-    w = view(pdist.particles.w, 1, :)
-    v̇ .= .-n ./ w .* (eps - u^2) .* dS .+ (eps .- u .* v) .* dS_sum .+
-         (v .- u) .* dS_v_sum
-end
-
 function rhs_downstairs_factor!(
         v̇::AbstractArray{ST}, v::AbstractArray{ST}, pdist::ParticleDistribution, n, u, eps,
         dS::AbstractArray{ST}, dS_sum, dS_v_sum, ::MetriplecticLenardBernstein) where {ST}
@@ -242,10 +246,9 @@ function collisional_vectorfield!(v̇::AbstractArray{ST}, v::AbstractArray{ST}, 
 
     n, u, eps = compute_moments(v, mlb.dist, mlb)
 
-    # The collision frequency was declared, stored, and then never read: `ν` appeared nowhere
-    # after the constructor, so `MetriplecticLenardBernstein(dist, ent; ν = 0.1)` silently ran
-    # at ν = 1. Every other collision model here multiplies by it.
     rhs_downstairs_factor!(v̇, v, mlb.dist, n, u, eps, cache.dS, ds_sum, ds_v_sum, mlb)
+
+    # Scale by the collision frequency, as every other collision model here does.
     v̇ .*= mlb.ν
 end
 
@@ -293,10 +296,6 @@ end
 function Picard_iterate_over_particles(dv::AbstractArray{ST}, vn::AbstractArray{ST},
         vn_minus_one::AbstractArray{ST}, dv_history, ti, t, Δt, m, β,
         abstol, reltol, mlb::MetriplecticLenardBernstein) where {ST}
-
-    # err = 1
-    f = 1
-    # j = 0
 
     # set up vectors for storing intermediates
     # v_new = copy(vn)

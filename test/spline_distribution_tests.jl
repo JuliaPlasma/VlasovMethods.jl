@@ -19,7 +19,7 @@ const VM = VlasovMethods
     @test polynomial_reproduction(
         SplineDistribution(1, 1, 41, 4, (-10.0, 10.0), 0, Dirichlet()).basis) == -1
 
-    # the old symbols still map to the same spaces they used to select
+    # the capitalised symbols the drivers in `scripts/` pass select these spaces
     @test polynomial_reproduction(
         SplineDistribution(1, 1, 21, 3, (-5.0, 5.0), 0, :nothing).basis) == 2
     @test polynomial_reproduction(
@@ -28,6 +28,18 @@ const VM = VlasovMethods
         SplineDistribution(1, 1, 21, 3, (-5.0, 5.0), 0, :Periodic).basis) == 0
     # ...and a typo is an error rather than a silent fall-through to the clamped basis
     @test_throws ArgumentError SplineDistribution(1, 1, 21, 3, (-5.0, 5.0), 0, :Perodic)
+    # `:Natural` is not one of them: `Natural()` is a distinct boundary condition, and a
+    # symbol that silently selected `Free()` instead would be the wrong spline space.
+    @test_throws ArgumentError SplineDistribution(1, 1, 21, 3, (-5.0, 5.0), 0, :Natural)
+    @test polynomial_reproduction(
+        SplineDistribution(1, 1, 21, 3, (-5.0, 5.0), 0, Natural()).basis) !=
+          polynomial_reproduction(
+        SplineDistribution(1, 1, 21, 3, (-5.0, 5.0), 0, Free()).basis)
+
+    # `domain` is anything with a `first` and a `last`, and all three forms agree
+    @test length(SplineDistribution(1, 1, 41, 4, (-10.0, 10.0))) ==
+          length(SplineDistribution(1, 1, 41, 4, [-10.0, 10.0])) ==
+          length(SplineDistribution(1, 1, 41, 4, -10.0:20.0:10.0))
 
     # oversized end cells
     sb = SplineDistribution(1, 1, 21, 4, (-5.0, 5.0), 3.0, Free())
@@ -42,7 +54,7 @@ const VM = VlasovMethods
     @test s2.basis isa TensorProductBasis
     @test polynomial_reproduction(s2.basis) == 2
 
-    # the lumped-mass flag is gone rather than silently reinterpreted
+    # there is no lumped-mass flag: a trailing boolean is not a valid argument
     @test_throws MethodError SplineDistribution(1, 1, 21, 3, (-5.0, 5.0), 0, Free(), false)
 end
 
@@ -114,7 +126,43 @@ end
     pd.particles.w[1, :] .= 1 / npart
 
     sd = SplineDistribution(1, 1, 21, 4, (-5.0, 5.0), 0, Free())
-    @test_throws ErrorException projection(pd.particles.v[1, :], pd, sd)
+    @test_throws DomainError projection(pd.particles.v[1, :], pd, sd)
+end
+
+@testset "deposition does not allocate per particle" begin
+    # `_deposit!` is the innermost loop of every step. Its cost must be independent of the
+    # particle count: the arrays it writes into are allocated once per `projection`, and
+    # nothing inside the particle loop is. A closure that assigns to a captured variable
+    # boxes it and reintroduces one allocation per particle, which is invisible to every
+    # other test here -- the results stay correct, only the run time changes.
+    #
+    # Asserted only under `--check-bounds=auto`. `Pkg.test()` defaults to `=yes`, which
+    # inflates allocation counts and would make any ceiling here meaningless.
+    if Base.JLOptions().check_bounds == 0
+        sd2 = SplineDistribution(1, 2, 11, 4, (-6.0, 6.0), 0, Free())
+        for np in (500, 4000)
+            Random.seed!(0x0DEB0512)
+            pd2 = ParticleDistribution(1, 2, np)
+            pd2.particles.v .= randn(2, np)
+            pd2.particles.w[1, :] .= 1 / np
+
+            projection(pd2.particles.v, pd2, sd2)             # compile and warm up
+            a = @allocated projection(pd2.particles.v, pd2, sd2)
+            # A generous ceiling: the fixed cost is a few kB, while one box per particle is
+            # ~2.3 kB *each*. Bounding by a constant rather than per-particle is the point.
+            @test a < 50_000
+        end
+
+        # the 1-D method has always been box-free; assert both so a regression in either shows
+        sd1 = SplineDistribution(1, 1, 21, 4, (-6.0, 6.0), 0, Free())
+        Random.seed!(0x0DEB0512)
+        pd1 = ParticleDistribution(1, 1, 4000)
+        pd1.particles.v[1, :] .= randn(4000)
+        pd1.particles.w[1, :] .= 1 / 4000
+        v1 = pd1.particles.v[1, :]
+        projection(v1, pd1, sd1)
+        @test (@allocated projection(v1, pd1, sd1)) < 50_000
+    end
 end
 
 @testset "project a function and a Maxwellian" begin
@@ -142,7 +190,7 @@ end
         @test isapprox(sp.spline(v), 1 + 2v - 0.5v^2; atol = 1e-9)
     end
 
-    # 2-D Maxwellian, which used to exist only for VD == 2 and threw UndefVarError
+    # 2-D Maxwellian
     G = v -> exp(-(v[1]^2 + v[2]^2) / 2) / (2π)
     p2 = [(1.0, -0.5), (0.0, 0.0), (2.0, 2.0), (-1.5, 0.7)]
     e2 = Float64[]
@@ -156,8 +204,8 @@ end
     @test e2[2] / e2[3] > 6
     @test e2[3] < 1e-4
 
-    # and now also for VD == 1, which had no implementation at all. The normalisation is
-    # dimension-dependent: 1/sqrt(2π) in one dimension, not the 1/(2π) that was hard-coded.
+    # ...and for VD == 1, where the normalisation is 1/sqrt(2π) rather than 1/(2π): it is
+    # dimension-dependent, so one method covering both dimensions has to get this right.
     s1 = SplineDistribution(1, 1, 41, 4, (-6.0, 6.0), 0, Free())
     project_Maxwellian(s1)
     @test isapprox(s1.spline(0.0), 1 / sqrt(2π); atol = 1e-4)
@@ -251,8 +299,8 @@ end
     v = pd.particles.v[:, α]
     for k in 1:M
         I = CartesianIndices(B)[k]
-        d1 = VM.evaluate(B, I, (v[1], v[2]), (1, 0))
-        d2 = VM.evaluate(B, I, (v[1], v[2]), (0, 1))
+        d1 = evaluate(B, I, (v[1], v[2]), (1, 0))
+        d2 = evaluate(B, I, (v[1], v[2]), (0, 1))
         @test isapprox(K1[k, α], pd.particles.w[1, α] * d1; atol = 1e-12)
         @test isapprox(K2[k, α], pd.particles.w[1, α] * d2; atol = 1e-12)
     end
@@ -270,7 +318,7 @@ end
     # problem both manuscripts name and neither solves.
     project_function(v -> exp(-(v[1]^2 + v[2]^2) / 2) / (2π), sd)
     Jbad = zeros(M)
-    @test_throws ErrorException VM.compute_J!(Jbad, sd, landau)
+    @test_throws DomainError VM.compute_J!(Jbad, sd, landau)
 
     # J = M⁻¹ ∫ φ (1 + log f_s), on a distribution that stays positive
     project_function(v -> exp(-(v[1]^2 + v[2]^2) / 2) / (2π) + 0.05, sd)
@@ -294,6 +342,60 @@ end
     @test maximum(abs, L - L') < 1e-10 * maximum(abs, L)
 end
 
+@testset "L equals the defining double sum" begin
+    # `compute_L!` expands the two gradient differences of `eq:discrete-landau-matrix` into
+    # four terms, folds them in pairs using the symmetry of U, and contracts the result as
+    # sparse-times-dense products. That is an algebraic identity, and this is the only check
+    # that the folding is right: symmetry and finiteness survive a wrong rearrangement.
+    #
+    # The direct form is O(Q² M²), so the basis is deliberately tiny (M = 16, Q = 36).
+    sd = SplineDistribution(1, 2, 4, 2, (-3.0, 3.0), 0, Free())
+    M = length(sd)
+    npart = 200
+    Random.seed!(0x51DEA1)
+    pd = ParticleDistribution(1, 2, npart)
+    pd.particles.v .= randn(2, npart) ./ 2
+    pd.particles.w[1, :] .= 1 / npart
+    projection(pd.particles.v, pd, sd)
+    landau = Landau(pd, CollisionEntropy(sd))
+
+    Lfast = zeros(M, M)
+    VM.compute_L!(Lfast, sd, landau)
+
+    # the same quadrature, summed as written: s_a = w_a f_s(v_a) and
+    # L_ij = ½ Σ_ab s_a s_b Σ_cd (∂_c φ_i(v_a) − ∂_c φ_i(v_b)) U^cd (∂_d φ_j(v_a) − ∂_d φ_j(v_b))
+    q = sd.quadrature
+    X = quadrature_nodes(q)
+    W = quadrature_weights(q)
+    Q1, Q2 = length(X[1]), length(X[2])
+    fs = sd.spline
+    pts = [VM.SVector(X[1][a1], X[2][a2]) for a2 in 1:Q2 for a1 in 1:Q1]
+    s = [W[1][a1] * W[2][a2] * fs(VM.SVector(X[1][a1], X[2][a2]))
+         for a2 in 1:Q2 for a1 in 1:Q1]
+    Dc = map(Matrix, VM.gradient_tabulations(sd))
+    Q = Q1 * Q2
+
+    Lslow = zeros(M, M)
+    for a in 1:Q, b in 1:Q
+
+        U = VM.kernel(pts[a], pts[b], landau)
+        sab = s[a] * s[b]
+        iszero(sab) && continue
+        for i in 1:M, j in 1:M
+
+            acc = 0.0
+            for c in 1:2, d in 1:2
+
+                acc += (Dc[c][i, a] - Dc[c][i, b]) * U[c, d] *
+                       (Dc[d][j, a] - Dc[d][j, b])
+            end
+            Lslow[i, j] += sab * acc / 2
+        end
+    end
+
+    @test maximum(abs, Lfast - Lslow) < 1e-10 * maximum(abs, Lslow)
+end
+
 @testset "gradient tabulations match direct evaluation" begin
     sd = SplineDistribution(1, 2, 6, 3, (-2.0, 2.0), 0, Free())
     D1, D2 = VM.gradient_tabulations(sd)
@@ -311,8 +413,8 @@ end
         for i in (1, 2, size(B, 1)), j in (1, size(B, 2))
 
             k = lin[i, j]
-            @test isapprox(D1[k, a], VM.evaluate(B, (i, j), pt, (1, 0)); atol = 1e-12)
-            @test isapprox(D2[k, a], VM.evaluate(B, (i, j), pt, (0, 1)); atol = 1e-12)
+            @test isapprox(D1[k, a], evaluate(B, (i, j), pt, (1, 0)); atol = 1e-12)
+            @test isapprox(D2[k, a], evaluate(B, (i, j), pt, (0, 1)); atol = 1e-12)
         end
     end
 end

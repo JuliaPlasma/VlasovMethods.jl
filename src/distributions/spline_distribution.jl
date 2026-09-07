@@ -24,9 +24,9 @@ the two cases differs — the evaluation, the projection and the mass solve are 
 
 For `VD > 1` the mass matrix is ``\mathbb{M}^{(VD)} \otimes \dots \otimes \mathbb{M}^{(1)}``,
 and a solve is `VD` one-dimensional solves applied along each axis. That is an identity, not
-an approximation. The earlier implementation built `kron(M, M)` and took a dense `cholesky`
-of it — 1681×1681 for the 41-element cubic basis of a two-dimensional velocity space, and
-68921² in three dimensions, which does not fit.
+an approximation, and it is what makes the higher-dimensional cases tractable at all: forming
+the product and factorising it densely would mean a 1681×1681 matrix for the 41-element cubic
+basis of a two-dimensional velocity space, and 68921² in three dimensions, which does not fit.
 
 # The boundary condition is not a free choice
 
@@ -98,15 +98,19 @@ representation exists to avoid; it is here for tests and diagnostics, not for so
 """
 SimpleSplines.mass_matrix(dist::SplineDistribution) = mass_matrix(dist.quadrature)
 
-function Base.similar(AT, s::SplineDistribution{DT, XD, VD}) where {DT, XD, VD}
+# `AT` is the element type of the new coefficient array, so it is annotated as a type: left
+# untyped, this method reads as `similar(::Any, ::SplineDistribution)` and collides with the
+# `similar(::TheirType, ::Any)` of every dependency that defines one.
+function Base.similar(AT::Type, s::SplineDistribution{DT, XD, VD}) where {DT, XD, VD}
     SplineDistribution{XD, VD}(s.basis, s.quadrature, zeros(AT, size(s.coefficients)))
 end
 
 # The concrete type of `similar(AT, s)`, computed from type parameters alone so that the cache
 # lookup in `CacheDict` stays inferable. `Spline`'s own element type is the promotion of the
 # basis's with the coefficients', which is what `promote_type` reproduces here.
-function similar_type(AT, ::SplineDistribution{
-        DT, XD, VD, ST, BT, QT, CT}) where {
+function similar_type(AT::Type,
+        ::SplineDistribution{
+            DT, XD, VD, ST, BT, QT, CT}) where {
         DT, XD, VD, ST, BT, QT, CT}
     NCT = Array{AT, VD}
     NST = Spline{promote_type(eltype(BT), AT), BT, NCT}
@@ -140,16 +144,14 @@ function check_conservation_basis(dist::SplineDistribution; moments::Integer = 2
         "(not even the constants survive)."))
 end
 
-# The boundary conditions the previous implementation named by symbol. `:nothing` selected the
-# unconstrained basis by falling through an `else` branch rather than by saying so, and a
-# mistyped symbol did the same silently; the mapping is written out here so that an
-# unrecognised name reaches `SimpleSplines.BoundaryCondition` and throws.
+# The capitalised boundary-condition symbols the drivers in `scripts/` and `test/` pass. Every
+# name is listed explicitly, so an unrecognised one reaches `SimpleSplines.BoundaryCondition`
+# and throws rather than falling through to the unconstrained basis silently.
 _boundary_condition(bc::SimpleSplines.BoundaryCondition) = bc
 _boundary_condition(bc::Tuple) = bc
 function _boundary_condition(bc::Symbol)
     bc === :Dirichlet && return Dirichlet()
     bc === :Periodic && return Periodic()
-    bc === :Natural && return Free()
     bc === :nothing && return Free()
     return SimpleSplines.BoundaryCondition(bc)
 end
@@ -169,22 +171,20 @@ outside it, giving a `GeneralMesh`. That is the device for keeping a particle th
 of the resolved region inside the support of the basis; with `0` the mesh is uniform on
 `domain` exactly.
 
-`bc` may be a `SimpleSplines.BoundaryCondition`, a lowercase symbol, or a two-tuple for the
-two ends. The default is `Free()` — the unconstrained clamped basis, which is the only choice
-that reproduces ``1``, ``v`` and ``v^2`` and hence the only one on which the conservative
-schemes conserve. The previous default was `:Dirichlet`, which reproduces nothing at all.
+`domain` is anything with a `first` and a `last` — a two-tuple, a vector or a range.
 
-!!! note "The lumped-mass option is gone"
-    The old signature took a trailing `compute_mass_galerkin::Bool`. Passing `false` assembled
-    the mass matrix with a trapezoidal rule, which for a B-spline basis evaluates at the knots
-    where ``\varphi_i(t_j) = \delta_{ij}`` and therefore produced a **diagonal**, mass-lumped
-    matrix rather than ``\mathbb{M}_{ij} = \int \varphi_i \varphi_j``. That is a different
-    discretisation, not a cheaper assembly of the same one, and it is not the one either
-    manuscript describes. The mass matrix is now always the exact Galerkin one. A call passing
-    the old flag is a `MethodError` rather than being silently reinterpreted.
+`bc` may be a `SimpleSplines.BoundaryCondition`, a two-tuple for the two ends, or one of the
+symbols `:Dirichlet`, `:Periodic` and `:nothing` that the drivers in `scripts/` use, where
+`:nothing` means `Free()`. Any other symbol is an error. The default is `Free()` — the
+unconstrained clamped basis, which is the only choice that reproduces ``1``, ``v`` and ``v^2``
+and hence the only one on which the conservative schemes conserve.
+
+The mass matrix is always the exact Galerkin one, ``\mathbb{M}_{ij} = \int \varphi_i
+\varphi_j``; there is no lumped-mass option.
 """
 function SplineDistribution(xdim::Integer, vdim::Integer, nknots::Integer,
-        s_order::Integer, domain, length_big_cell = 0, bc = Free())
+        s_order::Integer, domain::Union{Tuple, AbstractVector},
+        length_big_cell = 0, bc = Free())
     a, b = first(domain), last(domain)
     s_order ≥ 1 || throw(ArgumentError(
         "the spline order must be at least 1, got s_order = $(s_order)"))
