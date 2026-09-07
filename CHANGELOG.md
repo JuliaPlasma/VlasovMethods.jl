@@ -209,6 +209,88 @@ first entry is written.
   The last of the three also called `collisions_rhs!`, which does not exist; it is now
   `collisional_vectorfield!` like the other two.
 
-### Breaking Changes
+- **The singular-system guards missed the `±Inf` half of the failure.** Both
+  `compute_coefficients` and `compute_coefficients_rclb` tested `isnan(A₁) || isnan(A₂)`, which a
+  vanishing determinant produces only when the numerator vanishes with it. With a nonzero
+  numerator the division gives `±Inf`, the guard passed, and non-finite coefficients reached the
+  right-hand side. Both now test `isfinite`; the message is unchanged.
+
+- **The Landau vector field did the `O(Q²)` kernel sum before checking that `f_s > 0`.**
+  `compute_L!` and `compute_J!` are independent, but the positivity check on the quadrature grid
+  lives in `compute_J!`, which ran second — so a non-positive projection threw only after the
+  expensive work. They are simply swapped. No results change.
+
+- **Four driver scripts still declared `using QuadGK`** after the dependency was dropped from
+  `Project.toml`, so each failed at load in the package environment. Every `quadgk` call site in
+  them is commented out, so the import goes rather than the dependency coming back.
 
 ## Open Issues
+
+Carried over from the audit that accompanied the `SimpleSplines` migration. None of these are
+regressions; each is either a numerical-methods decision or work the migration deliberately did
+not take on.
+
+- **The implemented Landau scheme is not the one the main text derives.** The manuscript builds
+  the gradient form with the `G` operator — whose structure *is* the momentum and energy
+  conservation proof — and a Gonzalez discrete gradient, which *is* the discrete H-theorem proof.
+  What runs is the **appendix** two-step `v̇ = K⁺LJ` with plain implicit midpoint and
+  `∇S(midpoint)`, which is not a discrete gradient. Neither structural proof transfers to the code
+  as written. `G` is never formed; the gradient form survives only as a commented-out
+  `Landau_rhs`. A gap between paper and code, not an error in either.
+
+- **The Landau Picard solver does not iterate to convergence.** `Landau_solver.jl` runs exactly
+  five iterations and prints the residual without testing it. `tol`, `ftol`, `β`, `m` and
+  `chunksize` are accepted and unused, and `probN` is constructed and never solved. Every
+  conservation property in the appendix is a property of the *exactly* solved implicit system, so
+  momentum and energy drift at the size of that printed residual.
+
+- **The accepted Landau solution is one Picard step behind its stored derivative.** The loop's
+  last action recomputes `v̇` at the midpoint from the newest guess without updating the guess, so
+  the stored state and derivative do not correspond and the next step's Hermite extrapolation is
+  fed an inconsistent pair.
+
+- **The Landau kernel's coincident-point value is a regularisation, not a limit.** `kernel`
+  returns zero at `|u| = 0` so that a product quadrature sharing nodes does not produce `Inf`. The
+  error does not vanish under refinement, and because both factors use the same Gauß–Legendre
+  nodes it fires on every *diagonal cell pair* rather than on a set of measure zero. The kernel is
+  integrable in two dimensions; what is needed is a singularity-aware rule or offset grids.
+
+- **Positivity of `f_s` is detected, not solved.** Every `log f_s` and `1/f_s` now throws rather
+  than continuing, which is strictly better than the old `0.5·log(f_s²)` returning `log|f_s|`. But
+  a run whose projection undershoots now stops, and the real fix — a positivity-preserving
+  projection — is the manuscripts' own open problem.
+
+- **The rank hypothesis behind `K K⁺ = I` is no longer checked anywhere.** The step to
+  `eq:particle_ode_final` needs `K` to have full row rank. The old code detected the failure with
+  two SVDs per vector-field evaluation, printed, and proceeded regardless; the check is gone from
+  the hot path and has not been given a home in a diagnostic script.
+
+- **No test covers any structure-preservation claim for Landau.** `scripts/verify_conservation.jl`
+  covers the conservative Lenard-Bernstein operator only, and `test/projections_tests.jl` and
+  `test/electric_field_tests.jl` remain commented out of `runtests.jl`.
+
+- **The cumulant-scaling experiment is not implemented.** The appendix fixes `A₀ = 0`, `A₁ = 1` by
+  hand; no code does. The cumulant computation is commented out in
+  `scripts/lenard_bernstein_conservative.jl` and the experiment survives as a stale `run_name`.
+
+- **`src/projections/potential.jl` is dead.** It dispatches on
+  `PoissonSolvers.Potential{<:PeriodicBSplineBasis}`, and that name now resolves to the
+  `SimpleSplines` type, so it can never match a `PoissonSolvers` basis. It was already unreachable
+  before the migration, and its body calls a `Splines.PeriodicVector` that was never imported. Left
+  in place rather than deleted.
+
+- **Seven `src/` files are included by nothing:** `electric_field.jl`, the root `vlasov_poisson.jl`
+  (distinct from `models/vlasov_poisson.jl`), `visualisation.jl`, `methods/lbm_solver.jl`,
+  `hdf5.jl`, and two whose `include` lines are commented out. `src/hdf5.jl` is untracked in git.
+
+- **Dependencies that are no longer used are still declared.** `NaNMath` appears only in a
+  commented import; `Plots`, `LaTeXStrings`, `StatsPlots`, `StatsBase`, `SciMLBase` and
+  `AdaptiveRejectionSampling` have no occurrences by name in `src/`. Seven non-stdlib dependencies
+  still carry no `[compat]` entry. `ExplicitImports.jl` is what settles this and has not been run.
+  Four driver scripts also `using` `GLMakie`, `Printf` and `Profile`, none of which are declared.
+
+- **This package cannot be registered until `SimpleSplines` is.** `SimpleSplines` is not in
+  General, so it is resolved through a `[sources]` table — which RegistryCI rejects outright — and
+  its only version, `1.0.0-DEV`, is not a parseable compat bound. The `[sources]` table also forces
+  `julia = "1.11"` rather than the tree's LTS floor of 1.10. Delete the table and add
+  `SimpleSplines = "<version>"` the moment it is registered.

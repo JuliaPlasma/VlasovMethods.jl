@@ -72,11 +72,13 @@ julia = "1.11"
 #   2. add `SimpleSplines = "<version>"` to [compat] and put `julia = "1.10"` back.
 #
 # Until then this package CANNOT be registered: RegistryCI rejects a [sources] table outright.
-# The `rev` pins the branch of JuliaDEC/SimpleSplines.jl#6, because the default branch does not
-# yet carry the tensor-product and boundary-condition work this package now requires — drop the
-# `rev` when that merges, or better, do step 2 and remove the table entirely.
+#
+# No `rev`: JuliaDEC/SimpleSplines.jl#6 is merged, so the default branch carries the tensor
+# products and boundary conditions this package requires. Do not let Pkg rewrite this file to
+# put one back — `Pkg.instantiate` and `Pkg.resolve` both rewrite Project.toml, and both eat
+# every comment above.
 [sources]
-SimpleSplines = {url = "https://github.com/JuliaDEC/SimpleSplines.jl", rev = "boundary-conditions-and-tensor-products"}
+SimpleSplines = {url = "https://github.com/JuliaDEC/SimpleSplines.jl"}
 
 [extras]
 OffsetArrays = "6fe1bfb0-de20-5000-8ca7-80f57d26f881"

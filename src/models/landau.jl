@@ -508,11 +508,13 @@ function collisional_vectorfield!(v̇::AbstractArray{ST}, v::AbstractArray{ST}, 
     # compute K matrices
     compute_K!(cache.K1, cache.K2, v, sdist, landau)
 
+    # compute J vector. Before `compute_L!`, although the two are independent: `compute_J!`
+    # is where the positivity of f_s on the quadrature grid is checked, and it costs O(Q)
+    # against the O(Q²) kernel sum below.
+    compute_J!(cache.J, sdist, landau)
+
     # compute L_ij matrix
     compute_L!(cache.L, sdist, landau)
-
-    # compute J vector
-    compute_J!(cache.J, sdist, landau)
 
     # solve for vector field
     mul!(cache.LJ, cache.L, cache.J)

@@ -147,10 +147,11 @@ function compute_coefficients(
     A1 = (neps * B1 - nu * B2) / det
     A2 = -(nu * B1 - n * B2) / det
 
-    if isnan(A1) || isnan(A2)
+    if !isfinite(A1) || !isfinite(A2)
         # The velocity spread has collapsed: n εₕ = (n uₕ)² makes the 2×2 system singular.
         # The earlier message blamed the timestep, which is not the cause of any of the ways
-        # this can happen.
+        # this can happen. `isfinite`, not `isnan`: a zero determinant gives 0/0 = NaN only
+        # when the numerator vanishes too, and ±Inf otherwise — both are the singular case.
         throw(ErrorException(
             "the coefficient system is singular: n = $(n), nu = $(nu), neps = $(neps), " *
             "determinant $(det). The particle velocities have no spread in energy about " *

@@ -5,7 +5,6 @@
 # import stuff
 using ProgressMeter
 using VlasovMethods
-using QuadGK
 using SciMLBase
 
 # output file

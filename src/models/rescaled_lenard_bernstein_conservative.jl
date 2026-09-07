@@ -95,7 +95,8 @@ function compute_coefficients_rclb(
     A1 = (n * neps - nu^2) / den
     A2 = (nu * B2 - neps * B1) / den
 
-    if isnan(A1) || isnan(A2)
+    if !isfinite(A1) || !isfinite(A2)
+        # `isfinite` rather than `isnan`, for the reason given in `compute_coefficients`.
         throw(ErrorException(
             "the rescaled coefficient system is singular: n = $(n), nu = $(nu), " *
             "neps = $(neps), denominator $(den)."))
