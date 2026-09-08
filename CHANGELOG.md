@@ -15,6 +15,15 @@ first entry is written.
 
 ## [Unreleased] — targeting 0.3.0
 
+### Changed
+
+- `src/models/vlasov_poisson.jl` and `scripts/charged_particles.jl` are now Unicode
+  NFC-normalised. They stored `ż` as a base letter plus a combining mark, inherited from macOS
+  rather than chosen. Nothing about the compiled code changes — Julia's parser normalises
+  identifiers to NFC — but a `grep` pattern or an editor search typed in NFC now matches, where
+  before it silently matched nothing. Both files are byte-equal to the NFC normalisation of their
+  predecessor, and no string literal was affected.
+
 ### Breaking Changes
 
 - **The spline machinery is now `SimpleSplines`, and `BSplineKit` is gone.** `src/splines/` —
