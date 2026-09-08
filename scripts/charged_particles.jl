@@ -28,7 +28,7 @@ E(x::Vector{DT}) where {DT} = DT[0, 0, cos(2π*x[3])]
 B(x::Vector{DT}) where {DT} = DT[0, 0, 1]
 
 # vector field
-function lorentz_force!(t, z, ż)
+function lorentz_force!(t, z, ż)
     for i in axes(z, 2)
         x = z[1:3, i]
         v = z[4:6, i]
@@ -36,13 +36,13 @@ function lorentz_force!(t, z, ż)
         e = E(x)
         b = B(x)
 
-        ż[1, i] = v[1]
-        ż[2, i] = v[2]
-        ż[3, i] = v[3]
+        ż[1, i] = v[1]
+        ż[2, i] = v[2]
+        ż[3, i] = v[3]
 
-        ż[4, i] = e[1] + v[2] * b[3] - v[3] * b[2]
-        ż[5, i] = e[2] + v[3] * b[1] - v[1] * b[3]
-        ż[6, i] = e[3] + v[1] * b[2] - v[2] * b[1]
+        ż[4, i] = e[1] + v[2] * b[3] - v[3] * b[2]
+        ż[5, i] = e[2] + v[3] * b[1] - v[1] * b[3]
+        ż[6, i] = e[3] + v[1] * b[2] - v[2] * b[1]
     end
 end
 

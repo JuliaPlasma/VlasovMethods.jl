@@ -19,11 +19,11 @@ end
 ####################################################
 
 # vector field
-function lorentz_force!(ż, t, z, params)
+function lorentz_force!(ż, t, z, params)
     update_potential!(params.model)
-    for i in axes(ż, 2)
-        ż[1, i] = z[2, i]
-        ż[2, i] = - params.ϕ(z[1, i], Derivative(1))
+    for i in axes(ż, 2)
+        ż[1, i] = z[2, i]
+        ż[2, i] = - params.ϕ(z[1, i], Derivative(1))
     end
 end
 
@@ -32,19 +32,19 @@ end
 ###########################################################
 
 # Vector field for advection
-function v_advection!(ż, t, z, params)
-    for i in axes(ż, 2)
-        ż[1, i] = z[2, i]
-        ż[2, i] = 0
+function v_advection!(ż, t, z, params)
+    for i in axes(ż, 2)
+        ż[1, i] = z[2, i]
+        ż[2, i] = 0
     end
 end
 
 # Vector field for acceleration
-function v_acceleration!(ż, t, z, params)
+function v_acceleration!(ż, t, z, params)
     update_potential!(params.model)
-    for i in axes(ż, 2)
-        ż[1, i] = 0
-        ż[2, i] = - params.ϕ(z[1, i], Derivative(1))
+    for i in axes(ż, 2)
+        ż[1, i] = 0
+        ż[2, i] = - params.ϕ(z[1, i], Derivative(1))
     end
 end
 
