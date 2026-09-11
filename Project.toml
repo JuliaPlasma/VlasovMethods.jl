@@ -1,7 +1,7 @@
 name = "VlasovMethods"
 uuid = "4a954452-39e6-424b-ae51-38fc4bbc42ef"
-authors = ["Michael Kraus"]
 version = "0.2.1"
+authors = ["Michael Kraus"]
 
 [deps]
 AdaptiveRejectionSampling = "c75e803d-635f-53bd-ab7d-544e482d8c75"
@@ -24,13 +24,8 @@ ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 QuadratureRules = "a08977f5-a20d-4b99-b11f-f5ea535e0575"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
-# SimpleSplines is not yet registered in General, so it carries no [compat] bound: its
-# only version is the unreleased 1.0.0-DEV, which is not a parseable compat spec. Add
-# `SimpleSplines = "1"` the moment it is registered — and note that until then this
-# package cannot be registered either, and needs a scratch environment with both
-# developed to resolve.
-SimpleSplines = "ac480f6c-9a94-4d53-a283-9db69f109154"
 SimpleSolvers = "36b790f5-6434-4fbe-b711-1f64a1e2f6a2"
+SimpleSplines = "ac480f6c-9a94-4d53-a283-9db69f109154"
 Sobol = "ed01d8cd-4d21-5b2a-85b4-cc3bdc58bad4"
 SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
@@ -38,6 +33,9 @@ StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 StatsPlots = "f3b207a7-027a-5e70-b257-86293d7955fd"
 TerminalLoggers = "5d786b92-1e48-4d6f-9151-6b4477ca9bed"
 Trapz = "592b5752-818d-11e9-1e9a-2b8ca4a44cd1"
+
+[sources.SimpleSplines]
+url = "https://github.com/JuliaDEC/SimpleSplines.jl"
 
 [compat]
 AdaptiveRejectionSampling = "0.1"
@@ -54,6 +52,7 @@ PoissonSolvers = "0.3.5"
 ProgressMeter = "1"
 QuadratureRules = "0.2"
 SciMLBase = "2.48.1"
+SimpleSplines = "0.1"
 Sobol = "1.5"
 SpecialFunctions = "2"
 StaticArrays = "1"
@@ -61,31 +60,14 @@ Statistics = "1"
 StatsBase = "0.33, 0.34"
 StatsPlots = "0.14, 0.15"
 TerminalLoggers = "0.1"
-# 1.11, not the tree's LTS floor of 1.10, because [sources] below is a Pkg 1.11 feature. Revert
-# to "1.10" together with that table.
 julia = "1.11"
-
-# SimpleSplines is not yet registered in General, so it is resolved from git.
-#
-# TWO THINGS TO UNDO once it is registered:
-#   1. delete this table, and
-#   2. add `SimpleSplines = "<version>"` to [compat] and put `julia = "1.10"` back.
-#
-# Until then this package CANNOT be registered: RegistryCI rejects a [sources] table outright.
-#
-# No `rev`: JuliaDEC/SimpleSplines.jl#6 is merged, so the default branch carries the tensor
-# products and boundary conditions this package requires. Do not let Pkg rewrite this file to
-# put one back — `Pkg.instantiate` and `Pkg.resolve` both rewrite Project.toml, and both eat
-# every comment above.
-[sources]
-SimpleSplines = {url = "https://github.com/JuliaDEC/SimpleSplines.jl"}
 
 [extras]
 OffsetArrays = "6fe1bfb0-de20-5000-8ca7-80f57d26f881"
 PoissonSolvers = "8f9e8900-be71-40de-a258-603fdc860a2d"
 SafeTestsets = "1bc83da4-3b8d-516f-aca4-4fe02f6d838f"
-Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
