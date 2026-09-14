@@ -4,7 +4,7 @@ using VlasovMethods
 
 # parameters
 npart = 10000  # number of particles
-nknot = 16     # number of grid points
+ncells = 16    # number of grid cells
 order = 3      # spline order
 tstep = 0.1    # time step size
 tspan = (0.0, 20.0)    # integration time interval
@@ -18,7 +18,7 @@ dist = initialize!(ParticleDistribution(1, 1, npart), NormalDistribution())
 # dist = initialize!(ParticleDistribution(1, 1, npart), BumpOnTail())
 
 # create electrostatic potential
-potential = Potential(PeriodicBasisBSplineKit(domain, order, nknot))
+potential = Potential(PeriodicBasisSpline(domain, order, ncells))
 
 # create Vlasov-Poisson model
 model = VlasovPoisson(dist, potential)

@@ -23,7 +23,7 @@ function lorentz_force!(ż, t, z, params)
     update_potential!(params.model)
     for i in axes(ż, 2)
         ż[1, i] = z[2, i]
-        ż[2, i] = - params.ϕ(z[1, i], Derivative(1))
+        ż[2, i] = - params.ϕ(z[1, i], 1)
     end
 end
 
@@ -44,7 +44,7 @@ function v_acceleration!(ż, t, z, params)
     update_potential!(params.model)
     for i in axes(ż, 2)
         ż[1, i] = 0
-        ż[2, i] = - params.ϕ(z[1, i], Derivative(1))
+        ż[2, i] = - params.ϕ(z[1, i], 1)
     end
 end
 
@@ -61,7 +61,7 @@ function s_acceleration!(z, t, z̄, t̄, params)
     update_potential!(params.model)
     for i in axes(z, 2)
         z[1, i] = z̄[1, i]
-        z[2, i] = z̄[2, i] - (t-t̄) * params.ϕ(z̄[1, i], Derivative(1))
+        z[2, i] = z̄[2, i] - (t-t̄) * params.ϕ(z̄[1, i], 1)
     end
 end
 

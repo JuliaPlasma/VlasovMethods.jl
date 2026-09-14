@@ -41,9 +41,8 @@ first entry is written.
   | `BSplineKit.galerkin_projection` + `ldiv!` | `l2_projection!` |
   | `BSplineKit.evaluate_all` + hand-written `mod1` | `evaluate_all!` + `basis_index` |
 
-  `SimpleSplines` is not yet registered in General, so it carries no `[compat]` bound and
-  **this package cannot be registered until it is**; resolving needs a scratch environment with
-  both developed. `FastGaussQuadrature` and `QuadGK` are dropped, having no remaining caller.
+  `SimpleSplines` is bounded by `[compat] SimpleSplines = "0.1"` and resolves from the registry.
+  `FastGaussQuadrature` and `QuadGK` are dropped, having no remaining caller.
 
 - **`SplineDistribution`'s boundary-condition argument takes a type, and its default changed
   to `Free()`.** It was `:Dirichlet`. The old symbols `:Dirichlet`, `:Periodic` and `:nothing`
@@ -109,6 +108,19 @@ first entry is written.
   polynomial reproduction 3, against 21 and 1). Passing it is now an `ArgumentError`. Nothing
   in `src/`, `test/` or `scripts/` used it.
 
+- **`PoissonSolvers` 0.4 is now required**, and 0.3 no longer works. Its spline backend moved to
+  `SimpleSplines` as well, so one spline library is loaded where two were. Three consequences
+  here: the potential's derivative is `ϕ(x, 1)` rather than `ϕ(x, Derivative(1))`, the basis and
+  coefficients are reached with `basis(p)` and `coefficients(p)` rather than `p.basis` and
+  `p.coefficients`, and `Potential`'s first type parameter is the solution type rather than the
+  basis type.
+
+- **`SimpleSplines` is resolved from the registry.** Its 0.1.0 is registered, so the `[sources]`
+  table and the `julia = "1.11"` floor that existed only to support it are both gone, and the
+  floor returns to the tree's LTS of 1.10. This removes the `[sources]` table that RegistryCI
+  rejects outright; the five dependencies still carrying no `[compat]` bound are what remains
+  before the package can be registered, and they are recorded under *Open Issues*.
+
 ### New Features
 
 - **`scripts/verify_conservation.jl`** measures the two conservation claims of the manuscripts
@@ -144,6 +156,32 @@ first entry is written.
   default `=yes` inflates allocation counts and would make the ceiling meaningless.
 
 ### Bug Fixes
+
+- **Charge deposition works, and its test is enabled.** `projection!` onto a
+  `PoissonSolvers.Potential` could never run: it was written against `BSplineKit`, dispatching on
+  `Potential{<:PeriodicBSplineBasis}` where that name resolves to the `SimpleSplines` type, so no
+  method matched and `update_potential!` raised a `MethodError`. Its body then called
+  `Splines.PeriodicVector`, which this package imports nowhere. It is rewritten on
+  `evaluate_all!` and `basis_index`, and `test/projections_tests.jl` — commented out in
+  `runtests.jl` — now runs, reconstructing a sampled density from a million particles to
+  `2.5e-2`.
+
+  It deposits onto a **`DirichletBasisSpline` as well as a periodic one**, which are the two
+  bases a `Potential` can hold. A recombined basis has no single block width, so `evaluate_all!`
+  pads the tail of its buffer with zeros whose indices run past `nbasis`; depositing those
+  entries raised a `BoundsError` on every Dirichlet potential. They are skipped, and a nonzero
+  value at an out-of-range index still raises rather than being folded onto another basis
+  function.
+
+  The test now also checks the deposited load vector **against a direct sum over every basis
+  function**, on both bases. The density reconstruction alone does not: it still passes when the
+  periodic contributions are dropped instead of wrapped, which is the property the rewrite
+  turns on. The sampler is seeded, so the tolerance is asserted against the same draw each run.
+
+- **`scripts/vlasov_poisson.jl` runs again.** It called `PeriodicBasisBSplineKit`, which
+  `PoissonSolvers` 0.4 removed, so the only driver of the deposition path above was an
+  `UndefVarError`. It calls `PeriodicBasisSpline` instead. The argument is unchanged in meaning:
+  the old `nknots` built `nknots + 1` breakpoints, so it already counted cells.
 
 - **The package loads again.** `using VlasovMethods` failed outright. The `[compat]` bound
   `GeometricIntegrators = "0.16"` held `RungeKutta` at `0.5`, which still depends on
@@ -361,18 +399,12 @@ not take on.
   the hot path and has not been given a home in a diagnostic script.
 
 - **No test covers any structure-preservation claim for Landau.** `scripts/verify_conservation.jl`
-  covers the conservative Lenard-Bernstein operator only, and `test/projections_tests.jl` and
-  `test/electric_field_tests.jl` remain commented out of `runtests.jl`.
+  covers the conservative Lenard-Bernstein operator only, and `test/electric_field_tests.jl`
+  remains commented out of `runtests.jl`.
 
 - **The cumulant-scaling experiment is not implemented.** The appendix fixes `A₀ = 0`, `A₁ = 1` by
   hand; no code does. The cumulant computation is commented out in
   `scripts/lenard_bernstein_conservative.jl` and the experiment survives as a stale `run_name`.
-
-- **`src/projections/potential.jl` is dead.** It dispatches on
-  `PoissonSolvers.Potential{<:PeriodicBSplineBasis}`, and that name now resolves to the
-  `SimpleSplines` type, so it can never match a `PoissonSolvers` basis. It was already unreachable
-  before the migration, and its body calls a `Splines.PeriodicVector` that was never imported. Left
-  in place rather than deleted.
 
 - **Seven `src/` files are included by nothing:** `electric_field.jl`, the root `vlasov_poisson.jl`
   (distinct from `models/vlasov_poisson.jl`), `visualisation.jl`, `methods/lbm_solver.jl`,
@@ -380,8 +412,10 @@ not take on.
 
 - **Dependencies that are no longer used are still declared.** `NaNMath` appears only in a
   commented import; `Plots`, `LaTeXStrings`, `StatsPlots`, `StatsBase`, `SciMLBase` and
-  `AdaptiveRejectionSampling` have no occurrences by name in `src/`. Nine non-stdlib
-  dependencies still carry no `[compat]` entry. Four driver scripts also `using` `GLMakie`,
+  `AdaptiveRejectionSampling` have no occurrences by name in `src/`. Five non-stdlib
+  dependencies still carry no `[compat]` entry — `LinearSolve`, `NaNMath`, `NonlinearSolve`,
+  `SimpleSolvers` and `Trapz` — and General's AutoMerge blocks on every one of them, so this is
+  what stands between the package and registration. Four driver scripts also `using` `GLMakie`,
   `Printf` and `Profile`, none of which are declared. `ExplicitImports.jl` *has* now been run
   and reports no stale or improper explicit imports, so what remains is `[deps]` hygiene rather
   than dead `import` lines — `Aqua.test_stale_deps` is the check that settles it.
@@ -391,9 +425,3 @@ not take on.
   follow `include` and so flags the module file's load-bearing imports; `ExplicitImports`
   contradicts all nine. The tenth is `probN` below. An earlier version of this changelog and of
   the pull request described `fatou lint` as clean, which was not reproducible.
-
-- **This package cannot be registered until `SimpleSplines` is.** `SimpleSplines` is not in
-  General, so it is resolved through a `[sources]` table — which RegistryCI rejects outright — and
-  its only version, `1.0.0-DEV`, is not a parseable compat bound. The `[sources]` table also forces
-  `julia = "1.11"` rather than the tree's LTS floor of 1.10. Delete the table and add
-  `SimpleSplines = "<version>"` the moment it is registered.
