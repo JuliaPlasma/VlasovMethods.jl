@@ -25,15 +25,31 @@ first entry is written.
   alongside an up-to-date SciML stack. `SciMLBase 2 → 3` and `NonlinearSolve 3 → 4` are major
   bumps; CI is the check that the package still works against them.
 
-  `AdaptiveRejectionSampling` stays at `0.1`. Under `0.2` the `Projections` testset fails with
-  `AssertionError: couldn't find initial points, please provide them or change search_range`, so
-  0.2 changed sampling behaviour the test depends on. Adopting it needs a change to
-  `test/projections_tests.jl`, not a wider bound.
+- **`AdaptiveRejectionSampling` is no longer a dependency.** It was used in one line of
+  `test/projections_tests.jl` and nowhere in `src/`, yet it sat in `[deps]` rather than
+  `[extras]` — so a test-only package constrained the runtime resolve of everyone installing
+  VlasovMethods, capping `ForwardDiff` at `0.10`. The density the test samples is exactly the
+  normal with mean `1/2` and standard deviation `1/(2π)`, so the test now draws from that
+  directly, redrawing the ~0.17% of points that fall outside the domain.
 
-  `LinearSolve` stops at `3` rather than the `5` CompatHelper proposed. `LinearSolve` 4 and 5
-  require `PureKLU ≥ 1.1.0`, which requires `ForwardDiff` 1. `AdaptiveRejectionSampling` caps
-  `ForwardDiff` at `0.10` in every version it has, so the set is unsatisfiable. Raising this bound
-  needs an upstream release of `AdaptiveRejectionSampling`, not a change here.
+- **`OffsetArrays`, `PoissonSolvers` and `StaticArrays` are no longer listed in `[extras]`.** All
+  three are genuine `src/` dependencies and are already in `[deps]`, where the test environment
+  picks them up. Listing them in both places was redundant.
+
+  `LinearSolve` goes to `5`, the current major. This was only reachable once
+  `AdaptiveRejectionSampling` left `[deps]`: `LinearSolve` 4 and 5 require `PureKLU ≥ 1.1.0`,
+  whose weak `ForwardDiff` bound is `1`, and every released `AdaptiveRejectionSampling` caps
+  `ForwardDiff` at `0.10`. It was the only dependency doing so.
+
+- **`SciMLBase`, `StatsBase` and `StatsPlots` are no longer dependencies of the package.**
+  `StatsBase` and `StatsPlots` are referenced nowhere in the repository. `SciMLBase` is used only
+  by `scripts/`, which now carries its own `Project.toml` rather than borrowing the package
+  environment, so the four scripts that need it declare it themselves.
+
+- **`scripts/` has its own environment.** Until now the scripts ran against the package's own
+  `Project.toml`, which forced every package they use — `GLMakie` among them — to be a dependency
+  of `VlasovMethods` itself, or to go undeclared. `GLMakie` was in fact undeclared and worked only
+  by accident of the shared environment.
 
 - `src/models/vlasov_poisson.jl` and `scripts/charged_particles.jl` are now Unicode
   NFC-normalised. They stored `ż` as a base letter plus a combining mark, inherited from macOS
