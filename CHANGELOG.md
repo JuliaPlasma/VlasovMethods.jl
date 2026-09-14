@@ -183,6 +183,13 @@ first entry is written.
   `UndefVarError`. It calls `PeriodicBasisSpline` instead. The argument is unchanged in meaning:
   the old `nknots` built `nknots + 1` breakpoints, so it already counted cells.
 
+- **`scripts/lenard_bernstein.jl` runs again.** Its animation loop called `Derivative(1) * f`, a
+  name `BSplineKit` used to supply; that package is gone from `[deps]`, so the first frame raised
+  an `UndefVarError`. `projection` returns a `SimpleSplines.Spline`, so the line becomes
+  `derivative(f)` — what the migration table above prescribes. A `SplineDerivative` is callable,
+  so the `df.(xgrid)` plot below it is unchanged. Six further `Derivative(1) * f` lines survive
+  in `scripts/`, all commented out; they need the same edit if those scripts are revived.
+
 - **The package loads again.** `using VlasovMethods` failed outright. The `[compat]` bound
   `GeometricIntegrators = "0.16"` held `RungeKutta` at `0.5`, which still depends on
   `GenericLinearAlgebra`; that package guards a `LinearAlgebra.eigencopy_oftype` definition with

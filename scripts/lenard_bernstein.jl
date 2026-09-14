@@ -53,7 +53,7 @@ anim = @animate for i in 1:step:length(sol)
 
     # compute quantities for plotting
     f = projection(sol[:, i], dist, sdist)
-    df = Derivative(1) * f
+    df = derivative(f)
     v = VlasovMethods.LB_rhs(collect(vgrid), params, f)
     # v = VlasovMethods.CLB_rhs(collect(vgrid), params, f)
 
