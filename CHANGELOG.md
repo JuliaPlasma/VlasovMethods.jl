@@ -19,11 +19,16 @@ first entry is written.
 
 - **`[compat]` now admits the current major versions of eight dependencies**, and five entries that
   were missing altogether are now present. `AdaptiveRejectionSampling` gains `0.2`, `Parameters`
-  gains `0.13`, and `SciMLBase` gains `3`; `LinearSolve = "5"`, `NaNMath = "1"`,
+  gains `0.13`, and `SciMLBase` gains `3`; `LinearSolve = "2, 3"`, `NaNMath = "1"`,
   `NonlinearSolve = "4"`, `SimpleSolvers = "0.13"` and `Trapz = "2"` are added, because those five
   packages sat in `[deps]` with no bound at all. Without this the package cannot be installed
   alongside an up-to-date SciML stack. `SciMLBase 2 → 3` and `NonlinearSolve 3 → 4` are major
   bumps; CI is the check that the package still works against them.
+
+  `LinearSolve` stops at `3` rather than the `5` CompatHelper proposed. `LinearSolve` 4 and 5
+  require `PureKLU ≥ 1.1.0`, which requires `ForwardDiff` 1. `AdaptiveRejectionSampling` caps
+  `ForwardDiff` at `0.10` in every version it has, so the set is unsatisfiable. Raising this bound
+  needs an upstream release of `AdaptiveRejectionSampling`, not a change here.
 
 - `src/models/vlasov_poisson.jl` and `scripts/charged_particles.jl` are now Unicode
   NFC-normalised. They stored `ż` as a base letter plus a combining mark, inherited from macOS
