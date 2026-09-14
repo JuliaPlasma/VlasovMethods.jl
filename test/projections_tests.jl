@@ -1,4 +1,3 @@
-using AdaptiveRejectionSampling
 using PoissonSolvers
 using Random
 using SimpleSplines
@@ -15,7 +14,7 @@ using VlasovMethods: projection!
     pbasis = PeriodicBasisSpline(domain, order, ncells)
     potential = Potential(pbasis)
 
-    # The sampler draws from the global RNG, so without this the tolerance below is asserted
+    # The sample is drawn from the global RNG, so without this the tolerance below is asserted
     # against a different sample on every run.
     Random.seed!(1234)
 
@@ -23,8 +22,24 @@ using VlasovMethods: projection!
     σ = 2.0
     f = x -> exp(-0.5 * (4π * x - μ - 2π)^2 / σ^2) * sqrt(π * σ^2) / sqrt(2)
 
+    # Substituting 4πx - 2π = 2π(2x - 1) turns `f` into √(2π)·exp(-2π²(x - ½)²), which is the
+    # normal density with mean 1/2 and standard deviation 1/(2π) — both the exponent and the
+    # normalising constant match. So the sample is drawn from that normal directly. A draw outside
+    # the domain is replaced; the edges sit at ±π standard deviations, which rejects about 0.17%,
+    # and the sampler this replaces was truncated to the same domain.
+    xmean = 0.5
+    xstd = 1 / 2π
+    samples = Vector{Float64}(undef, npart)
+    for i in eachindex(samples)
+        x = xmean + xstd * randn()
+        while !(domain[begin] < x < domain[end])
+            x = xmean + xstd * randn()
+        end
+        samples[i] = x
+    end
+
     dist = ParticleDistribution(1, 1, npart)
-    dist.particles.x .= run_sampler!(RejectionSampler(f, domain, max_segments = 5), npart)'
+    dist.particles.x .= samples'
     dist.particles.w .= (ones(npart) ./ npart)'
 
     projection!(potential, dist)

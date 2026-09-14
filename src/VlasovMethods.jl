@@ -7,24 +7,17 @@ global_logger(TerminalLogger())
 using Distances
 using HDF5
 using LinearAlgebra
-using LinearSolve
 using NonlinearSolve
-using OffsetArrays
 using Parameters
 using ParticleMethods
-# using Plots
 using PoissonSolvers
 using ProgressMeter
-using QuadratureRules
 using Random
 using Sobol
-using SimpleSolvers
 using SpecialFunctions
 using StaticArrays
-using Trapz
 
 # import DifferentialEquations
-# import NaNMath
 
 using SimpleSplines
 import SimpleSplines: basis, coefficients, derivative, evaluate, mass_matrix, mass_operator

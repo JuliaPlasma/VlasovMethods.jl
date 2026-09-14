@@ -15,7 +15,46 @@ first entry is written.
 
 ## [Unreleased] — targeting 0.3.0
 
-### Changed
+### Bug Fixes
+
+- **Twelve dependencies the package never used are gone.** `AdaptiveRejectionSampling`,
+  `LaTeXStrings`, `LinearSolve`, `NaNMath`, `OffsetArrays`, `Plots`, `QuadratureRules`,
+  `SciMLBase`, `SimpleSolvers`, `StatsBase`, `StatsPlots` and `Trapz` all left `[deps]`, together
+  with their `[compat]` entries and their `using` lines in `src/VlasovMethods.jl`. Installing
+  VlasovMethods no longer pulls in the `Plots` or `LinearSolve` stacks. Nothing about the API
+  changes: `using X` inside a module re-exports nothing, and all 68 exported names still resolve.
+
+  Each removal was checked by matching the package's exported names against the *parsed syntax
+  tree* of the 37 files `src/VlasovMethods.jl` includes, so that a name inside a comment, a string
+  or a docstring does not count as a use. Four of the twelve are invisible to a plain `grep`:
+  every name `LinearSolve` exports is also exported by `NonlinearSolve`, which stays;
+  `QuadratureRules` matched only a local variable named `weights`; `SimpleSolvers` and `NaNMath`
+  appear only in commented-out code. `LaTeXStrings`, `OffsetArrays` and `Plots` are reached only
+  from `src/electric_field.jl` and `src/visualisation.jl`, which no `include` names. `SciMLBase`
+  is used only by `scripts/`, which now declares it itself.
+
+- **`AdaptiveRejectionSampling` no longer constrains a runtime install.** It was used in one line
+  of `test/projections_tests.jl` and nowhere in `src/`, yet it sat in `[deps]` rather than
+  `[extras]` — so a test-only package capped `ForwardDiff` at `0.10` for everyone installing
+  VlasovMethods. It was the only dependency doing so. The density the test samples is exactly the
+  normal with mean `1/2` and standard deviation `1/(2π)`, so the test now draws from that
+  directly, redrawing the ~0.17% of points that fall outside the domain.
+
+- **`[compat]` bounds two dependencies that had none.** `NonlinearSolve = "4"` is new, and
+  `Parameters` gains `0.13`. Those are all that is left of the eight open CompatHelper requests:
+  the other six name a dependency this release deletes. `NonlinearSolve 3 → 4` is a major bump,
+  and no local test run covered it; CI is the check.
+
+- **`PoissonSolvers` and `StaticArrays` are no longer listed in `[extras]`.** Both are genuine
+  `src/` dependencies and are already in `[deps]`, where the test environment picks them up.
+  Listing them in both places was redundant. `OffsetArrays` was listed there too, and has left the
+  package altogether: the one file that used it, `test/electric_field_tests.jl`, is commented out
+  of `test/runtests.jl`, as is the `src/electric_field.jl` that it covers.
+
+- **`scripts/` has its own environment.** Until now the scripts ran against the package's own
+  `Project.toml`, which forced every package they use — `GLMakie` among them — to be a dependency
+  of `VlasovMethods` itself, or to go undeclared. `GLMakie` was in fact undeclared and worked only
+  by accident of the shared environment.
 
 - `src/models/vlasov_poisson.jl` and `scripts/charged_particles.jl` are now Unicode
   NFC-normalised. They stored `ż` as a base letter plus a combining mark, inherited from macOS
