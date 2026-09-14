@@ -18,12 +18,17 @@ first entry is written.
 ### Changed
 
 - **`[compat]` now admits the current major versions of eight dependencies**, and five entries that
-  were missing altogether are now present. `AdaptiveRejectionSampling` gains `0.2`, `Parameters`
+  were missing altogether are now present. `Parameters`
   gains `0.13`, and `SciMLBase` gains `3`; `LinearSolve = "2, 3"`, `NaNMath = "1"`,
   `NonlinearSolve = "4"`, `SimpleSolvers = "0.13"` and `Trapz = "2"` are added, because those five
   packages sat in `[deps]` with no bound at all. Without this the package cannot be installed
   alongside an up-to-date SciML stack. `SciMLBase 2 → 3` and `NonlinearSolve 3 → 4` are major
   bumps; CI is the check that the package still works against them.
+
+  `AdaptiveRejectionSampling` stays at `0.1`. Under `0.2` the `Projections` testset fails with
+  `AssertionError: couldn't find initial points, please provide them or change search_range`, so
+  0.2 changed sampling behaviour the test depends on. Adopting it needs a change to
+  `test/projections_tests.jl`, not a wider bound.
 
   `LinearSolve` stops at `3` rather than the `5` CompatHelper proposed. `LinearSolve` 4 and 5
   require `PureKLU ≥ 1.1.0`, which requires `ForwardDiff` 1. `AdaptiveRejectionSampling` caps
