@@ -109,6 +109,17 @@ first entry is written.
   polynomial reproduction 3, against 21 and 1). Passing it is now an `ArgumentError`. Nothing
   in `src/`, `test/` or `scripts/` used it.
 
+- **`PoissonSolvers` 0.4 is now required**, and 0.3 no longer works. Its spline backend moved to
+  `SimpleSplines` as well, so one spline library is loaded where two were. Three consequences
+  here: the potential's derivative is `ϕ(x, 1)` rather than `ϕ(x, Derivative(1))`, the basis and
+  coefficients are reached with `basis(p)` and `coefficients(p)` rather than `p.basis` and
+  `p.coefficients`, and `Potential`'s first type parameter is the solution type rather than the
+  basis type.
+
+- **`SimpleSplines` is resolved from the registry.** Its 0.1.0 is registered, so the `[sources]`
+  table and the `julia = "1.11"` floor that existed only to support it are both gone, and the
+  floor returns to the tree's LTS of 1.10. This package can be registered again.
+
 ### New Features
 
 - **`scripts/verify_conservation.jl`** measures the two conservation claims of the manuscripts
@@ -144,6 +155,14 @@ first entry is written.
   default `=yes` inflates allocation counts and would make the ceiling meaningless.
 
 ### Bug Fixes
+
+- **Charge deposition works, and its test is enabled.** `projection!` onto a
+  `PoissonSolvers.Potential` could never run: it was written against `BSplineKit`, dispatching on
+  `Potential{<:PeriodicBSplineBasis}` where that name resolves to the `SimpleSplines` type, so no
+  method matched and `update_potential!` raised a `MethodError`. Its body then called
+  `Splines.PeriodicVector`, which this package imports nowhere. It is rewritten on
+  `evaluate_all!` and `basis_index`, and `test/projections_tests.jl` — commented out in
+  `runtests.jl` — now runs, reconstructing a sampled density from a million particles to `5e-2`.
 
 - **The package loads again.** `using VlasovMethods` failed outright. The `[compat]` bound
   `GeometricIntegrators = "0.16"` held `RungeKutta` at `0.5`, which still depends on

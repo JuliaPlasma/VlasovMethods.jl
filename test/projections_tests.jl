@@ -1,16 +1,17 @@
 using AdaptiveRejectionSampling
 using PoissonSolvers
+using SimpleSplines
 using Test
 using VlasovMethods
 using VlasovMethods: projection!
 
 @testset "Projections" begin
     npart = 1000000
-    nknot = 32
+    ncells = 32
     order = 5
 
     domain = (0.0, 1.0)
-    pbasis = PeriodicBasisBSplineKit(domain, order, nknot)
+    pbasis = PeriodicBasisSpline(domain, order, ncells)
     potential = Potential(pbasis)
 
     μ = 0.0
@@ -21,13 +22,15 @@ using VlasovMethods: projection!
     dist.particles.x .= run_sampler!(RejectionSampler(f, domain, max_segments = 5), npart)'
     dist.particles.w .= (ones(npart) ./ npart)'
 
-    rhs = zero(potential.coefficients)
     projection!(potential, dist)
 
-    ρ = Spline(potential.basis, potential.solver.Mfac \ potential.rhs)
+    # Deposition yields the load vector ∫ρφᵢ. The density's spline coefficients are what the mass
+    # matrix maps that to, which is the same step `l2_projection` takes after its own contraction.
+    quadrature = SplineQuadrature(pbasis)
+    ρ = Spline(pbasis, mass_factorization(quadrature) \ PoissonSolvers.rhs(potential))
 
     x = domain[begin]:0.1:domain[end]
 
     cutoff = 2
-    @test f.(x)[(begin + cutoff):(end - cutoff)] ≈ ρ.(x)[(begin + cutoff):(end - cutoff)] atol = 5e-2
+    @test f.(x)[(begin + cutoff):(end - cutoff)]≈ρ.(x)[(begin + cutoff):(end - cutoff)] atol=5e-2
 end
