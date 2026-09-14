@@ -15,36 +15,46 @@ first entry is written.
 
 ## [Unreleased] — targeting 0.3.0
 
-### Changed
+### Bug Fixes
 
-- **`[compat]` now admits the current major versions of eight dependencies**, and five entries that
-  were missing altogether are now present. `Parameters`
-  gains `0.13`, and `SciMLBase` gains `3`; `LinearSolve = "2, 3"`, `NaNMath = "1"`,
-  `NonlinearSolve = "4"`, `SimpleSolvers = "0.13"` and `Trapz = "2"` are added, because those five
-  packages sat in `[deps]` with no bound at all. Without this the package cannot be installed
-  alongside an up-to-date SciML stack. `SciMLBase 2 → 3` and `NonlinearSolve 3 → 4` are major
-  bumps; CI is the check that the package still works against them.
+- **Twelve dependencies the package never used are gone.** `AdaptiveRejectionSampling`,
+  `LaTeXStrings`, `LinearSolve`, `NaNMath`, `OffsetArrays`, `Plots`, `QuadratureRules`,
+  `SciMLBase`, `SimpleSolvers`, `StatsBase`, `StatsPlots` and `Trapz` all left `[deps]`, together
+  with their `[compat]` entries and their `using` lines in `src/VlasovMethods.jl`. Installing
+  VlasovMethods no longer pulls in the `Plots` or `LinearSolve` stacks. Nothing about the API
+  changes: `using X` inside a module re-exports nothing, and all 68 exported names still resolve.
 
-- **`AdaptiveRejectionSampling` is no longer a dependency.** It was used in one line of
-  `test/projections_tests.jl` and nowhere in `src/`, yet it sat in `[deps]` rather than
-  `[extras]` — so a test-only package constrained the runtime resolve of everyone installing
-  VlasovMethods, capping `ForwardDiff` at `0.10`. The density the test samples is exactly the
+  Each removal was checked by matching the package's exported names against the *parsed syntax
+  tree* of the 37 files `src/VlasovMethods.jl` includes, so that a name inside a comment, a string
+  or a docstring does not count as a use. Four of the twelve are invisible to a plain `grep`:
+  every name `LinearSolve` exports is also exported by `NonlinearSolve`, which stays;
+  `QuadratureRules` matched only a local variable named `weights`; `SimpleSolvers` and `NaNMath`
+  appear only in commented-out code. `LaTeXStrings`, `OffsetArrays` and `Plots` are reached only
+  from `src/electric_field.jl` and `src/visualisation.jl`, which no `include` names. `SciMLBase`
+  is used only by `scripts/`, which now declares it itself.
+
+- **`AdaptiveRejectionSampling` no longer constrains a runtime install.** It was used in one line
+  of `test/projections_tests.jl` and nowhere in `src/`, yet it sat in `[deps]` rather than
+  `[extras]` — so a test-only package capped `ForwardDiff` at `0.10` for everyone installing
+  VlasovMethods. It was the only dependency doing so. The density the test samples is exactly the
   normal with mean `1/2` and standard deviation `1/(2π)`, so the test now draws from that
   directly, redrawing the ~0.17% of points that fall outside the domain.
 
-- **`OffsetArrays`, `PoissonSolvers` and `StaticArrays` are no longer listed in `[extras]`.** All
-  three are genuine `src/` dependencies and are already in `[deps]`, where the test environment
-  picks them up. Listing them in both places was redundant.
+- **`[compat]` bounds two dependencies that had none.** `NonlinearSolve = "4"` is new, and
+  `Parameters` gains `0.13`. Those are all that is left of the eight open CompatHelper requests:
+  the other six name a dependency this release deletes. `NonlinearSolve 3 → 4` is a major bump,
+  and no local test run covered it; CI is the check.
 
-  `LinearSolve` goes to `5`, the current major. This was only reachable once
-  `AdaptiveRejectionSampling` left `[deps]`: `LinearSolve` 4 and 5 require `PureKLU ≥ 1.1.0`,
-  whose weak `ForwardDiff` bound is `1`, and every released `AdaptiveRejectionSampling` caps
-  `ForwardDiff` at `0.10`. It was the only dependency doing so.
+- **`PoissonSolvers` and `StaticArrays` are no longer listed in `[extras]`.** Both are genuine
+  `src/` dependencies and are already in `[deps]`, where the test environment picks them up.
+  Listing them in both places was redundant. `OffsetArrays` was listed there too, and has left the
+  package altogether: the one file that used it, `test/electric_field_tests.jl`, is commented out
+  of `test/runtests.jl`, as is the `src/electric_field.jl` that it covers.
 
-- **`SciMLBase`, `StatsBase` and `StatsPlots` are no longer dependencies of the package.**
-  `StatsBase` and `StatsPlots` are referenced nowhere in the repository. `SciMLBase` is used only
-  by `scripts/`, which now carries its own `Project.toml` rather than borrowing the package
-  environment, so the four scripts that need it declare it themselves.
+- **`scripts/` has its own environment.** Until now the scripts ran against the package's own
+  `Project.toml`, which forced every package they use — `GLMakie` among them — to be a dependency
+  of `VlasovMethods` itself, or to go undeclared. `GLMakie` was in fact undeclared and worked only
+  by accident of the shared environment.
 
 - **`scripts/` has its own environment.** Until now the scripts ran against the package's own
   `Project.toml`, which forced every package they use — `GLMakie` among them — to be a dependency

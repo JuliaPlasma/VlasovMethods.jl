@@ -16,9 +16,9 @@ SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
 TerminalLoggers = "5d786b92-1e48-4d6f-9151-6b4477ca9bed"
 VlasovMethods = "4a954452-39e6-424b-ae51-38fc4bbc42ef"
 
-# VlasovMethods is unregistered, so this environment cannot resolve it from a registry the way
-# `docs/` does not have to -- the documentation job develops the parent package for that one, and
-# nothing does the same here. The relative source needs Julia 1.11 or newer; on 1.10 run
-# `Pkg.develop(path = "..")` in this environment once instead.
+# VlasovMethods is unregistered, so no registry can supply it. `docs/` needs no `[sources]` entry
+# because `Documenter.yml` runs `Pkg.develop` on the parent package before it builds. Nothing does
+# that for `scripts/`, so the path is declared here. `[sources]` needs Julia 1.11 or newer. On
+# 1.10, run `Pkg.develop(path = "..")` in this environment once instead.
 [sources]
 VlasovMethods = {path = ".."}
