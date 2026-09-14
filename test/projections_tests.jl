@@ -1,5 +1,6 @@
 using AdaptiveRejectionSampling
 using PoissonSolvers
+using Random
 using SimpleSplines
 using Test
 using VlasovMethods
@@ -13,6 +14,10 @@ using VlasovMethods: projection!
     domain = (0.0, 1.0)
     pbasis = PeriodicBasisSpline(domain, order, ncells)
     potential = Potential(pbasis)
+
+    # The sampler draws from the global RNG, so without this the tolerance below is asserted
+    # against a different sample on every run.
+    Random.seed!(1234)
 
     μ = 0.0
     σ = 2.0
@@ -31,6 +36,36 @@ using VlasovMethods: projection!
 
     x = domain[begin]:0.1:domain[end]
 
-    cutoff = 2
-    @test f.(x)[(begin + cutoff):(end - cutoff)]≈ρ.(x)[(begin + cutoff):(end - cutoff)] atol=5e-2
+    # The error here is the sampling error of a million draws, measured at ~1.3e-2 across seeds
+    # and Julia versions. The tolerance keeps a factor of two over that and no more.
+    @test f.(x)≈ρ.(x) atol=2.5e-2
+
+    @testset "deposition is exact" begin
+        # The reconstruction above cannot see the wrapping: a deposition that drops the wrapped
+        # contributions instead of folding them still meets that tolerance. A direct sum over
+        # every basis function is the definition of the load vector, so it has no cancellation
+        # to hide behind, and it covers the recombined basis, whose block is padded with zeros
+        # at indices past `nbasis`.
+        # Every second point of this range is a breakpoint, and the first and last are the
+        # domain's own ends.
+        nsmall = 2 * ncells + 1
+
+        for b in (PeriodicBasisSpline(domain, order, ncells),
+            DirichletBasisSpline(domain, order, ncells))
+            small = ParticleDistribution(1, 1, nsmall)
+            # The ends and the breakpoints are where the wrap and the padding decide the
+            # answer, so they are sampled rather than avoided.
+            small.particles.x .= collect(range(domain[begin], domain[end], length = nsmall))'
+            small.particles.w .= (collect(1:nsmall) ./ nsmall)'
+
+            p = Potential(b)
+            projection!(p, small)
+
+            reference = [sum(w * evaluate(b, i, x)
+                         for (x, w) in zip(small.particles.x, small.particles.w))
+                         for i in 1:nbasis(b)]
+
+            @test PoissonSolvers.rhs(p) ≈ reference
+        end
+    end
 end
