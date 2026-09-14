@@ -56,11 +56,6 @@ first entry is written.
   of `VlasovMethods` itself, or to go undeclared. `GLMakie` was in fact undeclared and worked only
   by accident of the shared environment.
 
-- **`scripts/` has its own environment.** Until now the scripts ran against the package's own
-  `Project.toml`, which forced every package they use — `GLMakie` among them — to be a dependency
-  of `VlasovMethods` itself, or to go undeclared. `GLMakie` was in fact undeclared and worked only
-  by accident of the shared environment.
-
 - `src/models/vlasov_poisson.jl` and `scripts/charged_particles.jl` are now Unicode
   NFC-normalised. They stored `ż` as a base letter plus a combining mark, inherited from macOS
   rather than chosen. Nothing about the compiled code changes — Julia's parser normalises
