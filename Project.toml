@@ -1,7 +1,7 @@
 name = "VlasovMethods"
 uuid = "4a954452-39e6-424b-ae51-38fc4bbc42ef"
-authors = ["Michael Kraus"]
 version = "0.2.1"
+authors = ["Michael Kraus"]
 
 [deps]
 Distances = "b4f34e82-e78d-54a5-968a-f98e89d6e8f7"
@@ -30,11 +30,9 @@ HDF5 = "0.16, 0.17"
 NonlinearSolve = "4"
 Parameters = "0.12, 0.13"
 ParticleMethods = "0.1"
-# 0.4 is where the SimpleSplines backend and the `p(x, d)` derivative arrived. This package does
-# not work against 0.3, so the bound is exact rather than a range.
 PoissonSolvers = "0.4"
 ProgressMeter = "1"
-SimpleSplines = "0.1"
+SimpleSplines = "0.1, 0.2"
 Sobol = "1.5"
 SpecialFunctions = "2"
 StaticArrays = "1"
