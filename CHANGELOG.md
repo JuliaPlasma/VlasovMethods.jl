@@ -17,6 +17,14 @@ first entry is written.
 
 ### Bug Fixes
 
+- **`[compat]` admits `SimpleSplines` 0.2 and `PoissonSolvers` 0.5.** The two must widen together:
+  `PoissonSolvers` 0.5 requires `SimpleSplines` 0.2, and `SimpleSplines` 0.2 is admitted by no
+  `PoissonSolvers` below 0.5. CompatHelper proposed them as separate pull requests, and each was
+  unsatisfiable on its own — `SimpleSplines` 0.2 alone left `PoissonSolvers` with no versions, and
+  `PoissonSolvers` 0.5 alone left `SimpleSplines` with none. The comment above the
+  `PoissonSolvers` bound also drops its claim that the bound is "exact rather than a range", which
+  this widening makes untrue; the 0.4 floor and its reason are unchanged.
+
 - **Twelve dependencies the package never used are gone.** `AdaptiveRejectionSampling`,
   `LaTeXStrings`, `LinearSolve`, `NaNMath`, `OffsetArrays`, `Plots`, `QuadratureRules`,
   `SciMLBase`, `SimpleSolvers`, `StatsBase`, `StatsPlots` and `Trapz` all left `[deps]`, together
