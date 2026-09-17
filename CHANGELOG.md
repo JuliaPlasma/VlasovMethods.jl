@@ -183,8 +183,9 @@ first entry is written.
     Only `_apply_∫dv!` is exported, as before. The Laplace and nullspace stencils that shared
     the source file went to `PoissonSolvers` instead.
   - `collisions.jl` — `CollisionTensor`, `QuadraticCollisions`, `ReducedCollisionTensor` and
-    the two `_get_MC̃_*` assemblers. This file was **never included** by ReducedBasisMethods
-    and is not included here either; it is carried so the code is not lost. See *Open Issues*.
+    the two `_get_MC̃_*` assemblers. ReducedBasisMethods never included this file, so none of
+    it was reachable there. It **is** included here, and the four names are defined in the
+    module, but two of them still fault when called — see *Open Issues*.
 
   New dependencies: `PoissonBrackets`, for the `PoissonTensor` the three tensors wrap and the
   `_nx` / `_nv` accessors they extend, and `MultiIndexArrays`, for `multiindex` and
@@ -446,10 +447,12 @@ not take on.
   They were moved unrepaired on purpose, so the relocation stays reviewable. Recorded
   2026-09-17.
 
-- **`src/gridbased/collisions.jl` is present but not included**, as it was not included in
-  ReducedBasisMethods either. It does not load cleanly: `Base.getindex(ct::CollisionTensor,
-  i, j, k)` returns `ct[I, J, K, L]` with `L` never bound, and both `_get_MC̃_*` assemblers
-  read a global `v` that no longer exists. Recorded 2026-09-17.
+- **`src/gridbased/collisions.jl` compiles but cannot be used.** The file is included and the
+  module precompiles, so `CollisionTensor` and the rest are defined — the faults are at run
+  time, not load time. `Base.getindex(ct::CollisionTensor, i, j, k)` returns `ct[I, J, K, L]`
+  with `L` never bound, and both `_get_MC̃_*` assemblers read a global `v` that no longer
+  exists. ReducedBasisMethods never included the file, so none of this was reachable there and
+  none of it is new. Recorded 2026-09-17.
 
 - **`FullyReducedTensor` cannot be constructed.** Its inner constructor asserts
   `size(Pk, 1) == size(tensor, 3)`, but the parameter is named `Pα`, so `Pk` is undefined; and

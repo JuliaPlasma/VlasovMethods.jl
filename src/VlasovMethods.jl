@@ -6,7 +6,6 @@ global_logger(TerminalLogger())
 
 using Distances
 using HDF5
-using HDF5: H5DataStore
 using LinearAlgebra
 using MultiIndexArrays: multiindex, linearindex, _stencil_indices
 using NonlinearSolve
