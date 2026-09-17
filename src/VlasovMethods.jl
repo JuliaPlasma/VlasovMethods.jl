@@ -6,7 +6,9 @@ global_logger(TerminalLogger())
 
 using Distances
 using HDF5
+using HDF5: H5DataStore
 using LinearAlgebra
+using MultiIndexArrays: multiindex, linearindex, _stencil_indices
 using NonlinearSolve
 using Parameters
 using ParticleMethods
@@ -24,6 +26,11 @@ import SimpleSplines: basis, coefficients, derivative, evaluate, mass_matrix, ma
 
 import GeometricEquations
 import GeometricEquations: ntime
+
+# The phase-space tensors reduced here are built on the PoissonBrackets grid tensor, and the
+# `_nx`/`_nv` accessors are extended rather than redefined so that one generic covers both.
+using PoissonBrackets: PoissonTensor
+import PoissonBrackets: _nx, _nv
 
 # `import A.B` binds only `B`, so the bare module name needs an import of its own for the call
 # sites that qualify names as `GeometricIntegrators.…`.
@@ -141,6 +148,23 @@ include("examples/sum_maxwellian.jl")
 
 export BumpOnTail, NormalDistribution, UniformDistribution, ShiftedNormalV,
        ShiftedUniformDistribution, DoubleMaxwellian, Bump, SumMaxwellian
+
+# grid-based phase-space discretisation
+
+include("gridbased/moments.jl")
+
+export _apply_∫dv!
+
+include("gridbased/reduced_tensors.jl")
+
+export PotentialReducedTensor, VelocityReducedMatrix
+
+include("gridbased/collisions.jl")
+
+# The particle-based reduction moved here from ReducedBasisMethods sits in `src/particles/`
+# and is not wired in yet: each of the four files names a binding that no longer exists —
+# `PoissonSolverPBSplines`, `PBSpline`, `ElectricField`, `ParameterSpace`. Including one
+# breaks the load, so the includes wait for the repair tasks.
 
 # include("electric_field.jl")
 

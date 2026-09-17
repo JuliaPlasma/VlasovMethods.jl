@@ -170,6 +170,26 @@ first entry is written.
 
 ### New Features
 
+- **The reduced phase-space tensors and velocity moments, imported from ReducedBasisMethods.**
+  **Every function and struct body is byte-identical to its source**, so the diff reviews as a
+  move rather than as new code. Three files arrive under `src/gridbased/`:
+
+  - `reduced_tensors.jl` — `PotentialReducedTensor`, `VelocityReducedMatrix` and
+    `FullyReducedTensor`, which project a `PoissonBrackets.PoissonTensor` onto reduced bases in
+    its first two indices and, respectively, project the third, contract it with `v²/2`, or
+    project it onto the potential's modes. The first two are exported.
+  - `moments.jl` — `_apply_∫dv!` and its transpose, the weighted pair `_apply_∫dv_μ!` /
+    `_apply_∫dvᵀ_μ!`, and the first and second moments `_apply_∫vdv!` and `_apply_∫v²dv!`.
+    Only `_apply_∫dv!` is exported, as before. The Laplace and nullspace stencils that shared
+    the source file went to `PoissonSolvers` instead.
+  - `collisions.jl` — `CollisionTensor`, `QuadraticCollisions`, `ReducedCollisionTensor` and
+    the two `_get_MC̃_*` assemblers. This file was **never included** by ReducedBasisMethods
+    and is not included here either; it is carried so the code is not lost. See *Open Issues*.
+
+  New dependencies: `PoissonBrackets`, for the `PoissonTensor` the three tensors wrap and the
+  `_nx` / `_nv` accessors they extend, and `MultiIndexArrays`, for `multiindex` and
+  `_stencil_indices`.
+
 - **`scripts/verify_conservation.jl`** measures the two conservation claims of the manuscripts
   and separates them, because they are not the same claim and the obvious reading is wrong.
   The particle sums `Σ w v̇` and `Σ w v v̇` vanish at round-off on **every** boundary condition,
@@ -415,6 +435,32 @@ first entry is written.
 Carried over from the audit that accompanied the `SimpleSplines` migration. None of these are
 regressions; each is either a numerical-methods decision or work the migration deliberately did
 not take on.
+
+- **`src/particles/` is present but not included.** The four files imported from
+  ReducedBasisMethods — `electric_field.jl`, `poisson.jl`, `snapshots.jl`, `time_marching.jl` —
+  each name a binding that no longer exists, so including any one of them breaks the load:
+  `poisson.jl` wants `PoissonSolverPBSplines`, `time_marching.jl` imports `PBSpline`,
+  `stiffnessmatrix`, `eval_deriv_PBSBasis` and `rhs_particles_PBSBasis` from `PoissonSolvers`
+  (0.5 has none of them), `electric_field.jl` wants `ElectricField` from `src/electric_field.jl`
+  — which this module still keeps commented out — and `snapshots.jl` wants `ParameterSpace`.
+  They were moved unrepaired on purpose, so the relocation stays reviewable. Recorded
+  2026-09-17.
+
+- **`src/gridbased/collisions.jl` is present but not included**, as it was not included in
+  ReducedBasisMethods either. It does not load cleanly: `Base.getindex(ct::CollisionTensor,
+  i, j, k)` returns `ct[I, J, K, L]` with `L` never bound, and both `_get_MC̃_*` assemblers
+  read a global `v` that no longer exists. Recorded 2026-09-17.
+
+- **`FullyReducedTensor` cannot be constructed.** Its inner constructor asserts
+  `size(Pk, 1) == size(tensor, 3)`, but the parameter is named `Pα`, so `Pk` is undefined; and
+  its `getindex` reads `rt.projection_k[k, α]` with `α` unbound. Imported unrepaired from
+  ReducedBasisMethods, where it had the same defects. Recorded 2026-09-17.
+
+- **`[compat] julia` is 1.10 but `PoissonBrackets` declares 1.11**, so the `min` CI job cannot
+  resolve the new dependency. `PoissonBrackets` is also unregistered, so it is not resolvable
+  from General at all. No `[sources]` entry was added, because the table was deliberately
+  removed from this package (see *Breaking Changes* above) and RegistryCI rejects it.
+  Recorded 2026-09-17.
 
 - **The implemented Landau scheme is not the one the main text derives.** The manuscript builds
   the gradient form with the `G` operator — whose structure *is* the momentum and energy
