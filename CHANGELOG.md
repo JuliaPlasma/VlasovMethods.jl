@@ -189,8 +189,8 @@ first entry is written.
     uniform and bounded, and both of its ends are nodes.
   - `d(x, v)` interpolates bilinearly. It is periodic in `x` and zero outside the `v`-range.
   - `velocity_moments(dist)` returns `(density, momentum, energy)` at each `x`-node, by the
-    rectangle rule of `_apply_∫dv!`, `_apply_∫vdv!` and `_apply_∫v²dv!`. `energy` is
-    `∫ v² f dv` without the ½, the convention of `projection_energy`. The rule is exact up to
+    rectangle rule of `_apply_∫dv!`, `_apply_∫vdv!` and `_apply_∫v²dv!`. `energy` is the
+    kinetic energy density `½ ∫ v² f dv`. The rule is exact up to
     `hv/2` times the two end values, so it is first order where `f` does not vanish there.
   - `xdim` and `vdim`, unexported, are defined once on `DistributionFunction`, so the spline
     distribution answers them too. It had neither.

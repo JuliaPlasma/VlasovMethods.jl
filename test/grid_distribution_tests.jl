@@ -17,7 +17,7 @@ function moments_on_both(g, h, nx, nv, vdomain; nknots = 81)
     grid.values .= g.(grid.x) .* h.(grid.v')
     s = SplineDistribution(1, 1, nknots, 4, vdomain)
     project_function(h, s)
-    spline = map(π -> g.(grid.x) .* spline_moment(π, s), (v -> 1, v -> v, v -> v^2))
+    spline = map(π -> g.(grid.x) .* spline_moment(π, s), (v -> 1, v -> v, v -> v^2 / 2))
     return grid, velocity_moments(grid), spline
 end
 
@@ -108,12 +108,12 @@ end
     @test mg.energy ≈ ms[3] rtol = 1e-12
     @test mg.density ≈ g.(grid.x) rtol = 1e-12
     @test mg.momentum ≈ u .* g.(grid.x) rtol = 1e-12
-    @test mg.energy ≈ (1 + u^2) .* g.(grid.x) rtol = 1e-12
+    @test mg.energy ≈ (1 + u^2) / 2 .* g.(grid.x) rtol = 1e-12
 
     # On [-1, 2] the Maxwellian does not vanish at the ends, and the rectangle rule is first
     # order: its error is hᵥ/2 (π(vₐ) h(vₐ) + π(v_b) h(v_b)) plus a second-order remainder.
     va, vb = -1.0, 2.0
-    for (k, π) in enumerate((v -> 1, v -> v, v -> v^2))
+    for (k, π) in enumerate((v -> 1, v -> v, v -> v^2 / 2))
         err = Float64[]
         rem = Float64[]
         for nv in (31, 61, 121)

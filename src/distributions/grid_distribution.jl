@@ -108,12 +108,11 @@ energy)` of three vectors of length `nx`:
 ```math
 n_i = \sum_j f_{ij} h_v , \qquad
 j_i = \sum_j v_j f_{ij} h_v , \qquad
-\varepsilon_i = \sum_j v_j^2 f_{ij} h_v .
+\varepsilon_i = \frac{1}{2} \sum_j v_j^2 f_{ij} h_v .
 ```
 
-`energy` is the second moment, without a factor ``\tfrac{1}{2}``, the same convention as the
-particle-sampled `projection_energy` of a `SplineDistribution`. The sums are the rectangle rule
-of `_apply_∫dv!` and its moment stencils.
+`energy` is the kinetic energy density, with the factor ``\tfrac{1}{2}``. The sums are the
+rectangle rule of `_apply_∫dv!` and its moment stencils.
 """
 function velocity_moments(dist::GridDistribution{DT}) where {DT}
     nx, nv = size(dist.values)
@@ -128,6 +127,7 @@ function velocity_moments(dist::GridDistribution{DT}) where {DT}
     _apply_∫dv!(n, f, ci, li, hx, hv)
     _apply_∫vdv!(j, f, dist.v, ci, li, hx, hv)
     _apply_∫v²dv!(ε, f, dist.v, ci, li, hx, hv)
+    ε ./= 2
 
     return (density = n, momentum = j, energy = ε)
 end
