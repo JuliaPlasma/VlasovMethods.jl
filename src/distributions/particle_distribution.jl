@@ -22,9 +22,6 @@ end
 Base.eltype(::ParticleDistribution{T}) where {T} = T
 Base.size(dist::ParticleDistribution) = size(dist.particles)
 
-xdim(::ParticleDistribution{T, XD, VD}) where {T, XD, VD} = XD
-vdim(::ParticleDistribution{T, XD, VD}) where {T, XD, VD} = VD
-
 # function ParticleDistribution(h5::H5DataStore, path::AbstractString = "/")
 #     g = h5[path]
 #     name = _name(g)

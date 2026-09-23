@@ -26,10 +26,10 @@ import SimpleSplines: basis, coefficients, derivative, evaluate, mass_matrix, ma
 import GeometricEquations
 import GeometricEquations: ntime
 
-# The phase-space tensors reduced here are built on the PoissonBrackets grid tensor, and the
+# The phase-space tensors reduced here are built on the GeometricBrackets grid tensor, and the
 # `_nx`/`_nv` accessors are extended rather than redefined so that one generic covers both.
-using PoissonBrackets: PoissonTensor
-import PoissonBrackets: _nx, _nv
+using GeometricBrackets: PoissonTensor
+import GeometricBrackets: _nx, _nv
 
 # `import A.B` binds only `B`, so the bare module name needs an import of its own for the call
 # sites that qualify names as `GeometricIntegrators.…`.
@@ -81,9 +81,11 @@ export l2_projection, l2_projection!, mass_operator, mass_matrix, mass_solve!
 include("distributions/maxwellian.jl")
 include("distributions/particle_distribution.jl")
 include("distributions/spline_distribution.jl")
+include("distributions/grid_distribution.jl")
 
 export ParticleDistribution
 export SplineDistribution
+export GridDistribution, velocity_moments
 export check_conservation_basis, project_function, project_Maxwellian
 
 # entropy models
@@ -160,10 +162,10 @@ export PotentialReducedTensor, VelocityReducedMatrix
 
 include("gridbased/collisions.jl")
 
-# The particle-based reduction moved here from ReducedBasisMethods sits in `src/particles/`
-# and is not wired in yet: each of the four files names a binding that no longer exists —
-# `PoissonSolverPBSplines`, `PBSpline`, `ElectricField`, `ParameterSpace`. Including one
-# breaks the load, so the includes wait for the repair tasks.
+# The particle-based reduction in `src/particles/` is not included: each of the four files
+# names a binding that neither the module nor its dependencies define —
+# `PoissonSolverPBSplines`, `PBSpline`, `ElectricField`, `ParameterSpace` — so including one
+# breaks the load.
 
 # include("electric_field.jl")
 

@@ -18,9 +18,9 @@ _nv(t::CollisionTensor) = t.nv
 
 function Base.getindex(ct::CollisionTensor, I::CartesianIndex,
         J::CartesianIndex, K::CartesianIndex, L::CartesianIndex)
-    @assert isvalid(I, ct.nx, ct.nv)
-    @assert isvalid(J, ct.nx, ct.nv)
-    @assert isvalid(K, ct.nx, ct.nv)
+    @assert I in CartesianIndices((ct.nx, ct.nv))
+    @assert J in CartesianIndices((ct.nx, ct.nv))
+    @assert K in CartesianIndices((ct.nx, ct.nv))
 
     ct.f(I, J, K)
 end

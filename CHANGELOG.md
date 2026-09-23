@@ -17,6 +17,14 @@ first entry is written.
 
 ### Bug Fixes
 
+- **`d(x, v)` with scalar arguments threw `MethodError`.** The `Vararg` call operator of every
+  `DistributionFunction` used `view` on a `Tuple`, which does not support it. It now builds the two
+  `SVector`s directly.
+
+- **`src/gridbased/collisions.jl` called `isvalid(I, nx, nv)`**, a method MultiIndexArrays 0.1.1
+  no longer defines, on `Base.isvalid` or otherwise. The index assertions of
+  `CollisionTensor`'s `getindex` now read `I in CartesianIndices((nx, nv))`.
+
 - **`[compat]` admits `SimpleSplines` 0.2 and `PoissonSolvers` 0.5.** The two must widen together:
   `PoissonSolvers` 0.5 requires `SimpleSplines` 0.2, and `SimpleSplines` 0.2 is admitted by no
   `PoissonSolvers` below 0.5. CompatHelper proposed them as separate pull requests, and each was
@@ -72,6 +80,8 @@ first entry is written.
   predecessor, and no string literal was affected.
 
 ### Breaking Changes
+
+- **`[compat] julia` rises from 1.10 to 1.11.** `GeometricBrackets` requires 1.11.
 
 - **The spline machinery is now `SimpleSplines`, and `BSplineKit` is gone.** `src/splines/` —
   `SplineND`, `TwoDSpline`, `NDSpline`, and the `gauss_quad*` / `eval_bfd` /
@@ -170,12 +180,32 @@ first entry is written.
 
 ### New Features
 
+- **`GridDistribution`, the distribution function on a 1D1V phase-space grid.** It is a third
+  `DistributionFunction{DT, 1, 1}`, beside `ParticleDistribution` and `SplineDistribution`, and
+  both `GridDistribution` and `velocity_moments` are exported.
+
+  - It stores node values as an `nx × nv` matrix, in the column-major order `_apply_∫dv!` uses.
+    The `x`-grid is uniform and periodic, and its right end is not stored. The `v`-grid is
+    uniform and bounded, and both of its ends are nodes.
+  - `d(x, v)` interpolates bilinearly. It is periodic in `x` and zero outside the `v`-range.
+  - `velocity_moments(dist)` returns `(density, momentum, energy)` at each `x`-node, by the
+    rectangle rule of `_apply_∫dv!`, `_apply_∫vdv!` and `_apply_∫v²dv!`. `energy` is
+    `∫ v² f dv` without the ½, the convention of `projection_energy`. The rule is exact up to
+    `hv/2` times the two end values, so it is first order where `f` does not vanish there.
+  - `xdim` and `vdim`, unexported, are defined once on `DistributionFunction`, so the spline
+    distribution answers them too. It had neither.
+
+  The tests show that the grid moments of a Maxwellian that vanishes at the ends of the range
+  agree with the spline's L²-projected moments to `1e-12`. Bilinear evaluation is second order.
+  On a truncated range the moments are first order, and second order once the end term is
+  subtracted.
+
 - **The reduced phase-space tensors and velocity moments, imported from ReducedBasisMethods.**
   **Every function and struct body is byte-identical to its source**, so the diff reviews as a
   move rather than as new code. Three files arrive under `src/gridbased/`:
 
   - `reduced_tensors.jl` — `PotentialReducedTensor`, `VelocityReducedMatrix` and
-    `FullyReducedTensor`, which project a `PoissonBrackets.PoissonTensor` onto reduced bases in
+    `FullyReducedTensor`, which project a `GeometricBrackets.PoissonTensor` onto reduced bases in
     its first two indices and, respectively, project the third, contract it with `v²/2`, or
     project it onto the potential's modes. The first two are exported.
   - `moments.jl` — `_apply_∫dv!` and its transpose, the weighted pair `_apply_∫dv_μ!` /
@@ -187,7 +217,7 @@ first entry is written.
     it was reachable there. It **is** included here, and the four names are defined in the
     module, but two of them still fault when called — see *Open Issues*.
 
-  New dependencies: `PoissonBrackets`, for the `PoissonTensor` the three tensors wrap and the
+  New dependencies: `GeometricBrackets`, for the `PoissonTensor` the three tensors wrap and the
   `_nx` / `_nv` accessors they extend, and `MultiIndexArrays`, for `multiindex` and
   `_stencil_indices`.
 
@@ -459,11 +489,13 @@ not take on.
   its `getindex` reads `rt.projection_k[k, α]` with `α` unbound. Imported unrepaired from
   ReducedBasisMethods, where it had the same defects. Recorded 2026-09-17.
 
-- **`[compat] julia` is 1.10 but `PoissonBrackets` declares 1.11**, so the `min` CI job cannot
-  resolve the new dependency. `PoissonBrackets` is also unregistered, so it is not resolvable
-  from General at all. No `[sources]` entry was added, because the table was deliberately
-  removed from this package (see *Breaking Changes* above) and RegistryCI rejects it.
-  Recorded 2026-09-17.
+- **`GeometricBrackets` 0.1.0 is not yet registered.** Its registration in General is pending, and
+  the `PoissonTensor`, `_nx` and `_nv` used here arrive with JuliaGNI/GeometricBrackets.jl#19 in a
+  later release. `[compat]` bounds `GeometricBrackets = "0.1.1"`, which does not exist yet, and
+  `MultiIndexArrays = "0.1.1"` (JuliaGNI/MultiIndexArrays.jl#2), released 2026-09-23 with its
+  registration pending. The environment resolves only once the upstream registrations complete, VlasovMethods#46 and PoissonSolvers.jl#11 (CompatHelper
+  widenings of `SimpleSplines` to 0.3) are merged and PoissonSolvers is released with them.
+  Recorded 2026-09-23.
 
 - **The implemented Landau scheme is not the one the main text derives.** The manuscript builds
   the gradient form with the `G` operator — whose structure *is* the momentum and energy
