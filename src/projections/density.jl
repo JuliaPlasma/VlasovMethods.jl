@@ -5,10 +5,11 @@
 #
 #   Σ_α π(v_α) f_s(v_α) ,
 #
-# not the integral ∫ π(v) f(v) dv. The two are different quantities and the distinction
-# matters: it is the particle-sampled form that appears in the coefficient system of the
-# conservative Lenard-Bernstein operator, where the same sum appears on both sides and the
-# sampling error cancels.
+# or the same with the derivative f_s′ in place of f_s when `isDerivative = true`, with no
+# particle weights. It is neither the integral ∫ π(v) f(v) dv nor the weighted particle
+# moment Σ_α w_α π(v_α): the coefficient system of the conservative Lenard-Bernstein
+# operator, `compute_coefficients`, uses the weighted moments and does not call these
+# functions.
 
 # convenience function for computing the first three particle-sampled moments of f over v
 function compute_f_densities(distribution::SplineDistribution, vp::AbstractArray{VT}) where {VT}
