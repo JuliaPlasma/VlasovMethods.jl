@@ -36,9 +36,9 @@ Parameters = "0.12, 0.13"
 ParticleMethods = "0.1"
 # 0.4 is where the SimpleSplines backend and the `p(x, d)` derivative arrived, so the floor is
 # 0.4 rather than anything earlier: this package does not work against 0.3.
-PoissonSolvers = "0.4, 0.5"
+PoissonSolvers = "0.4, 0.5, 0.6"
 ProgressMeter = "1"
-SimpleSplines = "0.1, 0.2"
+SimpleSplines = "0.1, 0.2, 0.3"
 Sobol = "1.5"
 SpecialFunctions = "2"
 StaticArrays = "1"

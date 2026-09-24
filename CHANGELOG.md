@@ -489,13 +489,13 @@ not take on.
   its `getindex` reads `rt.projection_k[k, α]` with `α` unbound. Imported unrepaired from
   ReducedBasisMethods, where it had the same defects. Recorded 2026-09-17.
 
-- **`GeometricBrackets` 0.1.0 is not yet registered.** Its registration in General is pending, and
-  the `PoissonTensor`, `_nx` and `_nv` used here arrive with JuliaGNI/GeometricBrackets.jl#19 in a
-  later release. `[compat]` bounds `GeometricBrackets = "0.1.1"`, which does not exist yet, and
-  `MultiIndexArrays = "0.1.1"` (JuliaGNI/MultiIndexArrays.jl#2), released 2026-09-23 with its
-  registration pending. The environment resolves only once the upstream registrations complete, VlasovMethods#46 and PoissonSolvers.jl#11 (CompatHelper
-  widenings of `SimpleSplines` to 0.3) are merged and PoissonSolvers is released with them.
-  Recorded 2026-09-23.
+- **`GeometricBrackets` 0.1.1 does not exist yet.** The `PoissonTensor`, `_nx` and `_nv` used
+  here arrive with JuliaGNI/GeometricBrackets.jl#19 in a release after 0.1.0, whose own
+  registration in General is pending. `[compat]` bounds `GeometricBrackets = "0.1.1"`. The other
+  upstream pieces are registered: `MultiIndexArrays` 0.1.1, and `PoissonSolvers` 0.6.0, the first
+  release that admits the `SimpleSplines` 0.3 GeometricBrackets requires; `[compat]` admits
+  `PoissonSolvers` 0.6 and `SimpleSplines` 0.3, as VlasovMethods#46 does on `main`. Recorded
+  2026-09-24.
 
 - **The implemented Landau scheme is not the one the main text derives.** The manuscript builds
   the gradient form with the `G` operator — whose structure *is* the momentum and energy
