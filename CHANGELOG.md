@@ -17,6 +17,11 @@ first entry is written.
 
 ### Bug Fixes
 
+- **`[compat]` admits `SimpleSplines` 0.3 and `PoissonSolvers` 0.6.** Compat only, with no code
+  change. As for 0.2 and 0.5 below, the two must widen together: `PoissonSolvers` 0.6 is the
+  first release that admits `SimpleSplines` 0.3, and `GeometricBrackets` requires
+  `SimpleSplines` 0.3.
+
 - **`[compat]` admits `SimpleSplines` 0.2 and `PoissonSolvers` 0.5.** The two must widen together:
   `PoissonSolvers` 0.5 requires `SimpleSplines` 0.2, and `SimpleSplines` 0.2 is admitted by no
   `PoissonSolvers` below 0.5. CompatHelper proposed them as separate pull requests, and each was
