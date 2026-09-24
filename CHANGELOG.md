@@ -25,6 +25,11 @@ first entry is written.
   no longer defines, on `Base.isvalid` or otherwise. The index assertions of
   `CollisionTensor`'s `getindex` now read `I in CartesianIndices((nx, nv))`.
 
+- **`[compat]` admits `SimpleSplines` 0.3 and `PoissonSolvers` 0.6.** Compat only, with no code
+  change. As for 0.2 and 0.5 below, the two must widen together: `PoissonSolvers` 0.6 is the
+  first release that admits `SimpleSplines` 0.3, and `GeometricBrackets` requires
+  `SimpleSplines` 0.3.
+
 - **`[compat]` admits `SimpleSplines` 0.2 and `PoissonSolvers` 0.5.** The two must widen together:
   `PoissonSolvers` 0.5 requires `SimpleSplines` 0.2, and `SimpleSplines` 0.2 is admitted by no
   `PoissonSolvers` below 0.5. CompatHelper proposed them as separate pull requests, and each was
@@ -82,6 +87,11 @@ first entry is written.
 ### Breaking Changes
 
 - **`[compat] julia` rises from 1.10 to 1.11.** `GeometricBrackets` requires 1.11.
+
+- **`projection_energy` is now `projection_second_moment`.** It returns `Σ_α v_α² f_s(v_α)`, the
+  particle-sampled second moment of the spline distribution, with no factor `½`, so it is not an
+  energy. The name was not exported; a caller of `VlasovMethods.projection_energy` renames the
+  call.
 
 - **The spline machinery is now `SimpleSplines`, and `BSplineKit` is gone.** `src/splines/` —
   `SplineND`, `TwoDSpline`, `NDSpline`, and the `gauss_quad*` / `eval_bfd` /
