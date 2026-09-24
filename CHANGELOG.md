@@ -78,6 +78,11 @@ first entry is written.
 
 ### Breaking Changes
 
+- **`projection_energy` is now `projection_second_moment`.** It returns `Σ_α v_α² f_s(v_α)`, the
+  particle-sampled second moment of the spline distribution, with no factor `½`, so it is not an
+  energy. The name was not exported; a caller of `VlasovMethods.projection_energy` renames the
+  call.
+
 - **The spline machinery is now `SimpleSplines`, and `BSplineKit` is gone.** `src/splines/` —
   `SplineND`, `TwoDSpline`, `NDSpline`, and the `gauss_quad*` / `eval_bfd` /
   `evaluate_der_2d*` / `remap_unit_interval` / `unique_knots` helpers — is deleted, together
