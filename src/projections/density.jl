@@ -14,7 +14,7 @@
 function compute_f_densities(distribution::SplineDistribution, vp::AbstractArray{VT}) where {VT}
     n = projection_density(distribution, vp)
     μ = projection_momentum(distribution, vp)
-    ε = projection_energy(distribution, vp)
+    ε = projection_second_moment(distribution, vp)
 
     return n, μ, ε
 end
@@ -41,7 +41,7 @@ function projection_momentum(distribution::SplineDistribution, vp::AbstractArray
 end
 
 # Σ_α v_α² f_s(v_α)
-function projection_energy(distribution::SplineDistribution, vp::AbstractArray{VT}; kwargs...) where {VT}
+function projection_second_moment(distribution::SplineDistribution, vp::AbstractArray{VT}; kwargs...) where {VT}
     @inline f(v) = v .^ 2
 
     return projection(f, distribution, vp; kwargs...)
