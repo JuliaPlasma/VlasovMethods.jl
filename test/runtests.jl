@@ -3,6 +3,9 @@ using SafeTestsets
 @safetestset SplineDistributionTests = "$(rpad("Spline Distribution",80))" begin
     include("spline_distribution_tests.jl")
 end
+@safetestset GridDistributionTests = "$(rpad("Grid Distribution",80))" begin
+    include("grid_distribution_tests.jl")
+end
 @safetestset ParticleDistributionTests = "$(rpad("Particle Distribution",80))" begin
     include("particle_distribution_tests.jl")
 end

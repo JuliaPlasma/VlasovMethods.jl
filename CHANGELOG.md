@@ -17,6 +17,10 @@ first entry is written.
 
 ### Bug Fixes
 
+- **`d(x, v)` with scalar arguments threw `MethodError`.** The `Vararg` call operator of every
+  `DistributionFunction` used `view` on a `Tuple`, which does not support it. It now builds the two
+  `SVector`s directly.
+
 - **`[compat]` admits `SimpleSplines` 0.3 and `PoissonSolvers` 0.6.** Compat only, with no code
   change. As for 0.2 and 0.5 below, the two must widen together: `PoissonSolvers` 0.6 is the
   first release that admits `SimpleSplines` 0.3, and `GeometricBrackets` requires
@@ -77,6 +81,8 @@ first entry is written.
   predecessor, and no string literal was affected.
 
 ### Breaking Changes
+
+- **`[compat] julia` rises from 1.10 to 1.11.** `GeometricBrackets` requires 1.11.
 
 - **`projection_energy` is now `projection_second_moment`.** It returns `Σ_α v_α² f_s(v_α)`, the
   particle-sampled second moment of the spline distribution, with no factor `½`, so it is not an
@@ -179,6 +185,51 @@ first entry is written.
   before the package can be registered, and they are recorded under *Open Issues*.
 
 ### New Features
+
+- **`GridDistribution`, the distribution function on a 1D1V phase-space grid.** It is a third
+  `DistributionFunction{DT, 1, 1}`, beside `ParticleDistribution` and `SplineDistribution`, and
+  both `GridDistribution` and `velocity_moments` are exported.
+
+  - It stores node values as an `nx × nv` matrix, in the column-major order `_apply_∫dv!` uses.
+    The `x`-grid is uniform and periodic, and its right end is not stored. The `v`-grid is
+    uniform and bounded, and both of its ends are nodes.
+  - `d(x, v)` interpolates bilinearly. It is periodic in `x` and zero outside the `v`-range.
+  - `velocity_moments(dist)` returns `(density, momentum, energy)` at each `x`-node, by the
+    rectangle rule of `_apply_∫dv!`, `_apply_∫vdv!` and `_apply_∫v²dv!`. `energy` is the
+    kinetic energy density `½ ∫ v² f dv`. The rule is exact up to
+    `hv/2` times the two end values, so it is first order where `f` does not vanish there.
+  - `xdim` and `vdim`, unexported, are defined once on `DistributionFunction`, so the spline
+    distribution answers them too. It had neither.
+
+  The tests show that the grid moments of a Maxwellian that vanishes at the ends of the range
+  agree with the spline's L²-projected moments to `1e-12`. Bilinear evaluation is second order.
+  On a truncated range the moments are first order, and second order once the end term is
+  subtracted.
+
+- **The reduced phase-space tensors and velocity moments, imported from ReducedBasisMethods.**
+  Every function and struct body is byte-identical to its source, except
+  `src/gridbased/collisions.jl`: its `CollisionTensor`'s `getindex` assertions
+  changed from `@assert isvalid(I, ct.nx, ct.nv)` to `@assert I in
+  CartesianIndices((ct.nx, ct.nv))`, and the same for `J` and `K`, because
+  `MultiIndexArrays` 0.1.1 no longer defines `isvalid`. The diff reviews as a
+  move rather than new code. Three files arrive under `src/gridbased/`:
+
+  - `reduced_tensors.jl` — `PotentialReducedTensor`, `VelocityReducedMatrix` and
+    `FullyReducedTensor`, which project a `GeometricBrackets.PoissonTensor` onto reduced bases in
+    its first two indices and, respectively, project the third, contract it with `v²/2`, or
+    project it onto the potential's modes. The first two are exported.
+  - `moments.jl` — `_apply_∫dv!` and its transpose, the weighted pair `_apply_∫dv_μ!` /
+    `_apply_∫dvᵀ_μ!`, and the first and second moments `_apply_∫vdv!` and `_apply_∫v²dv!`.
+    Only `_apply_∫dv!` is exported, as before. The Laplace and nullspace stencils that shared
+    the source file went to `PoissonSolvers` instead.
+  - `collisions.jl` — `CollisionTensor`, `QuadraticCollisions`, `ReducedCollisionTensor` and
+    the two `_get_MC̃_*` assemblers. ReducedBasisMethods never included this file, so none of
+    it was reachable there. It **is** included here, and the four names are defined in the
+    module, but two of them still fault when called — see *Open Issues*.
+
+  New dependencies: `GeometricBrackets`, for the `PoissonTensor` the three tensors wrap and the
+  `_nx` / `_nv` accessors they extend, and `MultiIndexArrays`, for `multiindex` and
+  `_stencil_indices`.
 
 - **`scripts/verify_conservation.jl`** measures the two conservation claims of the manuscripts
   and separates them, because they are not the same claim and the obvious reading is wrong.
@@ -425,6 +476,34 @@ first entry is written.
 Carried over from the audit that accompanied the `SimpleSplines` migration. None of these are
 regressions; each is either a numerical-methods decision or work the migration deliberately did
 not take on.
+
+- **`src/particles/` is present but not included.** The four files imported from
+  ReducedBasisMethods — `electric_field.jl`, `poisson.jl`, `snapshots.jl`,
+  `time_marching.jl` — each name a binding that no longer exists, so including
+  any one breaks the load: `poisson.jl` wants `PoissonSolverPBSplines`;
+  `time_marching.jl` imports `PBSpline`, `stiffnessmatrix`, `eval_deriv_PBSBasis`
+  and `rhs_particles_PBSBasis` from `PoissonSolvers` (neither 0.5 nor 0.6 has
+  any); `electric_field.jl` wants `ElectricField` from `src/electric_field.jl`
+  — which this module still keeps commented out — and `snapshots.jl` wants
+  `ParameterSpace`. They were moved unrepaired on purpose, so the relocation
+  stays reviewable. Recorded 2026-09-17.
+
+- **`src/gridbased/collisions.jl` compiles but cannot be used.** The file is included and the
+  module precompiles, so `CollisionTensor` and the rest are defined — the faults are at run
+  time, not load time. `Base.getindex(ct::CollisionTensor, i, j, k)` returns `ct[I, J, K, L]`
+  with `L` never bound, and both `_get_MC̃_*` assemblers read a global `v` that no longer
+  exists. `ReducedCollisionTensor`'s `getindex` evaluates `rt.tensor[M, N, O]` with three
+  `CartesianIndex{2}` arguments; `Base.to_indices` flattens them to six `Int`s, so the
+  indexing throws `BoundsError` and never reaches the four-`CartesianIndex` method of
+  `CollisionTensor` — binding `L` alone does not repair it. The `QuadraticCollisions` inner
+  constructor calls `new{DT}(nx, nv, hx, hv, v)` — five values for six fields — leaving
+  `factor` uninitialised. ReducedBasisMethods never included the file, so none of this
+  was reachable there and none of it is new. Recorded 2026-09-17.
+
+- **`FullyReducedTensor` cannot be constructed.** Its inner constructor asserts
+  `size(Pk, 1) == size(tensor, 3)`, but the parameter is named `Pα`, so `Pk` is undefined; and
+  its `getindex` reads `rt.projection_k[k, α]` with `α` unbound. Imported unrepaired from
+  ReducedBasisMethods, where it had the same defects. Recorded 2026-09-17.
 
 - **The implemented Landau scheme is not the one the main text derives.** The manuscript builds
   the gradient form with the `G` operator — whose structure *is* the momentum and energy
