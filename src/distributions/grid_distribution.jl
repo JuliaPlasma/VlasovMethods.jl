@@ -107,7 +107,7 @@ energy)` of three vectors of length `nx`:
 
 ```math
 n_i = \sum_j f_{ij} h_v , \qquad
-j_i = \sum_j v_j f_{ij} h_v , \qquad
+p_i = \sum_j v_j f_{ij} h_v , \qquad
 \varepsilon_i = \frac{1}{2} \sum_j v_j^2 f_{ij} h_v .
 ```
 

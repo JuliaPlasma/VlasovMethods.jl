@@ -21,10 +21,6 @@ first entry is written.
   `DistributionFunction` used `view` on a `Tuple`, which does not support it. It now builds the two
   `SVector`s directly.
 
-- **`src/gridbased/collisions.jl` called `isvalid(I, nx, nv)`**, a method MultiIndexArrays 0.1.1
-  no longer defines, on `Base.isvalid` or otherwise. The index assertions of
-  `CollisionTensor`'s `getindex` now read `I in CartesianIndices((nx, nv))`.
-
 - **`[compat]` admits `SimpleSplines` 0.3 and `PoissonSolvers` 0.6.** Compat only, with no code
   change. As for 0.2 and 0.5 below, the two must widen together: `PoissonSolvers` 0.6 is the
   first release that admits `SimpleSplines` 0.3, and `GeometricBrackets` requires
@@ -211,8 +207,12 @@ first entry is written.
   subtracted.
 
 - **The reduced phase-space tensors and velocity moments, imported from ReducedBasisMethods.**
-  **Every function and struct body is byte-identical to its source**, so the diff reviews as a
-  move rather than as new code. Three files arrive under `src/gridbased/`:
+  Every function and struct body is byte-identical to its source, except
+  `src/gridbased/collisions.jl`: its `CollisionTensor`'s `getindex` assertions
+  changed from `@assert isvalid(I, ct.nx, ct.nv)` to `@assert I in
+  CartesianIndices((ct.nx, ct.nv))`, and the same for `J` and `K`, because
+  `MultiIndexArrays` 0.1.1 no longer defines `isvalid`. The diff reviews as a
+  move rather than new code. Three files arrive under `src/gridbased/`:
 
   - `reduced_tensors.jl` — `PotentialReducedTensor`, `VelocityReducedMatrix` and
     `FullyReducedTensor`, which project a `GeometricBrackets.PoissonTensor` onto reduced bases in
@@ -478,34 +478,32 @@ regressions; each is either a numerical-methods decision or work the migration d
 not take on.
 
 - **`src/particles/` is present but not included.** The four files imported from
-  ReducedBasisMethods — `electric_field.jl`, `poisson.jl`, `snapshots.jl`, `time_marching.jl` —
-  each name a binding that no longer exists, so including any one of them breaks the load:
-  `poisson.jl` wants `PoissonSolverPBSplines`, `time_marching.jl` imports `PBSpline`,
-  `stiffnessmatrix`, `eval_deriv_PBSBasis` and `rhs_particles_PBSBasis` from `PoissonSolvers`
-  (0.5 has none of them), `electric_field.jl` wants `ElectricField` from `src/electric_field.jl`
-  — which this module still keeps commented out — and `snapshots.jl` wants `ParameterSpace`.
-  They were moved unrepaired on purpose, so the relocation stays reviewable. Recorded
-  2026-09-17.
+  ReducedBasisMethods — `electric_field.jl`, `poisson.jl`, `snapshots.jl`,
+  `time_marching.jl` — each name a binding that no longer exists, so including
+  any one breaks the load: `poisson.jl` wants `PoissonSolverPBSplines`;
+  `time_marching.jl` imports `PBSpline`, `stiffnessmatrix`, `eval_deriv_PBSBasis`
+  and `rhs_particles_PBSBasis` from `PoissonSolvers` (neither 0.5 nor 0.6 has
+  any); `electric_field.jl` wants `ElectricField` from `src/electric_field.jl`
+  — which this module still keeps commented out — and `snapshots.jl` wants
+  `ParameterSpace`. They were moved unrepaired on purpose, so the relocation
+  stays reviewable. Recorded 2026-09-17.
 
 - **`src/gridbased/collisions.jl` compiles but cannot be used.** The file is included and the
   module precompiles, so `CollisionTensor` and the rest are defined — the faults are at run
   time, not load time. `Base.getindex(ct::CollisionTensor, i, j, k)` returns `ct[I, J, K, L]`
   with `L` never bound, and both `_get_MC̃_*` assemblers read a global `v` that no longer
-  exists. ReducedBasisMethods never included the file, so none of this was reachable there and
-  none of it is new. Recorded 2026-09-17.
+  exists. `ReducedCollisionTensor`'s `getindex` evaluates `rt.tensor[M, N, O]` with three
+  `CartesianIndex{2}` arguments; `Base.to_indices` flattens them to six `Int`s, so the
+  indexing throws `BoundsError` and never reaches the four-`CartesianIndex` method of
+  `CollisionTensor` — binding `L` alone does not repair it. The `QuadraticCollisions` inner
+  constructor calls `new{DT}(nx, nv, hx, hv, v)` — five values for six fields — leaving
+  `factor` uninitialised. ReducedBasisMethods never included the file, so none of this
+  was reachable there and none of it is new. Recorded 2026-09-17.
 
 - **`FullyReducedTensor` cannot be constructed.** Its inner constructor asserts
   `size(Pk, 1) == size(tensor, 3)`, but the parameter is named `Pα`, so `Pk` is undefined; and
   its `getindex` reads `rt.projection_k[k, α]` with `α` unbound. Imported unrepaired from
   ReducedBasisMethods, where it had the same defects. Recorded 2026-09-17.
-
-- **`GeometricBrackets` 0.1.1 does not exist yet.** The `PoissonTensor`, `_nx` and `_nv` used
-  here arrive with JuliaGNI/GeometricBrackets.jl#19 in a release after 0.1.0, whose own
-  registration in General is pending. `[compat]` bounds `GeometricBrackets = "0.1.1"`. The other
-  upstream pieces are registered: `MultiIndexArrays` 0.1.1, and `PoissonSolvers` 0.6.0, the first
-  release that admits the `SimpleSplines` 0.3 GeometricBrackets requires; `[compat]` admits
-  `PoissonSolvers` 0.6 and `SimpleSplines` 0.3, as VlasovMethods#46 does on `main`. Recorded
-  2026-09-24.
 
 - **The implemented Landau scheme is not the one the main text derives.** The manuscript builds
   the gradient form with the `G` operator — whose structure *is* the momentum and energy
