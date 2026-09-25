@@ -27,12 +27,13 @@ function _work(potential::PoissonSolvers.Potential)
         eltype(PoissonSolvers.rhs(potential)), local_width(basis(potential)))
 end
 
-# `x` reduced into the domain of `b`. The particle state keeps the unwrapped position, so every
-# evaluation on the basis reduces it.
-function _reduce_into_domain(b, x::Number)
+# `x` reduced into the domain of a periodic basis `b`. The particle state keeps the unwrapped
+# position, so every evaluation on the basis reduces it. Any other basis takes `x` unchanged.
+function _reduce_into_domain(b::PeriodicBSplineBasis, x::Number)
     a = minimum(domain(b))
     return a + mod(x - a, maximum(domain(b)) - a)
 end
+_reduce_into_domain(b, x::Number) = x
 
 # The deposit of `projection!`, from the positions in the first row of `x` and the weights in
 # the first row of `w`, with `vals` as the buffer of basis values. The first row is read by

@@ -106,6 +106,31 @@ end
         end
     end
 
+    @testset "a Dirichlet basis does not wrap" begin
+        # Only a periodic basis wraps. A Dirichlet basis takes each position unchanged, so a
+        # particle outside the domain deposits nothing, as it did before the wrap was added.
+        b = DirichletBasisSpline((T(0), T(1)), 3, 16)
+        x = T[0.3, 0.71, 1.02, -0.01, 1.3]
+        w = fill(T(0.2), length(x))
+        d = particle_distribution(T, length(x))
+        d.particles.x .= x'
+        d.particles.w .= w'
+        p = Potential(b)
+        projection!(p, d)
+
+        # the deposit loop of the tree before this part, which evaluates at `x` as it is
+        reference = zeros(T, length(PoissonSolvers.rhs(p)))
+        vals = zeros(T, local_width(b))
+        for (xᵢ, wᵢ) in zip(x, w)
+            j₀ = evaluate_all!(vals, b, xᵢ)
+            for (t, value) in pairs(vals)
+                iszero(value) && continue
+                reference[basis_index(b, j₀ + t - 1)] += wᵢ * value
+            end
+        end
+        @test PoissonSolvers.rhs(p) == reference
+    end
+
     @testset "the HDF5 output" begin
         npart = 100
         model = vlasov_poisson(T; npart)
