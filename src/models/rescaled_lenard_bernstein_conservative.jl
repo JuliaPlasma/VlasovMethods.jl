@@ -19,7 +19,7 @@ function CacheType(AT, c::RCLBCache{DT, PT, ST}) where {DT, PT, ST}
 end
 
 struct RescaledConservativeLenardBernstein{
-    XD, VD, DT <: DistributionFunction{XD, VD}, ET <: Entropy, T, CT <: CacheDict} <:
+    XD, VD, DT <: DistributionFunction{<:Any, XD, VD}, ET <: Entropy, T, CT <: CacheDict} <:
        CollisionOperator
     dist::DT    # distribution function
     ent::ET     # entropy 
@@ -28,7 +28,8 @@ struct RescaledConservativeLenardBernstein{
     cache::CT
 
     function RescaledConservativeLenardBernstein(
-            dist::DistributionFunction{XD, VD}, ent::Entropy; ν::T = 1.0) where {XD, VD, T}
+            dist::DistributionFunction{<:Any, XD, VD}, ent::Entropy; ν::T = 1.0) where {
+            XD, VD, T}
         cache = CacheDict(RCLBCache(dist, ent.dist))
         new{XD, VD, typeof(dist), typeof(ent), T, typeof(cache)}(dist, ent, ν, cache)
     end

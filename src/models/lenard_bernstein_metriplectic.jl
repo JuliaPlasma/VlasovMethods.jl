@@ -37,7 +37,7 @@ function CacheType(AT, c::MLBCache{DT, PT, ST}) where {DT, PT, ST}
 end
 
 struct MetriplecticLenardBernstein{
-    D, XD, VD, DT <: DistributionFunction{XD, VD}, ET <: Entropy, CT <: CacheDict} <:
+    D, XD, VD, DT <: DistributionFunction{<:Any, XD, VD}, ET <: Entropy, CT <: CacheDict} <:
        VlasovModel
     dist::DT
     entropy::ET
@@ -46,7 +46,8 @@ struct MetriplecticLenardBernstein{
     cache::CT
 
     function MetriplecticLenardBernstein(
-            dist::DistributionFunction{XD, VD}, ent::Entropy; ν::D = 1.0) where {D, XD, VD}
+            dist::DistributionFunction{<:Any, XD, VD}, ent::Entropy; ν::D = 1.0) where {
+            D, XD, VD}
         cache = CacheDict(MLBCache(dist, ent.dist))
         new{D, XD, VD, typeof(dist), typeof(ent), typeof(cache)}(dist, ent, ν, cache)
     end

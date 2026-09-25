@@ -17,22 +17,39 @@ why the zeros are skipped rather than added.
 """
 function projection!(potential::PoissonSolvers.Potential,
         distribution::ParticleDistribution)
+    _deposit!(potential, _work(potential), distribution.particles.x, distribution.particles.w)
+end
+
+# The work vector of length `local_width(basis)` that the deposit and the field evaluation use.
+function _work(potential::PoissonSolvers.Potential)
+    zeros(
+        eltype(PoissonSolvers.rhs(potential)), local_width(basis(potential)))
+end
+
+# `x` reduced into the domain of `b`. The particle state keeps the unwrapped position, so every
+# evaluation on the basis reduces it.
+function _reduce_into_domain(b, x::Number)
+    a = minimum(domain(b))
+    return a + mod(x - a, maximum(domain(b)) - a)
+end
+
+# The deposit of `projection!`, from the positions in the first row of `x` and the weights in
+# the first row of `w`, with `vals` as the buffer of basis values. The first row is read by
+# index, so the positions of a state matrix `z` are deposited without a slice.
+function _deposit!(potential::PoissonSolvers.Potential, vals::AbstractVector,
+        x::AbstractMatrix, w::AbstractMatrix)
     b = basis(potential)
     ρ = PoissonSolvers.rhs(potential)
     ρ .= 0
 
-    vals = zeros(eltype(ρ), local_width(b))
-    points = distribution.particles.x
-    weights = distribution.particles.w
-
-    for (x, w) in zip(points, weights)
-        j₀ = evaluate_all!(vals, b, x)
+    for i in axes(x, 2)
+        j₀ = evaluate_all!(vals, b, _reduce_into_domain(b, x[1, i]))
         for (t, value) in pairs(vals)
-            # Skipping the zeros drops the padding described above. It is not a bounds guard:
-            # a nonzero value at an out-of-range index still raises, rather than being folded
-            # silently onto another basis function.
+            # Skipping the zeros drops the padding described in `projection!`. It is not a
+            # bounds guard: a nonzero value at an out-of-range index still raises, rather than
+            # being folded silently onto another basis function.
             iszero(value) && continue
-            ρ[basis_index(b, j₀ + t - 1)] += w * value
+            ρ[basis_index(b, j₀ + t - 1)] += w[1, i] * value
         end
     end
 

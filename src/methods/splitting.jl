@@ -32,20 +32,20 @@ function run!(method::SplittingMethod, h5file)
         chunk = (nd, np, 1))
     copy_to_hdf5(h5z, z₀, 0)
 
-    GeometricIntegrators.Integrators.initialize!(method.integrator)
-
-    # loop over time steps showing progress bar
+    # A `GeometricIntegrator` holds no solution step since GeometricIntegrators 0.18, so the
+    # whole run is integrated into a solution, whose time steps are then written out.
+    local sol
     try
-        @showprogress 5 for n in 1:ntime(method.equation)
-            GeometricIntegrators.integrate!(method.integrator)
-            copy_to_hdf5(h5z, method.integrator.solstep.q, n)
+        sol = GeometricIntegrators.integrate(method.integrator)
+        for n in 1:ntime(method.equation)
+            copy_to_hdf5(h5z, sol.q[n], n)
         end
     finally
         # close HDF5 file
         close(h5)
     end
 
-    copy!(method.model.distribution.particles.z, method.integrator.solstep.q)
+    copy!(method.model.distribution.particles.z, sol.q[end])
 
     return method.model.distribution
 end

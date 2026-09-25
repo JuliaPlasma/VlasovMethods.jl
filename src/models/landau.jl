@@ -40,7 +40,7 @@ function CacheType(AT, c::LandauCache{DT, PT, ST}) where {DT, PT, ST}
 end
 
 struct Landau{
-    D, XD, VD, DT <: DistributionFunction{XD, VD}, ET <: Entropy, CT <: CacheDict} <:
+    D, XD, VD, DT <: DistributionFunction{<:Any, XD, VD}, ET <: Entropy, CT <: CacheDict} <:
        VlasovModel
     dist::DT    # distribution function
     entropy::ET # entropy
@@ -48,7 +48,7 @@ struct Landau{
 
     cache::CT
 
-    function Landau(dist::DistributionFunction{XD, VD}, ent::Entropy; ν::D = 1.0) where {
+    function Landau(dist::DistributionFunction{<:Any, XD, VD}, ent::Entropy; ν::D = 1.0) where {
             D, XD, VD}
         cache = CacheDict(LandauCache(dist, ent.dist))
         new{D, XD, VD, typeof(dist), typeof(ent), typeof(cache)}(dist, ent, ν, cache)
