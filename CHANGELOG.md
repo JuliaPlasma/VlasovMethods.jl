@@ -232,9 +232,10 @@ first entry is written.
   `_stencil_indices`.
 
 - **`ReducedTensor`, lazy projection of a grid `PoissonTensor` onto two reduced bases.** The type
-  `ReducedTensor(tensor::PoissonTensor, Pi, Pj)` is an m × m × N `AbstractArray{DT,3}` that
-  projects the tensor's first two indices onto reduced bases via matrices `Pi` and `Pj`,
-  without materializing the full array: `rt[i, j, k]` sums over the stencil around `k` only.
+  `ReducedTensor(tensor::PoissonTensor, Pi, Pj)` is a `size(Pi, 2) × size(Pj, 2) × N`
+  `AbstractArray{DT,3}` that projects the tensor's first two indices onto reduced bases via
+  matrices `Pi` and `Pj`, without materializing the full array: `rt[i, j, k]` sums over the
+  stencil around `k` only.
   The code moves unchanged from ReducedBasisMethods.jl, which removes its copy once
   JuliaRCM/ReducedBasisMethods.jl#39 has merged and a VlasovMethods release carries this type.
 
