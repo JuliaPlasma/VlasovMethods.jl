@@ -1,12 +1,17 @@
 
-struct VlasovPoisson{XD, VD, DT <: DistributionFunction{<:Any, XD, VD}, PT <: Potential} <:
-       VlasovModel
+struct VlasovPoisson{XD, VD, DT <: DistributionFunction{<:Any, XD, VD}, PT <: Potential,
+    WT <: AbstractVector} <: VlasovModel
     distribution::DT
     potential::PT
 
+    # the buffer of the `local_width(basis)` basis values that the deposit and the field
+    # evaluation fill, so that neither allocates
+    work::WT
+
     function VlasovPoisson(dist::DistributionFunction{<:Any, XD, VD}, potential) where {
             XD, VD}
-        new{XD, VD, typeof(dist), typeof(potential)}(dist, potential)
+        work = _work(potential)
+        new{XD, VD, typeof(dist), typeof(potential), typeof(work)}(dist, potential, work)
     end
 end
 
@@ -19,7 +24,7 @@ end
 # from the positions in `z`, its first row, and not from `model.distribution`, which the
 # integrator never writes.
 function update_potential!(model::VlasovPoisson, z::AbstractMatrix)
-    _deposit!(model.potential, _work(model.potential), z, model.distribution.particles.w)
+    _deposit!(model.potential, model.work, z, model.distribution.particles.w)
     PoissonSolvers.update!(model.potential)
 end
 
@@ -66,7 +71,7 @@ end
 # Vector field for acceleration
 function v_acceleration!(ż, t, z, params)
     update_potential!(params.model, z)
-    work = _work(params.ϕ)
+    work = params.model.work
     for i in axes(ż, 2)
         ż[1, i] = 0
         ż[2, i] = _electric_field(params.ϕ, work, z[1, i])
@@ -84,7 +89,7 @@ end
 # Solution for Lorentz force
 function s_acceleration!(z, t, z̄, t̄, params)
     update_potential!(params.model, z̄)
-    work = _work(params.ϕ)
+    work = params.model.work
     for i in axes(z, 2)
         z[1, i] = z̄[1, i]
         z[2, i] = z̄[2, i] + (t - t̄) * _electric_field(params.ϕ, work, z̄[1, i])

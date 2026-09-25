@@ -20,7 +20,8 @@ function projection!(potential::PoissonSolvers.Potential,
     _deposit!(potential, _work(potential), distribution.particles.x, distribution.particles.w)
 end
 
-# The work vector of length `local_width(basis)` that the deposit and the field evaluation use.
+# A work vector of length `local_width(basis)` for the deposit and the field evaluation.
+# `projection!` allocates one per call; `VlasovPoisson` holds one, so its RHS does not.
 function _work(potential::PoissonSolvers.Potential)
     zeros(
         eltype(PoissonSolvers.rhs(potential)), local_width(basis(potential)))
