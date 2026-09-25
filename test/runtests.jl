@@ -12,6 +12,9 @@ end
 @safetestset ProjectionTests = "$(rpad("Projections",80))" begin
     include("projections_tests.jl")
 end
+@safetestset ReducedTensorsTests = "$(rpad("Reduced Tensors",80))" begin
+    include("reduced_tensors_tests.jl")
+end
 # @safetestset ElectricFieldTests = "$(rpad("Electric Fields",80))" begin
 #     include("electric_field_tests.jl")
 # end

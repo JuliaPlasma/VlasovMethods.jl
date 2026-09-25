@@ -231,6 +231,13 @@ first entry is written.
   `_nx` / `_nv` accessors they extend, and `MultiIndexArrays`, for `multiindex` and
   `_stencil_indices`.
 
+- **`ReducedTensor`, lazy projection of a grid `PoissonTensor` onto two reduced bases.** The type
+  `ReducedTensor(tensor::PoissonTensor, Pi, Pj)` is an m × m × N `AbstractArray{DT,3}` that
+  projects the tensor's first two indices onto reduced bases via matrices `Pi` and `Pj`,
+  without materializing the full array: `rt[i, j, k]` sums over the stencil around `k` only.
+  The code moves unchanged from ReducedBasisMethods.jl, which removes its copy once
+  JuliaRCM/ReducedBasisMethods.jl#39 has merged and a VlasovMethods release carries this type.
+
 - **`scripts/verify_conservation.jl`** measures the two conservation claims of the manuscripts
   and separates them, because they are not the same claim and the obvious reading is wrong.
   The particle sums `Σ w v̇` and `Σ w v v̇` vanish at round-off on **every** boundary condition,
