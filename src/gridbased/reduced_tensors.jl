@@ -1,3 +1,56 @@
+### Reduced Tensor
+
+"""
+    ReducedTensor(tensor::PoissonTensor, Pi, Pj)
+
+The lazy `size(Pi, 2) × size(Pj, 2) × N` array that projects the first two indices of the
+`N × N × N` `PoissonTensor` `tensor` onto the columns of `Pi` and `Pj`:
+`rt[i, j, k]` is the sum of `tensor[m, n, k] * Pi[m, i] * Pj[n, j]` over `m` and `n`.
+
+The sum runs over the `3 × 3` stencil around `k` only. The stencil holds every nonzero
+coefficient of a nearest-neighbour bracket such as `Arakawa` on a grid of at least `3 × 3` nodes.
+A bracket of wider range loses the coefficients outside the stencil, and on a smaller grid the
+stencil wraps onto itself and counts a coefficient more than once.
+
+`Pi` and `Pj` need `N` rows. Any other number throws a `DimensionMismatch`.
+"""
+struct ReducedTensor{DT, PT <: PoissonTensor{DT}, PM1, PM2} <: AbstractArray{DT, 3}
+    tensor::PT
+    projection_i::PM1
+    projection_j::PM2
+
+    function ReducedTensor(tensor::PoissonTensor{DT}, Pi::PM1, Pj::PM2) where {DT, PM1, PM2}
+        size(Pi, 1) == size(tensor, 1) || throw(DimensionMismatch(
+            "Pi needs $(size(tensor, 1)) rows, one per grid node, got $(size(Pi, 1))"))
+        size(Pj, 1) == size(tensor, 2) || throw(DimensionMismatch(
+            "Pj needs $(size(tensor, 2)) rows, one per grid node, got $(size(Pj, 1))"))
+        new{DT, typeof(tensor), PM1, PM2}(tensor, Pi, Pj)
+    end
+end
+
+function Base.size(rt::ReducedTensor)
+    (size(rt.projection_i, 2), size(rt.projection_j, 2), size(rt.tensor, 3))
+end
+
+function Base.getindex(rt::ReducedTensor{DT}, i::Int, j::Int, k::Int) where {DT}
+    checkbounds(rt, i, j, k)
+
+    local x = zero(DT)
+
+    nk = _stencil_indices(k, 1, _nx(rt), _nv(rt))
+
+    for m in nk
+        for n in nk
+            x += rt.tensor[m, n, k] * rt.projection_i[m, i] * rt.projection_j[n, j]
+        end
+    end
+
+    return x
+end
+
+_nx(t::ReducedTensor) = _nx(t.tensor)
+_nv(t::ReducedTensor) = _nv(t.tensor)
+
 ### Potential Reduced Tensor
 # A m × m × m₁ tensor:
 # P̃[i,j,k] = ∑(l,m,n) P[l,m,n] Π¹[l,i] Π²[m,j] Π³[n,k]  

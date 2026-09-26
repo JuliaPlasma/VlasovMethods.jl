@@ -158,7 +158,7 @@ export _apply_∫dv!
 
 include("gridbased/reduced_tensors.jl")
 
-export PotentialReducedTensor, VelocityReducedMatrix
+export ReducedTensor, PotentialReducedTensor, VelocityReducedMatrix
 
 include("gridbased/collisions.jl")
 
