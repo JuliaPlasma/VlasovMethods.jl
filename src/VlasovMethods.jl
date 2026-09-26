@@ -28,7 +28,7 @@ import GeometricEquations: ntime
 
 # The phase-space tensors reduced here are built on the GeometricBrackets grid tensor, and the
 # `_nx`/`_nv` accessors are extended rather than redefined so that one generic covers both.
-using GeometricBrackets: PoissonTensor
+using GeometricBrackets: Arakawa, PoissonTensor
 import GeometricBrackets: _nx, _nv
 
 # `import A.B` binds only `B`, so the bare module name needs an import of its own for the call

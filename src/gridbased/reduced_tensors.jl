@@ -1,29 +1,34 @@
 ### Reduced Tensor
 
 """
-    ReducedTensor(tensor::PoissonTensor, Pi, Pj)
+    ReducedTensor(tensor::PoissonTensor{DT, <:Arakawa}, Pi, Pj)
 
 The lazy `size(Pi, 2) × size(Pj, 2) × N` array that projects the first two indices of the
 `N × N × N` `PoissonTensor` `tensor` onto the columns of `Pi` and `Pj`:
 `rt[i, j, k]` is the sum of `tensor[m, n, k] * Pi[m, i] * Pj[n, j]` over `m` and `n`.
 
 The sum runs over the `3 × 3` stencil around `k` only. The stencil holds every nonzero
-coefficient of a nearest-neighbour bracket such as `Arakawa` on a grid of at least `3 × 3` nodes.
-A bracket of wider range loses the coefficients outside the stencil, and on a smaller grid the
-stencil wraps onto itself and counts a coefficient more than once.
+coefficient of the nearest-neighbour `Arakawa` bracket, which needs a grid of at least `3 × 3`
+nodes, so `tensor` has to be built from an `Arakawa`.
 
-`Pi` and `Pj` need `N` rows. Any other number throws a `DimensionMismatch`.
+`Pi` and `Pj` need `N` rows, or the constructor throws a `DimensionMismatch`. Their element type
+has to be `DT`, or it throws an `ArgumentError`.
 """
 struct ReducedTensor{DT, PT <: PoissonTensor{DT}, PM1, PM2} <: AbstractArray{DT, 3}
     tensor::PT
     projection_i::PM1
     projection_j::PM2
 
-    function ReducedTensor(tensor::PoissonTensor{DT}, Pi::PM1, Pj::PM2) where {DT, PM1, PM2}
+    function ReducedTensor(
+            tensor::PoissonTensor{DT, <:Arakawa}, Pi::PM1, Pj::PM2) where {DT, PM1, PM2}
         size(Pi, 1) == size(tensor, 1) || throw(DimensionMismatch(
             "Pi needs $(size(tensor, 1)) rows, one per grid node, got $(size(Pi, 1))"))
         size(Pj, 1) == size(tensor, 2) || throw(DimensionMismatch(
             "Pj needs $(size(tensor, 2)) rows, one per grid node, got $(size(Pj, 1))"))
+        eltype(Pi) == DT || throw(ArgumentError(
+            "Pi needs the element type $DT of the tensor, got $(eltype(Pi))"))
+        eltype(Pj) == DT || throw(ArgumentError(
+            "Pj needs the element type $DT of the tensor, got $(eltype(Pj))"))
         new{DT, typeof(tensor), PM1, PM2}(tensor, Pi, Pj)
     end
 end

@@ -27,4 +27,10 @@ Random.seed!(1234)
     @test_throws BoundsError rt[1, 1, N + 1]
     @test_throws DimensionMismatch ReducedTensor(tensor, rand(N + 1, 3), Pj)
     @test_throws DimensionMismatch ReducedTensor(tensor, Pi, rand(N - 1, 2))
+    @test_throws ArgumentError ReducedTensor(tensor, Float32.(Pi), Pj)
+    @test_throws ArgumentError ReducedTensor(tensor, Pi, Float32.(Pj))
+
+    # a bracket other than Arakawa may couple beyond the stencil
+    other = PoissonTensor(Float64, nx, nv, (I, J, K) -> 0.0)
+    @test_throws MethodError ReducedTensor(other, Pi, Pj)
 end
