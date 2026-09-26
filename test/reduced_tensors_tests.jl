@@ -1,6 +1,9 @@
 using VlasovMethods
 using GeometricBrackets: Arakawa, PoissonTensor
+using Random
 using Test
+
+Random.seed!(1234)
 
 @testset "ReducedTensor" begin
     nx, nv = 5, 4
@@ -18,4 +21,10 @@ using Test
 
     @test maximum(abs, dense) > 0
     @test [rt[i, j, k] for i in 1:3, j in 1:2, k in 1:N] ≈ dense
+
+    @test_throws BoundsError rt[4, 1, 1]
+    @test_throws BoundsError rt[0, 1, 1]
+    @test_throws BoundsError rt[1, 1, N + 1]
+    @test_throws DimensionMismatch ReducedTensor(tensor, rand(N + 1, 3), Pj)
+    @test_throws DimensionMismatch ReducedTensor(tensor, Pi, rand(N - 1, 2))
 end

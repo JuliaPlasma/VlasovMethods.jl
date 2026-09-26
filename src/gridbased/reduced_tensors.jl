@@ -1,14 +1,29 @@
 ### Reduced Tensor
-# A m × m × N tensor where the first two indices are reduced with projection matrices
 
+"""
+    ReducedTensor(tensor::PoissonTensor, Pi, Pj)
+
+The lazy `size(Pi, 2) × size(Pj, 2) × N` array that projects the first two indices of the
+`N × N × N` `PoissonTensor` `tensor` onto the columns of `Pi` and `Pj`:
+`rt[i, j, k]` is the sum of `tensor[m, n, k] * Pi[m, i] * Pj[n, j]` over `m` and `n`.
+
+The sum runs over the `3 × 3` stencil around `k` only. The stencil holds every nonzero
+coefficient of a nearest-neighbour bracket such as `Arakawa` on a grid of at least `3 × 3` nodes.
+A bracket of wider range loses the coefficients outside the stencil, and on a smaller grid the
+stencil wraps onto itself and counts a coefficient more than once.
+
+`Pi` and `Pj` need `N` rows. Any other number throws a `DimensionMismatch`.
+"""
 struct ReducedTensor{DT, PT <: PoissonTensor{DT}, PM1, PM2} <: AbstractArray{DT, 3}
     tensor::PT
     projection_i::PM1
     projection_j::PM2
 
     function ReducedTensor(tensor::PoissonTensor{DT}, Pi::PM1, Pj::PM2) where {DT, PM1, PM2}
-        @assert size(Pi, 1) == size(tensor, 1)
-        @assert size(Pj, 1) == size(tensor, 2)
+        size(Pi, 1) == size(tensor, 1) || throw(DimensionMismatch(
+            "Pi needs $(size(tensor, 1)) rows, one per grid node, got $(size(Pi, 1))"))
+        size(Pj, 1) == size(tensor, 2) || throw(DimensionMismatch(
+            "Pj needs $(size(tensor, 2)) rows, one per grid node, got $(size(Pj, 1))"))
         new{DT, typeof(tensor), PM1, PM2}(tensor, Pi, Pj)
     end
 end
@@ -18,9 +33,7 @@ function Base.size(rt::ReducedTensor)
 end
 
 function Base.getindex(rt::ReducedTensor{DT}, i::Int, j::Int, k::Int) where {DT}
-    @assert i ≥ 1 && i ≤ size(rt, 1)
-    @assert j ≥ 1 && j ≤ size(rt, 2)
-    @assert k ≥ 1 && k ≤ size(rt, 3)
+    checkbounds(rt, i, j, k)
 
     local x = zero(DT)
 
