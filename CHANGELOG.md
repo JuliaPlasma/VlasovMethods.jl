@@ -232,7 +232,7 @@ first entry is written.
   `_stencil_indices`.
 
 - **`ReducedTensor`, lazy projection of a grid `PoissonTensor` onto two reduced
-  bases.** The type `ReducedTensor(tensor::PoissonTensor{DT, <:Arakawa}, Pi, Pj)`
+  bases.** The type `ReducedTensor(tensor::PoissonTensor{DT, Arakawa{DT}}, Pi, Pj)`
   is a `size(Pi, 2) × size(Pj, 2) × N` `AbstractArray{DT,3}` that projects the
   tensor's first two indices onto reduced bases via matrices `Pi` and `Pj`,
   without materializing the full array: `rt[i, j, k]` sums over the 3 × 3 stencil

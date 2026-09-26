@@ -1,7 +1,7 @@
 ### Reduced Tensor
 
 """
-    ReducedTensor(tensor::PoissonTensor{DT, <:Arakawa}, Pi, Pj)
+    ReducedTensor(tensor::PoissonTensor{DT, Arakawa{DT}}, Pi, Pj)
 
 The lazy `size(Pi, 2) × size(Pj, 2) × N` array that projects the first two indices of the
 `N × N × N` `PoissonTensor` `tensor` onto the columns of `Pi` and `Pj`:
@@ -9,7 +9,7 @@ The lazy `size(Pi, 2) × size(Pj, 2) × N` array that projects the first two ind
 
 The sum runs over the `3 × 3` stencil around `k` only. The stencil holds every nonzero
 coefficient of the nearest-neighbour `Arakawa` bracket, which needs a grid of at least `3 × 3`
-nodes, so `tensor` has to be built from an `Arakawa`.
+nodes, so `tensor` has to be built from an `Arakawa` of the same element type `DT`.
 
 `Pi` and `Pj` need `N` rows, or the constructor throws a `DimensionMismatch`. Their element type
 has to be `DT`, or it throws an `ArgumentError`.
@@ -20,7 +20,7 @@ struct ReducedTensor{DT, PT <: PoissonTensor{DT}, PM1, PM2} <: AbstractArray{DT,
     projection_j::PM2
 
     function ReducedTensor(
-            tensor::PoissonTensor{DT, <:Arakawa}, Pi::PM1, Pj::PM2) where {DT, PM1, PM2}
+            tensor::PoissonTensor{DT, Arakawa{DT}}, Pi::PM1, Pj::PM2) where {DT, PM1, PM2}
         size(Pi, 1) == size(tensor, 1) || throw(DimensionMismatch(
             "Pi needs $(size(tensor, 1)) rows, one per grid node, got $(size(Pi, 1))"))
         size(Pj, 1) == size(tensor, 2) || throw(DimensionMismatch(

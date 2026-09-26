@@ -33,4 +33,8 @@ Random.seed!(1234)
     # a bracket other than Arakawa may couple beyond the stencil
     other = PoissonTensor(Float64, nx, nv, (I, J, K) -> 0.0)
     @test_throws MethodError ReducedTensor(other, Pi, Pj)
+
+    # an Arakawa of another element type gives entries of that type
+    mixed = PoissonTensor(Float32, nx, nv, Arakawa(nx, nv, 1 / nx, 2 / nv))
+    @test_throws MethodError ReducedTensor(mixed, Float32.(Pi), Float32.(Pj))
 end
