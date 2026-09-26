@@ -235,9 +235,10 @@ first entry is written.
   `ReducedTensor(tensor::PoissonTensor, Pi, Pj)` is a `size(Pi, 2) × size(Pj, 2) × N`
   `AbstractArray{DT,3}` that projects the tensor's first two indices onto reduced bases via
   matrices `Pi` and `Pj`, without materializing the full array: `rt[i, j, k]` sums over the
-  stencil around `k` only.
-  The code moves unchanged from ReducedBasisMethods.jl, which removes its copy once
-  JuliaRCM/ReducedBasisMethods.jl#39 has merged and a VlasovMethods release carries this type.
+  3 × 3 stencil around `k` only, which holds every nonzero coefficient of a nearest-neighbour
+  bracket such as `Arakawa` on a grid of at least 3 × 3 nodes. The constructor throws
+  `DimensionMismatch` if `Pi` or `Pj` lacks N rows; `getindex` throws `BoundsError` for an
+  out-of-range index, rather than `AssertionError`.
 
 - **`scripts/verify_conservation.jl`** measures the two conservation claims of the manuscripts
   and separates them, because they are not the same claim and the obvious reading is wrong.
