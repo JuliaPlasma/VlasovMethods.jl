@@ -8,8 +8,10 @@ The lazy `size(Pi, 2) × size(Pj, 2) × N` array that projects the first two ind
 `rt[i, j, k]` is the sum of `tensor[m, n, k] * Pi[m, i] * Pj[n, j]` over `m` and `n`.
 
 The sum runs over the `3 × 3` stencil around `k` only. The stencil holds every nonzero
-coefficient of the nearest-neighbour `Arakawa` bracket, which needs a grid of at least `3 × 3`
-nodes, so `tensor` has to be built from an `Arakawa` of the same element type `DT`.
+coefficient of the nearest-neighbour `Arakawa` bracket on the grid of `tensor`, so `tensor` has
+to be built from an `Arakawa` on that grid. On any other grid the stencil loses coefficients or
+counts one more than once. The entries of `tensor` are the coefficients of the `Arakawa`, so the
+`Arakawa` has to have the element type `DT`.
 
 `Pi` and `Pj` need `N` rows, or the constructor throws a `DimensionMismatch`. Their element type
 has to be `DT`, or it throws an `ArgumentError`.

@@ -231,15 +231,15 @@ first entry is written.
   `_nx` / `_nv` accessors they extend, and `MultiIndexArrays`, for `multiindex` and
   `_stencil_indices`.
 
-- **`ReducedTensor`, lazy projection of a grid `PoissonTensor` onto two reduced
-  bases.** The type `ReducedTensor(tensor::PoissonTensor{DT, Arakawa{DT}}, Pi, Pj)`
-  is a `size(Pi, 2) × size(Pj, 2) × N` `AbstractArray{DT,3}` that projects the
-  tensor's first two indices onto reduced bases via matrices `Pi` and `Pj`,
-  without materializing the full array: `rt[i, j, k]` sums over the 3 × 3 stencil
-  around `k` only, which holds every nonzero coefficient of the `Arakawa` bracket.
-  The constructor throws `DimensionMismatch` if `Pi` or `Pj` lacks N rows, or
-  `ArgumentError` if the element types of `Pi` or `Pj` differ from the tensor's;
-  `getindex` throws `BoundsError` for an out-of-range index.
+- **`ReducedTensor`, lazy projection of a grid `PoissonTensor` onto two reduced bases.** The
+  type `ReducedTensor(tensor::PoissonTensor{DT, Arakawa{DT}}, Pi, Pj)` is a
+  `size(Pi, 2) × size(Pj, 2) × N` `AbstractArray{DT,3}` that projects the tensor's first two
+  indices onto reduced bases via matrices `Pi` and `Pj`, without materializing the full array:
+  `rt[i, j, k]` sums over the 3 × 3 stencil around `k` only, which holds every nonzero
+  coefficient of the `Arakawa` bracket when the `Arakawa` is on the tensor's own grid. The
+  constructor throws `DimensionMismatch` if `Pi` or `Pj` lacks N rows, or `ArgumentError` if the
+  element types of `Pi` or `Pj` differ from the tensor's; `getindex` throws `BoundsError` for an
+  out-of-range index.
 
 - **`scripts/verify_conservation.jl`** measures the two conservation claims of the manuscripts
   and separates them, because they are not the same claim and the obvious reading is wrong.
