@@ -206,3 +206,15 @@ takes the next `K<n>`.
   already materialise any of these `AbstractArray`s. The fix is to delete the three lines.
 - **kind:** dead code
 - **found:** #51
+
+### K17 · `ReducedTensor` accepts a tensor whose grid is not the grid of its `Arakawa`.
+
+- **location:** `src/gridbased/reduced_tensors.jl:24`
+- **evidence:** `PoissonTensor(DT, nx, nv, f)` in GeometricBrackets does not check that `f` is on
+  the `nx × nv` grid, and the `ReducedTensor` constructor does not check it either. The 3 × 3
+  stencil then loses coefficients or counts one twice, and no error occurs:
+  `ReducedTensor(PoissonTensor(Float64, 2, 3, Arakawa(3, 3, 0.5, 0.5)), Pi, Pj)` deviates from the
+  dense sum by up to 0.50, and `PoissonTensor(Float64, 5, 4, Arakawa(3, 3, …))` by up to 2.51. The
+  fix is a grid check in the `PoissonTensor` constructor of GeometricBrackets.
+- **kind:** upstream
+- **found:** #53
