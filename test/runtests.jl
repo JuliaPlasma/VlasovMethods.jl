@@ -1,20 +1,15 @@
 using SafeTestsets
 
-@safetestset SplineDistributionTests = "$(rpad("Spline Distribution",80))" begin
-    include("spline_distribution_tests.jl")
+const GROUPS = isempty(ARGS) ? ["core", "slow"] : ARGS
+
+if "core" in GROUPS
+    @safetestset "Aqua" include("quality/aqua.jl")
+    @safetestset "Spline Distribution" include("distributions/spline_distribution.jl")
+    @safetestset "Grid Distribution" include("distributions/grid_distribution.jl")
+    @safetestset "Particle Distribution" include("distributions/particle_distribution.jl")
+    @safetestset "Projections" include("projections/projections.jl")
+    @safetestset "Reduced Tensors" include("gridbased/reduced_tensors.jl")
 end
-@safetestset GridDistributionTests = "$(rpad("Grid Distribution",80))" begin
-    include("grid_distribution_tests.jl")
+if "broken" in GROUPS
+    @safetestset "Electric Fields" include("electric_field.jl")   # issue #56
 end
-@safetestset ParticleDistributionTests = "$(rpad("Particle Distribution",80))" begin
-    include("particle_distribution_tests.jl")
-end
-@safetestset ProjectionTests = "$(rpad("Projections",80))" begin
-    include("projections_tests.jl")
-end
-@safetestset ReducedTensorsTests = "$(rpad("Reduced Tensors",80))" begin
-    include("reduced_tensors_tests.jl")
-end
-# @safetestset ElectricFieldTests = "$(rpad("Electric Fields",80))" begin
-#     include("electric_field_tests.jl")
-# end

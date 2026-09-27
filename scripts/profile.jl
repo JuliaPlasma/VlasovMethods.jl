@@ -1,4 +1,4 @@
-# run with julia --project --track-allocation=user test/profile.jl
+# run with julia --project --track-allocation=user scripts/profile.jl
 
 using Profile
 using VlasovMethods
