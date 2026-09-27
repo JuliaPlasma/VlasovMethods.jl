@@ -51,7 +51,7 @@ first entry is written.
   is used only by `scripts/`, which now declares it itself.
 
 - **`AdaptiveRejectionSampling` no longer constrains a runtime install.** It was used in one line
-  of `test/projections_tests.jl` and nowhere in `src/`, yet it sat in `[deps]` rather than
+  of `test/projections/projections.jl` and nowhere in `src/`, yet it sat in `[deps]` rather than
   `[extras]` — so a test-only package capped `ForwardDiff` at `0.10` for everyone installing
   VlasovMethods. It was the only dependency doing so. The density the test samples is exactly the
   normal with mean `1/2` and standard deviation `1/(2π)`, so the test now draws from that
@@ -64,9 +64,9 @@ first entry is written.
 
 - **`PoissonSolvers` and `StaticArrays` are no longer listed in `[extras]`.** Both are genuine
   `src/` dependencies and are already in `[deps]`, where the test environment picks them up.
-  Listing them in both places was redundant. `OffsetArrays` was listed there too, and has left the
-  package altogether: the one file that used it, `test/electric_field_tests.jl`, is commented out
-  of `test/runtests.jl`, as is the `src/electric_field.jl` that it covers.
+  Listing them in both places was redundant. `OffsetArrays` was listed there too; the one file
+  that uses it, `test/electric_field.jl`, is in the `broken` group of `test/runtests.jl`
+  (issue #56), and `src/electric_field.jl`, which it covers, is commented out.
 
 - **`scripts/` has its own environment.** Until now the scripts ran against the package's own
   `Project.toml`, which forced every package they use — `GLMakie` among them — to be a dependency
@@ -143,7 +143,7 @@ first entry is written.
 - **`test/spline_tests.jl` and `test/spline_basis_tests.jl` are deleted.** They tested only
   `SplineND`, `TwoDSpline` and the helper functions, all of which are gone. The dimension counts
   they encoded per boundary condition — `n+p` clamped, `n` periodic, `n+p-2` Dirichlet — are now
-  asserted in `SimpleSplines`, and `test/spline_distribution_tests.jl` covers the
+  asserted in `SimpleSplines`, and `test/distributions/spline_distribution.jl` covers the
   `SplineDistribution` level.
 
 - **The guards throw typed exceptions rather than `ErrorException`.** A caller can now tell the
@@ -267,7 +267,7 @@ first entry is written.
   `O(Q²M²)` sum directly on a deliberately tiny basis (`M = 16`, `Q = 36`) and compares. This
   is what makes the identity claim in the docstring a verified one.
 
-- **A deposition allocation test.** `test/spline_distribution_tests.jl` asserts that the cost of
+- **A deposition allocation test.** `test/distributions/spline_distribution.jl` asserts that the cost of
   `projection` is independent of the particle count, so a boxed closure in `_deposit!` cannot
   come back unnoticed — nothing else in the suite would see it, since the results stay correct
   and only the run time changes. Guarded on `--check-bounds=auto`, because `Pkg.test()`'s
@@ -275,7 +275,15 @@ first entry is written.
 
 ### Internal
 
-- **Test suite reorganized to mirror `src/` structure.** Test files grouped under `test/distributions/`, `test/projections/`, and `test/gridbased/`; dependencies moved from `Project.toml` to `test/Project.toml`. Pass totals unchanged (257, 53, 875, 3, 12). New `test/quality/aqua.jl` runs `Aqua.test_all` with ambiguity checking marked broken (issue #57). Unreachable `test/electric_field_tests.jl` is now `test/electric_field.jl` in the broken group, fixed seed, cannot load (issue #56). `test/profile.jl` moved to `scripts/profile.jl`.
+- **Test suite reorganized to mirror `src/` structure.** Test files grouped under
+  `test/distributions/`, `test/projections/`, and `test/gridbased/`; dependencies moved from
+  `Project.toml` to `test/Project.toml`, where `OffsetArrays` returns as a test-only dependency.
+  Pass totals unchanged (257, 53, 875, 3, 12). New `test/quality/aqua.jl` runs `Aqua.test_all`
+  with ambiguity checking marked broken (issue #57); its `stale_deps` check runs unmarked and
+  passes, which settles K13. Unreachable `test/electric_field_tests.jl` is now
+  `test/electric_field.jl` in the broken group, with a fixed seed; it loads, then throws
+  `UndefVarError` at line 19 before its first `@test` (issue #56). `test/profile.jl` moved to
+  `scripts/profile.jl`.
 
 ### Bug Fixes
 
@@ -284,7 +292,7 @@ first entry is written.
   `Potential{<:PeriodicBSplineBasis}` where that name resolves to the `SimpleSplines` type, so no
   method matched and `update_potential!` raised a `MethodError`. Its body then called
   `Splines.PeriodicVector`, which this package imports nowhere. It is rewritten on
-  `evaluate_all!` and `basis_index`, and `test/projections_tests.jl` — commented out in
+  `evaluate_all!` and `basis_index`, and `test/projections/projections.jl` — commented out in
   `runtests.jl` — now runs, reconstructing a sampled density from a million particles to
   `2.5e-2`.
 

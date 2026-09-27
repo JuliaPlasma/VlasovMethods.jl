@@ -129,7 +129,7 @@ takes the next `K<n>`.
 
 - **location:** `scripts/verify_conservation.jl`
 - **evidence:** `scripts/verify_conservation.jl` covers the conservative Lenard-Bernstein operator
-  only, and `test/electric_field_tests.jl` remains commented out of `runtests.jl`.
+  only, and `test/electric_field.jl` is in the `broken` group of `runtests.jl` (issue #56).
 - **kind:** missing test
 - **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
   migration. None of these are regressions; each is either a numerical-methods decision or work
@@ -152,23 +152,6 @@ takes the next `K<n>`.
 - **evidence:** `electric_field.jl`, the root `vlasov_poisson.jl` (distinct from
   `models/vlasov_poisson.jl`), `visualisation.jl`, `methods/lbm_solver.jl`, `hdf5.jl`, and two
   whose `include` lines are commented out. `src/hdf5.jl` is untracked in git.
-- **kind:** not verified
-- **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
-  migration. None of these are regressions; each is either a numerical-methods decision or work
-  the migration deliberately did not take on.
-
-### K13 · Dependencies that are no longer used are still declared.
-
-- **location:** `src/`
-- **evidence:** `NaNMath` appears only in a commented import; `Plots`, `LaTeXStrings`,
-  `StatsPlots`, `StatsBase`, `SciMLBase` and `AdaptiveRejectionSampling` have no occurrences by
-  name in `src/`. Five non-stdlib dependencies still carry no `[compat]` entry — `LinearSolve`,
-  `NaNMath`, `NonlinearSolve`, `SimpleSolvers` and `Trapz` — and General's AutoMerge blocks on
-  every one of them, so this is what stands between the package and registration. Four driver
-  scripts also `using` `GLMakie`, `Printf` and `Profile`, none of which are declared.
-  `ExplicitImports.jl` *has* now been run and reports no stale or improper explicit imports, so
-  what remains is `[deps]` hygiene rather than dead `import` lines — `Aqua.test_stale_deps` is the
-  check that settles it.
 - **kind:** not verified
 - **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
   migration. None of these are regressions; each is either a numerical-methods decision or work
@@ -219,21 +202,6 @@ takes the next `K<n>`.
 - **kind:** upstream
 - **found:** #53
 
-### K18 · Prose names the test files by their old paths.
-
-- **location:** `KNOWN_ISSUES.md` K10 and K13; `CHANGELOG.md` `[Unreleased]` bullets at lines 54,
-  68, 146, 270 and 287
-- **evidence:** The test-suite migration moved `test/*_tests.jl` to `test/distributions/`,
-  `test/projections/`, `test/gridbased/` and `test/electric_field.jl`. K10 still says
-  `test/electric_field_tests.jl` "remains commented out of `runtests.jl`"; the file is now in the
-  `broken` group (issue #56). K13 names `Aqua.test_stale_deps` as the check that settles it; that
-  check now runs in `test/quality/aqua.jl` and passes. The CHANGELOG bullets name the old paths,
-  and line 68 says the electric field test is commented out. The migration's new CHANGELOG entry
-  says that file "cannot load"; it loads and throws `UndefVarError` at line 19, before its first
-  `@test`.
-- **kind:** docs
-- **found:** critic round 1 of the test-suite migration
-
 ### K19 · Aqua's `persistent_tasks` check is not verified on Julia 1.11.
 
 - **location:** `test/quality/aqua.jl`
@@ -242,4 +210,4 @@ takes the next `K<n>`.
   running. The ambiguity mark `ambiguities = (; broken = true)` was also not run on 1.11. The CI
   `min` job settles both.
 - **kind:** not verified
-- **found:** critic round 1 of the test-suite migration
+- **found:** 2026-09-27
