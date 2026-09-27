@@ -273,6 +273,10 @@ first entry is written.
   and only the run time changes. Guarded on `--check-bounds=auto`, because `Pkg.test()`'s
   default `=yes` inflates allocation counts and would make the ceiling meaningless.
 
+### Internal
+
+- **Test suite reorganized to mirror `src/` structure.** Test files grouped under `test/distributions/`, `test/projections/`, and `test/gridbased/`; dependencies moved from `Project.toml` to `test/Project.toml`. Pass totals unchanged (257, 53, 875, 3, 12). New `test/quality/aqua.jl` runs `Aqua.test_all` with ambiguity checking marked broken (issue #57). Unreachable `test/electric_field_tests.jl` is now `test/electric_field.jl` in the broken group, fixed seed, cannot load (issue #56). `test/profile.jl` moved to `scripts/profile.jl`.
+
 ### Bug Fixes
 
 - **Charge deposition works, and its test is enabled.** `projection!` onto a
