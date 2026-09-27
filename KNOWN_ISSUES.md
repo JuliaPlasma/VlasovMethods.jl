@@ -201,13 +201,3 @@ takes the next `K<n>`.
   fix is a grid check in the `PoissonTensor` constructor of GeometricBrackets.
 - **kind:** upstream
 - **found:** #53
-
-### K19 · Aqua's `persistent_tasks` check is not verified on Julia 1.11.
-
-- **location:** `test/quality/aqua.jl`
-- **evidence:** On Julia 1.11.9, locally, `Aqua.test_persistent_tasks` failed at its default
-  `tmax` of 30 s and passed with `tmax = 240` in 79 s, on a machine with 73 julia processes
-  running. The ambiguity mark `ambiguities = (; broken = true)` was also not run on 1.11. The CI
-  `min` job settles both.
-- **kind:** not verified
-- **found:** 2026-09-27
