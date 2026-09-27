@@ -27,4 +27,14 @@ Random.seed!(1234)
     @test_throws BoundsError rt[1, 1, N + 1]
     @test_throws DimensionMismatch ReducedTensor(tensor, rand(N + 1, 3), Pj)
     @test_throws DimensionMismatch ReducedTensor(tensor, Pi, rand(N - 1, 2))
+    @test_throws ArgumentError ReducedTensor(tensor, Float32.(Pi), Pj)
+    @test_throws ArgumentError ReducedTensor(tensor, Pi, Float32.(Pj))
+
+    # a bracket other than Arakawa may couple beyond the stencil
+    other = PoissonTensor(Float64, nx, nv, (I, J, K) -> 0.0)
+    @test_throws MethodError ReducedTensor(other, Pi, Pj)
+
+    # an Arakawa of another element type gives entries of that type
+    mixed = PoissonTensor(Float32, nx, nv, Arakawa(nx, nv, 1 / nx, 2 / nv))
+    @test_throws MethodError ReducedTensor(mixed, Float32.(Pi), Float32.(Pj))
 end

@@ -185,3 +185,36 @@ takes the next `K<n>`.
 - **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
   migration. None of these are regressions; each is either a numerical-methods decision or work
   the migration deliberately did not take on.
+
+### K15 · `size(rt, i)` and `axes(rt, i)` throw for `i > ndims(rt)` on three reduced tensors.
+
+- **location:** `src/gridbased/reduced_tensors.jl:82`
+- **evidence:** `PotentialReducedTensor` (`:82-83`), `VelocityReducedMatrix` (`:137-138`) and
+  `FullyReducedTensor` (`:188-189`) define `size(rt, i) = size(rt)[i]` and
+  `axes(rt, i) = Base.OneTo(size(rt, i))`, which index past the tuple:
+  `size(PotentialReducedTensor(t, Pi, Pj, Pk), 4)`, `axes(…, 4)`,
+  `size(VelocityReducedMatrix(t, Pi, Pj, v²), 3)` and `axes(…, 3)` each throw a `BoundsError`.
+  The `AbstractArray` fallbacks give `1` and `Base.OneTo(1)`, as `size(rt, 4)` and `axes(rt, 4)`
+  do for `ReducedTensor`, which defines neither. The fix is to delete the six lines.
+- **kind:** defect
+- **found:** #51
+
+### K16 · A commented-out `Base.materialize` for `ReducedTensor` and `PotentialReducedTensor` remains.
+
+- **location:** `src/gridbased/reduced_tensors.jl:113-115`
+- **evidence:** The three lines are comments, so no method exists; `collect(rt)` and `Array(rt)`
+  already materialise any of these `AbstractArray`s. The fix is to delete the three lines.
+- **kind:** dead code
+- **found:** #51
+
+### K17 · `ReducedTensor` accepts a tensor whose grid is not the grid of its `Arakawa`.
+
+- **location:** `src/gridbased/reduced_tensors.jl:24`
+- **evidence:** `PoissonTensor(DT, nx, nv, f)` in GeometricBrackets does not check that `f` is on
+  the `nx × nv` grid, and the `ReducedTensor` constructor does not check it either. The 3 × 3
+  stencil then loses coefficients or counts one twice, and no error occurs:
+  `ReducedTensor(PoissonTensor(Float64, 2, 3, Arakawa(3, 3, 0.5, 0.5)), Pi, Pj)` deviates from the
+  dense sum by up to 0.50, and `PoissonTensor(Float64, 5, 4, Arakawa(3, 3, …))` by up to 2.51. The
+  fix is a grid check in the `PoissonTensor` constructor of GeometricBrackets.
+- **kind:** upstream
+- **found:** #53
