@@ -1,7 +1,10 @@
 using OffsetArrays
 using PoissonSolvers
+using Random
 using Test
 using VlasovMethods
+
+Random.seed!(1234)
 
 nd = 1
 np = 100
