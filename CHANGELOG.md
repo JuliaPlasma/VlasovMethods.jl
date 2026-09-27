@@ -267,10 +267,10 @@ first entry is written.
   `O(Q²M²)` sum directly on a deliberately tiny basis (`M = 16`, `Q = 36`) and compares. This
   is what makes the identity claim in the docstring a verified one.
 
-- **A deposition allocation test.** `test/distributions/spline_distribution.jl` asserts that the cost of
-  `projection` is independent of the particle count, so a boxed closure in `_deposit!` cannot
-  come back unnoticed — nothing else in the suite would see it, since the results stay correct
-  and only the run time changes. Guarded on `--check-bounds=auto`, because `Pkg.test()`'s
+- **A deposition allocation test.** `test/distributions/spline_distribution.jl` asserts that the
+  cost of `projection` is independent of the particle count, so a boxed closure in `_deposit!`
+  cannot come back unnoticed — nothing else in the suite would see it, since the results stay
+  correct and only the run time changes. Guarded on `--check-bounds=auto`, because `Pkg.test()`'s
   default `=yes` inflates allocation counts and would make the ceiling meaningless.
 
 ### Internal
@@ -455,8 +455,8 @@ first entry is written.
   and `lenard_bernstein.jl` no longer qualifies names as `GeometricIntegrators.` where
   `Integrators.` is meant.
 
-- **`test/particle_distribution_tests.jl` was flaky at roughly one run in four**, and had never
-  run at all: `runtests.jl` included only the two spline test files. It asserts
+- **`test/distributions/particle_distribution.jl` was flaky at roughly one run in four**, and had
+  never run at all: `runtests.jl` included only the two spline test files. It asserts
   `mean(v) ≈ centre atol = 3.5/sqrt(np)`, which for a uniform distribution of width `w` — whose
   standard error of the mean is `w/sqrt(12 np)` — is about 3.0 standard errors, so each of the
   120 such assertions fails about 0.27 % of the time. Adding the file to the suite also made it
