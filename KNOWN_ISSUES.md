@@ -218,3 +218,28 @@ takes the next `K<n>`.
   fix is a grid check in the `PoissonTensor` constructor of GeometricBrackets.
 - **kind:** upstream
 - **found:** #53
+
+### K18 · Prose names the test files by their old paths.
+
+- **location:** `KNOWN_ISSUES.md` K10 and K13; `CHANGELOG.md` `[Unreleased]` bullets at lines 54,
+  68, 146, 270 and 287
+- **evidence:** The test-suite migration moved `test/*_tests.jl` to `test/distributions/`,
+  `test/projections/`, `test/gridbased/` and `test/electric_field.jl`. K10 still says
+  `test/electric_field_tests.jl` "remains commented out of `runtests.jl`"; the file is now in the
+  `broken` group (issue #56). K13 names `Aqua.test_stale_deps` as the check that settles it; that
+  check now runs in `test/quality/aqua.jl` and passes. The CHANGELOG bullets name the old paths,
+  and line 68 says the electric field test is commented out. The migration's new CHANGELOG entry
+  says that file "cannot load"; it loads and throws `UndefVarError` at line 19, before its first
+  `@test`.
+- **kind:** docs
+- **found:** critic round 1 of the test-suite migration
+
+### K19 · Aqua's `persistent_tasks` check is not verified on Julia 1.11.
+
+- **location:** `test/quality/aqua.jl`
+- **evidence:** On Julia 1.11.9, locally, `Aqua.test_persistent_tasks` failed at its default
+  `tmax` of 30 s and passed with `tmax = 240` in 79 s, on a machine with 73 julia processes
+  running. The ambiguity mark `ambiguities = (; broken = true)` was also not run on 1.11. The CI
+  `min` job settles both.
+- **kind:** not verified
+- **found:** critic round 1 of the test-suite migration
