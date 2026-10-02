@@ -285,6 +285,18 @@ first entry is written.
   `UndefVarError` at line 19 before its first `@test` (issue #56). `test/profile.jl` moved to
   `scripts/profile.jl`.
 
+- **A runtime dispatch on the projection path now fails the suite.** New `test/quality/jet.jl`,
+  in the `core` group after `quality/aqua.jl`, runs `JET.report_opt` on the vector and the
+  matrix method of `projection` onto a `SplineDistribution` — the calls that
+  `test/distributions/spline_distribution.jl` asserts with `@allocated` — at the `Float64`
+  argument types of those tests. Neither reports, so both are
+  `@test`. Where JET does not work on the running Julia, the file records one `@test_skip`. `JET`
+  joins `test/Project.toml` with no `[compat]` bound, and the five `[compat]` entries there for
+  dependencies of `Project.toml` are removed, since the package's own bounds apply in the test
+  environment: `GeometricBrackets = "0.1.1"`, `LinearAlgebra = "1"`,
+  `PoissonSolvers = "0.4, 0.5, 0.6"`, `Random = "1"` and `SimpleSplines = "0.1, 0.2, 0.3"`. JET
+  loads Revise, which prints EMFILE errors into the test log; K18 records it.
+
 ### Bug Fixes
 
 - **Charge deposition works, and its test is enabled.** `projection!` onto a

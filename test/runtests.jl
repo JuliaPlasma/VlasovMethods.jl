@@ -4,6 +4,7 @@ const GROUPS = isempty(ARGS) ? ["core", "slow"] : ARGS
 
 if "core" in GROUPS
     @safetestset "Aqua" include("quality/aqua.jl")
+    @safetestset "JET" include("quality/jet.jl")
     @safetestset "Spline Distribution" include("distributions/spline_distribution.jl")
     @safetestset "Grid Distribution" include("distributions/grid_distribution.jl")
     @safetestset "Particle Distribution" include("distributions/particle_distribution.jl")
