@@ -206,10 +206,10 @@ takes the next `K<n>`.
 
 - **location:** `test/quality/jet.jl`
 - **evidence:** JET 0.12 loads Revise, and its file watcher runs out of file handles.
-  `grep -c 'UNHANDLED TASK ERROR.*EMFILE'` on a `run-tests.jl full` log of the branch that adds
+  `grep -c 'UNHANDLED TASK ERROR.*EMFILE'` on a `run-tests.jl full` log of the suite with
   `test/quality/jet.jl` counts 5 blocks, each an
   `IOError: FolderMonitor: too many open files (EMFILE)` stack trace, on Julia 1.13.1 with
-  JET 0.12.2. The same count on a `run-tests.jl full` log of `origin/main` gives 0. The test
-  totals do not change.
+  JET 0.12.2. The same count on a `run-tests.jl full` log of the suite without
+  `test/quality/jet.jl` gives 0. The test totals do not change.
 - **kind:** upstream
 - **found:** 2026-10-02
