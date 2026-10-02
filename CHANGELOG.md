@@ -287,8 +287,9 @@ first entry is written.
 
 - **A runtime dispatch on the projection path now fails the suite.** New `test/quality/jet.jl`,
   in the `core` group after `quality/aqua.jl`, runs `JET.report_opt` on the vector and the
-  matrix method of `projection` onto a `SplineDistribution` — the calls that `test/distributions/spline_distribution.jl` asserts with
-  `@allocated` — at the `Float64` argument types of those tests. Neither reports, so both are
+  matrix method of `projection` onto a `SplineDistribution` — the calls that
+  `test/distributions/spline_distribution.jl` asserts with `@allocated` — at the `Float64`
+  argument types of those tests. Neither reports, so both are
   `@test`. Where JET does not work on the running Julia, the file records one `@test_skip`. `JET`
   joins `test/Project.toml` with no `[compat]` bound, and the five `[compat]` entries there for
   dependencies of `Project.toml` are removed, since the package's own bounds apply in the test
