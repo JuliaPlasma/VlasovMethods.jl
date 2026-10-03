@@ -37,6 +37,18 @@ function deposit(model, x)
     return p
 end
 
+# `@allocated` through a fixed-arity barrier whose arguments have concrete types, so that a Julia
+# 1.11 closure or splat boxing is not counted (`evidence.md`, Allocation assertions). Each calls
+# the function once before it measures.
+function allocations_s(f, z, t, z̄, t̄, params)
+    f(z, t, z̄, t̄, params)
+    return @allocated f(z, t, z̄, t̄, params)
+end
+function allocations_v(f, z, t, z̄, params)
+    f(z, t, z̄, params)
+    return @allocated f(z, t, z̄, params)
+end
+
 @testset "Vlasov–Poisson, $T" for T in (Float64, Float32)
     tspan = (T(0), T(1))
     tstep = T(0.1)
@@ -151,16 +163,11 @@ end
         z = similar(z̄)
         t, t̄ = tstep, zero(T)
 
-        s_acceleration!(z, t, z̄, t̄, params)
-        v_acceleration!(z, t, z̄, params)
-        # Coverage instrumentation allocates on every counted line, so there the assertion is
-        # skipped rather than weakened.
+        # Coverage instrumentation allocates on every counted line, so under it the assertion does
+        # not run rather than being weakened.
         if Base.JLOptions().code_coverage == 0
-            @test (@allocated s_acceleration!(z, t, z̄, t̄, params)) == 0
-            @test (@allocated v_acceleration!(z, t, z̄, params)) == 0
-        else
-            @test_skip (@allocated s_acceleration!(z, t, z̄, t̄, params)) == 0
-            @test_skip (@allocated v_acceleration!(z, t, z̄, params)) == 0
+            @test allocations_s(s_acceleration!, z, t, z̄, t̄, params) == 0
+            @test allocations_v(v_acceleration!, z, t, z̄, params) == 0
         end
     end
 end
