@@ -29,7 +29,7 @@ first entry is written.
   `nv < 3` guard throws an `ArgumentError`, because at `nv = 2` the two neighbours of a node
   coincide. K2 is closed. The stencils still wrap the bounded `v`-grid periodically; the docstrings
   state that `f` must vanish at the ends for the conservation claims to hold, and the bounded
-  treatment is recorded under *Open Issues* (K19).
+  treatment is recorded in `KNOWN_ISSUES.md` (K19).
 
 - **`d(x, v)` with scalar arguments threw `MethodError`.** The `Vararg` call operator of every
   `DistributionFunction` used `view` on a `Tuple`, which does not support it. It now builds the two

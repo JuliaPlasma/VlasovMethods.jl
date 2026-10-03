@@ -85,8 +85,9 @@ end
 _relative_drift(a, b) = norm(b .- a) / norm(a)
 
 # Function barriers for the allocation assertions of §6.1: the argument is concrete, and the
-# call runs once before `@allocated` measures it. A barrier without the `where` clause would
-# dispatch dynamically and allocate on its own.
+# call runs once before `@allocated` measures it. For the function argument `f::F`, the `where`
+# clause forces specialization: without it the call would dispatch dynamically and allocate on
+# its own.
 _getindex3(x, i, j, k) = x[i, j, k]
 function _alloc_getindex(x::X, i::Int, j::Int, k::Int) where {X}
     (_getindex3(x, i, j, k); @allocated _getindex3(x, i, j, k))
@@ -154,7 +155,7 @@ _alloc_call1(f::F, a::A) where {F, A} = (f(a); @allocated f(a))
             ∫dv, ∫vdv, ∫v²dv = _moment_matrices(T, nx, nv, v, hv)
             MC2 = VlasovMethods._get_MC̃_quadratic(Matrix{T}(I, N, N), ∫dv, ∫vdv, ∫v²dv,
                 v, ci, li, hx, hv)
-            # With V = I and the rectangle-rule moments, MC̃_quadratic = qc / hv exactly, and
+            # With V = I and the rectangle-rule moments, MC̃_quadratic = qc / hv, and
             # ct[o, a, c] is qc at the same three multi-indices: the stencil and the assembler
             # agree entry by entry, through two independent implementations.
             @test all(ct[o, a, c] ≈ hv * MC2[o, a, c] for o in 1:N, a in 1:N, c in 1:N)
