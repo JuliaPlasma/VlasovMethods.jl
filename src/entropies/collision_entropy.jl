@@ -1,6 +1,6 @@
 struct CollisionEntropy{XD, VD, DT <: DistributionFunction{<:Any, XD, VD}} <: Entropy
     dist::DT
-    # entropy::ET
+    # entropy::ET 
 
     function CollisionEntropy(dist::DistributionFunction{<:Any, XD, VD}) where {XD, VD}
         new{XD, VD, typeof(dist)}(dist)

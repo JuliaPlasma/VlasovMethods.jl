@@ -2,8 +2,8 @@ struct LenardBernstein{
     XD, VD, DT <: DistributionFunction{<:Any, XD, VD}, ET <: Entropy, T} <:
        CollisionOperator
     dist::DT    # distribution function
-    ent::ET     # entropy
-    ν::T        # collision frequency
+    ent::ET     # entropy 
+    ν::T        # collision frequency 
 
     function LenardBernstein(
             dist::DistributionFunction{<:Any, XD, VD}, ent::Entropy; ν::T = 1.0) where {

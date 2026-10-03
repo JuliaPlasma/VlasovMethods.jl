@@ -17,6 +17,28 @@ first entry is written.
 
 ### Bug Fixes
 
+- **The `Vlasov–Poisson` model is constructible and its splitting method matches it.** The first
+  parameter of `DistributionFunction` is the element type, but seven declarations bound their
+  `XD` to it, so `VlasovPoisson{Float64, 1, …}` carried a `Float64` dimension and
+  `SplittingMethod(::VlasovPoisson)` matched no model. The declarations now bind
+  `DistributionFunction{<:Any, XD, VD}`, so the two named parameters are the dimensions.
+
+- **`VlasovPoisson`'s field follows the particles.** `v_acceleration!` and `s_acceleration!`
+  deposited from `model.distribution`, which the integrator never writes, so every step evaluated
+  the field of the initial state. They now deposit from the state `z` the integrator steps, so
+  the field is that of the current positions. This changes the numerical result of any
+  `VlasovPoisson` run.
+
+- **`run!` works with GeometricIntegrators 0.18.** The integrator holds no solution step, so the
+  progress loop read a field that no longer exists. `run!` now integrates the whole span into a
+  solution, writes each time step out, and copies the final state back into the model's
+  particles.
+
+- **The `Vlasov–Poisson` right-hand side allocates nothing.** `VlasovPoisson` holds a `work`
+  buffer of the width the deposit and the field evaluation need — a fifth type parameter `WT` —
+  and the two fields fill it rather than allocating one per evaluation. `projection!` still
+  allocates its own.
+
 - **`d(x, v)` with scalar arguments threw `MethodError`.** The `Vararg` call operator of every
   `DistributionFunction` used `view` on a `Tuple`, which does not support it. It now builds the two
   `SVector`s directly.

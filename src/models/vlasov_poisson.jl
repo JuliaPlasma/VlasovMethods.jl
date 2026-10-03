@@ -10,7 +10,7 @@ struct VlasovPoisson{XD, VD, DT <: DistributionFunction{<:Any, XD, VD}, PT <: Po
 
     function VlasovPoisson(dist::DistributionFunction{<:Any, XD, VD}, potential) where {
             XD, VD}
-        work = _work(potential)
+        work = _local_buffers(basis(potential), eltype(PoissonSolvers.rhs(potential)))
         new{XD, VD, typeof(dist), typeof(potential), typeof(work)}(dist, potential, work)
     end
 end
@@ -29,11 +29,12 @@ function update_potential!(model::VlasovPoisson, z::AbstractMatrix)
 end
 
 # The electric field `-∂ₓϕ` at `x`, summed over the basis functions that do not vanish there,
-# with `work` as the buffer for their derivatives. `x` is reduced into the domain first.
+# with `work` as the buffer for their derivatives. `evaluate_all!` reduces a periodic argument
+# into the domain, so an unwrapped position needs no wrap here.
 function _electric_field(potential::Potential, work::AbstractVector, x::Number)
     b = basis(potential)
     c = PoissonSolvers.coefficients(potential)
-    j₀ = evaluate_all!(work, b, _reduce_into_domain(b, x), 1)
+    j₀ = evaluate_all!(work, b, x, 1)
     ∂ϕ = zero(eltype(c))
     for (t, value) in pairs(work)
         # the padding of a recombined basis, as in `projection!`

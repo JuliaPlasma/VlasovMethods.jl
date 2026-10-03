@@ -1,5 +1,7 @@
 using JET
+using PoissonSolvers
 using VlasovMethods
+using VlasovMethods: v_acceleration!, s_acceleration!
 using Test
 
 # Static optimisation analysis of the hot paths: every function of `src/` that a test file
@@ -21,6 +23,21 @@ if isdefined(JET, :JET_AVAILABLE) ? JET.JET_AVAILABLE : JET.JET_LOADABLE
     sd2 = SplineDistribution(1, 2, 11, 4, (-6.0, 6.0), 0, Free())
     @test isempty(JET.get_reports(JET.report_opt(projection,
         (typeof(pd2.particles.v), typeof(pd2), typeof(sd2));
+        target_modules = (VlasovMethods,))))
+
+    # test/integration/vlasov_poisson.jl: the Vlasov–Poisson right-hand side, on its two
+    # `@allocated` calls, at the `Float64` argument types of that test.
+    pmodel = VlasovPoisson(ParticleDistribution(1, 1, 10),
+        Potential(PeriodicBasisSpline((0.0, 1.0), 3, 16)))
+    pmethod = SplittingMethod(pmodel, (0.0, 1.0), 0.1)
+    pparams = pmethod.equation.parameters
+    pz = pmodel.distribution.particles.z
+    pż = similar(pz)
+    @test isempty(JET.get_reports(JET.report_opt(v_acceleration!,
+        (typeof(pż), Float64, typeof(pz), typeof(pparams));
+        target_modules = (VlasovMethods,))))
+    @test isempty(JET.get_reports(JET.report_opt(s_acceleration!,
+        (typeof(pż), Float64, typeof(pz), Float64, typeof(pparams));
         target_modules = (VlasovMethods,))))
 else
     @test_skip "JET does not work on this Julia version"  # aviatesk/JET.jl#681

@@ -6,7 +6,8 @@ using PoissonSolvers
 using Random
 using Test
 using VlasovMethods
-using VlasovMethods: projection!, update_potential!, v_acceleration!, s_acceleration!
+using VlasovMethods: projection!, update_potential!, v_acceleration!, s_acceleration!,
+                     _electric_field
 
 # `ParticleDistribution(xdim, vdim, npart)` always fills `Float64` zeros, so the `Float32` case
 # builds its `ParticleList` from a `Float32` matrix, with the same variables.
@@ -49,6 +50,13 @@ function allocations_v(f, z, t, z̄, params)
     return @allocated f(z, t, z̄, params)
 end
 
+# A generic barrier for the control below: it shows that the machinery sees an allocation, so a
+# zero from the fixed-arity barriers above is not vacuous.
+function allocations(f, a)
+    f(a)
+    return @allocated f(a)
+end
+
 @testset "Vlasov–Poisson, $T" for T in (Float64, Float32)
     tspan = (T(0), T(1))
     tstep = T(0.1)
@@ -57,6 +65,9 @@ end
         model = vlasov_poisson(T)
         method = SplittingMethod(model, tspan, tstep)
         params = method.equation.parameters
+
+        # the held buffer carries the element type of the potential's right-hand side
+        @test eltype(model.work) === T
 
         # ten steps of `tstep` over `tspan`
         @test ntime(method.equation) == 10
@@ -69,6 +80,21 @@ end
         z = similar(z̄)
         @test @inferred(v_acceleration!(z, tstep, z̄, params)) === nothing
         @test @inferred(s_acceleration!(z, tstep, z̄, zero(T), params)) === nothing
+    end
+
+    @testset "the acceleration field" begin
+        model = vlasov_poisson(T)
+        method = SplittingMethod(model, tspan, tstep)
+        params = method.equation.parameters
+        z = copy(model.distribution.particles.z)
+        ż = similar(z)
+        v_acceleration!(ż, tstep, z, params)
+
+        @test all(iszero, ż[1, :])
+
+        # the field is `-∂ₓϕ`: the derivative of the deposit from the same positions, negated
+        reference = deposit(model, z[1, :])
+        @test ż[2, :] ≈ -reference.(z[1, :], 1) rtol=√eps(T)
     end
 
     @testset "the field follows the particles" begin
@@ -103,6 +129,8 @@ end
         @test c₁₀ != c₀
     end
 
+    # A pin of the SimpleSplines contract: `evaluate_all!` reduces a periodic argument, so the
+    # state may keep an unwrapped position. VlasovMethods adds no reduction of its own.
     @testset "periodic wrap-around" begin
         model = vlasov_poisson(T; ncells = 16)
         x = vec(copy(model.distribution.particles.x))
@@ -118,9 +146,43 @@ end
         end
     end
 
+    @testset "a periodic domain that begins away from zero" begin
+        # The reduction is modulo the domain length *and* its origin, so a reduction that
+        # dropped the origin would shift this deposit. A pin of the SimpleSplines contract.
+        b = PeriodicBasisSpline((T(-1), T(1)), 3, 16)
+        x = T[-0.7, -0.2, 0.1, 0.55, 0.9]
+        w = T[0.1, 0.2, 0.7, 0.05, 0.35]
+        p = Potential(b)
+        d = particle_distribution(T, length(x))
+        d.particles.x .= x'
+        d.particles.w .= w'
+        projection!(p, d)
+        ρ = copy(PoissonSolvers.rhs(p))
+
+        p2 = Potential(b)
+        d2 = particle_distribution(T, length(x))
+        d2.particles.x .= (x .+ T(2))'   # one domain length of 2
+        d2.particles.w .= w'
+        projection!(p2, d2)
+
+        tolerance = 2 * 16 * eps(T) * sum(abs, w)
+        @test maximum(abs, PoissonSolvers.rhs(p2) .- ρ) ≤ tolerance
+    end
+
+    @testset "the field evaluation reduces an unwrapped position" begin
+        # As for the deposit, the reduction belongs to `evaluate_all!`. A position one domain
+        # length above the domain gives the field of its reduction.
+        model = vlasov_poisson(T)
+        x = vec(copy(model.distribution.particles.x))
+        p = deposit(model, x)
+        work = zeros(T, local_width(PoissonSolvers.basis(p)))
+        @test _electric_field(p, work, T(1.3)) ≈ _electric_field(p, work, T(0.3)) rtol=√eps(T)
+    end
+
+    # A pin of the SimpleSplines contract: only a periodic basis reduces its argument, so a
+    # Dirichlet basis takes each position unchanged.
     @testset "a Dirichlet basis does not wrap" begin
-        # Only a periodic basis wraps. A Dirichlet basis takes each position unchanged, so a
-        # particle outside the domain deposits nothing, as it did before the wrap was added.
+        # A particle outside the domain deposits nothing.
         b = DirichletBasisSpline((T(0), T(1)), 3, 16)
         x = T[0.3, 0.71, 1.02, -0.01, 1.3]
         w = fill(T(0.2), length(x))
@@ -130,7 +192,47 @@ end
         p = Potential(b)
         projection!(p, d)
 
-        # the deposit loop of the tree before this part, which evaluates at `x` as it is
+        # a reference deposit loop that evaluates at `x` as it is
+        reference = zeros(T, length(PoissonSolvers.rhs(p)))
+        vals = zeros(T, local_width(b))
+        for (xᵢ, wᵢ) in zip(x, w)
+            j₀ = evaluate_all!(vals, b, xᵢ)
+            for (t, value) in pairs(vals)
+                iszero(value) && continue
+                reference[basis_index(b, j₀ + t - 1)] += wᵢ * value
+            end
+        end
+        @test PoissonSolvers.rhs(p) == reference
+    end
+
+    @testset "the field evaluation on a Dirichlet basis" begin
+        # A clamped basis pads the derivative buffer with zeros whose indices run past
+        # `nbasis`; the field evaluation skips them rather than indexing past the coefficients.
+        b = DirichletBasisSpline((T(0), T(1)), 3, 16)
+        p = Potential(b)
+        d = particle_distribution(T, 5)
+        d.particles.x .= T[0.2, 0.4, 0.6, 0.8, 0.9]'
+        d.particles.w .= T[0.2, 0.2, 0.2, 0.2, 0.2]'
+        projection!(p, d)
+        PoissonSolvers.update!(p)
+
+        # 0.999 lies in the last cell, where `evaluate_all!` leaves the tail of the buffer zero
+        work = zeros(T, local_width(b))
+        @test isfinite(_electric_field(p, work, T(0.999)))
+    end
+
+    @testset "the deposit reads each particle's weight" begin
+        # Distinct weights: a deposit that read only the first weight would give another result.
+        b = PeriodicBasisSpline((T(0), T(1)), 3, 16)
+        x = T[0.05, 0.3, 0.62, 0.91, 0.44]
+        w = T[0.1, 0.2, 0.7, 0.05, 0.35]
+        d = particle_distribution(T, length(x))
+        d.particles.x .= x'
+        d.particles.w .= w'
+        p = Potential(b)
+        projection!(p, d)
+
+        # a reference deposit loop, each particle with its own weight
         reference = zeros(T, length(PoissonSolvers.rhs(p)))
         vals = zeros(T, local_width(b))
         for (xᵢ, wᵢ) in zip(x, w)
@@ -153,6 +255,10 @@ end
         z = h5read(h5file, "z")
         @test size(z) == (2, npart, ntime(method.equation) + 1)
         @test z[:, :, 1] == z₀
+        # the run is written out step by step, not shifted by one from the initial slice
+        @test z[:, :, 2] != z[:, :, 1]
+        # the last slice is the final integration state, written back into the model's particles
+        @test z[:, :, end] == model.distribution.particles.z
     end
 
     @testset "the right-hand side does not allocate" begin
@@ -169,5 +275,7 @@ end
             @test allocations_s(s_acceleration!, z, t, z̄, t̄, params) == 0
             @test allocations_v(v_acceleration!, z, t, z̄, params) == 0
         end
+        # a control: the barrier machinery sees an allocation, so the zeros above are not vacuous
+        @test allocations(collect, z) > 0
     end
 end

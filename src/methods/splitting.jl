@@ -32,8 +32,8 @@ function run!(method::SplittingMethod, h5file)
         chunk = (nd, np, 1))
     copy_to_hdf5(h5z, z₀, 0)
 
-    # A `GeometricIntegrator` holds no solution step since GeometricIntegrators 0.18, so the
-    # whole run is integrated into a solution, whose time steps are then written out.
+    # A `GeometricIntegrator` holds no solution step, so the whole run is integrated into a
+    # solution, whose time steps are then written out.
     local sol
     try
         sol = GeometricIntegrators.integrate(method.integrator)
