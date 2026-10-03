@@ -215,28 +215,29 @@ first entry is written.
   rejects outright; the five dependencies still carrying no `[compat]` bound are what remains
   before the package can be registered, and they are recorded under *Open Issues*.
 
-### Removals
-
 - **`DiffEqIntegrator` and the `DifferentialEquations` paths it ran are gone.**
   `DifferentialEquations` was never imported — `src/VlasovMethods.jl` carried its `import` only as
   a comment — so every `DifferentialEquations.ODEProblem` and `DifferentialEquations.solve` call
   threw `UndefVarError` when reached. The exported type, its `run!` and `run` methods, the file
-  `src/methods/diffeq_integrator.jl`, and the constructor methods of `LenardBernstein` and
-  `ConservativeLenardBernstein` are deleted. `scripts/lenard_bernstein.jl:30` still calls the
-  deleted constructor; repairing that belongs to the `scripts/` rewrite, and is recorded as
-  `KNOWN_ISSUES.md` K19.
+  `src/methods/diffeq_integrator.jl`, and the `DiffEqIntegrator` constructor methods for
+  `LenardBernstein{1,1}` and `ConservativeLenardBernstein{1,1}` are deleted.
+  `scripts/lenard_bernstein.jl:30` still calls the deleted constructor; repairing that belongs to
+  the `scripts/` rewrite, and is recorded as `KNOWN_ISSUES.md` K19.
 
-- **Five `src/` files included by nothing are deleted.** `vlasov_poisson.jl`, `electric_field.jl`
-  and `visualisation.jl` had only a commented-out `include`; `methods/lbm_solver.jl` defined one
-  unused `IM_rule!`; `examples/twostream.jl` held a newline and no code. Their commented `include`
-  and `export` lines in `src/VlasovMethods.jl` go with them, and so does the
+### Removals
+
+- **Five dead `src/` files are deleted.** `vlasov_poisson.jl`, `electric_field.jl` and
+  `visualisation.jl` were included by nothing and had only commented-out `include` and `export`
+  lines; `methods/lbm_solver.jl` was included by nothing and defined one unused `IM_rule!`;
+  `examples/twostream.jl` was included but held a newline and no code. The `include` and `export`
+  lines that named them in `src/VlasovMethods.jl` go with them, and so does the
   `@safetestset "Electric Fields"` line of `test/runtests.jl`, whose `test/electric_field.jl`
   covered the deleted source. A sixth orphan the audit named, `src/hdf5.jl`, exists in no commit,
-  so there is nothing to delete.
+  so there is nothing to delete. This covers `KNOWN_ISSUES.md` K12, which leaves the file.
 
-- **`lorentz_force!` is deleted.** It evaluated the potential's derivative at argument `1` instead
-  of at the particle position, so the self-consistent field never entered the push of the splitting
-  method it belonged to, and no code called it.
+- **`lorentz_force!` is deleted.** It evaluated the field through `update_potential!`, which
+  projects `model.distribution` and never the stepped `z`, so the self-consistent field stayed
+  frozen at its initial value. No code called it.
 
 ### New Features
 

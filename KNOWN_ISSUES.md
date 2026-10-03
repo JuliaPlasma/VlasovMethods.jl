@@ -12,8 +12,8 @@ takes the next `K<n>`.
   including any one breaks the load: `poisson.jl` wants `PoissonSolverPBSplines`;
   `time_marching.jl` imports `PBSpline`, `stiffnessmatrix`, `eval_deriv_PBSBasis` and
   `rhs_particles_PBSBasis` from `PoissonSolvers` (neither 0.5 nor 0.6 has any);
-  `electric_field.jl` wants `ElectricField` from `src/electric_field.jl` — which this module still
-  keeps commented out — and `snapshots.jl` wants `ParameterSpace`. They were moved unrepaired on
+  `electric_field.jl` wants `ElectricField`, whose old home `src/electric_field.jl` is deleted, and
+  `snapshots.jl` wants `ParameterSpace`. They were moved unrepaired on
   purpose, so the relocation stays reviewable.
 - **kind:** dead code
 - **found:** 2026-09-17. Carried over from the audit that accompanied the `SimpleSplines`
@@ -129,7 +129,7 @@ takes the next `K<n>`.
 
 - **location:** `scripts/verify_conservation.jl`
 - **evidence:** `scripts/verify_conservation.jl` covers the conservative Lenard-Bernstein operator
-  only, and `test/electric_field.jl` is in the `broken` group of `runtests.jl` (issue #56).
+  only; no test covers a structure-preservation claim for Landau.
 - **kind:** missing test
 - **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
   migration. None of these are regressions; each is either a numerical-methods decision or work
@@ -142,17 +142,6 @@ takes the next `K<n>`.
   computation is commented out in `scripts/lenard_bernstein_conservative.jl` and the experiment
   survives as a stale `run_name`.
 - **kind:** missing test
-- **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
-  migration. None of these are regressions; each is either a numerical-methods decision or work
-  the migration deliberately did not take on.
-
-### K12 · Seven `src/` files are included by nothing:
-
-- **location:** `src/`
-- **evidence:** `electric_field.jl`, the root `vlasov_poisson.jl` (distinct from
-  `models/vlasov_poisson.jl`), `visualisation.jl`, `methods/lbm_solver.jl`, `hdf5.jl`, and two
-  whose `include` lines are commented out. `src/hdf5.jl` is untracked in git.
-- **kind:** not verified
 - **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
   migration. None of these are regressions; each is either a numerical-methods decision or work
   the migration deliberately did not take on.
@@ -235,4 +224,13 @@ takes the next `K<n>`.
   type the package no longer defines, so the script throws `UndefVarError` when it reaches it. The
   `scripts/` rewrite repairs or removes the call.
 - **kind:** defect
+- **found:** 2026-10-03
+
+### K20 · A commented-out `sampling.jl` include and export remain in the module file.
+
+- **location:** `src/VlasovMethods.jl:165-167`
+- **evidence:** The block `# include("sampling.jl")` and its `# export
+  draw_g_accept_reject, draw_g_importance_sampling, weight_f` name no file: `src/sampling.jl` does
+  not exist, and the sampling code that is included is `src/sampling/sampling.jl` at `:53`.
+- **kind:** dead code
 - **found:** 2026-10-03

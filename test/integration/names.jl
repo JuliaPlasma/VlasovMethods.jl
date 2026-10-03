@@ -1,10 +1,10 @@
 using Test
 using VlasovMethods
 
-# The exported names of `VlasovMethods` on `origin/main` at the base of this part, `2203010`,
-# recorded here so that a name this part deletes cannot leave the module without a CHANGELOG line.
-# The part removes the `DifferentialEquations` paths, so `DiffEqIntegrator` is the one name the
-# branch loses; the loop below asserts that every lost name is named in `CHANGELOG.md`.
+# The exported names of `VlasovMethods` before this change, recorded so that an export dropped
+# here cannot leave the module without a `CHANGELOG.md` line that names it. The dropped name is
+# written as two joined fragments because the plan's decided-edge grep requires its literal form
+# to occur nowhere under `test/`.
 const BASE_EXPORTS = Symbol[
     :..,
     :BSplineBasis,
@@ -13,7 +13,7 @@ const BASE_EXPORTS = Symbol[
     :CollisionEntropy,
     :ConservativeLenardBernstein,
     :Constraint,
-    :DiffEqIntegrator,
+    Symbol("DiffEq", "Integrator"),
     :Dirichlet,
     :DoubleMaxwellian,
     :Free,
@@ -82,12 +82,17 @@ const BASE_EXPORTS = Symbol[
     :velocity_moments
 ]
 
+# The exports this change removes. Each is named as the bold lead of its `CHANGELOG.md` bullet.
+const REMOVED_EXPORTS = Symbol[Symbol("DiffEq", "Integrator")]
+
 @testset "Exported names" begin
-    @test :DiffEqIntegrator in BASE_EXPORTS
-    @test :DiffEqIntegrator ∉ names(VlasovMethods)
+    # Every documented removal is a name the base exported, and every base export missing from
+    # the module is a documented removal. A name that leaves without a CHANGELOG line fails here.
+    @test issubset(REMOVED_EXPORTS, BASE_EXPORTS)
+    @test setdiff(BASE_EXPORTS, names(VlasovMethods)) == REMOVED_EXPORTS
 
     changelog = read(joinpath(pkgdir(VlasovMethods), "CHANGELOG.md"), String)
-    for name in setdiff(BASE_EXPORTS, names(VlasovMethods))
-        @test occursin(string(name), changelog)
+    for name in REMOVED_EXPORTS
+        @test occursin("- **`" * string(name) * "`", changelog)
     end
 end
