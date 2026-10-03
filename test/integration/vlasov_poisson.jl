@@ -39,8 +39,7 @@ function deposit(model, x)
 end
 
 # `@allocated` through a fixed-arity barrier whose arguments have concrete types, so that a Julia
-# 1.11 closure or splat boxing is not counted (`evidence.md`, Allocation assertions). Each calls
-# the function once before it measures.
+# 1.11 closure or splat boxing is not counted. Each calls the function once before it measures.
 function allocations_s(f, z, t, z̄, t̄, params)
     f(z, t, z̄, t̄, params)
     return @allocated f(z, t, z̄, t̄, params)

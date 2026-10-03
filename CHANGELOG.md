@@ -37,7 +37,9 @@ first entry is written.
 - **The `Vlasov–Poisson` right-hand side allocates nothing.** `VlasovPoisson` holds a `work`
   buffer of the width the deposit and the field evaluation need — a fifth type parameter `WT` —
   and the two fields fill it rather than allocating one per evaluation. `projection!` still
-  allocates its own.
+  allocates its own. Because the constructor allocates that buffer, a `Potential` on a basis
+  with no deposit-buffer method — an `FFTWBasis` or a `FiniteDifferenceBasis` — now throws at
+  construction rather than at the first deposit (K19).
 
 - **`d(x, v)` with scalar arguments threw `MethodError`.** The `Vararg` call operator of every
   `DistributionFunction` used `view` on a `Tuple`, which does not support it. It now builds the two

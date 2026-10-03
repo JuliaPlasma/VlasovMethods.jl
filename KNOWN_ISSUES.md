@@ -222,10 +222,8 @@ takes the next `K<n>`.
   for them, and the charge deposit needs one.
   `VlasovPoisson(ParticleDistribution(1, 1, 10), Potential(FFTWBasis((0.0, 1.0), 16)))` throws
   `MethodError: no method matching _local_buffers(::FFTWBasis{Float64, …}, ::Type{Float64})`.
-  Before P11 the constructor succeeded and the same `MethodError` on `local_width` arrived
-  at the first deposit. The model was never usable with these bases; it holds a deposit buffer
-  (P11), so the error is raised at construction instead of at the first step.
+  The constructor allocates the deposit buffer, so the error is raised at construction.
   `Potential(PeriodicBasisSpline(…))` and `Potential(DirichletBasisSpline(…))` are the supported
   bases.
 - **kind:** defect
-- **found:** 2026-10-03, part P11
+- **found:** #60
