@@ -10,6 +10,7 @@ if "core" in GROUPS
     @safetestset "Particle Distribution" include("distributions/particle_distribution.jl")
     @safetestset "Projections" include("projections/projections.jl")
     @safetestset "Reduced Tensors" include("gridbased/reduced_tensors.jl")
+    @safetestset "Collisions" include("gridbased/collisions.jl")
 end
 if "broken" in GROUPS
     @safetestset "Electric Fields" include("electric_field.jl")   # issue #56

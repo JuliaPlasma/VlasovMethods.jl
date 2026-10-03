@@ -17,6 +17,19 @@ first entry is written.
 
 ### Bug Fixes
 
+- **The grid collision operator works.** `src/gridbased/collisions.jl` arrived with the grid-based
+  import of T3.13 but every name in it faulted when called (K2). `CollisionTensor`'s three-index `getindex` read an unbound
+  `L`, and `ReducedCollisionTensor`'s `getindex` passed three `CartesianIndex`es to a four-index
+  method; `QuadraticCollisions`' constructor passed five values for six fields, leaving the
+  `factor` field uninitialised, and its `v` field was an abstract `AbstractVector`; and the two
+  `_get_MC̃_*` assemblers read a global `v` that no longer exists. The three-index `getindex` now
+  returns `ct.f(I, J, K)` and `CollisionTensor` is indexed by three `CartesianIndex`es, the
+  `factor` field is gone, `v` is a type parameter of `QuadraticCollisions`, and both assemblers
+  take the velocity grid as their fifth argument and return a tensor of `eltype(V)`. A new
+  `nv < 3` guard throws an `ArgumentError`, because at `nv = 2` the two neighbours of a node
+  coincide. K2 is closed. The stencils still wrap the bounded `v`-grid periodically; the docstrings
+  state that `f` must vanish at the ends for the conservation claims to hold (K19).
+
 - **`d(x, v)` with scalar arguments threw `MethodError`.** The `Vararg` call operator of every
   `DistributionFunction` used `view` on a `Tuple`, which does not support it. It now builds the two
   `SVector`s directly.
@@ -225,7 +238,7 @@ first entry is written.
   - `collisions.jl` — `CollisionTensor`, `QuadraticCollisions`, `ReducedCollisionTensor` and
     the two `_get_MC̃_*` assemblers. ReducedBasisMethods never included this file, so none of
     it was reachable there. It **is** included here, and the four names are defined in the
-    module, but two of them still fault when called — see *Open Issues*.
+    module; the run-time faults they arrived with are repaired under *Bug Fixes* above.
 
   New dependencies: `GeometricBrackets`, for the `PoissonTensor` the three tensors wrap and the
   `_nx` / `_nv` accessors they extend, and `MultiIndexArrays`, for `multiindex` and

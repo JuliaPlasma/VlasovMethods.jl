@@ -20,24 +20,6 @@ takes the next `K<n>`.
   migration. None of these are regressions; each is either a numerical-methods decision or work
   the migration deliberately did not take on.
 
-### K2 · `src/gridbased/collisions.jl` compiles but cannot be used.
-
-- **location:** `src/gridbased/collisions.jl`
-- **evidence:** The file is included and the module precompiles, so `CollisionTensor` and the rest
-  are defined — the faults are at run time, not load time.
-  `Base.getindex(ct::CollisionTensor, i, j, k)` returns `ct[I, J, K, L]` with `L` never bound, and
-  both `_get_MC̃_*` assemblers read a global `v` that no longer exists. `ReducedCollisionTensor`'s
-  `getindex` evaluates `rt.tensor[M, N, O]` with three `CartesianIndex{2}` arguments;
-  `Base.to_indices` flattens them to six `Int`s, so the indexing throws `BoundsError` and never
-  reaches the four-`CartesianIndex` method of `CollisionTensor` — binding `L` alone does not repair
-  it. The `QuadraticCollisions` inner constructor calls `new{DT}(nx, nv, hx, hv, v)` — five values
-  for six fields — leaving `factor` uninitialised. ReducedBasisMethods never included the file, so
-  none of this was reachable there and none of it is new.
-- **kind:** defect
-- **found:** 2026-09-17. Carried over from the audit that accompanied the `SimpleSplines`
-  migration. None of these are regressions; each is either a numerical-methods decision or work
-  the migration deliberately did not take on.
-
 ### K3 · `FullyReducedTensor` cannot be constructed.
 
 - **location:** —
@@ -213,3 +195,19 @@ takes the next `K<n>`.
   `test/quality/jet.jl` gives 0. The test totals do not change.
 - **kind:** upstream
 - **found:** 2026-10-02
+
+### K19 · The collision stencils wrap the bounded `v`-grid periodically
+
+- **location:** `src/gridbased/collisions.jl:64`
+- **evidence:** The four `v`-stencils — `QuadraticCollisions`' call operator (`:64-65`),
+  `ReducedCollisionTensor`'s `getindex` (`:128-129`) and the two `_get_MC̃_*` assemblers
+  (`:185-186`, `:234-235`) — wrap with `mod1`, but the `v`-grid is bounded. At the wrap the second
+  difference of `v` does not vanish, so the two ends couple. Every conservation claim of the two
+  docstrings is conditional on `f` vanishing at the ends of the `v`-grid to `eps(T)`. On a grid
+  that does not vanish there, the cubic momentum drifts: at `v = range(-3, 3; length = 5)` the end
+  value is `0.2` of the maximum and the relative momentum drift over ten RK4 steps is `3.7e-3`,
+  against `eps(T)` on the decided `range(-10, 10; length = 25)` grid. A boundary treatment of the
+  wrap is not one of the five repairs of T3.15.
+- **kind:** defect
+- **found:** 2026-10-03. Carried from ReducedBasisMethods, and recorded when the operator was
+  repaired.
