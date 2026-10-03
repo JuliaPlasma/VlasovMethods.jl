@@ -207,8 +207,8 @@ takes the next `K<n>`.
   that does not vanish there, the cubic momentum drifts: on `nx = 4` with
   `v = range(-3, 3; length = 5)`, for the shifted Maxwellian of the check-5 test, the end value is
   `0.21` of the maximum and the relative momentum drift over ten RK4 steps is `3.7e-3`, against
-  `eps(T)` on the decided `range(-10, 10; length = 25)` grid. A boundary treatment of the
-  wrap is not one of the five repairs of T3.15.
+  `eps(T)` on the `range(-10, 10; length = 25)` grid of that test. No code in the file treats
+  the boundary of the `v`-grid.
 - **kind:** defect
 - **found:** 2026-10-03. Carried from ReducedBasisMethods, and recorded when the operator was
   repaired.

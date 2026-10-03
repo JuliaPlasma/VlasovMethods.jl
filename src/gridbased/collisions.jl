@@ -212,9 +212,9 @@ element type `eltype(V)`.
 
 Contracted with the grid values, `Q₂[o] = Σ MC̃[o, a, c] f[a] f[c]` is the Galerkin form of
 `ρ²·C[f]` without the `ρ̂u` term. It conserves the mass `∫dv·f` and the energy `∫v²dv·f`, but not
-the momentum `∫vdv·f`: without the `ρ̂u` term it pulls the mean velocity toward `v = 0`, and the
-momentum drifts by `1.3e-2` relative over the ten RK4 steps of the test. As for the cubic form, the
-moments are conserved only while `f` vanishes at the ends of the `v`-grid to `eps(T)`.
+the momentum `∫vdv·f`: it pulls the mean velocity toward `v = 0`, by a relative `1.3e-2` over ten
+RK4 steps of `Δt = 10⁻³` from a shifted Maxwellian on `nx = 2`, `v = range(-10, 10; length = 25)`.
+The moments are conserved only while `f` vanishes at the ends of the `v`-grid to `eps(T)`.
 """
 function _get_MC̃_quadratic(V, ∫dv, ∫vdv, ∫v²dv, v::AbstractVector, ci, li, h₁, h₂)
     local n₁, n₂ = size(ci)

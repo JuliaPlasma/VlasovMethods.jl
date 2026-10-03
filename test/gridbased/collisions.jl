@@ -84,7 +84,7 @@ end
 
 _relative_drift(a, b) = norm(b .- a) / norm(a)
 
-# Function barriers for the allocation assertions of §6.1: the argument is concrete, and the
+# Function barriers for the allocation assertions of check 4: the argument is concrete, and the
 # call runs once before `@allocated` measures it. For the function argument `f::F`, the `where`
 # clause forces specialization: without it the call would dispatch dynamically and allocate on
 # its own.
@@ -161,17 +161,17 @@ _alloc_call1(f::F, a::A) where {F, A} = (f(a); @allocated f(a))
             @test all(ct[o, a, c] ≈ hv * MC2[o, a, c] for o in 1:N, a in 1:N, c in 1:N)
         end
 
-        @testset "check 2: the factor field is gone" begin
+        @testset "check 2: the fields of QuadraticCollisions" begin
             nx, nv = 3, 5
             v = collect(range(T(-3), T(3); length = nv))
-            @test !hasfield(VlasovMethods.QuadraticCollisions, :factor)
+            @test fieldnames(VlasovMethods.QuadraticCollisions) == (:nx, :nv, :hx, :hv, :v)
             qc = VlasovMethods.QuadraticCollisions(nx, nv, one(T) / nx,
                 (v[end] - v[1]) / (nv - 1), v)
             @test qc isa VlasovMethods.QuadraticCollisions{T}
             @test qc.nx == nx && qc.nv == nv
         end
 
-        @testset "check 3: the ninth v parameter" begin
+        @testset "check 3: the v argument of the two assemblers" begin
             nx, nv = 4, 5
             v = collect(range(T(-3), T(3); length = nv))
             N = nx * nv
@@ -222,7 +222,7 @@ _alloc_call1(f::F, a::A) where {F, A} = (f(a); @allocated f(a))
             @test @inferred(ct[1, 2, 3]) isa T
             @test @inferred(rt[1, 2, 1]) isa T
 
-            # §6.1: each hot path asserts type stability and an empty allocation, measured
+            # each hot path asserts type stability and an empty allocation, measured
             # through a function barrier whose arguments are concrete
             @test _alloc_call3(qc, I, I, I) == 0
             @test _alloc_getindex(ct, 1, 2, 3) == 0
