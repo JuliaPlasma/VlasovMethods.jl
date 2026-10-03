@@ -28,6 +28,12 @@ first entry is written.
   and the final state copied into the model's particles. The output is bit-identical to
   `GeometricIntegrators.integrate` on the same problem for Float64 and Float32.
 
+- **`run!(::GeometricIntegrator, h5file)` works with GeometricIntegrators 0.18.** It read the
+  problem's `tspan` field, which GeometricEquations no longer has, so every Lenard–Bernstein run
+  threw `FieldError` before its first step. It now advances one solution step as
+  `run!(::SplittingMethod, h5file)` does, and its output is bit-identical to
+  `GeometricIntegrators.integrate` on the same problem.
+
 - **`d(x, v)` with scalar arguments threw `MethodError`.** The `Vararg` call operator of every
   `DistributionFunction` used `view` on a `Tuple`, which does not support it. It now builds the two
   `SVector`s directly.

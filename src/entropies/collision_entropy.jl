@@ -68,8 +68,3 @@ function _check_positive(f, v)
         "entropy ∫ f log f dv is undefined there"))
     return nothing
 end
-
-# ## TODO: add functions for computing the entropy given a distribution
-# function compute_entropy!(entropy, dist <: DistributionFunction{XD, VD}) where {XD, VD}
-
-# end
