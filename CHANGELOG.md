@@ -17,6 +17,17 @@ first entry is written.
 
 ### Bug Fixes
 
+- **The `Vlasov–Poisson` model is constructible and its splitting method matches it.** The first
+  parameter of `DistributionFunction` is the element type, but seven declarations bound their
+  `XD` to it, so `VlasovPoisson{Float64, 1, …}` carried a `Float64` dimension and
+  `SplittingMethod(::VlasovPoisson)` matched no model. The declarations now bind
+  `DistributionFunction{<:Any, XD, VD}`, so the two named parameters are the dimensions.
+
+- **`run!(::SplittingMethod, h5file)` works with GeometricIntegrators 0.18.** One solution step
+  is advanced step by step through the time span, with each step written to HDF5 as computed
+  and the final state copied into the model's particles. The output is bit-identical to
+  `GeometricIntegrators.integrate` on the same problem for Float64 and Float32.
+
 - **`d(x, v)` with scalar arguments threw `MethodError`.** The `Vararg` call operator of every
   `DistributionFunction` used `view` on a `Tuple`, which does not support it. It now builds the two
   `SVector`s directly.
@@ -119,6 +130,20 @@ first entry is written.
   a mass-lumped discretisation, not a cheaper assembly of `M_ij = ∫ φ_i φ_j`, and not the one
   either manuscript describes. Three Landau drivers passed `false`. A call with the old flag is
   now a `MethodError` rather than being silently reinterpreted.
+
+- **`VlasovPoisson`'s field follows the particles.** `v_acceleration!` and `s_acceleration!`
+  deposited from `model.distribution`, which the integrator never writes, so every step evaluated
+  the field of the initial state. They now deposit from the state `z` the integrator steps, so
+  the field is that of the current positions. This changes the numerical result of any
+  `VlasovPoisson` run.
+
+- **The `Vlasov–Poisson` right-hand side allocates nothing, and adds a buffer type parameter.**
+  `VlasovPoisson` now holds a `work` buffer of the width the deposit and the field evaluation
+  need — a fifth type parameter `WT` — and the two fields fill it rather than allocating one per
+  evaluation. Code that names `VlasovPoisson` with four type parameters stops matching. Because
+  the constructor allocates that buffer, a `Potential` on a basis with no deposit-buffer method —
+  an `FFTWBasis` or a `FiniteDifferenceBasis` — now throws at construction rather than at the
+  first deposit (K19).
 
 - **A particle outside the velocity domain is an error.** It used to be dropped silently in the
   one-dimensional projection and printed a per-particle warning in the two-dimensional one.
