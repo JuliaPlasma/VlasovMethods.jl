@@ -1,8 +1,8 @@
-struct CollisionEntropy{XD, VD, DT <: DistributionFunction{XD, VD}} <: Entropy
+struct CollisionEntropy{XD, VD, DT <: DistributionFunction{<:Any, XD, VD}} <: Entropy
     dist::DT
     # entropy::ET 
 
-    function CollisionEntropy(dist::DistributionFunction{XD, VD}) where {XD, VD}
+    function CollisionEntropy(dist::DistributionFunction{<:Any, XD, VD}) where {XD, VD}
         new{XD, VD, typeof(dist)}(dist)
     end
 end
@@ -68,8 +68,3 @@ function _check_positive(f, v)
         "entropy ∫ f log f dv is undefined there"))
     return nothing
 end
-
-# ## TODO: add functions for computing the entropy given a distribution
-# function compute_entropy!(entropy, dist <: DistributionFunction{XD, VD}) where {XD, VD}
-
-# end

@@ -10,6 +10,9 @@ if "core" in GROUPS
     @safetestset "Particle Distribution" include("distributions/particle_distribution.jl")
     @safetestset "Projections" include("projections/projections.jl")
     @safetestset "Reduced Tensors" include("gridbased/reduced_tensors.jl")
+    @safetestset "Geometric Integrator" include("methods/geometric_integrator.jl")
+    @safetestset "Parameter Order" include("integration/parameter_order.jl")
+    @safetestset "Vlasov–Poisson" include("integration/vlasov_poisson.jl")
 end
 if "broken" in GROUPS
     @safetestset "Electric Fields" include("electric_field.jl")   # issue #56

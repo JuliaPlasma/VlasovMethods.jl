@@ -1,17 +1,47 @@
 
-struct VlasovPoisson{XD, VD, DT <: DistributionFunction{XD, VD}, PT <: Potential} <:
-       VlasovModel
+struct VlasovPoisson{XD, VD, DT <: DistributionFunction{<:Any, XD, VD}, PT <: Potential,
+    WT <: AbstractVector} <: VlasovModel
     distribution::DT
     potential::PT
 
-    function VlasovPoisson(dist::DistributionFunction{XD, VD}, potential) where {XD, VD}
-        new{XD, VD, typeof(dist), typeof(potential)}(dist, potential)
+    # the buffer of the `local_width(basis)` basis values that the deposit and the field
+    # evaluation fill, so that neither allocates
+    work::WT
+
+    function VlasovPoisson(dist::DistributionFunction{<:Any, XD, VD}, potential) where {
+            XD, VD}
+        work = _deposit_buffer(potential)
+        new{XD, VD, typeof(dist), typeof(potential), typeof(work)}(dist, potential, work)
     end
 end
 
 function update_potential!(model::VlasovPoisson)
     projection!(model.potential, model.distribution)
     PoissonSolvers.update!(model.potential)
+end
+
+# The integrator steps its own copy of the particle state, so the field of a step is deposited
+# from the positions in `z`, its first row, and not from `model.distribution`, which the
+# integrator never writes.
+function update_potential!(model::VlasovPoisson, z::AbstractMatrix)
+    _deposit!(model.potential, model.work, z, model.distribution.particles.w)
+    PoissonSolvers.update!(model.potential)
+end
+
+# The electric field `-∂ₓϕ` at `x`, summed over the basis functions that do not vanish there,
+# with `work` as the buffer for their derivatives. `evaluate_all!` reduces a periodic argument
+# into the domain, so an unwrapped position needs no wrap here.
+function _electric_field(potential::Potential, work::AbstractVector, x::Number)
+    b = basis(potential)
+    c = PoissonSolvers.coefficients(potential)
+    j₀ = evaluate_all!(work, b, x, 1)
+    ∂ϕ = zero(eltype(c))
+    for (t, value) in pairs(work)
+        # the padding of a recombined basis, as in `projection!`
+        iszero(value) && continue
+        ∂ϕ += c[basis_index(b, j₀ + t - 1)] * value
+    end
+    return -∂ϕ
 end
 
 ####################################################
@@ -41,10 +71,11 @@ end
 
 # Vector field for acceleration
 function v_acceleration!(ż, t, z, params)
-    update_potential!(params.model)
+    update_potential!(params.model, z)
+    work = params.model.work
     for i in axes(ż, 2)
         ż[1, i] = 0
-        ż[2, i] = - params.ϕ(z[1, i], 1)
+        ż[2, i] = _electric_field(params.ϕ, work, z[1, i])
     end
 end
 
@@ -58,10 +89,11 @@ end
 
 # Solution for Lorentz force
 function s_acceleration!(z, t, z̄, t̄, params)
-    update_potential!(params.model)
+    update_potential!(params.model, z̄)
+    work = params.model.work
     for i in axes(z, 2)
         z[1, i] = z̄[1, i]
-        z[2, i] = z̄[2, i] - (t-t̄) * params.ϕ(z̄[1, i], 1)
+        z[2, i] = z̄[2, i] + (t - t̄) * _electric_field(params.ϕ, work, z̄[1, i])
     end
 end
 
@@ -69,7 +101,8 @@ end
 # The problem is setup such that one solution step pushes all particles.
 # While this allows for a simple implementation, it is not well-suited
 # for parallelisation.
-function SplittingMethod(model::VlasovPoisson{1, 1, <: ParticleDistribution}, tspan::Tuple, tstep::Real)
+function SplittingMethod(
+        model::VlasovPoisson{1, 1, <:ParticleDistribution}, tspan::Tuple, tstep::Real)
     # collect parameters
     params = (ϕ = model.potential, model = model)
 

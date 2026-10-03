@@ -213,3 +213,17 @@ takes the next `K<n>`.
   `test/quality/jet.jl` gives 0. The test totals do not change.
 - **kind:** upstream
 - **found:** 2026-10-02
+
+### K19 · `VlasovPoisson` cannot be built with a grid `Potential` basis.
+
+- **location:** `src/models/vlasov_poisson.jl`
+- **evidence:** `PoissonSolvers.FFTWBasis` and `FiniteDifferenceBasis` are not
+  `SimpleSplines.AbstractBSplineBasis`, so neither `local_width` nor `_local_buffers` has a method
+  for them, and the charge deposit needs one.
+  `VlasovPoisson(ParticleDistribution(1, 1, 10), Potential(FFTWBasis((0.0, 1.0), 16)))` throws
+  `MethodError: no method matching _local_buffers(::FFTWBasis{Float64, …}, ::Type{Float64})`.
+  The constructor allocates the deposit buffer, so the error is raised at construction.
+  `Potential(PeriodicBasisSpline(…))` and `Potential(DirichletBasisSpline(…))` are the supported
+  bases.
+- **kind:** defect
+- **found:** #60
