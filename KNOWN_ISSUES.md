@@ -128,8 +128,10 @@ takes the next `K<n>`.
 ### K10 · No test covers any structure-preservation claim for Landau.
 
 - **location:** `scripts/verify_conservation.jl`
-- **evidence:** `scripts/verify_conservation.jl` covers the conservative Lenard-Bernstein operator
-  only; no test covers a structure-preservation claim for Landau.
+- **evidence:** `git grep -in 'landau' scripts/verify_conservation.jl` returns nothing, so the
+  script exercises the conservative Lenard-Bernstein operator only. The one `Landau` testset under
+  `test/` is `test/distributions/spline_distribution.jl:277`, "Landau: K, J and L assemble": it
+  asserts assembly, not a conservation invariant.
 - **kind:** missing test
 - **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
   migration. None of these are regressions; each is either a numerical-methods decision or work
