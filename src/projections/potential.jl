@@ -18,9 +18,15 @@ why the zeros are skipped rather than added.
 """
 function projection!(potential::PoissonSolvers.Potential,
         distribution::ParticleDistribution)
-    # the same `local_width(basis)` buffer that `VlasovPoisson` holds, allocated here per call
-    work = _local_buffers(basis(potential), eltype(PoissonSolvers.rhs(potential)))
+    # the same buffer that `VlasovPoisson` holds, allocated here per call
+    work = _deposit_buffer(potential)
     _deposit!(potential, work, distribution.particles.x, distribution.particles.w)
+end
+
+# The buffer of the `local_width(basis)` basis values that `_deposit!` fills, of the element type
+# of the potential's right-hand side.
+function _deposit_buffer(potential::PoissonSolvers.Potential)
+    _local_buffers(basis(potential), eltype(PoissonSolvers.rhs(potential)))
 end
 
 # The deposit of `projection!`, from the positions in the first row of `x` and the weights in

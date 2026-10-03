@@ -258,6 +258,11 @@ end
         @test z[:, :, 2] != z[:, :, 1]
         # the last slice is the final integration state, written back into the model's particles
         @test z[:, :, end] == model.distribution.particles.z
+        # each slice is the state of the same step of `integrate` on the same problem
+        sol = GeometricIntegrators.integrate(
+            SplittingMethod(vlasov_poisson(T; npart), tspan, tstep).integrator)
+        same = [z[:, :, n + 1] == sol.q[n] for n in 0:ntime(method.equation)]
+        @test all(same)
     end
 
     @testset "the right-hand side does not allocate" begin

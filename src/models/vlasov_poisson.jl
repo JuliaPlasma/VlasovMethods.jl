@@ -10,7 +10,7 @@ struct VlasovPoisson{XD, VD, DT <: DistributionFunction{<:Any, XD, VD}, PT <: Po
 
     function VlasovPoisson(dist::DistributionFunction{<:Any, XD, VD}, potential) where {
             XD, VD}
-        work = _local_buffers(basis(potential), eltype(PoissonSolvers.rhs(potential)))
+        work = _deposit_buffer(potential)
         new{XD, VD, typeof(dist), typeof(potential), typeof(work)}(dist, potential, work)
     end
 end
