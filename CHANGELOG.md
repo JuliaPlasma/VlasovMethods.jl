@@ -28,7 +28,8 @@ first entry is written.
   take the velocity grid as their fifth argument and return a tensor of `eltype(V)`. A new
   `nv < 3` guard throws an `ArgumentError`, because at `nv = 2` the two neighbours of a node
   coincide. K2 is closed. The stencils still wrap the bounded `v`-grid periodically; the docstrings
-  state that `f` must vanish at the ends for the conservation claims to hold (K19).
+  state that `f` must vanish at the ends for the conservation claims to hold, and the bounded
+  treatment is recorded under *Open Issues* (K19).
 
 - **`d(x, v)` with scalar arguments threw `MethodError`.** The `Vararg` call operator of every
   `DistributionFunction` used `view` on a `Tuple`, which does not support it. It now builds the two
@@ -237,7 +238,7 @@ first entry is written.
     the source file went to `PoissonSolvers` instead.
   - `collisions.jl` — `CollisionTensor`, `QuadraticCollisions`, `ReducedCollisionTensor` and
     the two `_get_MC̃_*` assemblers. ReducedBasisMethods never included this file, so none of
-    it was reachable there. It **is** included here, and the four names are defined in the
+    it was reachable there. It **is** included here, and these five names are defined in the
     module; the run-time faults they arrived with are repaired under *Bug Fixes* above.
 
   New dependencies: `GeometricBrackets`, for the `PoissonTensor` the three tensors wrap and the

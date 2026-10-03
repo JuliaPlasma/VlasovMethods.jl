@@ -165,7 +165,7 @@ momentum and the energy — while `f` vanishes at the ends of the `v`-grid to `e
 `v`-stencils wrap the bounded grid with `mod1`, so a non-negligible end value breaks the
 conservation.
 """
-function _get_MC̃_cubic(V, ∫dv, ∫vdv, ∫v²dv, v, ci, li, h₁, h₂)
+function _get_MC̃_cubic(V, ∫dv, ∫vdv, ∫v²dv, v::AbstractVector, ci, li, h₁, h₂)
     local n₁, n₂ = size(ci)
     local n = n₁ * n₂
     local m = size(V, 2)
@@ -216,7 +216,7 @@ the momentum `∫vdv·f`: without the `ρ̂u` term it pulls the mean velocity to
 momentum drifts by `1.3e-2` relative over the ten RK4 steps of the test. As for the cubic form, the
 moments are conserved only while `f` vanishes at the ends of the `v`-grid to `eps(T)`.
 """
-function _get_MC̃_quadratic(V, ∫dv, ∫vdv, ∫v²dv, v, ci, li, h₁, h₂)
+function _get_MC̃_quadratic(V, ∫dv, ∫vdv, ∫v²dv, v::AbstractVector, ci, li, h₁, h₂)
     local n₁, n₂ = size(ci)
     local n = n₁ * n₂
     local m = size(V, 2)

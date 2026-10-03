@@ -84,6 +84,18 @@ end
 
 _relative_drift(a, b) = norm(b .- a) / norm(a)
 
+# Function barriers for the allocation assertions of §6.1: the argument is concrete, and the
+# call runs once before `@allocated` measures it. A barrier without the `where` clause would
+# dispatch dynamically and allocate on its own.
+_getindex3(x, i, j, k) = x[i, j, k]
+function _alloc_getindex(x::X, i::Int, j::Int, k::Int) where {X}
+    (_getindex3(x, i, j, k); @allocated _getindex3(x, i, j, k))
+end
+function _alloc_call3(f::F, a::A, b::B, c::C) where {F, A, B, C}
+    (f(a, b, c); @allocated f(a, b, c))
+end
+_alloc_call1(f::F, a::A) where {F, A} = (f(a); @allocated f(a))
+
 @testset "Collisions" begin
     # every test below runs in Float32 and Float64 with nx ≠ nv and nv ≥ 3
     for T in (Float32, Float64)
@@ -95,13 +107,14 @@ _relative_drift(a, b) = norm(b .- a) / norm(a)
             qc = VlasovMethods.QuadraticCollisions(nx, nv, hx, hv, v)
             ct = VlasovMethods.CollisionTensor(T, nx, nv, qc)
 
-            # the three-Int getindex that used to read an unbound `L`
-            I = multiindex(1, nx, nv)
-            @test ct[1, 1, 1] == qc(I, I, I)
+            # the three-Int getindex returns ct.f at the same three multi-indices, for every
+            # entry of the grid: a permutation or a wrong index of any of the three fails
+            N = nx * nv
+            @test all(ct[i, j, k] == qc(multiindex(i, nx, nv), multiindex(j, nx, nv),
+                          multiindex(k, nx, nv)) for i in 1:N, j in 1:N, k in 1:N)
 
             # the hand projection with three different projection matrices
             # (the one-argument constructor would set all three equal and hide a swap)
-            N = nx * nv
             Pi = T[sin(T(0.3) * (a + b)) for a in 1:N, b in 1:2]
             Pj = T[cos(T(0.7) * (a + 2b)) for a in 1:N, b in 1:3]
             Pk = T[exp(T(-0.1) * a * b) for a in 1:N, b in 1:2]
@@ -126,6 +139,25 @@ _relative_drift(a, b) = norm(b .- a) / norm(a)
                 end
                 @test rt[i, j, k] ≈ hand rtol = sqrt(eps(T))
             end
+        end
+
+        @testset "check: the stencil matches the assembler on the same grid" begin
+            nx, nv = 3, 5
+            v = collect(range(T(-3), T(3); length = nv))
+            hv = (v[end] - v[1]) / (nv - 1)
+            hx = one(T) / nx
+            qc = VlasovMethods.QuadraticCollisions(nx, nv, hx, hv, v)
+            ct = VlasovMethods.CollisionTensor(T, nx, nv, qc)
+            N = nx * nv
+            ci = CartesianIndices((nx, nv))
+            li = LinearIndices((nx, nv))
+            ∫dv, ∫vdv, ∫v²dv = _moment_matrices(T, nx, nv, v, hv)
+            MC2 = VlasovMethods._get_MC̃_quadratic(Matrix{T}(I, N, N), ∫dv, ∫vdv, ∫v²dv,
+                v, ci, li, hx, hv)
+            # With V = I and the rectangle-rule moments, MC̃_quadratic = qc / hv exactly, and
+            # ct[o, a, c] is qc at the same three multi-indices: the stencil and the assembler
+            # agree entry by entry, through two independent implementations.
+            @test all(ct[o, a, c] ≈ hv * MC2[o, a, c] for o in 1:N, a in 1:N, c in 1:N)
         end
 
         @testset "check 2: the factor field is gone" begin
@@ -154,15 +186,19 @@ _relative_drift(a, b) = norm(b .- a) / norm(a)
             @test eltype(MC3) == T
             @test_throws DimensionMismatch VlasovMethods._get_MC̃_cubic(
                 V, ∫dv, ∫vdv, ∫v²dv, v[1:(end - 1)], ci, li, hx, hv)
+            @test_throws DimensionMismatch VlasovMethods._get_MC̃_cubic(
+                V, ∫dv, ∫vdv, ∫v²dv, vcat(v, v[end]), ci, li, hx, hv)
 
             MC2 = VlasovMethods._get_MC̃_quadratic(V, ∫dv, ∫vdv, ∫v²dv, v, ci, li, hx, hv)
             @test size(MC2) == (N, N, N)
             @test eltype(MC2) == T
             @test_throws DimensionMismatch VlasovMethods._get_MC̃_quadratic(
                 V, ∫dv, ∫vdv, ∫v²dv, v[1:(end - 1)], ci, li, hx, hv)
+            @test_throws DimensionMismatch VlasovMethods._get_MC̃_quadratic(
+                V, ∫dv, ∫vdv, ∫v²dv, vcat(v, v[end]), ci, li, hx, hv)
         end
 
-        @testset "check 4: the v field is concrete and inference holds" begin
+        @testset "check 4: the tensor paths are concrete, inferred and allocation-free" begin
             nx, nv = 3, 5
             v = collect(range(T(-3), T(3); length = nv))
             hv = (v[end] - v[1]) / (nv - 1)
@@ -172,6 +208,25 @@ _relative_drift(a, b) = norm(b .- a) / norm(a)
                 @test isconcretetype(fieldtype(typeof(qc), :v))
                 @test @inferred(qc(I, I, I)) isa T
             end
+
+            # the two index paths that the reduction and the collision step call
+            qc = VlasovMethods.QuadraticCollisions(nx, nv, one(T) / nx, hv, v)
+            ct = VlasovMethods.CollisionTensor(T, nx, nv, qc)
+            N = nx * nv
+            Pi = T[sin(T(0.3) * (a + b)) for a in 1:N, b in 1:2]
+            Pj = T[cos(T(0.7) * (a + 2b)) for a in 1:N, b in 1:3]
+            Pk = T[exp(T(-0.1) * a * b) for a in 1:N, b in 1:2]
+            rt = VlasovMethods.ReducedCollisionTensor(ct, Pi, Pj, Pk)
+
+            @test @inferred(ct[1, 2, 3]) isa T
+            @test @inferred(rt[1, 2, 1]) isa T
+
+            # §6.1: each hot path asserts type stability and an empty allocation, measured
+            # through a function barrier whose arguments are concrete
+            @test _alloc_call3(qc, I, I, I) == 0
+            @test _alloc_getindex(ct, 1, 2, 3) == 0
+            @test _alloc_getindex(rt, 1, 2, 1) == 0
+            @test _alloc_call1(collect, v) > 0   # the control: the barrier sees an allocation
         end
 
         @testset "check 5: the invariants of the two forms" begin
@@ -198,6 +253,12 @@ _relative_drift(a, b) = norm(b .- a) / norm(a)
                 f2 = _rk4(f_grid, MC2, nx, nv, T(1e-3) / A, n_steps, false)
                 @test maximum(abs, f3[:, [1, nv]]) ≤ eps(T) * maximum(abs, f3)
                 @test maximum(abs, f2[:, [1, nv]]) ≤ eps(T) * maximum(abs, f2)
+
+                # The invariants are asserted on the trajectory, and the zero operator is a
+                # fixed point of it: both operators must move the state, or the assertions hold
+                # for an operator that is identically zero.
+                @test maximum(abs, f3 - f_grid) > 0
+                @test maximum(abs, f2 - f_grid) > 0
 
                 m0, m1, m2 = _moments(∫dv, ∫vdv, ∫v²dv, vec(f_grid))
                 M0, M1, M2 = _moments(∫dv, ∫vdv, ∫v²dv, vec(f3))

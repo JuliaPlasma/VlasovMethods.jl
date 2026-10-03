@@ -200,13 +200,14 @@ takes the next `K<n>`.
 
 - **location:** `src/gridbased/collisions.jl:64`
 - **evidence:** The four `v`-stencils — `QuadraticCollisions`' call operator (`:64-65`),
-  `ReducedCollisionTensor`'s `getindex` (`:128-129`) and the two `_get_MC̃_*` assemblers
+  `ReducedCollisionTensor`'s `getindex` (`:130-131`) and the two `_get_MC̃_*` assemblers
   (`:185-186`, `:234-235`) — wrap with `mod1`, but the `v`-grid is bounded. At the wrap the second
   difference of `v` does not vanish, so the two ends couple. Every conservation claim of the two
   docstrings is conditional on `f` vanishing at the ends of the `v`-grid to `eps(T)`. On a grid
-  that does not vanish there, the cubic momentum drifts: at `v = range(-3, 3; length = 5)` the end
-  value is `0.2` of the maximum and the relative momentum drift over ten RK4 steps is `3.7e-3`,
-  against `eps(T)` on the decided `range(-10, 10; length = 25)` grid. A boundary treatment of the
+  that does not vanish there, the cubic momentum drifts: on `nx = 4` with
+  `v = range(-3, 3; length = 5)`, for the shifted Maxwellian of the check-5 test, the end value is
+  `0.21` of the maximum and the relative momentum drift over ten RK4 steps is `3.7e-3`, against
+  `eps(T)` on the decided `range(-10, 10; length = 25)` grid. A boundary treatment of the
   wrap is not one of the five repairs of T3.15.
 - **kind:** defect
 - **found:** 2026-10-03. Carried from ReducedBasisMethods, and recorded when the operator was
