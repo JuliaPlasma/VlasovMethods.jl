@@ -111,6 +111,14 @@ first entry is written.
 
 - **`[compat] julia` rises from 1.10 to 1.11.** `GeometricBrackets` requires 1.11.
 
+- **Four `[compat]` floors rise to the lowest version that resolves with `GeometricBrackets`
+  0.1.1.** `GeometricIntegrators` `0.18` becomes `0.18.4`, the first release that admits
+  `SimpleSolvers` 0.13. `PoissonSolvers` `0.4, 0.5, 0.6` becomes `0.6` and `SimpleSplines`
+  `0.1, 0.2, 0.3` becomes `0.3`, because `GeometricBrackets` 0.1.1 requires `SimpleSplines`
+  0.3 and `PoissonSolvers` 0.6 is the first release that admits it. `StaticArrays` `1` becomes
+  `1.9.13`, the floor that `SimpleSolvers` 0.13 sets. The old floors named versions that no
+  resolve could select, so the advisory `Downgrade` job stopped at `forcedeps`.
+
 - **`projection_energy` is now `projection_second_moment`.** It returns `Σ_α v_α² f_s(v_α)`, the
   particle-sampled second moment of the spline distribution, with no factor `½`, so it is not an
   energy. The name was not exported; a caller of `VlasovMethods.projection_energy` renames the
