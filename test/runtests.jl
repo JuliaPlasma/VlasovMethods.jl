@@ -13,8 +13,6 @@ if "core" in GROUPS
     @safetestset "Geometric Integrator" include("methods/geometric_integrator.jl")
     @safetestset "Parameter Order" include("integration/parameter_order.jl")
     @safetestset "Vlasov–Poisson" include("integration/vlasov_poisson.jl")
+    @safetestset "Names" include("integration/names.jl")
     @safetestset "Collisions" include("gridbased/collisions.jl")
-end
-if "broken" in GROUPS
-    @safetestset "Electric Fields" include("electric_field.jl")   # issue #56
 end

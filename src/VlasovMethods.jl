@@ -18,8 +18,6 @@ using Sobol
 using SpecialFunctions
 using StaticArrays
 
-# import DifferentialEquations
-
 using SimpleSplines
 import SimpleSplines: basis, coefficients, derivative, evaluate, mass_matrix, mass_operator
 
@@ -105,14 +103,11 @@ export projection
 # numerical methods
 
 include("methods/splitting.jl")
-include("methods/diffeq_integrator.jl")
 include("methods/geometric_integrator.jl")
 include("methods/Landau_solver.jl")
 
 export run!
-export run
 export SplittingMethod
-export DiffEqIntegrator
 export GeometricIntegrator
 export Picard_iterate_over_particles
 
@@ -140,7 +135,6 @@ export Landau
 include("examples/bumpontail.jl")
 include("examples/normal.jl")
 include("examples/uniform.jl")
-include("examples/twostream.jl")
 include("examples/shiftednormalv.jl")
 include("examples/shifteduniform.jl")
 include("examples/doublemaxwellian.jl")
@@ -166,22 +160,5 @@ include("gridbased/collisions.jl")
 # names a binding that neither the module nor its dependencies define —
 # `PoissonSolverPBSplines`, `PBSpline`, `ElectricField`, `ParameterSpace` — so including one
 # breaks the load.
-
-# include("electric_field.jl")
-
-# export ElectricField, PoissonField, ExternalField
-# export ScaledField, ScaledPoissonField, ScaledExternalField
-
-# include("vlasov_poisson.jl")
-
-# export VPIntegratorParameters, VPIntegratorCache, integrate_vp!
-
-# include("sampling.jl")
-
-# export draw_g_accept_reject, draw_g_importance_sampling, weight_f
-
-# include("visualisation.jl")
-
-# export plot_particles, plot_distribution
 
 end
