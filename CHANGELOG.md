@@ -48,19 +48,6 @@ first entry is written.
   `DistributionFunction` used `view` on a `Tuple`, which does not support it. It now builds the two
   `SVector`s directly.
 
-- **`[compat]` admits `SimpleSplines` 0.3 and `PoissonSolvers` 0.6.** Compat only, with no code
-  change. As for 0.2 and 0.5 below, the two must widen together: `PoissonSolvers` 0.6 is the
-  first release that admits `SimpleSplines` 0.3, and `GeometricBrackets` requires
-  `SimpleSplines` 0.3.
-
-- **`[compat]` admits `SimpleSplines` 0.2 and `PoissonSolvers` 0.5.** The two must widen together:
-  `PoissonSolvers` 0.5 requires `SimpleSplines` 0.2, and `SimpleSplines` 0.2 is admitted by no
-  `PoissonSolvers` below 0.5. CompatHelper proposed them as separate pull requests, and each was
-  unsatisfiable on its own — `SimpleSplines` 0.2 alone left `PoissonSolvers` with no versions, and
-  `PoissonSolvers` 0.5 alone left `SimpleSplines` with none. The comment above the
-  `PoissonSolvers` bound also drops its claim that the bound is "exact rather than a range", which
-  this widening makes untrue; the 0.4 floor and its reason are unchanged.
-
 - **Twelve dependencies the package never used are gone.** `AdaptiveRejectionSampling`,
   `LaTeXStrings`, `LinearSolve`, `NaNMath`, `OffsetArrays`, `Plots`, `QuadratureRules`,
   `SciMLBase`, `SimpleSolvers`, `StatsBase`, `StatsPlots` and `Trapz` all left `[deps]`, together
@@ -87,15 +74,25 @@ first entry is written.
   normal with mean `1/2` and standard deviation `1/(2π)`, so the test now draws from that
   directly, redrawing the ~0.17% of points that fall outside the domain.
 
-- **`[compat]` bounds two dependencies that had none.** `SimpleSolvers = "0.13"` is new
-  (CompatHelper #32, restored for the metriplectic solve), and `Parameters` gains `0.13`. Those are
+- **`[compat]` bounds two dependencies that had none.** `SimpleSolvers` is bounded
+  (CompatHelper #32, restored for the metriplectic solve; the bound is in the `GeometricBase` 0.15
+  entry below), and `Parameters` gains `0.13`. Those are
   all that is left of the eight open CompatHelper requests: the other six still name a dependency
   this release deletes — `NonlinearSolve = "4"` is now among them, since `NonlinearSolve` itself
   leaves `[deps]`, while `SimpleSolvers` leaves that group because it returns.
 
-- **`[compat]` admits `SimpleSolvers` 0.14.** The bound widens to `"0.13, 0.14"`. Compat only.
-  Version 0.14.0 resolves and passes the metriplectic integration tests; 0.14.1 requires
-  `GeometricBase` 0.15, which this package does not adopt (K35).
+- **The package is on the `GeometricBase` 0.15 line, and only that line (K35).** `[compat]` reads
+  `GeometricBrackets = "0.2"`, `GeometricEquations = "0.21.5"`, `GeometricIntegrators = "0.18.6"`,
+  `SimpleSolvers = "0.14.1"`, `SimpleSplines = "0.3.1"` and `PoissonSolvers = "0.6"`. Each floor is
+  the first release on that line, so no floor admits a version that cannot resolve.
+  `SimpleSolvers` 0.14.1 requires `GeometricBase` 0.15, and `GeometricBrackets` 0.2 requires
+  `SimpleSolvers` 0.14.1 and `SimpleSplines` 0.3, which no `PoissonSolvers` below 0.6 admits.
+  `PoissonSolvers` 0.6 and `SimpleSplines` 0.3 had to widen together for the same reason.
+  The 0.14 line, the `SimpleSolvers` 0.13 bound and the `PoissonSolvers` 0.4 and 0.5 releases are
+  no longer admitted, so an environment that pins one of them does not resolve. `src/` is
+  unchanged. `GeometricBrackets` 0.2 rejects `PoissonTensor(Float32, nx, nv, ::Arakawa{Float64})`
+  on construction with an `ArgumentError`, where 0.1 built it and `ReducedTensor` then threw a
+  `MethodError`; the test of that case expects the `ArgumentError`.
 
 - **`PoissonSolvers` and `StaticArrays` are no longer listed in `[extras]`.** Both are genuine
   `src/` dependencies and are already in `[deps]`, where the test environment picks them up.

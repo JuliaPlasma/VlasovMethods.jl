@@ -34,7 +34,14 @@ Random.seed!(1234)
     other = PoissonTensor(Float64, nx, nv, (I, J, K) -> 0.0)
     @test_throws MethodError ReducedTensor(other, Pi, Pj)
 
-    # an Arakawa of another element type gives entries of that type
-    mixed = PoissonTensor(Float32, nx, nv, Arakawa(nx, nv, 1 / nx, 2 / nv))
-    @test_throws MethodError ReducedTensor(mixed, Float32.(Pi), Float32.(Pj))
+    # an Arakawa of another element type gives no PoissonTensor of that type: GeometricBrackets
+    # rejects the pair on construction, so no tensor with mismatched entries reaches ReducedTensor
+    arakawa64 = Arakawa(nx, nv, 1 / nx, 2 / nv)
+    arakawa32 = Arakawa(nx, nv, Float32(1 / nx), Float32(2 / nv))
+    @test_throws ArgumentError PoissonTensor(Float32, nx, nv, arakawa64)
+    same32 = PoissonTensor(Float32, nx, nv, arakawa32)
+    rt32 = ReducedTensor(same32, Float32.(Pi), Float32.(Pj))
+    entries32 = [rt32[i, j, k] for i in 1:3, j in 1:2, k in 1:N]
+    @test eltype(entries32) == Float32
+    @test entries32 ≈ dense
 end
