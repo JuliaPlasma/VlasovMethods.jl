@@ -128,9 +128,10 @@ const REFERENCE_V = parse.(Float64, readlines(REFERENCE))
         @test isnan(parse(Float64, captured.captures[1]))
     end
 
-    # The catch above rethrows every exception that is not a `NonlinearSolverException`. A large
-    # collision frequency drives the particles out of the velocity support, and the projection
-    # then throws its own `DomainError` from inside the solve; it must reach the caller unchanged.
+    # The catch in `Picard_iterate_over_particles` rethrows every exception that is not a
+    # `NonlinearSolverException`. A large collision frequency drives the particles out of the
+    # velocity support, and the projection then throws its own `DomainError` from inside the
+    # solve; it must reach the caller unchanged.
     @testset "an exception from the model reaches the caller" begin
         mlb, v0 = metriplectic_setup(Float64)
         fastmlb = MetriplecticLenardBernstein(mlb.dist, mlb.entropy; ν = 1e6)
