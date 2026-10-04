@@ -94,6 +94,14 @@ first entry is written.
   on construction with an `ArgumentError`, where 0.1 built it and `ReducedTensor` then threw a
   `MethodError`; the test of that case expects the `ArgumentError`.
 
+- **Three more `[compat]` floors name a version that resolves.** `HDF5` `0.16, 0.17` becomes
+  `0.17`: no `HDF5` 0.16 release resolves with `GeometricIntegrators` 0.18.6, which requires
+  `GeometricSolutions` 0.6.6, and that release admits only `HDF5` 0.17. `ParticleMethods` `0.1`
+  becomes `0.1.2`, the first release that admits `HDF5` 0.17. `StaticArrays` `1` becomes
+  `1.9.13`, the floor that `SimpleSolvers` 0.14.1 sets. The old floors could not be selected, so
+  the advisory `Downgrade` job stopped at `forcedeps`. No environment that resolved before stops
+  resolving.
+
 - **`PoissonSolvers` and `StaticArrays` are no longer listed in `[extras]`.** Both are genuine
   `src/` dependencies and are already in `[deps]`, where the test environment picks them up.
   Listing them in both places was redundant. `OffsetArrays` was listed there too; the one file
