@@ -114,6 +114,13 @@ first entry is written.
 
 ### Breaking Changes
 
+- **Three `[compat]` floors rise to the lowest version that resolves with the other floors.**
+  `HDF5` `0.16, 0.17` becomes `0.17`: no `HDF5` 0.16 release resolves together with
+  `GeometricIntegrators` 0.18.6 and `GeometricBrackets` 0.2, so the 0.16 series is dropped. `ParticleMethods`
+  `0.1` becomes `0.1.2`, the first release that admits `HDF5` 0.17. `StaticArrays` `1` becomes
+  `1.9.13`, the floor that `SimpleSolvers` 0.14.1 sets. The old floors named versions that no
+  resolve could select, so the advisory `Downgrade` job stopped at `forcedeps`.
+
 - **The metriplectic Lenard–Bernstein solve uses `SimpleSolvers`.** The one live
   `NonlinearSolve.NLsolveJL` call, in `Picard_iterate_over_particles`, is replaced by an
   unaccelerated `SimpleSolvers` Picard solve, so `NonlinearSolve` leaves `[deps]` and
