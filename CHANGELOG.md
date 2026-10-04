@@ -239,6 +239,9 @@ first entry is written.
   projects `model.distribution` and never the stepped `z`, so the self-consistent field stayed
   frozen at its initial value. No code called it.
 
+- **`CLB_rhs!` is deleted.** Deleting the `DiffEqIntegrator` constructors left it with no caller,
+  and its body duplicated `CLB_rhs_GI!`; its sign-convention docstring moves to `CLB_rhs_GI!`.
+
 ### New Features
 
 - **`GridDistribution`, the distribution function on a 1D1V phase-space grid.** It is a third
