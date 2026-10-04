@@ -104,7 +104,9 @@ first entry is written.
   `SimpleSolvers` 0.14.1 requires `GeometricBase` 0.15, `GeometricBrackets` 0.2 requires
   `SimpleSolvers` 0.14.1, and it also requires `SimpleSplines` 0.3, which no `PoissonSolvers`
   below 0.6 admits.
-  The earlier bounds `SimpleSolvers = "0.13, 0.14"`, `SimpleSplines = "0.1, 0.2, 0.3"` and
+  This supersedes the `[compat]` entries above that bound `SimpleSolvers`, `SimpleSplines` and
+  `PoissonSolvers`, including the statement that the package does not adopt `GeometricBase` 0.15
+  and the 0.4 floor of `PoissonSolvers`. The earlier bounds `SimpleSolvers = "0.13, 0.14"`, `SimpleSplines = "0.1, 0.2, 0.3"` and
   `PoissonSolvers = "0.4, 0.5, 0.6"` are gone, so an environment that pins one of the older
   releases no longer resolves. `src/` is unchanged. `GeometricBrackets` 0.2 rejects
   `PoissonTensor(Float32, nx, nv, ::Arakawa{Float64})` on construction with an `ArgumentError`,

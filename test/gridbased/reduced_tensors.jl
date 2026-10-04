@@ -40,5 +40,8 @@ Random.seed!(1234)
     arakawa32 = Arakawa(nx, nv, Float32(1 / nx), Float32(2 / nv))
     @test_throws ArgumentError PoissonTensor(Float32, nx, nv, arakawa64)
     same32 = PoissonTensor(Float32, nx, nv, arakawa32)
-    @test eltype(ReducedTensor(same32, Float32.(Pi), Float32.(Pj))) == Float32
+    rt32 = ReducedTensor(same32, Float32.(Pi), Float32.(Pj))
+    entries32 = [rt32[i, j, k] for i in 1:3, j in 1:2, k in 1:N]
+    @test eltype(entries32) == Float32
+    @test entries32 ≈ dense
 end
