@@ -130,7 +130,7 @@ takes the next `K<n>`.
 
 ### K14 · `fatou lint` reports `unused-binding` locals and no `unused-import`.
 
-- **location:** `src/VlasovMethods.jl`
+- **location:** `scripts/bump_on_tail.jl:47`
 - **evidence:** `fatou lint --force-exclude --output concise .` reports seven `unused-binding`
   locals — `scripts/bump_on_tail.jl:47`, `scripts/lenard_bernstein_metriplectic_scaling.jl:38`
   and `:49`, `src/gridbased/moments.jl:18`, `src/gridbased/reduced_tensors.jl:210`,
@@ -375,10 +375,10 @@ takes the next `K<n>`.
 - **kind:** found late
 - **found:** 2026-10-04
 
-### K37 · The two metriplectic scripts read a solve-result object the solve no longer returns.
+### K37 · The two metriplectic scripts read a solve-result object the solve does not return.
 
 - **location:** `scripts/lenard_bernstein_metriplectic.jl:81`
-- **evidence:** `Picard_iterate_over_particles` now returns the solved velocity `Vector`, but
+- **evidence:** `Picard_iterate_over_particles` returns the solved velocity `Vector`, but
   `scripts/lenard_bernstein_metriplectic.jl` still reads `sol_object.u` (`:81`, `:91`) and calls
   `SciMLBase.successful_retcode(sol_object)` (`:84`), and
   `scripts/lenard_bernstein_metriplectic_scaling.jl` reads `sol_object.u` (`:96`, `:107`); each
@@ -389,10 +389,9 @@ takes the next `K<n>`.
 ### K38 · The metriplectic solve's `dv_history` shift has no test.
 
 - **location:** `src/models/lenard_bernstein_metriplectic.jl:352`
-- **evidence:** Dropping `dv_history[:, 2] .= dv_history[:, 1]` leaves every test green (mutant
-  M11 SURVIVED in the round-1 critic's run), so the one-step `dv_history[:, 1]` test does not
-  cover the shift that the next step's Hermite guess reads. The line is unchanged from
-  `origin/main`, so the gap is pre-existing.
+- **evidence:** Dropping `dv_history[:, 2] .= dv_history[:, 1]` leaves every test green, so
+  the one-step `dv_history[:, 1]` test does not cover the shift that the next step's Hermite
+  guess reads. The line is unchanged from `origin/main`, so the gap is pre-existing.
 - **kind:** missing test
 - **found:** 2026-10-04
 
@@ -400,9 +399,9 @@ takes the next `K<n>`.
 
 - **location:** `src/methods/Landau_solver.jl:64`
 - **evidence:** `f!(f, vn, vp, params, Δt, landau)` duplicates the method at
-  `src/models/lenard_bernstein_metriplectic.jl:269`. Its only caller was the
-  `NonlinearProblem{true}(…)` line this branch removes from `Picard_iterate_Landau_nls!`;
-  `grep -rn 'f!(' src test scripts` finds no other call. The method is left in place for the
+  `src/models/lenard_bernstein_metriplectic.jl:269`, and nothing calls it:
+  `grep -rn 'f!(' src test scripts` finds only calls that pass a `MetriplecticLenardBernstein`,
+  which dispatch to that typed method. The method is left in place for the
   collision dedupe, which names it as the fallback its pin must catch.
 - **kind:** dead code
 - **found:** 2026-10-04
