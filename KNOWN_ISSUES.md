@@ -354,14 +354,13 @@ takes the next `K<n>`.
 ### K35 · `SimpleSolvers` is bounded to `0.13` and so excludes the released `0.14`.
 
 - **location:** `Project.toml:43`
-- **evidence:** `SimpleSolvers` 0.14.0 and 0.14.1 are tagged in the package repository and present
-  in the depot (`~/.julia/packages/SimpleSolvers/1m3ma` and `xeXEy`), so `[compat] SimpleSolvers =
-  "0.13"` excludes a released version. Every name this package uses — `NonlinearProblem`,
-  `Picard`, `solve_with_status!`, `SolverState`, `status`, `isconverged`,
-  `NonlinearSolverException`, `rfₐ` and `iterations` — is present in 0.14.1's source. The
-  worktree's manifest pins 0.13.3, so no local run exercises 0.14, and the bound stays narrow
-  until one does.
-- **kind:** not verified
+- **evidence:** `SimpleSolvers` 0.14.0 and 0.14.1 are registered, and `[compat] SimpleSolvers =
+  "0.13"` excludes both. With the bound widened to `"0.13, 0.14"` and `SimpleSolvers` pinned to
+  0.14.0, the environment resolves (GeometricBase 0.14.12, GeometricIntegrators 0.18.5,
+  GeometricBrackets 0.1.2) and `test/integration/metriplectic_solve.jl` passes 18 of 18. 0.14.1
+  cannot resolve here: it requires GeometricBase 0.15, and every `GeometricBrackets` 0.1 release
+  requires GeometricBase `0.14.8 - 0.14`.
+- **kind:** defect
 - **found:** 2026-10-04
 
 ### K36 · A metriplectic Picard step whose particles leave the velocity domain stops with the model's `DomainError`.
@@ -382,17 +381,13 @@ takes the next `K<n>`.
   `scripts/lenard_bernstein_metriplectic.jl` still reads `sol_object.u` (`:81`, `:91`) and calls
   `SciMLBase.successful_retcode(sol_object)` (`:84`), and
   `scripts/lenard_bernstein_metriplectic_scaling.jl` reads `sol_object.u` (`:96`, `:107`); each
-  throws once it reaches those lines. The `scripts/` rewrite (P46) repairs them.
+  throws once it reaches those lines. `scripts/lenard_bernstein_metriplectic.jl:70` also sets
+  `abstol = 1e-15`, which the solve now compares with `‖F‖₂` and not `maximum(abs, F)`. That is
+  below the round-off floor of `‖F‖₂`: one step of the uniform cloud of
+  `test/integration/metriplectic_solve.jl` with `abstol = 1e-15` throws at `N = 64`, `256` and
+  `1000` (`residual = 1.21e-15`, `1.26e-15`, `1.74e-15` after 49, 29 and 26 iterations), and
+  returns with the scaling script's `3e-16·√N`. The `scripts/` rewrite (P46) repairs both.
 - **kind:** defect
-- **found:** 2026-10-04
-
-### K38 · The metriplectic solve's `dv_history` shift has no test.
-
-- **location:** `src/models/lenard_bernstein_metriplectic.jl:352`
-- **evidence:** Dropping `dv_history[:, 2] .= dv_history[:, 1]` leaves every test green, so
-  the one-step `dv_history[:, 1]` test does not cover the shift that the next step's Hermite
-  guess reads. The line is unchanged from `origin/main`, so the gap is pre-existing.
-- **kind:** missing test
 - **found:** 2026-10-04
 
 ### K39 · The untyped `f!` in `src/methods/Landau_solver.jl` has no caller.

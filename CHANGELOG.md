@@ -125,7 +125,8 @@ first entry is written.
   `‖F‖₂ ≤ abstol`, which is stricter than the old test and can turn a former success into a throw.
   `Picard_iterate_over_particles` now returns the solved velocity vector instead of an NLsolve
   solution object, so a caller that read `.u` or `SciMLBase.successful_retcode` changes, and it
-  gains a `maxiters` keyword (default `1000`). A one-step pin test in
+  gains a `maxiters` keyword (default `1000`). The parameters `dv`, `m`, and `β` stay in
+  the signature and are ignored. A one-step pin test in
   `test/integration/metriplectic_solve.jl` matches the pre-change result to `3e-16·√N` in `Float64`
   and to `3e-16·√N · eps(Float32)/eps(Float64)` in `Float32`.
 

@@ -90,17 +90,20 @@ const REFERENCE_V = parse.(Float64, readlines(REFERENCE))
         end
     end
 
-    # The Hermite guess of the next step reads `dv_history[:, 1]`, so it must hold the field at
-    # the solved iterate and not at the previous time step's velocities.
+    # The Hermite guess of the next step reads both columns of `dv_history`: column 1 must hold
+    # the field at the solved iterate, and column 2 the column 1 that the step received.
     @testset "the stored derivative is the field at the solved iterate" begin
         mlb, v0 = metriplectic_setup(Float64)
         dv_history = zeros(Float64, N, 2)
+        previous = collect(range(1.0, 2.0; length = N))
+        dv_history[:, 1] .= previous
         v = Picard_iterate_over_particles(
             step_args(v0, mlb, abstol_float64(), Float64; dv_history = dv_history)...)
         expected = similar(v)
         VlasovMethods.collisional_vectorfield!(
             expected, v, (dist = mlb.dist, ent = mlb.entropy), mlb)
         @test dv_history[:, 1] == expected
+        @test dv_history[:, 2] == previous
     end
 
     # The `ti ≥ 4` Hermite guess reads `vn_minus_one`, but the step's residual depends on `vn`
