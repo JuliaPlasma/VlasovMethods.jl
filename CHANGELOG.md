@@ -34,20 +34,15 @@ first entry is written.
   `run!(::SplittingMethod, h5file)` does, and its output is bit-identical to
   `GeometricIntegrators.integrate` on the same problem.
 
-- **The grid collision operator works.** `src/gridbased/collisions.jl` arrived with the grid-based
-  import, and only its three-index `getindex` and the two `_get_MC̃_*` assemblers faulted when
-  called (K2). `CollisionTensor`'s three-index `getindex` read an unbound `L`, and
-  `ReducedCollisionTensor`'s `getindex` passed three `CartesianIndex`es to a four-index method;
-  `QuadraticCollisions`' constructor passed five values for six fields, leaving the `factor` field
-  uninitialised, and its `v` field was an abstract `AbstractVector`; and the two `_get_MC̃_*`
-  assemblers read a global `v` that no longer exists. The three-index `getindex` now returns
-  `ct.f(I, J, K)` and `CollisionTensor` is indexed by three `CartesianIndex`es, the `factor` field
-  is gone, `v` is a type parameter of `QuadraticCollisions`, and both assemblers take the velocity
-  grid as their fifth argument and return a tensor of `eltype(V)`. A new `nv < 3` guard throws an
-  `ArgumentError`, because at `nv = 2` the two neighbours of a node coincide. K2 is closed. The
-  stencils still wrap the bounded `v`-grid periodically; the docstrings state that `f` must vanish
-  at the ends for the conservation claims to hold, and the bounded treatment is recorded in
-  `KNOWN_ISSUES.md` (K27).
+- **The grid collision operator works.** `CollisionTensor` is indexed by three
+  `CartesianIndex`es or three `Int`s, returning `ct.f(I, J, K)`; `ReducedCollisionTensor`
+  projects it. `QuadraticCollisions(nx, nv, hx, hv, v)` has `v` as a type parameter
+  `VT <: AbstractVector{DT}`, throws `DimensionMismatch` if `length(v) ≠ nv`, and
+  `ArgumentError` if `nv < 3` (at `nv = 2` the neighbours coincide). Both
+  `_get_MC̃_cubic` and `_get_MC̃_quadratic` take the velocity grid as their fifth argument,
+  throw `DimensionMismatch` when `length(v) ≠ size(ci, 2)`, and return `eltype(V)` tensors.
+  The `v`-stencils wrap the bounded grid periodically; conservation holds only while `f`
+  vanishes at the ends, recorded in `KNOWN_ISSUES.md` (K27). K2 is closed.
 
 - **`d(x, v)` with scalar arguments threw `MethodError`.** The `Vararg` call operator of every
   `DistributionFunction` used `view` on a `Tuple`, which does not support it. It now builds the two
@@ -288,11 +283,8 @@ first entry is written.
 
 - **The reduced phase-space tensors and velocity moments, imported from ReducedBasisMethods.**
   Every function and struct body is byte-identical to its source, except
-  `src/gridbased/collisions.jl`: its `CollisionTensor`'s `getindex` assertions
-  changed from `@assert isvalid(I, ct.nx, ct.nv)` to `@assert I in
-  CartesianIndices((ct.nx, ct.nv))`, and the same for `J` and `K`, because
-  `MultiIndexArrays` 0.1.1 no longer defines `isvalid`. The diff reviews as a
-  move rather than new code. Three files arrive under `src/gridbased/`:
+  `src/gridbased/collisions.jl`, whose working form is described under *Bug Fixes* above.
+  Three files arrive under `src/gridbased/`:
 
   - `reduced_tensors.jl` — `PotentialReducedTensor`, `VelocityReducedMatrix` and
     `FullyReducedTensor`, which project a `GeometricBrackets.PoissonTensor` onto reduced bases in

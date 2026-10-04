@@ -263,19 +263,20 @@ takes the next `K<n>`.
 - **kind:** docs
 - **found:** #61
 
-### K27 · The collision stencils wrap the bounded `v`-grid periodically
+### K27 · The collision stencils wrap the bounded `v`-grid periodically.
 
-- **location:** `src/gridbased/collisions.jl:64`
-- **evidence:** The four `v`-stencils — `QuadraticCollisions`' call operator (`:64-65`),
-  `ReducedCollisionTensor`'s `getindex` (`:130-131`) and the two `_get_MC̃_*` assemblers
-  (`:185-186`, `:234-235`) — wrap with `mod1`, but the `v`-grid is bounded. At the wrap the second
+- **location:** `src/gridbased/collisions.jl:66`
+- **evidence:** The four `v`-stencils — `QuadraticCollisions`' call operator (`:66-67`),
+  `ReducedCollisionTensor`'s `getindex` (`:132-133`) and the two `_get_MC̃_*` assemblers
+  (`:187-188`, `:237-238`) — wrap with `mod1`, but the `v`-grid is bounded. At the wrap the second
   difference of `v` does not vanish, so the two ends couple. Every conservation claim of the two
   docstrings is conditional on `f` vanishing at the ends of the `v`-grid to `eps(T)`. On a grid
-  that does not vanish there, the cubic momentum drifts: on `nx = 4` with
-  `v = range(-3, 3; length = 5)`, for the shifted Maxwellian of the check-5 test, the end value is
-  `0.21` of the maximum and the relative momentum drift over ten RK4 steps is `3.7e-3`, against
-  `eps(T)` on the `range(-10, 10; length = 25)` grid of that test. No code in the file treats
-  the boundary of the `v`-grid.
+  that does not vanish there, the moments drift: on `nx = 4` with
+  `v = range(-3, 3; length = 5)`, for the shifted Maxwellian of the invariants testset in
+  `test/gridbased/collisions.jl`, the end value is `0.21` of the maximum. Over ten RK4 steps the
+  relative drift of the cubic form is `3.7e-3` in the momentum and `2.9e-3` in the energy, and
+  that of the quadratic form is `1.1e-3` in the energy, against `eps(T)` on the
+  `range(-10, 10; length = 25)` grid of that testset. No code in the file treats the boundary of
+  the `v`-grid.
 - **kind:** defect
-- **found:** 2026-10-03. Carried from ReducedBasisMethods, and recorded when the operator was
-  repaired.
+- **found:** #62. Carried from ReducedBasisMethods, and recorded when the operator was repaired.

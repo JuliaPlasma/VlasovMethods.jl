@@ -33,7 +33,7 @@ function Base.getindex(ct::CollisionTensor, i::Int, j::Int, k::Int)
     ct.f(I, J, K)
 end
 
-struct QuadraticCollisions{DT, VT <: AbstractVector}
+struct QuadraticCollisions{DT, VT <: AbstractVector{DT}}
     nx::Int
     nv::Int
     hx::DT
@@ -41,10 +41,12 @@ struct QuadraticCollisions{DT, VT <: AbstractVector}
     v::VT
 
     function QuadraticCollisions(
-            nx::Int, nv::Int, hx::DT, hv::DT, v::VT) where {DT, VT <: AbstractVector}
+            nx::Int, nv::Int, hx::DT, hv::DT, v::VT) where {DT, VT <: AbstractVector{DT}}
         nv ≥ 3 || throw(ArgumentError(
             "nv = $nv is too small: at nv = 2 the two neighbours of a node coincide, so the " *
             "quadratic collision stencil is ambiguous"))
+        length(v) == nv || throw(DimensionMismatch(
+            "v has $(length(v)) entries, the velocity grid has $nv"))
         new{DT, VT}(nx, nv, hx, hv, v)
     end
 end
@@ -153,16 +155,16 @@ end
 
 Assemble the cubic, four-index collision tensor `MC̃[o, a, b, c]` on the `n₁ × n₂` phase-space
 grid, from the evaluation matrix `V`, the three moment matrices `∫dv`, `∫vdv` and `∫v²dv` of the
-rectangle rule, the velocity grid `v`, the index arrays `ci` and `li` and the grid widths `h₁` and
-`h₂`.
+rectangle rule, the velocity grid `v`, the `CartesianIndices` `ci` and the `LinearIndices` `li` of
+the `n₁ × n₂` grid, and the grid widths `h₁` and `h₂`.
 
 `v` holds one entry per velocity node, so the call throws a `DimensionMismatch` under
 `length(v) ≠ size(ci, 2)`. The tensor has the element type `eltype(V)`.
 
 Contracted with the grid values, `Q₃[o] = Σ MC̃[o, a, b, c] f[a] f[b] f[c]` is the Galerkin form of
 `ρ²·C[f]`. It conserves the discrete moments `∫dv·f`, `∫vdv·f` and `∫v²dv·f` — the mass, the
-momentum and the energy — while `f` vanishes at the ends of the `v`-grid to `eps(T)`. The four
-`v`-stencils wrap the bounded grid with `mod1`, so a non-negligible end value breaks the
+momentum and the energy — while `f` vanishes at the ends of the `v`-grid to `eps(T)`. The
+`v`-stencil wraps the bounded grid with `mod1`, so a non-negligible end value breaks the
 conservation.
 """
 function _get_MC̃_cubic(V, ∫dv, ∫vdv, ∫v²dv, v::AbstractVector, ci, li, h₁, h₂)
@@ -213,7 +215,8 @@ element type `eltype(V)`.
 Contracted with the grid values, `Q₂[o] = Σ MC̃[o, a, c] f[a] f[c]` is the Galerkin form of
 `ρ²·C[f]` without the `ρ̂u` term. It conserves the mass `∫dv·f` and the energy `∫v²dv·f`, but not
 the momentum `∫vdv·f`: it pulls the mean velocity toward `v = 0`, by a relative `1.3e-2` over ten
-RK4 steps of `Δt = 10⁻³` from a shifted Maxwellian on `nx = 2`, `v = range(-10, 10; length = 25)`.
+RK4 steps of `Δt = 10⁻³` on `nx = 2`, `v = range(-10, 10; length = 25)`, from the shifted
+Maxwellian of the invariants testset in `test/gridbased/collisions.jl`.
 The moments are conserved only while `f` vanishes at the ends of the `v`-grid to `eps(T)`.
 """
 function _get_MC̃_quadratic(V, ∫dv, ∫vdv, ∫v²dv, v::AbstractVector, ci, li, h₁, h₂)

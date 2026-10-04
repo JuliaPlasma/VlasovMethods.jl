@@ -3,9 +3,8 @@ using LinearAlgebra
 using Test
 
 const multiindex = VlasovMethods.multiindex
-const linearindex = VlasovMethods.linearindex
 
-# --- helpers for the invariant test (check 5) ---------------------------------
+# --- helpers for the invariants testset ----------------------------------------
 
 # the cubic contraction Q₃[o] = Σ MC̃_cubic[o, a, b, c] f[a] f[b] f[c]
 function _contract_cubic!(Q, MC, f)
@@ -84,7 +83,7 @@ end
 
 _relative_drift(a, b) = norm(b .- a) / norm(a)
 
-# Function barriers for the allocation assertions of check 4: the argument is concrete, and the
+# Function barriers for the allocation assertions: the argument is concrete, and the
 # call runs once before `@allocated` measures it. For the function argument `f::F`, the `where`
 # clause forces specialization: without it the call would dispatch dynamically and allocate on
 # its own.
@@ -100,7 +99,7 @@ _alloc_call1(f::F, a::A) where {F, A} = (f(a); @allocated f(a))
 @testset "Collisions" begin
     # every test below runs in Float32 and Float64 with nx ≠ nv and nv ≥ 3
     for T in (Float32, Float64)
-        @testset "check 1: CollisionTensor indexing and the hand projection" begin
+        @testset "CollisionTensor indexing and the projection of ReducedCollisionTensor" begin
             nx, nv = 3, 5
             v = collect(range(T(-3), T(3); length = nv))
             hx = one(T) / nx
@@ -114,7 +113,8 @@ _alloc_call1(f::F, a::A) where {F, A} = (f(a); @allocated f(a))
             @test all(ct[i, j, k] == qc(multiindex(i, nx, nv), multiindex(j, nx, nv),
                           multiindex(k, nx, nv)) for i in 1:N, j in 1:N, k in 1:N)
 
-            # the hand projection with three different projection matrices
+            # the projection with three different projection matrices, against the dense sum
+            # over all N³ entries, which does not share the stencil of the sparse loop
             # (the one-argument constructor would set all three equal and hide a swap)
             Pi = T[sin(T(0.3) * (a + b)) for a in 1:N, b in 1:2]
             Pj = T[cos(T(0.7) * (a + 2b)) for a in 1:N, b in 1:3]
@@ -122,27 +122,13 @@ _alloc_call1(f::F, a::A) where {F, A} = (f(a); @allocated f(a))
             rt = VlasovMethods.ReducedCollisionTensor(ct, Pi, Pj, Pk)
             @test size(rt) == (2, 3, 2)
             for i in axes(rt, 1), j in axes(rt, 2), k in axes(rt, 3)
-                hand = zero(T)
-                for m1 in 1:nx, m2 in 1:nv
-
-                    m2₋ = mod1(m2 - 1, nv)
-                    m2₊ = mod1(m2 + 1, nv)
-                    for o2 in (m2₋, m2, m2₊), n2 in 1:nv
-
-                        M = CartesianIndex(m1, m2)
-                        Nn = CartesianIndex(m1, n2)
-                        O = CartesianIndex(m1, o2)
-                        m = linearindex(M, nx, nv)
-                        n = linearindex(Nn, nx, nv)
-                        o = linearindex(O, nx, nv)
-                        hand += qc(M, Nn, O) * Pi[m, i] * Pj[n, j] * Pk[o, k]
-                    end
-                end
-                @test rt[i, j, k] ≈ hand rtol = sqrt(eps(T))
+                dense = sum(ct[m, n, o] * Pi[m, i] * Pj[n, j] * Pk[o, k]
+                for m in 1:N, n in 1:N, o in 1:N)
+                @test rt[i, j, k] ≈ dense rtol = sqrt(eps(T))
             end
         end
 
-        @testset "check: the stencil matches the assembler on the same grid" begin
+        @testset "the stencil matches the assembler on the same grid" begin
             nx, nv = 3, 5
             v = collect(range(T(-3), T(3); length = nv))
             hv = (v[end] - v[1]) / (nv - 1)
@@ -161,7 +147,7 @@ _alloc_call1(f::F, a::A) where {F, A} = (f(a); @allocated f(a))
             @test all(ct[o, a, c] ≈ hv * MC2[o, a, c] for o in 1:N, a in 1:N, c in 1:N)
         end
 
-        @testset "check 2: the fields of QuadraticCollisions" begin
+        @testset "the fields of QuadraticCollisions" begin
             nx, nv = 3, 5
             v = collect(range(T(-3), T(3); length = nv))
             @test fieldnames(VlasovMethods.QuadraticCollisions) == (:nx, :nv, :hx, :hv, :v)
@@ -171,7 +157,7 @@ _alloc_call1(f::F, a::A) where {F, A} = (f(a); @allocated f(a))
             @test qc.nx == nx && qc.nv == nv
         end
 
-        @testset "check 3: the v argument of the two assemblers" begin
+        @testset "the v argument of the two assemblers" begin
             nx, nv = 4, 5
             v = collect(range(T(-3), T(3); length = nv))
             N = nx * nv
@@ -199,7 +185,7 @@ _alloc_call1(f::F, a::A) where {F, A} = (f(a); @allocated f(a))
                 V, ∫dv, ∫vdv, ∫v²dv, vcat(v, v[end]), ci, li, hx, hv)
         end
 
-        @testset "check 4: the tensor paths are concrete, inferred and allocation-free" begin
+        @testset "the tensor paths are concrete, inferred and allocation-free" begin
             nx, nv = 3, 5
             v = collect(range(T(-3), T(3); length = nv))
             hv = (v[end] - v[1]) / (nv - 1)
@@ -230,7 +216,7 @@ _alloc_call1(f::F, a::A) where {F, A} = (f(a); @allocated f(a))
             @test _alloc_call1(collect, v) > 0   # the control: the barrier sees an allocation
         end
 
-        @testset "check 5: the invariants of the two forms" begin
+        @testset "the invariants of the two forms" begin
             nx, nv = 2, 25
             v = collect(range(T(-10), T(10); length = nv))
             hv = (v[end] - v[1]) / (nv - 1)
@@ -278,7 +264,7 @@ _alloc_call1(f::F, a::A) where {F, A} = (f(a); @allocated f(a))
         end
     end
 
-    @testset "check 5: the docstrings name the invariants" begin
+    @testset "the docstrings name the invariants" begin
         cubic = string(@doc VlasovMethods._get_MC̃_cubic)
         quadratic = string(@doc VlasovMethods._get_MC̃_quadratic)
         @test occursin("mass", cubic) && occursin("momentum", cubic) &&
@@ -287,20 +273,25 @@ _alloc_call1(f::F, a::A) where {F, A} = (f(a); @allocated f(a))
         @test occursin("momentum", quadratic)
     end
 
-    @testset "check 6: the docstrings state the v-end requirement" begin
+    @testset "the docstrings state the v-end requirement" begin
         cubic = string(@doc VlasovMethods._get_MC̃_cubic)
         quadratic = string(@doc VlasovMethods._get_MC̃_quadratic)
         @test occursin("vanish", cubic) && occursin("ends", cubic)
         @test occursin("vanish", quadratic) && occursin("ends", quadratic)
     end
 
-    @testset "edges: nv < 3 is rejected" begin
+    @testset "edges: nv < 3, length(v) ≠ nv and eltype(v) ≠ DT are rejected" begin
         for T in (Float32, Float64)
             v = collect(range(T(-3), T(3); length = 3))
+            hv = (v[end] - v[1]) / 2
             for nv in (1, 2)
                 @test_throws ArgumentError VlasovMethods.QuadraticCollisions(
-                    3, nv, one(T) / 3, (v[end] - v[1]) / 2, v[1:nv])
+                    3, nv, one(T) / 3, hv, v[1:nv])
             end
+            @test_throws DimensionMismatch VlasovMethods.QuadraticCollisions(
+                3, 4, one(T) / 3, hv, v)
+            @test_throws MethodError VlasovMethods.QuadraticCollisions(
+                3, 3, one(T) / 3, hv, big.(v))
         end
     end
 end
