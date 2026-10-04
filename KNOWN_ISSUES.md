@@ -405,3 +405,16 @@ takes the next `K<n>`.
   collision dedupe, which names it as the fallback its pin must catch.
 - **kind:** dead code
 - **found:** 2026-10-04
+
+### K40 · Each metriplectic Picard step builds a fresh `SimpleSolvers` solver and its unused Jacobian cache.
+
+- **location:** `src/models/lenard_bernstein_metriplectic.jl:337`
+- **evidence:** `Picard_iterate_over_particles` constructs a fresh
+  `SimpleSolvers.NonlinearSolver(Picard(), …)` on every call. The constructor allocates an `N×N`
+  `solver.cache.j` and a `ForwardDiff.JacobianConfig` the unaccelerated Picard step never reads:
+  measured `126288 B` at `N = 64` and `96629344 B` at `N = 2000` per step. The solver's type also
+  leaves the chunk size open, so `solve_with_status!` is one dynamic dispatch per call. The return
+  type is concrete and `@inferred` passes. Avoiding the allocation needs the solver to be reused
+  across steps (an API change) or an upstream change to the Picard constructor's cache.
+- **kind:** defect
+- **found:** 2026-10-04

@@ -87,9 +87,11 @@ first entry is written.
   normal with mean `1/2` and standard deviation `1/(2π)`, so the test now draws from that
   directly, redrawing the ~0.17% of points that fall outside the domain.
 
-- **`[compat]` bounds a dependency that had none.** `Parameters` gains `0.13`. That is all that
-  is left of the eight open CompatHelper requests: the other seven name a dependency this release
-  deletes — `NonlinearSolve = "4"` among them, since `NonlinearSolve` itself leaves `[deps]`.
+- **`[compat]` bounds two dependencies that had none.** `SimpleSolvers = "0.13"` is new
+  (CompatHelper #32, restored for the metriplectic solve), and `Parameters` gains `0.13`. Those are
+  all that is left of the eight open CompatHelper requests: the other six still name a dependency
+  this release deletes — `NonlinearSolve = "4"` is now among them, since `NonlinearSolve` itself
+  leaves `[deps]`, while `SimpleSolvers` leaves that group because it returns.
 
 - **`PoissonSolvers` and `StaticArrays` are no longer listed in `[extras]`.** Both are genuine
   `src/` dependencies and are already in `[deps]`, where the test environment picks them up.
@@ -118,9 +120,9 @@ first entry is written.
   name for in `Picard_iterate_Landau_nls!` goes with it. The solve no longer prints `@time` or an
   NLsolve trace, and it throws when it does not converge or meets a non-finite residual, giving
   the residual norm and the iteration count. The convergence test is
-  `(f_settled && ‖F‖₂ ≤ abstol + reltol·‖F₀‖) || ‖F‖₂ ≤ abstol`, where `NLsolve` used
-  `maximum(abs, F)`; the drivers set `reltol = 1e-50`, so it reduces to `‖F‖₂ ≤ abstol`, which is
-  stricter than the old test and can turn a former success into a throw.
+  `((x_settled || f_settled) && ‖F‖₂ ≤ abstol + reltol·‖F₀‖) || ‖F‖₂ ≤ abstol`, where
+  `NLsolve` used `maximum(abs, F)`; the drivers set `reltol = 1e-50`, so it reduces to
+  `‖F‖₂ ≤ abstol`, which is stricter than the old test and can turn a former success into a throw.
   `Picard_iterate_over_particles` now returns the solved velocity vector instead of an NLsolve
   solution object, so a caller that read `.u` or `SciMLBase.successful_retcode` changes, and it
   gains a `maxiters` keyword (default `1000`). A one-step pin test in
