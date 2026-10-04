@@ -34,6 +34,16 @@ first entry is written.
   `run!(::SplittingMethod, h5file)` does, and its output is bit-identical to
   `GeometricIntegrators.integrate` on the same problem.
 
+- **The grid collision operator works.** `CollisionTensor` is indexed by three
+  `CartesianIndex`es or three `Int`s, returning `ct.f(I, J, K)`; `ReducedCollisionTensor`
+  projects it. `QuadraticCollisions(nx, nv, hx, hv, v)` has `v` as a type parameter
+  `VT <: AbstractVector{DT}`, throws `DimensionMismatch` if `length(v) ≠ nv`, and
+  `ArgumentError` if `nv < 3` (at `nv = 2` the neighbours coincide). Both
+  `_get_MC̃_cubic` and `_get_MC̃_quadratic` take the velocity grid as their fifth argument,
+  throw `DimensionMismatch` when `length(v) ≠ size(ci, 2)`, and return `eltype(V)` tensors.
+  The `v`-stencils wrap the bounded grid periodically; conservation holds only while `f`
+  vanishes at the ends, recorded in `KNOWN_ISSUES.md` (K27). K2 is closed.
+
 - **`d(x, v)` with scalar arguments threw `MethodError`.** The `Vararg` call operator of every
   `DistributionFunction` used `view` on a `Tuple`, which does not support it. It now builds the two
   `SVector`s directly.
@@ -229,6 +239,40 @@ first entry is written.
   rejects outright; the five dependencies still carrying no `[compat]` bound are what remains
   before the package can be registered, and they are recorded under *Open Issues*.
 
+- **`DiffEqIntegrator` and the `DifferentialEquations` paths it ran are gone.**
+  `DifferentialEquations` was never imported — `src/VlasovMethods.jl` carried its `import` only as
+  a comment — so every `DifferentialEquations.ODEProblem` and `DifferentialEquations.solve` call
+  threw `UndefVarError` when reached. The exported type, its `run!` and `run` methods, the file
+  `src/methods/diffeq_integrator.jl`, and the `DiffEqIntegrator` constructor methods for
+  `LenardBernstein{1,1}` and `ConservativeLenardBernstein{1,1}` are deleted.
+  `scripts/lenard_bernstein.jl:30` still calls the deleted constructor, recorded in
+  `KNOWN_ISSUES.md` K20.
+
+- **`run` is no longer exported.** Its only method was in the deleted `DiffEqIntegrator`
+  type; removing the export keeps `names(VlasovMethods)` from listing `Base.run`. Line 37
+  of `scripts/lenard_bernstein.jl` calling `VlasovMethods.run` now resolves to `Base.run`,
+  also recorded in `KNOWN_ISSUES.md` K20.
+
+### Removals
+
+- **Five dead `src/` files are deleted.** `vlasov_poisson.jl`, `electric_field.jl` and
+  `visualisation.jl` were included by nothing and had only commented-out `include` and `export`
+  lines; `methods/lbm_solver.jl` was included by nothing and duplicated the `IM_rule!` method
+  of `src/methods/Landau_solver.jl` (same signature and body); `examples/twostream.jl` was
+  included but held a newline and no code. The `include` and `export` lines that named them in
+  `src/VlasovMethods.jl` go with them, as does the commented `# include("sampling.jl")` and
+  `# export` block at the end of that file. The `@safetestset "Electric Fields"` line of
+  `test/runtests.jl` goes too, since its `test/electric_field.jl` covered the deleted source. A
+  sixth orphan the audit named, `src/hdf5.jl`, exists in no commit, so there is nothing to
+  delete. This covers `KNOWN_ISSUES.md` K12, which leaves the file.
+
+- **`lorentz_force!` is deleted.** It evaluated the field through `update_potential!`, which
+  projects `model.distribution` and never the stepped `z`, so the self-consistent field stayed
+  frozen at its initial value. No code called it.
+
+- **`CLB_rhs!` is deleted.** Deleting the `DiffEqIntegrator` constructors left it with no caller,
+  and its body duplicated `CLB_rhs_GI!`; its sign-convention docstring moves to `CLB_rhs_GI!`.
+
 ### New Features
 
 - **`GridDistribution`, the distribution function on a 1D1V phase-space grid.** It is a third
@@ -253,11 +297,8 @@ first entry is written.
 
 - **The reduced phase-space tensors and velocity moments, imported from ReducedBasisMethods.**
   Every function and struct body is byte-identical to its source, except
-  `src/gridbased/collisions.jl`: its `CollisionTensor`'s `getindex` assertions
-  changed from `@assert isvalid(I, ct.nx, ct.nv)` to `@assert I in
-  CartesianIndices((ct.nx, ct.nv))`, and the same for `J` and `K`, because
-  `MultiIndexArrays` 0.1.1 no longer defines `isvalid`. The diff reviews as a
-  move rather than new code. Three files arrive under `src/gridbased/`:
+  `src/gridbased/collisions.jl`, whose working form is described under *Bug Fixes* above.
+  Three files arrive under `src/gridbased/`:
 
   - `reduced_tensors.jl` — `PotentialReducedTensor`, `VelocityReducedMatrix` and
     `FullyReducedTensor`, which project a `GeometricBrackets.PoissonTensor` onto reduced bases in
@@ -269,8 +310,8 @@ first entry is written.
     the source file went to `PoissonSolvers` instead.
   - `collisions.jl` — `CollisionTensor`, `QuadraticCollisions`, `ReducedCollisionTensor` and
     the two `_get_MC̃_*` assemblers. ReducedBasisMethods never included this file, so none of
-    it was reachable there. It **is** included here, and the four names are defined in the
-    module, but two of them still fault when called — see *Open Issues*.
+    it was reachable there. It **is** included here, and these five names are defined in the
+    module; the run-time faults they arrived with are repaired under *Bug Fixes* above.
 
   New dependencies: `GeometricBrackets`, for the `PoissonTensor` the three tensors wrap and the
   `_nx` / `_nv` accessors they extend, and `MultiIndexArrays`, for `multiindex` and

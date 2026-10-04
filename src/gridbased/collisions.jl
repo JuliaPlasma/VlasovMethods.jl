@@ -17,7 +17,7 @@ _nx(t::CollisionTensor) = t.nx
 _nv(t::CollisionTensor) = t.nv
 
 function Base.getindex(ct::CollisionTensor, I::CartesianIndex,
-        J::CartesianIndex, K::CartesianIndex, L::CartesianIndex)
+        J::CartesianIndex, K::CartesianIndex)
     @assert I in CartesianIndices((ct.nx, ct.nv))
     @assert J in CartesianIndices((ct.nx, ct.nv))
     @assert K in CartesianIndices((ct.nx, ct.nv))
@@ -30,20 +30,24 @@ function Base.getindex(ct::CollisionTensor, i::Int, j::Int, k::Int)
     J = multiindex(j, ct.nx, ct.nv)
     K = multiindex(k, ct.nx, ct.nv)
 
-    ct[I, J, K, L]
+    ct.f(I, J, K)
 end
 
-struct QuadraticCollisions{DT}
+struct QuadraticCollisions{DT, VT <: AbstractVector{DT}}
     nx::Int
     nv::Int
     hx::DT
     hv::DT
-    v::AbstractVector
-    factor::DT
+    v::VT
 
     function QuadraticCollisions(
-            nx::Int, nv::Int, hx::DT, hv::DT, v::AbstractVector) where {DT}
-        new{DT}(nx, nv, hx, hv, v)
+            nx::Int, nv::Int, hx::DT, hv::DT, v::VT) where {DT, VT <: AbstractVector{DT}}
+        nv ≥ 3 || throw(ArgumentError(
+            "nv = $nv is too small: at nv = 2 the two neighbours of a node coincide, so the " *
+            "quadratic collision stencil is ambiguous"))
+        length(v) == nv || throw(DimensionMismatch(
+            "v has $(length(v)) entries, the velocity grid has $nv"))
+        new{DT, VT}(nx, nv, hx, hv, v)
     end
 end
 
@@ -146,14 +150,33 @@ function Base.getindex(rt::ReducedCollisionTensor{DT}, i::Int, j::Int, k::Int) w
     return r
 end
 
-function _get_MC̃_cubic(V, ∫dv, ∫vdv, ∫v²dv, ci, li, h₁, h₂)
+"""
+    _get_MC̃_cubic(V, ∫dv, ∫vdv, ∫v²dv, v, ci, li, h₁, h₂)
+
+Assemble the cubic, four-index collision tensor `MC̃[o, a, b, c]` on the `n₁ × n₂` phase-space
+grid, from the evaluation matrix `V`, the three moment matrices `∫dv`, `∫vdv` and `∫v²dv` of the
+rectangle rule, the velocity grid `v`, the `CartesianIndices` `ci` and the `LinearIndices` `li` of
+the `n₁ × n₂` grid, and the grid widths `h₁` and `h₂`.
+
+`v` holds one entry per velocity node, so the call throws a `DimensionMismatch` under
+`length(v) ≠ size(ci, 2)`. The tensor has the element type `eltype(V)`.
+
+Contracted with the grid values, `Q₃[o] = Σ MC̃[o, a, b, c] f[a] f[b] f[c]` is the Galerkin form of
+`ρ²·C[f]`. It conserves the discrete moments `∫dv·f`, `∫vdv·f` and `∫v²dv·f` — the mass, the
+momentum and the energy — while `f` vanishes at the ends of the `v`-grid to `eps(T)`. The
+`v`-stencil wraps the bounded grid with `mod1`, so a non-negligible end value breaks the
+conservation.
+"""
+function _get_MC̃_cubic(V, ∫dv, ∫vdv, ∫v²dv, v::AbstractVector, ci, li, h₁, h₂)
     local n₁, n₂ = size(ci)
     local n = n₁ * n₂
     local m = size(V, 2)
 
     @assert size(V, 1) == n
+    length(v) == n₂ || throw(DimensionMismatch(
+        "v has $(length(v)) entries, the velocity grid has $n₂"))
 
-    MC̃ = zeros(m, m, m, m)
+    MC̃ = zeros(eltype(V), m, m, m, m)
 
     ρ̂ = Matrix(∫dv * V)
     ρ̂u = Matrix(∫vdv * V)
@@ -181,14 +204,31 @@ function _get_MC̃_cubic(V, ∫dv, ∫vdv, ∫v²dv, ci, li, h₁, h₂)
     return MC̃
 end
 
-function _get_MC̃_quadratic(V, ∫dv, ∫vdv, ∫v²dv, ci, li, h₁, h₂)
+"""
+    _get_MC̃_quadratic(V, ∫dv, ∫vdv, ∫v²dv, v, ci, li, h₁, h₂)
+
+Assemble the quadratic, three-index collision tensor `MC̃[o, a, c]` on the `n₁ × n₂` phase-space
+grid, from the same arguments as `_get_MC̃_cubic`. `v` holds one entry per velocity node, so
+the call throws a `DimensionMismatch` under `length(v) ≠ size(ci, 2)`, and the tensor has the
+element type `eltype(V)`.
+
+Contracted with the grid values, `Q₂[o] = Σ MC̃[o, a, c] f[a] f[c]` is the Galerkin form of
+`ρ²·C[f]` without the `ρ̂u` term. It conserves the mass `∫dv·f` and the energy `∫v²dv·f`, but not
+the momentum `∫vdv·f`: it pulls the mean velocity toward `v = 0`, by a relative `1.3e-2` over ten
+RK4 steps of `Δt = 10⁻³` on `nx = 2`, `v = range(-10, 10; length = 25)`, from the shifted
+Maxwellian of the invariants testset in `test/gridbased/collisions.jl`.
+The moments are conserved only while `f` vanishes at the ends of the `v`-grid to `eps(T)`.
+"""
+function _get_MC̃_quadratic(V, ∫dv, ∫vdv, ∫v²dv, v::AbstractVector, ci, li, h₁, h₂)
     local n₁, n₂ = size(ci)
     local n = n₁ * n₂
     local m = size(V, 2)
 
     @assert size(V, 1) == n
+    length(v) == n₂ || throw(DimensionMismatch(
+        "v has $(length(v)) entries, the velocity grid has $n₂"))
 
-    MC̃ = zeros(m, m, m)
+    MC̃ = zeros(eltype(V), m, m, m)
     ρ̂ε = Matrix(∫v²dv * V)
     ρ̂ = Matrix(∫dv * V)
 

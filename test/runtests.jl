@@ -15,7 +15,6 @@ if "core" in GROUPS
     @safetestset "Landau Solver" include("integration/landau_solver.jl")
     @safetestset "Metriplectic Solve" include("integration/metriplectic_solve.jl")
     @safetestset "Vlasov–Poisson" include("integration/vlasov_poisson.jl")
-end
-if "broken" in GROUPS
-    @safetestset "Electric Fields" include("electric_field.jl")   # issue #56
+    @safetestset "Names" include("integration/names.jl")
+    @safetestset "Collisions" include("gridbased/collisions.jl")
 end

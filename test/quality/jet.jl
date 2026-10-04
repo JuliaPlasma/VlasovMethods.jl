@@ -39,6 +39,22 @@ if isdefined(JET, :JET_AVAILABLE) ? JET.JET_AVAILABLE : JET.JET_LOADABLE
     @test isempty(JET.get_reports(JET.report_opt(s_acceleration!,
         (typeof(pż), Float64, typeof(pz), Float64, typeof(pparams));
         target_modules = (VlasovMethods,))))
+
+    # test/gridbased/collisions.jl: the three hot index paths, asserted `@allocated == 0`
+    nx, nv = 3, 5
+    vc = collect(range(-3.0, 3.0; length = nv))
+    qc = VlasovMethods.QuadraticCollisions(
+        nx, nv, 1.0 / nx, (vc[end] - vc[1]) / (nv - 1), vc)
+    ct = VlasovMethods.CollisionTensor(Float64, nx, nv, qc)
+    Nc = nx * nv
+    rt = VlasovMethods.ReducedCollisionTensor(ct, ones(Nc, 2), ones(Nc, 3), ones(Nc, 2))
+    @test isempty(JET.get_reports(JET.report_opt(qc,
+        (CartesianIndex{2}, CartesianIndex{2}, CartesianIndex{2});
+        target_modules = (VlasovMethods,))))
+    @test isempty(JET.get_reports(JET.report_opt(getindex,
+        (typeof(ct), Int, Int, Int); target_modules = (VlasovMethods,))))
+    @test isempty(JET.get_reports(JET.report_opt(getindex,
+        (typeof(rt), Int, Int, Int); target_modules = (VlasovMethods,))))
 else
     @test_skip "JET does not work on this Julia version"  # aviatesk/JET.jl#681
 end

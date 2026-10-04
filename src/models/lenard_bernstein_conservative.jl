@@ -195,18 +195,6 @@ which is `eq:velocity_ode` of the Lenard-Bernstein manuscript **with the opposit
     homogeneous, so no published result changes; but the ODE as typeset relaxes backwards in
     time.
 """
-function CLB_rhs!(v̇, v::AbstractVector{ST}, params, t) where {ST}
-    # `.sdist`: the cache is a CLBCache, not a SplineDistribution, so the projection below
-    # would have been a MethodError.
-    dist = params.model.cache[ST].sdist
-
-    fs = projection(v, params.idist, dist)
-    dfdv = derivative(fs)
-
-    A = compute_coefficients(dist, params.idist, v)
-    v̇ .= -params.ν .* (dfdv.(v) ./ fs.(v) .+ (A[1] .+ A[2] .* v))
-end
-
 function CLB_rhs_GI!(v, t, q::AbstractArray{ST}, params) where {ST}
     dist = params.model.cache[ST].sdist
 
@@ -227,25 +215,6 @@ function CLB_rhs(v::AbstractVector{ST}, params, fs::Spline) where {ST}
     A = compute_coefficients(dist, params.idist, v)
 
     return -params.ν .* (dfdv.(v) ./ fs.(v) .+ (A[1] .+ A[2] .* v))
-end
-
-function DiffEqIntegrator(model::ConservativeLenardBernstein{1, 1}, tspan::Tuple, tstep::Real)
-    # parameters for computing vector field
-    params = (ν = model.ν, idist = model.dist, fdist = model.ent.dist, model = model)
-    # u0 = copy(model.dist.particles.v[1,:])
-    # construct DifferentialEquations ODEProblem
-    equ = DifferentialEquations.ODEProblem(
-        CLB_rhs!,
-        copy(model.dist.particles.v[1, :]),
-        tspan,
-        params
-    )
-
-    # choose integrator
-    # int = DifferentialEquations.TRBDF2()
-    int = DifferentialEquations.Trapezoid()
-
-    DiffEqIntegrator(model, equ, int, tstep)
 end
 
 function GeometricIntegrator(model::ConservativeLenardBernstein, tspan::Tuple, tstep::Real)
