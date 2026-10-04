@@ -161,10 +161,8 @@ takes the next `K<n>`.
 - **evidence:** `fatou lint --force-exclude --output concise .` reports seven `unused-binding`
   locals — `scripts/bump_on_tail.jl:47`, `scripts/lenard_bernstein_metriplectic_scaling.jl:38`
   and `:49`, `src/gridbased/moments.jl:18`, `src/gridbased/reduced_tensors.jl:210`,
-  `test/distributions/spline_distribution.jl:74` and `:76` — and no `unused-import`. The nine
-  `unused-import` false positives on the module file that this entry once recorded no longer
-  reproduce; `ExplicitImports` agrees with the imports it keeps. An earlier version of this
-  changelog and of the pull request described `fatou lint` as clean, which was not reproducible.
+  `test/distributions/spline_distribution.jl:74` and `:76` — and no `unused-import`.
+  `ExplicitImports` agrees with the imports the module file keeps.
 - **kind:** dead code
 - **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
   migration. None of these are regressions; each is either a numerical-methods decision or work
@@ -229,26 +227,6 @@ takes the next `K<n>`.
 - **kind:** defect
 - **found:** #60
 
-### K20 · The Lenard–Bernstein metriplectic scripts read the removed NLsolve solution object.
-
-- **location:** `scripts/lenard_bernstein_metriplectic.jl:78`
-- **evidence:** `Picard_iterate_over_particles` returns the solved velocity vector, not an NLsolve
-  solution object, so `scripts/lenard_bernstein_metriplectic.jl:78-91` (which reads
-  `sol_object.u`) and `scripts/lenard_bernstein_metriplectic_scaling.jl:93,104` (which reads
-  `SciMLBase.successful_retcode`) fail. The scripts are part P46's rewrite.
-- **kind:** found late
-- **found:** 2026-10-04
-
-### K21 · The metriplectic Picard solve carries an unused acceleration depth and damping.
-
-- **location:** `src/models/lenard_bernstein_metriplectic.jl:298`
-- **evidence:** The signature of `Picard_iterate_over_particles` still takes the acceleration
-  depth `m` and the damping `β`, which only the removed `NLsolveJL(; m = m, beta = β)` used. The
-  `SimpleSolvers` Picard step takes neither. The signature keeps both for its callers (the
-  scripts, P46's) rather than change the positional API.
-- **kind:** dead code
-- **found:** 2026-10-04
-
 ### K22 · `SimpleSolvers` is bounded to `0.13` and so excludes the released `0.14`.
 
 - **location:** `Project.toml:43`
@@ -260,4 +238,15 @@ takes the next `K<n>`.
   worktree's manifest pins 0.13.3, so no local run exercises 0.14, and the bound stays narrow
   until one does.
 - **kind:** not verified
+- **found:** 2026-10-04
+
+### K23 · A metriplectic Picard step whose particles leave the velocity domain stops with the model's `DomainError`.
+
+- **location:** `src/models/lenard_bernstein_metriplectic.jl:348`
+- **evidence:** With `ν = 1e6` at `ti = 4`, all 64 particles leave the `-2.0 .. 2.0` velocity
+  support and `projection` throws `DomainError: … 64 of 64 particles left the velocity domain …`
+  from inside the solve. The catch at `:348` rethrows it, so the caller sees that `DomainError`
+  and not the residual-and-count `ErrorException` the author decided for a solve that does not
+  converge or meets a `NaN`. The error is loud, so the solve never returns in silence.
+- **kind:** found late
 - **found:** 2026-10-04

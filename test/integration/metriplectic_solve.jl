@@ -127,4 +127,14 @@ const REFERENCE_V = parse.(Float64, readlines(REFERENCE))
         @test captured.captures[2] == "1"
         @test isnan(parse(Float64, captured.captures[1]))
     end
+
+    # The catch above rethrows every exception that is not a `NonlinearSolverException`. A large
+    # collision frequency drives the particles out of the velocity support, and the projection
+    # then throws its own `DomainError` from inside the solve; it must reach the caller unchanged.
+    @testset "an exception from the model reaches the caller" begin
+        mlb, v0 = metriplectic_setup(Float64)
+        fastmlb = MetriplecticLenardBernstein(mlb.dist, mlb.entropy; ν = 1e6)
+        caught = solve_outcome(step_args(v0, fastmlb, abstol_float64(), Float64; ti = 4)...)
+        @test caught isa DomainError
+    end
 end

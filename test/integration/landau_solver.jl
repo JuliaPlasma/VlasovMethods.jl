@@ -3,9 +3,8 @@ using SimpleSplines: TensorProductQuadrature
 using Test
 using VlasovMethods
 
-# `src/methods/Landau_solver.jl` constructed a `NonlinearSolve.NonlinearProblem` that it never
-# solved. `NonlinearSolve` is not a dependency, so without this call the constructor throws
-# `UndefVarError` and no other test reaches the function.
+# No other test calls `Picard_iterate_Landau_nls!`. This call fails on any undefined global in
+# its body.
 @testset "the Landau Picard solver runs" begin
     n1 = 16
     npart = n1^2
