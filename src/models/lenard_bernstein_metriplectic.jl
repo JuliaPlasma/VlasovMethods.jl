@@ -325,19 +325,15 @@ function Picard_iterate_over_particles(dv::AbstractArray{ST}, vn::AbstractArray{
             t - Δt, vn, t, v_prev, problemGNI, MidpointExtrapolation(5))
     end
 
-    # `SimpleSolvers` solves `F(x) = 0` with the fixed-point (Picard) step `x ← x - α F(x)`.
-    # The implicit midpoint rule here is `x = vn + Δt * dv((x + vn) / 2)`, whose residual is
-    # `F(x) = x - vn - Δt * dv((x + vn) / 2)`; `f!` writes the negation of it, so the sign is
-    # flipped once, here. The unaccelerated Picard step takes neither the acceleration depth `m`
-    # nor the damping `β`, which the signature carries for its callers.
+    # `SimpleSolvers` solves `F(x) = 0` by the fixed-point step `x ← x - α F(x)`. The implicit
+    # midpoint residual here is `F(x) = x - vn - Δt·dv((x + vn)/2)`, and `f!` writes its negation,
+    # so the sign flips once; the unaccelerated step ignores the `m` and `β` the signature carries.
     probN = SimpleSolvers.NonlinearProblem(
         (f, v, p) -> (f!(f, v, vn, params, Δt, mlb); f .*= -1), v_prev)
 
-    # The solver and its state are built here rather than through the convenience
-    # `solve_with_status!(x, prob, method; …)`: `SimpleSolvers` throws a `NonlinearSolverException`
-    # straight out of a step that meets a non-finite direction, and a caller's own state is what
-    # lets the error below carry that step's residual and iteration count. `status(solver, state)`
-    # rebuilds the outcome the exception pre-empted.
+    # Build the solver and state directly: a non-finite step throws a `NonlinearSolverException`
+    # before any status exists, and owning the state lets the error below report that step's
+    # residual and iteration count.
     solver = SimpleSolvers.NonlinearSolver(SimpleSolvers.Picard(), v_prev, probN;
         f_abstol = abstol, f_reltol = reltol, max_iterations = maxiters, verbosity = 0)
     state = SimpleSolvers.SolverState(solver)

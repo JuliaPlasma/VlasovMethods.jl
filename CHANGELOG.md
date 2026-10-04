@@ -117,7 +117,9 @@ first entry is written.
   `SimpleSolvers` joins it at `0.13`; the dead `NonlinearProblem` construction it had supplied a
   name for in `Picard_iterate_Landau_nls!` goes with it. The solve no longer prints `@time` or an
   NLsolve trace, and it throws when it does not converge or meets a non-finite residual, giving
-  the residual norm and the iteration count. `Picard_iterate_over_particles` now returns the
+  the residual norm and the iteration count. The convergence test is `‖F‖₂ ≤ abstol`, where
+  `NLsolve` used `maximum(abs, F)`, so the same `abstol` is stricter and a solve the old one called
+  a success can now throw. `Picard_iterate_over_particles` now returns the
   solved velocity vector instead of an NLsolve solution object, so a caller that read `.u` or
   `SciMLBase.successful_retcode` changes, and it gains a `maxiters` keyword (default `1000`). A
   one-step pin test in `test/integration/metriplectic_solve.jl` matches the pre-change result to

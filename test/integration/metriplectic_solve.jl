@@ -13,7 +13,8 @@ const ΔT = 1e-3
 const REFERENCE = joinpath(@__DIR__, "..", "data", "lenard_bernstein_metriplectic_reference.txt")
 
 # The example tolerance `3e-16·√N`, the scale the scaling script uses for this solve. The
-# `Float32` solve scales it by `eps(Float32)/eps(Float64)`.
+# `Float32` solve scales it by `eps(Float32)/eps(Float64)`. The scripts fix `reltol = 1e-50`, so
+# `abstol` is the only active tolerance; the solve passes `reltol` through to `SimpleSolvers`.
 abstol_float64() = 3.0e-16 * sqrt(N)
 abstol_float32() = 3.0e-16 * sqrt(N) * eps(Float32) / eps(Float64)
 
@@ -33,8 +34,8 @@ function metriplectic_setup(::Type{T}) where {T}
 end
 
 function step_args(v0, mlb, abstol, ::Type{T};
-        ti::Int = 1, dv_history = zeros(T, N, 2)) where {T}
-    (zeros(T, N), v0, v0, dv_history, ti,
+        ti::Int = 1, vn_minus_one = v0, dv_history = zeros(T, N, 2)) where {T}
+    (zeros(T, N), v0, vn_minus_one, dv_history, ti,
         zero(T), T(ΔT), 3, T(0.5), abstol, 1.0e-50, mlb)
 end
 
@@ -65,7 +66,7 @@ const REFERENCE_V = parse.(Float64, readlines(REFERENCE))
     @testset "Float64" begin
         mlb, v0 = metriplectic_setup(Float64)
         abstol = abstol_float64()
-        v = solve_step(v0, mlb, abstol, Float64)
+        v = @inferred Picard_iterate_over_particles(step_args(v0, mlb, abstol, Float64)...)
         @test maximum(abs, v .- REFERENCE_V) ≤ abstol
         @test norm(step_residual(v, v0, mlb, Float64)) ≤ abstol
     end
@@ -102,15 +103,30 @@ const REFERENCE_V = parse.(Float64, readlines(REFERENCE))
         @test dv_history[:, 1] == expected
     end
 
+    # The `ti ≥ 4` Hermite guess reads `vn_minus_one`, but the step's residual depends on `vn`
+    # alone: a perturbed `vn_minus_one` changes the starting guess and not the fixed point.
+    @testset "the ti ≥ 4 solve uses vn, not vn_minus_one, in the residual" begin
+        mlb, v0 = metriplectic_setup(Float64)
+        abstol = abstol_float64()
+        va = Picard_iterate_over_particles(step_args(v0, mlb, abstol, Float64; ti = 4)...)
+        vb = Picard_iterate_over_particles(
+            step_args(v0, mlb, abstol, Float64; ti = 4, vn_minus_one = (1 - 1e-6) .* v0)...)
+        @test maximum(abs, va .- REFERENCE_V) ≤ abstol
+        @test maximum(abs, va .- vb) ≤ 10abstol
+        @test norm(step_residual(vb, v0, mlb, Float64)) ≤ abstol
+    end
+
+    # `maxiters = 2` so the reported count is not the `1` the NaN test also reports: a message
+    # that hard-codes `1` passes the NaN test but fails this one.
     @testset "a non-converging solve throws the residual and the iteration count" begin
         mlb, v0 = metriplectic_setup(Float64)
         abstol = abstol_float64()
-        caught = solve_outcome(step_args(v0, mlb, abstol, Float64)...; maxiters = 1)
+        caught = solve_outcome(step_args(v0, mlb, abstol, Float64)...; maxiters = 2)
         @test caught isa ErrorException
         message = caught === nothing ? "" : sprint(showerror, caught)
         captured = match(r"residual = ([0-9.eE+-]+), iterations = ([0-9]+)", message)
         @test captured !== nothing
-        @test captured.captures[2] == "1"
+        @test captured.captures[2] == "2"
         @test parse(Float64, captured.captures[1]) > abstol
     end
 
