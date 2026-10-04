@@ -227,3 +227,12 @@ takes the next `K<n>`.
   bases.
 - **kind:** defect
 - **found:** #60
+
+### K20 · `scripts/lenard_bernstein.jl` calls a constructor the package no longer defines.
+
+- **location:** `scripts/lenard_bernstein.jl:30`
+- **evidence:** Line `:30` calls `DiffEqIntegrator(model, tspan, tstep)`, the only live call to a
+  type the package no longer defines, so the script throws `UndefVarError` when it reaches it. The
+  `scripts/` rewrite repairs or removes the call.
+- **kind:** defect
+- **found:** 2026-10-03

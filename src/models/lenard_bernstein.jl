@@ -56,25 +56,6 @@ function LB_rhs(v, params, fs::Spline)
     return -params.ν .* (dfdv.(v) ./ fs.(v) .+ v)
 end
 
-function DiffEqIntegrator(model::LenardBernstein{1, 1}, tspan::Tuple, tstep::Real)
-    # parameters for computing vector field
-    params = (ν = model.ν, idist = model.dist, fdist = model.ent.dist, model = model)
-    # u0 = copy(model.dist.particles.v[1,:])
-    # construct DifferentialEquations ODEProblem
-    equ = DifferentialEquations.ODEProblem(
-        LB_rhs!,
-        copy(model.dist.particles.v[1, :]),
-        tspan,
-        params
-    )
-
-    # choose integrator
-    int = DifferentialEquations.TRBDF2()
-    # int = DifferentialEquations.Trapezoid()
-
-    DiffEqIntegrator(model, equ, int, tstep)
-end
-
 function GeometricIntegrator(model::LenardBernstein{1, 1}, tspan::Tuple, tstep::Real)
     # collect parameters
     # params = (ϕ = model.potential, model = model)

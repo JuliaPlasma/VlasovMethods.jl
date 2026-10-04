@@ -229,25 +229,6 @@ function CLB_rhs(v::AbstractVector{ST}, params, fs::Spline) where {ST}
     return -params.ν .* (dfdv.(v) ./ fs.(v) .+ (A[1] .+ A[2] .* v))
 end
 
-function DiffEqIntegrator(model::ConservativeLenardBernstein{1, 1}, tspan::Tuple, tstep::Real)
-    # parameters for computing vector field
-    params = (ν = model.ν, idist = model.dist, fdist = model.ent.dist, model = model)
-    # u0 = copy(model.dist.particles.v[1,:])
-    # construct DifferentialEquations ODEProblem
-    equ = DifferentialEquations.ODEProblem(
-        CLB_rhs!,
-        copy(model.dist.particles.v[1, :]),
-        tspan,
-        params
-    )
-
-    # choose integrator
-    # int = DifferentialEquations.TRBDF2()
-    int = DifferentialEquations.Trapezoid()
-
-    DiffEqIntegrator(model, equ, int, tstep)
-end
-
 function GeometricIntegrator(model::ConservativeLenardBernstein, tspan::Tuple, tstep::Real)
     # collect parameters
     # params = (ϕ = model.potential, model = model)

@@ -48,15 +48,6 @@ end
 # Define Splitting Method for Vlasov-Poisson Model #
 ####################################################
 
-# vector field
-function lorentz_force!(ż, t, z, params)
-    update_potential!(params.model)
-    for i in axes(ż, 2)
-        ż[1, i] = z[2, i]
-        ż[2, i] = - params.ϕ(z[1, i], 1)
-    end
-end
-
 ###########################################################
 # Vlasov-Poisson 1D1V splitting fields for particles      #
 ###########################################################
