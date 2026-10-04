@@ -215,6 +215,40 @@ first entry is written.
   rejects outright; the five dependencies still carrying no `[compat]` bound are what remains
   before the package can be registered, and they are recorded under *Open Issues*.
 
+- **`DiffEqIntegrator` and the `DifferentialEquations` paths it ran are gone.**
+  `DifferentialEquations` was never imported — `src/VlasovMethods.jl` carried its `import` only as
+  a comment — so every `DifferentialEquations.ODEProblem` and `DifferentialEquations.solve` call
+  threw `UndefVarError` when reached. The exported type, its `run!` and `run` methods, the file
+  `src/methods/diffeq_integrator.jl`, and the `DiffEqIntegrator` constructor methods for
+  `LenardBernstein{1,1}` and `ConservativeLenardBernstein{1,1}` are deleted.
+  `scripts/lenard_bernstein.jl:30` still calls the deleted constructor, recorded in
+  `KNOWN_ISSUES.md` K20.
+
+- **`run` is no longer exported.** Its only method was in the deleted `DiffEqIntegrator`
+  type; removing the export keeps `names(VlasovMethods)` from listing `Base.run`. Line 37
+  of `scripts/lenard_bernstein.jl` calling `VlasovMethods.run` now resolves to `Base.run`,
+  also recorded in `KNOWN_ISSUES.md` K20.
+
+### Removals
+
+- **Five dead `src/` files are deleted.** `vlasov_poisson.jl`, `electric_field.jl` and
+  `visualisation.jl` were included by nothing and had only commented-out `include` and `export`
+  lines; `methods/lbm_solver.jl` was included by nothing and duplicated the `IM_rule!` method
+  of `src/methods/Landau_solver.jl` (same signature and body); `examples/twostream.jl` was
+  included but held a newline and no code. The `include` and `export` lines that named them in
+  `src/VlasovMethods.jl` go with them, as does the commented `# include("sampling.jl")` and
+  `# export` block at the end of that file. The `@safetestset "Electric Fields"` line of
+  `test/runtests.jl` goes too, since its `test/electric_field.jl` covered the deleted source. A
+  sixth orphan the audit named, `src/hdf5.jl`, exists in no commit, so there is nothing to
+  delete. This covers `KNOWN_ISSUES.md` K12, which leaves the file.
+
+- **`lorentz_force!` is deleted.** It evaluated the field through `update_potential!`, which
+  projects `model.distribution` and never the stepped `z`, so the self-consistent field stayed
+  frozen at its initial value. No code called it.
+
+- **`CLB_rhs!` is deleted.** Deleting the `DiffEqIntegrator` constructors left it with no caller,
+  and its body duplicated `CLB_rhs_GI!`; its sign-convention docstring moves to `CLB_rhs_GI!`.
+
 ### New Features
 
 - **`GridDistribution`, the distribution function on a 1D1V phase-space grid.** It is a third

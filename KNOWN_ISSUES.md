@@ -12,8 +12,8 @@ takes the next `K<n>`.
   including any one breaks the load: `poisson.jl` wants `PoissonSolverPBSplines`;
   `time_marching.jl` imports `PBSpline`, `stiffnessmatrix`, `eval_deriv_PBSBasis` and
   `rhs_particles_PBSBasis` from `PoissonSolvers` (neither 0.5 nor 0.6 has any);
-  `electric_field.jl` wants `ElectricField` from `src/electric_field.jl` — which this module still
-  keeps commented out — and `snapshots.jl` wants `ParameterSpace`. They were moved unrepaired on
+  `electric_field.jl` wants `ElectricField`, which nothing under `src/` defines, and
+  `snapshots.jl` wants `ParameterSpace`. They were moved unrepaired on
   purpose, so the relocation stays reviewable.
 - **kind:** dead code
 - **found:** 2026-09-17. Carried over from the audit that accompanied the `SimpleSplines`
@@ -128,8 +128,10 @@ takes the next `K<n>`.
 ### K10 · No test covers any structure-preservation claim for Landau.
 
 - **location:** `scripts/verify_conservation.jl`
-- **evidence:** `scripts/verify_conservation.jl` covers the conservative Lenard-Bernstein operator
-  only, and `test/electric_field.jl` is in the `broken` group of `runtests.jl` (issue #56).
+- **evidence:** `git grep -in 'landau' scripts/verify_conservation.jl` returns nothing, so the
+  script exercises the conservative Lenard-Bernstein operator only. The one `Landau` testset under
+  `test/` is `test/distributions/spline_distribution.jl:277`, "Landau: K, J and L assemble": it
+  asserts assembly, not a conservation invariant.
 - **kind:** missing test
 - **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
   migration. None of these are regressions; each is either a numerical-methods decision or work
@@ -142,17 +144,6 @@ takes the next `K<n>`.
   computation is commented out in `scripts/lenard_bernstein_conservative.jl` and the experiment
   survives as a stale `run_name`.
 - **kind:** missing test
-- **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
-  migration. None of these are regressions; each is either a numerical-methods decision or work
-  the migration deliberately did not take on.
-
-### K12 · Seven `src/` files are included by nothing:
-
-- **location:** `src/`
-- **evidence:** `electric_field.jl`, the root `vlasov_poisson.jl` (distinct from
-  `models/vlasov_poisson.jl`), `visualisation.jl`, `methods/lbm_solver.jl`, `hdf5.jl`, and two
-  whose `include` lines are commented out. `src/hdf5.jl` is untracked in git.
-- **kind:** not verified
 - **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
   migration. None of these are regressions; each is either a numerical-methods decision or work
   the migration deliberately did not take on.
@@ -227,3 +218,65 @@ takes the next `K<n>`.
   bases.
 - **kind:** defect
 - **found:** #60
+
+### K20 · `scripts/lenard_bernstein.jl` calls a constructor the package does not define.
+
+- **location:** `scripts/lenard_bernstein.jl:30`
+- **evidence:** Line `:30` calls `DiffEqIntegrator(model, tspan, tstep)`, a type the package does
+  not define, so the script throws `UndefVarError` when it reaches it. Line `:37` then calls
+  `VlasovMethods.run(integrator)`, which resolves to `Base.run`: the package defines no `run`
+  method. The `scripts/` rewrite repairs or removes both calls.
+- **kind:** defect
+- **found:** 2026-10-03
+
+### K22 · `scripts/bump_on_tail.jl` calls two names the package does not define.
+
+- **location:** `scripts/bump_on_tail.jl:31`
+- **evidence:** `:31` calls `VPIntegratorParameters(dt, nₜ, nₜ+1, nₕ, nₚ)` and `:58` calls
+  `integrate_vp!(P, efield, params, IP, IC)`. Both were defined only in the root
+  `src/vlasov_poisson.jl`, which no `include` reached, so neither name exists in the package.
+  `grep -rn -E 'VPIntegratorParameters|integrate_vp!' src` returns nothing.
+- **kind:** defect
+- **found:** #61
+
+### K23 · The one-argument `update_potential!(model)` has no caller in `src/`.
+
+- **location:** `src/models/vlasov_poisson.jl:18`
+- **evidence:** It deposits from `model.distribution`, which the integrator never writes. The
+  splitting fields call the two-argument method at `:65` and `:83`.
+  `grep -rn 'update_potential!' src test` finds the one-argument call only at
+  `test/integration/vlasov_poisson.jl:122`, where `deposit(model, x₀)` at `:127` builds the
+  same reference.
+- **kind:** dead code
+- **found:** #61
+
+### K24 · The Lenard-Bernstein right-hand sides keep an indirection and two plotting copies.
+
+- **location:** `src/models/lenard_bernstein.jl:37`
+- **evidence:** `LB_rhs!(v̇, v, params, t)` keeps the argument order of an ODE solver that the
+  package does not use; its one caller is the wrapper `LB_rhs_GI!` at `:48-50`.
+  `LB_rhs` (`:53`) and `CLB_rhs` (`src/models/lenard_bernstein_conservative.jl:210`) repeat the
+  bodies of their `_GI!` functions. `grep -rn -E '\bC?LB_rhs\b' src test scripts` finds
+  `LB_rhs` only at `scripts/lenard_bernstein.jl:47` and `:57`, after that script fails at `:30`
+  (K20), and `CLB_rhs` only in commented script lines.
+- **kind:** dead code
+- **found:** #61
+
+### K25 · `IM_rule!` in `src/methods/Landau_solver.jl` has no caller.
+
+- **location:** `src/methods/Landau_solver.jl:5`
+- **evidence:** `grep -rn 'IM_rule!' src test scripts` finds the definition at `:5-12` and
+  otherwise only comments: `Landau_solver.jl:1` and `:16`, and
+  `src/models/lenard_bernstein_metriplectic.jl:284`, `:394` and `:445`.
+- **kind:** dead code
+- **found:** #61
+
+### K26 · The `LB_rhs!` docstring and comment describe past code.
+
+- **location:** `src/models/lenard_bernstein.jl:30`
+- **evidence:** The admonition "The division by `f_s` was missing" (`:30-35`) says what "both
+  right-hand sides computed", and only one right-hand side is in the file. The comment at
+  `:38-39` explains a line that "threw". The facts belong in the present tense, and the history
+  in `CHANGELOG.md`.
+- **kind:** docs
+- **found:** #61
