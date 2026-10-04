@@ -359,7 +359,9 @@ takes the next `K<n>`.
   0.14.0, the environment resolves (GeometricBase 0.14.12, GeometricIntegrators 0.18.5,
   GeometricBrackets 0.1.2) and `test/integration/metriplectic_solve.jl` passes 18 of 18. 0.14.1
   cannot resolve here: it requires GeometricBase 0.15, and every `GeometricBrackets` 0.1 release
-  requires GeometricBase `0.14.8 - 0.14`.
+  requires GeometricBase `0.14.8 - 0.14`. `GeometricBrackets` 0.2.0 admits GeometricBase 0.15 and
+  requires SimpleSolvers `0.14.1 - 0.14`, so 0.14.1 becomes reachable once every dependency that
+  bounds GeometricBase to 0.14 admits 0.15.
 - **kind:** defect
 - **found:** 2026-10-04
 
@@ -412,4 +414,42 @@ takes the next `K<n>`.
   type is concrete and `@inferred` passes. Avoiding the allocation needs the solver to be reused
   across steps (an API change) or an upstream change to the Picard constructor's cache.
 - **kind:** defect
+- **found:** 2026-10-04
+
+### K41 · `Picard_iterate_over_particles` calls two `SimpleSolvers` names that are not public.
+
+- **location:** `src/models/lenard_bernstein_metriplectic.jl:345`
+- **evidence:** `SimpleSolvers.status` (`:345`) and `SimpleSolvers.isconverged` (`:348`) are neither
+  exported nor declared `public`; `SimpleSolvers` 0.14.1 keeps them unexported at
+  `src/SimpleSolvers.jl:138`. `ExplicitImports.check_all_qualified_accesses_are_public` flags
+  exactly these two. The fix is a `public` declaration in `SimpleSolvers`.
+- **kind:** upstream
+- **found:** 2026-10-04
+
+### K42 · `Picard_iterate_over_particles` takes `dv`, `m` and `β` and ignores them.
+
+- **location:** `src/models/lenard_bernstein_metriplectic.jl:297`
+- **evidence:** The function body does not read `dv`, `m` or `β` after the signature (`:297-300`).
+  They stay so that the call sites do not change, and the CHANGELOG says so. Removing them is an
+  API change.
+- **kind:** dead code
+- **found:** 2026-10-04
+
+### K43 · `Picard_iterate_Landau_nls!` prints from library code.
+
+- **location:** `src/methods/Landau_solver.jl:131`
+- **evidence:** The calls at `:131`, `:143` and `:151` print the residual of each iteration and an
+  empty line. They are the only residual report of the function (K5), so removing them removes
+  the one output that shows the drift.
+- **kind:** defect
+- **found:** 2026-10-04
+
+### K44 · The reference generator of the metriplectic test is in `test/helpers/`.
+
+- **location:** `test/helpers/generate_metriplectic_reference.jl`
+- **evidence:** The file is a script that a person runs to write the reference data, and not a
+  helper that a test loads. A script of this kind belongs in `scripts/`.
+  `test-layout.jl --check` passes with the file where it is, and
+  `test/integration/metriplectic_solve.jl` names this path.
+- **kind:** docs
 - **found:** 2026-10-04
