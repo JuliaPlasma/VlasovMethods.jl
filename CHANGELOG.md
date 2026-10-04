@@ -93,6 +93,10 @@ first entry is written.
   this release deletes — `NonlinearSolve = "4"` is now among them, since `NonlinearSolve` itself
   leaves `[deps]`, while `SimpleSolvers` leaves that group because it returns.
 
+- **`[compat]` admits `SimpleSolvers` 0.14.** The bound widens to `"0.13, 0.14"`. Compat only.
+  Version 0.14.0 resolves and passes the metriplectic integration tests; 0.14.1 requires
+  `GeometricBase` 0.15, which this package does not adopt (K35).
+
 - **`PoissonSolvers` and `StaticArrays` are no longer listed in `[extras]`.** Both are genuine
   `src/` dependencies and are already in `[deps]`, where the test environment picks them up.
   Listing them in both places was redundant. `OffsetArrays` was listed there too; the one file
