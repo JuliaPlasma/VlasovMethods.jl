@@ -1,10 +1,9 @@
 using Test
 using VlasovMethods
 
-# The exported names of `VlasovMethods` before this change, recorded so that an export dropped
-# here cannot leave the module without a `CHANGELOG.md` line that names it. The dropped name is
-# written as two joined fragments because the plan's decided-edge grep requires its literal form
-# to occur nowhere under `test/`.
+# A recorded list of the exported names of `VlasovMethods`, so that no export can leave the
+# module without a `CHANGELOG.md` line that names it. A removed name is written as two joined
+# fragments, so that its literal form occurs nowhere under `test/`.
 const BASE_EXPORTS = Symbol[
     :..,
     :BSplineBasis,
@@ -82,12 +81,13 @@ const BASE_EXPORTS = Symbol[
     :velocity_moments
 ]
 
-# The exports this change removes. Each is named as the bold lead of its `CHANGELOG.md` bullet.
+# The recorded names that the module does not export. Each is the bold lead of its
+# `CHANGELOG.md` bullet.
 const REMOVED_EXPORTS = Symbol[Symbol("DiffEq", "Integrator")]
 
 @testset "Exported names" begin
-    # Every documented removal is a name the base exported, and every base export missing from
-    # the module is a documented removal. A name that leaves without a CHANGELOG line fails here.
+    # Every documented removal is a recorded name, and every recorded name missing from the
+    # module is a documented removal. A name that leaves without a CHANGELOG line fails here.
     @test issubset(REMOVED_EXPORTS, BASE_EXPORTS)
     @test setdiff(BASE_EXPORTS, names(VlasovMethods)) == REMOVED_EXPORTS
 

@@ -12,7 +12,7 @@ takes the next `K<n>`.
   including any one breaks the load: `poisson.jl` wants `PoissonSolverPBSplines`;
   `time_marching.jl` imports `PBSpline`, `stiffnessmatrix`, `eval_deriv_PBSBasis` and
   `rhs_particles_PBSBasis` from `PoissonSolvers` (neither 0.5 nor 0.6 has any);
-  `electric_field.jl` wants `ElectricField`, whose old home `src/electric_field.jl` is deleted, and
+  `electric_field.jl` wants `ElectricField`, which nothing under `src/` defines, and
   `snapshots.jl` wants `ParameterSpace`. They were moved unrepaired on
   purpose, so the relocation stays reviewable.
 - **kind:** dead code
@@ -219,16 +219,16 @@ takes the next `K<n>`.
 - **kind:** defect
 - **found:** #60
 
-### K20 · `scripts/lenard_bernstein.jl` calls a constructor the package no longer defines.
+### K20 · `scripts/lenard_bernstein.jl` calls a constructor the package does not define.
 
 - **location:** `scripts/lenard_bernstein.jl:30`
 - **evidence:** Line `:30` calls `DiffEqIntegrator(model, tspan, tstep)`, the only live call to a
-  type the package no longer defines, so the script throws `UndefVarError` when it reaches it. The
+  type the package does not define, so the script throws `UndefVarError` when it reaches it. The
   `scripts/` rewrite repairs or removes the call.
 - **kind:** defect
 - **found:** 2026-10-03
 
-### K20 · A commented-out `sampling.jl` include and export remain in the module file.
+### K21 · A commented-out `sampling.jl` include and export remain in the module file.
 
 - **location:** `src/VlasovMethods.jl:165-167`
 - **evidence:** The block `# include("sampling.jl")` and its `# export
