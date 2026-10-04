@@ -111,8 +111,9 @@ first entry is written.
 
 - **`[compat] julia` rises from 1.10 to 1.11.** `GeometricBrackets` requires 1.11.
 
-- **Four `[compat]` floors rise to the lowest version that resolves with `GeometricBrackets`
-  0.1.1.** `GeometricIntegrators` `0.18` becomes `0.18.4`, the first release that admits
+- **Five `[compat]` floors rise to the lowest version that resolves with `GeometricBrackets`
+  0.1.1 and `NonlinearSolve` 4.** `HDF5` `0.16` becomes `0.16.10`: `HDF5` 0.16.0 needs `Compat` 3,
+  which no `NonlinearSolve` 4 release admits. `GeometricIntegrators` `0.18` becomes `0.18.4`, the first release that admits
   `SimpleSolvers` 0.13. `PoissonSolvers` `0.4, 0.5, 0.6` becomes `0.6` and `SimpleSplines`
   `0.1, 0.2, 0.3` becomes `0.3`, because `GeometricBrackets` 0.1.1 requires `SimpleSplines`
   0.3 and `PoissonSolvers` 0.6 is the first release that admits it. `StaticArrays` `1` becomes
