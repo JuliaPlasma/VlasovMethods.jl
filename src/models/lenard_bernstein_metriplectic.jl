@@ -333,8 +333,21 @@ function Picard_iterate_over_particles(dv::AbstractArray{ST}, vn::AbstractArray{
     probN = SimpleSolvers.NonlinearProblem(
         (f, v, p) -> (f!(f, v, vn, params, Δt, mlb); f .*= -1), v_prev)
 
-    status = SimpleSolvers.solve_with_status!(v_prev, probN, SimpleSolvers.Picard();
+    # The solver and its state are built here rather than through the convenience
+    # `solve_with_status!(x, prob, method; …)`: `SimpleSolvers` throws a `NonlinearSolverException`
+    # straight out of a step that meets a non-finite direction, and a caller's own state is what
+    # lets the error below carry that step's residual and iteration count. `status(solver, state)`
+    # rebuilds the outcome the exception pre-empted.
+    solver = SimpleSolvers.NonlinearSolver(SimpleSolvers.Picard(), v_prev, probN;
         f_abstol = abstol, f_reltol = reltol, max_iterations = maxiters, verbosity = 0)
+    state = SimpleSolvers.SolverState(solver)
+
+    status = try
+        SimpleSolvers.solve_with_status!(v_prev, solver, state)
+    catch e
+        e isa SimpleSolvers.NonlinearSolverException || rethrow()
+        SimpleSolvers.status(solver, state)
+    end
 
     SimpleSolvers.isconverged(status) || error(
         "the Picard solve of the metriplectic Lenard–Bernstein step did not converge: " *

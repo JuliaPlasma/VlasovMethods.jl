@@ -55,17 +55,20 @@ first entry is written.
   `LaTeXStrings`, `LinearSolve`, `NaNMath`, `OffsetArrays`, `Plots`, `QuadratureRules`,
   `SciMLBase`, `SimpleSolvers`, `StatsBase`, `StatsPlots` and `Trapz` all left `[deps]`, together
   with their `[compat]` entries and their `using` lines in `src/VlasovMethods.jl`. Installing
-  VlasovMethods no longer pulls in the `Plots` or `LinearSolve` stacks. Nothing about the API
-  changes: `using X` inside a module re-exports nothing, and all 68 exported names still resolve.
+  VlasovMethods no longer pulls in the `Plots` or `LinearSolve` stacks. `SimpleSolvers`, one of
+  the twelve, returns below for the metriplectic solve; the other eleven stay gone. Nothing about
+  the API changes: `using X` inside a module re-exports nothing, and all 68 exported names still
+  resolve.
 
   Each removal was checked by matching the package's exported names against the *parsed syntax
   tree* of the 37 files `src/VlasovMethods.jl` includes, so that a name inside a comment, a string
   or a docstring does not count as a use. Four of the twelve are invisible to a plain `grep`:
-  every name `LinearSolve` exports is also exported by `NonlinearSolve`, which stays;
-  `QuadratureRules` matched only a local variable named `weights`; `SimpleSolvers` and `NaNMath`
-  appear only in commented-out code. `LaTeXStrings`, `OffsetArrays` and `Plots` are reached only
-  from `src/electric_field.jl` and `src/visualisation.jl`, which no `include` names. `SciMLBase`
-  is used only by `scripts/`, which now declares it itself.
+  every name `LinearSolve` exports is also exported by `NonlinearSolve` (which this release also
+  removes); `QuadratureRules` matched only a local variable named `weights`; `SimpleSolvers` and
+  `NaNMath` were reached only from commented-out code, and `SimpleSolvers` returns below.
+  `LaTeXStrings`, `OffsetArrays` and `Plots` are reached only from `src/electric_field.jl` and
+  `src/visualisation.jl`, which no `include` names. `SciMLBase` is used only by `scripts/`, which
+  now declares it itself.
 
 - **`AdaptiveRejectionSampling` no longer constrains a runtime install.** It was used in one line
   of `test/projections/projections.jl` and nowhere in `src/`, yet it sat in `[deps]` rather than
@@ -74,10 +77,9 @@ first entry is written.
   normal with mean `1/2` and standard deviation `1/(2π)`, so the test now draws from that
   directly, redrawing the ~0.17% of points that fall outside the domain.
 
-- **`[compat]` bounds two dependencies that had none.** `NonlinearSolve = "4"` is new, and
-  `Parameters` gains `0.13`. Those are all that is left of the eight open CompatHelper requests:
-  the other six name a dependency this release deletes. `NonlinearSolve 3 → 4` is a major bump,
-  and no local test run covered it; CI is the check.
+- **`[compat]` bounds a dependency that had none.** `Parameters` gains `0.13`. That is all that
+  is left of the eight open CompatHelper requests: the other seven name a dependency this release
+  deletes — `NonlinearSolve = "4"` among them, since `NonlinearSolve` itself leaves `[deps]`.
 
 - **`PoissonSolvers` and `StaticArrays` are no longer listed in `[extras]`.** Both are genuine
   `src/` dependencies and are already in `[deps]`, where the test environment picks them up.
@@ -102,13 +104,14 @@ first entry is written.
 - **The metriplectic Lenard–Bernstein solve uses `SimpleSolvers`.** The one live
   `NonlinearSolve.NLsolveJL` call, in `Picard_iterate_over_particles`, is replaced by an
   unaccelerated `SimpleSolvers` Picard solve, so `NonlinearSolve` leaves `[deps]` and
-  `SimpleSolvers` joins it at `0.13`. The solve no longer prints `@time` or an NLsolve trace, and
-  it throws when it does not converge, giving the residual and the iteration count.
-  `Picard_iterate_over_particles` now returns the solved velocity vector instead of an NLsolve
-  solution object, so a caller that read `.u` or `SciMLBase.successful_retcode` changes, and it
-  gains a `maxiters` keyword (default `1000`). A one-step pin test in
-  `test/integration/metriplectic_solve.jl` matches the pre-change result to `1e-13` in `Float64`
-  and to `1e-13 · eps(Float32)/eps(Float64)` in `Float32`.
+  `SimpleSolvers` joins it at `0.13`; the dead `NonlinearProblem` construction it had supplied a
+  name for in `Picard_iterate_Landau_nls!` goes with it. The solve no longer prints `@time` or an
+  NLsolve trace, and it throws when it does not converge or meets a non-finite residual, giving
+  the residual norm and the iteration count. `Picard_iterate_over_particles` now returns the
+  solved velocity vector instead of an NLsolve solution object, so a caller that read `.u` or
+  `SciMLBase.successful_retcode` changes, and it gains a `maxiters` keyword (default `1000`). A
+  one-step pin test in `test/integration/metriplectic_solve.jl` matches the pre-change result to
+  `3e-16·√N` in `Float64` and to `3e-16·√N · eps(Float32)/eps(Float64)` in `Float32`.
 
 - **`[compat] julia` rises from 1.10 to 1.11.** `GeometricBrackets` requires 1.11.
 

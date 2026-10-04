@@ -1,22 +1,23 @@
-# Regenerate `test/data/lenard_bernstein_metriplectic_reference.txt`, the pre-P44 result of one
-# Picard step of the metriplectic Lenard–Bernstein model.
+# Regenerate `test/data/lenard_bernstein_metriplectic_reference.txt`, the result of one Picard
+# step of the metriplectic Lenard–Bernstein model under the `NonlinearSolve` NLsolve/Anderson
+# solve that commit `8419ed7` carries.
 #
-# The reference is the output of the `NonlinearSolve` NLsolve/Anderson solve that P44 removes, so
-# this runs only against the pre-P44 source. Run it on `origin/main`, in a scratch environment
-# that has `VlasovMethods` (developed at the checkout), `NLsolve` and `LineSearches`, and with
-# `NLsolve` and `LineSearches` loaded so that the `NonlinearSolve` extension is active:
+# This runs only against that source; the guard below stops a run against the `SimpleSolvers`
+# solve that replaces it. Run it against a checkout of `8419ed7`, in a scratch environment that
+# has `VlasovMethods` (developed at the checkout), `NLsolve` and `LineSearches`, with both loaded
+# so that the `NonlinearSolve` extension is active:
 #
 #     julia --startup-file=no --project=<scratch-env> test/helpers/generate_metriplectic_reference.jl
 #
-# It writes one velocity per line, `%.17e`, and fails if the source no longer carries the
-# `NonlinearSolve` path, so it can never overwrite the reference with the new solver's output.
+# It writes one velocity per line, `%.17e`.
 using VlasovMethods
 using NLsolve
 using LineSearches
 using Printf
 
 isdefined(VlasovMethods, :NonlinearSolve) || error(
-    "this generator runs only against the pre-P44 source, whose solve uses `NonlinearSolve`")
+    "this generator runs only against the source at commit 8419ed7, whose solve uses " *
+    "`NonlinearSolve`")
 
 const N = 64
 

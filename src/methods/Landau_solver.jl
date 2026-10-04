@@ -121,8 +121,6 @@ function Picard_iterate_Landau_nls!(
             t - Δt, v_prev, t, v_guess, problemGNI, MidpointExtrapolation(5))
     end
 
-    probN = NonlinearProblem{true}((f, v, p) -> f!(f, v, v_prev, params, Δt, landau), v_guess)
-
     # println("nlsolve")
     # NonlinearSolve.jl using NewtonRaphson
     # @time sol = NonlinearSolve.solve(probN, 

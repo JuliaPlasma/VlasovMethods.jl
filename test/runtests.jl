@@ -12,6 +12,7 @@ if "core" in GROUPS
     @safetestset "Reduced Tensors" include("gridbased/reduced_tensors.jl")
     @safetestset "Geometric Integrator" include("methods/geometric_integrator.jl")
     @safetestset "Parameter Order" include("integration/parameter_order.jl")
+    @safetestset "Landau Solver" include("integration/landau_solver.jl")
     @safetestset "Metriplectic Solve" include("integration/metriplectic_solve.jl")
     @safetestset "Vlasov–Poisson" include("integration/vlasov_poisson.jl")
 end

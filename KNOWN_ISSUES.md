@@ -67,11 +67,9 @@ takes the next `K<n>`.
 
 - **location:** `Landau_solver.jl`
 - **evidence:** `Landau_solver.jl` runs exactly five iterations and prints the residual without
-  testing it. `tol`, `ftol`, `β`, `m` and `chunksize` are accepted and unused, and `probN` is
-  constructed and never solved — it is left in place, with the commented-out `NonlinearSolve`
-  calls it belongs to, rather than deleted. Every conservation property in the appendix is a
-  property of the *exactly* solved implicit system, so momentum and energy drift at the size of
-  that printed residual.
+  testing it. `tol`, `ftol`, `β`, `m` and `chunksize` are accepted and unused. Every conservation
+  property in the appendix is a property of the *exactly* solved implicit system, so momentum and
+  energy drift at the size of that printed residual.
 - **kind:** defect
 - **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
   migration. None of these are regressions; each is either a numerical-methods decision or work
@@ -157,14 +155,17 @@ takes the next `K<n>`.
   migration. None of these are regressions; each is either a numerical-methods decision or work
   the migration deliberately did not take on.
 
-### K14 · `fatou lint` reports 10 warnings, of which one is deliberate and nine are a known false positive.
+### K14 · `fatou lint` reports `unused-binding` locals and no `unused-import`.
 
 - **location:** `src/VlasovMethods.jl`
-- **evidence:** The nine are `unused-import` on `src/VlasovMethods.jl`, where the rule does not
-  follow `include` and so flags the module file's load-bearing imports; `ExplicitImports`
-  contradicts all nine. The tenth is `probN` below. An earlier version of this changelog and of the
-  pull request described `fatou lint` as clean, which was not reproducible.
-- **kind:** upstream
+- **evidence:** `fatou lint --force-exclude --output concise .` reports seven `unused-binding`
+  locals — `scripts/bump_on_tail.jl:47`, `scripts/lenard_bernstein_metriplectic_scaling.jl:38`
+  and `:49`, `src/gridbased/moments.jl:18`, `src/gridbased/reduced_tensors.jl:210`,
+  `test/distributions/spline_distribution.jl:74` and `:76` — and no `unused-import`. The nine
+  `unused-import` false positives on the module file that this entry once recorded no longer
+  reproduce; `ExplicitImports` agrees with the imports it keeps. An earlier version of this
+  changelog and of the pull request described `fatou lint` as clean, which was not reproducible.
+- **kind:** dead code
 - **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
   migration. None of these are regressions; each is either a numerical-methods decision or work
   the migration deliberately did not take on.
@@ -227,3 +228,36 @@ takes the next `K<n>`.
   bases.
 - **kind:** defect
 - **found:** #60
+
+### K20 · The Lenard–Bernstein metriplectic scripts read the removed NLsolve solution object.
+
+- **location:** `scripts/lenard_bernstein_metriplectic.jl:78`
+- **evidence:** `Picard_iterate_over_particles` returns the solved velocity vector, not an NLsolve
+  solution object, so `scripts/lenard_bernstein_metriplectic.jl:78-91` (which reads
+  `sol_object.u`) and `scripts/lenard_bernstein_metriplectic_scaling.jl:93,104` (which reads
+  `SciMLBase.successful_retcode`) fail. The scripts are part P46's rewrite.
+- **kind:** found late
+- **found:** 2026-10-04
+
+### K21 · The metriplectic Picard solve carries an unused acceleration depth and damping.
+
+- **location:** `src/models/lenard_bernstein_metriplectic.jl:298`
+- **evidence:** The signature of `Picard_iterate_over_particles` still takes the acceleration
+  depth `m` and the damping `β`, which only the removed `NLsolveJL(; m = m, beta = β)` used. The
+  `SimpleSolvers` Picard step takes neither. The signature keeps both for its callers (the
+  scripts, P46's) rather than change the positional API.
+- **kind:** dead code
+- **found:** 2026-10-04
+
+### K22 · `SimpleSolvers` is bounded to `0.13` and so excludes the released `0.14`.
+
+- **location:** `Project.toml:43`
+- **evidence:** `SimpleSolvers` 0.14.0 and 0.14.1 are tagged in the package repository and present
+  in the depot (`~/.julia/packages/SimpleSolvers/1m3ma` and `xeXEy`), so `[compat] SimpleSolvers =
+  "0.13"` excludes a released version. Every name this package uses — `NonlinearProblem`,
+  `Picard`, `solve_with_status!`, `SolverState`, `status`, `isconverged`,
+  `NonlinearSolverException`, `rfₐ` and `iterations` — is present in 0.14.1's source. The
+  worktree's manifest pins 0.13.3, so no local run exercises 0.14, and the bound stays narrow
+  until one does.
+- **kind:** not verified
+- **found:** 2026-10-04

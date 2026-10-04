@@ -5,12 +5,17 @@ using Test
 using VlasovMethods
 
 # One Picard step of the metriplectic Lenard–Bernstein model. The reference is the result of the
-# `NonlinearSolve` path that P44 removes; `test/helpers/generate_metriplectic_reference.jl` wrote
-# it, on `origin/main`, in a scratch environment with `NLsolve` and `LineSearches`.
+# `NonlinearSolve` solve at commit `8419ed7`; `test/helpers/generate_metriplectic_reference.jl`
+# writes it in a scratch environment with `NLsolve` and `LineSearches`.
 const N = 64
 const NKNOT = 17
 const ΔT = 1e-3
 const REFERENCE = joinpath(@__DIR__, "..", "data", "lenard_bernstein_metriplectic_reference.txt")
+
+# The example tolerance `3e-16·√N`, the scale the scaling script uses for this solve. The
+# `Float32` solve scales it by `eps(Float32)/eps(Float64)`.
+abstol_float64() = 3.0e-16 * sqrt(N)
+abstol_float32() = 3.0e-16 * sqrt(N) * eps(Float32) / eps(Float64)
 
 # The velocity domain is the support of the uniform particle cloud, so the projected
 # distribution stays positive and the entropy derivative is defined everywhere.
@@ -27,9 +32,10 @@ function metriplectic_setup(::Type{T}) where {T}
     return MetriplecticLenardBernstein(pdist, CollisionEntropy(sdist)), v0
 end
 
-function step_args(v0, mlb, abstol, ::Type{T}) where {T}
-    (zeros(T, N), v0, v0, zeros(T, N, 2), 1, zero(T),
-        T(ΔT), 3, T(0.5), abstol, 1.0e-50, mlb)
+function step_args(v0, mlb, abstol, ::Type{T};
+        ti::Int = 1, dv_history = zeros(T, N, 2)) where {T}
+    (zeros(T, N), v0, v0, dv_history, ti,
+        zero(T), T(ΔT), 3, T(0.5), abstol, 1.0e-50, mlb)
 end
 
 # The default call, so that the `maxiters` default of the solve is exercised.
@@ -43,12 +49,22 @@ function step_residual(v, v0, mlb, ::Type{T}) where {T}
     return r
 end
 
+# The exception the solve throws, or `nothing` when it returns.
+function solve_outcome(args...; kwargs...)
+    try
+        Picard_iterate_over_particles(args...; kwargs...)
+        return nothing
+    catch e
+        return e
+    end
+end
+
 const REFERENCE_V = parse.(Float64, readlines(REFERENCE))
 
 @testset "Metriplectic Lenard–Bernstein solve" begin
     @testset "Float64" begin
         mlb, v0 = metriplectic_setup(Float64)
-        abstol = 1.0e-13
+        abstol = abstol_float64()
         v = solve_step(v0, mlb, abstol, Float64)
         @test maximum(abs, v .- REFERENCE_V) ≤ abstol
         @test norm(step_residual(v, v0, mlb, Float64)) ≤ abstol
@@ -56,7 +72,7 @@ const REFERENCE_V = parse.(Float64, readlines(REFERENCE))
 
     @testset "Float32" begin
         mlb, v0 = metriplectic_setup(Float32)
-        abstol = 1.0e-13 * eps(Float32) / eps(Float64)
+        abstol = abstol_float32()
         v = solve_step(v0, mlb, abstol, Float32)
         @test maximum(abs, v .- Float32.(REFERENCE_V)) ≤ abstol
         @test norm(step_residual(v, v0, mlb, Float32)) ≤ abstol
@@ -66,16 +82,49 @@ const REFERENCE_V = parse.(Float64, readlines(REFERENCE))
         mlb, v0 = metriplectic_setup(Float64)
         mktemp() do path, io
             redirect_stdout(io) do
-                solve_step(v0, mlb, 1.0e-13, Float64)
+                solve_step(v0, mlb, abstol_float64(), Float64)
             end
             flush(io)
             @test filesize(path) == 0
         end
     end
 
-    @testset "a non-converging solve throws" begin
+    # The Hermite guess of the next step reads `dv_history[:, 1]`, so it must hold the field at
+    # the solved iterate and not at the previous time step's velocities.
+    @testset "the stored derivative is the field at the solved iterate" begin
         mlb, v0 = metriplectic_setup(Float64)
-        @test_throws "residual" Picard_iterate_over_particles(
-            step_args(v0, mlb, 1.0e-13, Float64)...; maxiters = 1)
+        dv_history = zeros(Float64, N, 2)
+        v = Picard_iterate_over_particles(
+            step_args(v0, mlb, abstol_float64(), Float64; dv_history = dv_history)...)
+        expected = similar(v)
+        VlasovMethods.collisional_vectorfield!(
+            expected, v, (dist = mlb.dist, ent = mlb.entropy), mlb)
+        @test dv_history[:, 1] == expected
+    end
+
+    @testset "a non-converging solve throws the residual and the iteration count" begin
+        mlb, v0 = metriplectic_setup(Float64)
+        abstol = abstol_float64()
+        caught = solve_outcome(step_args(v0, mlb, abstol, Float64)...; maxiters = 1)
+        @test caught isa ErrorException
+        message = caught === nothing ? "" : sprint(showerror, caught)
+        captured = match(r"residual = ([0-9.eE+-]+), iterations = ([0-9]+)", message)
+        @test captured !== nothing
+        @test captured.captures[2] == "1"
+        @test parse(Float64, captured.captures[1]) > abstol
+    end
+
+    # A non-finite collision frequency keeps the projected density positive while the residual
+    # becomes `NaN`, so the first non-finite value is met inside the `SimpleSolvers` solve.
+    @testset "a solve that meets a NaN throws the residual and the iteration count" begin
+        mlb, v0 = metriplectic_setup(Float64)
+        nanmlb = MetriplecticLenardBernstein(mlb.dist, mlb.entropy; ν = NaN)
+        caught = solve_outcome(step_args(v0, nanmlb, abstol_float64(), Float64; ti = 4)...)
+        @test caught isa ErrorException
+        message = caught === nothing ? "" : sprint(showerror, caught)
+        captured = match(r"residual = ([^,]+), iterations = ([0-9]+)", message)
+        @test captured !== nothing
+        @test captured.captures[2] == "1"
+        @test isnan(parse(Float64, captured.captures[1]))
     end
 end
