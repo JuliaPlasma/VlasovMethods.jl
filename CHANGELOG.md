@@ -34,6 +34,16 @@ first entry is written.
   `run!(::SplittingMethod, h5file)` does, and its output is bit-identical to
   `GeometricIntegrators.integrate` on the same problem.
 
+- **The grid collision operator works.** `CollisionTensor` is indexed by three
+  `CartesianIndex`es or three `Int`s, returning `ct.f(I, J, K)`; `ReducedCollisionTensor`
+  projects it. `QuadraticCollisions(nx, nv, hx, hv, v)` has `v` as a type parameter
+  `VT <: AbstractVector{DT}`, throws `DimensionMismatch` if `length(v) ≠ nv`, and
+  `ArgumentError` if `nv < 3` (at `nv = 2` the neighbours coincide). Both
+  `_get_MC̃_cubic` and `_get_MC̃_quadratic` take the velocity grid as their fifth argument,
+  throw `DimensionMismatch` when `length(v) ≠ size(ci, 2)`, and return `eltype(V)` tensors.
+  The `v`-stencils wrap the bounded grid periodically; conservation holds only while `f`
+  vanishes at the ends, recorded in `KNOWN_ISSUES.md` (K27). K2 is closed.
+
 - **`d(x, v)` with scalar arguments threw `MethodError`.** The `Vararg` call operator of every
   `DistributionFunction` used `view` on a `Tuple`, which does not support it. It now builds the two
   `SVector`s directly.
@@ -273,11 +283,8 @@ first entry is written.
 
 - **The reduced phase-space tensors and velocity moments, imported from ReducedBasisMethods.**
   Every function and struct body is byte-identical to its source, except
-  `src/gridbased/collisions.jl`: its `CollisionTensor`'s `getindex` assertions
-  changed from `@assert isvalid(I, ct.nx, ct.nv)` to `@assert I in
-  CartesianIndices((ct.nx, ct.nv))`, and the same for `J` and `K`, because
-  `MultiIndexArrays` 0.1.1 no longer defines `isvalid`. The diff reviews as a
-  move rather than new code. Three files arrive under `src/gridbased/`:
+  `src/gridbased/collisions.jl`, whose working form is described under *Bug Fixes* above.
+  Three files arrive under `src/gridbased/`:
 
   - `reduced_tensors.jl` — `PotentialReducedTensor`, `VelocityReducedMatrix` and
     `FullyReducedTensor`, which project a `GeometricBrackets.PoissonTensor` onto reduced bases in
@@ -289,8 +296,8 @@ first entry is written.
     the source file went to `PoissonSolvers` instead.
   - `collisions.jl` — `CollisionTensor`, `QuadraticCollisions`, `ReducedCollisionTensor` and
     the two `_get_MC̃_*` assemblers. ReducedBasisMethods never included this file, so none of
-    it was reachable there. It **is** included here, and the four names are defined in the
-    module, but two of them still fault when called — see *Open Issues*.
+    it was reachable there. It **is** included here, and these five names are defined in the
+    module; the run-time faults they arrived with are repaired under *Bug Fixes* above.
 
   New dependencies: `GeometricBrackets`, for the `PoissonTensor` the three tensors wrap and the
   `_nx` / `_nv` accessors they extend, and `MultiIndexArrays`, for `multiindex` and

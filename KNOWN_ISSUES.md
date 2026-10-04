@@ -20,24 +20,6 @@ takes the next `K<n>`.
   migration. None of these are regressions; each is either a numerical-methods decision or work
   the migration deliberately did not take on.
 
-### K2 · `src/gridbased/collisions.jl` compiles but cannot be used.
-
-- **location:** `src/gridbased/collisions.jl`
-- **evidence:** The file is included and the module precompiles, so `CollisionTensor` and the rest
-  are defined — the faults are at run time, not load time.
-  `Base.getindex(ct::CollisionTensor, i, j, k)` returns `ct[I, J, K, L]` with `L` never bound, and
-  both `_get_MC̃_*` assemblers read a global `v` that no longer exists. `ReducedCollisionTensor`'s
-  `getindex` evaluates `rt.tensor[M, N, O]` with three `CartesianIndex{2}` arguments;
-  `Base.to_indices` flattens them to six `Int`s, so the indexing throws `BoundsError` and never
-  reaches the four-`CartesianIndex` method of `CollisionTensor` — binding `L` alone does not repair
-  it. The `QuadraticCollisions` inner constructor calls `new{DT}(nx, nv, hx, hv, v)` — five values
-  for six fields — leaving `factor` uninitialised. ReducedBasisMethods never included the file, so
-  none of this was reachable there and none of it is new.
-- **kind:** defect
-- **found:** 2026-09-17. Carried over from the audit that accompanied the `SimpleSplines`
-  migration. None of these are regressions; each is either a numerical-methods decision or work
-  the migration deliberately did not take on.
-
 ### K3 · `FullyReducedTensor` cannot be constructed.
 
 - **location:** —
@@ -280,3 +262,92 @@ takes the next `K<n>`.
   in `CHANGELOG.md`.
 - **kind:** docs
 - **found:** #61
+
+### K27 · The collision stencils wrap the bounded `v`-grid periodically.
+
+- **location:** `src/gridbased/collisions.jl:66`
+- **evidence:** The four `v`-stencils — `QuadraticCollisions`' call operator (`:66-67`),
+  `ReducedCollisionTensor`'s `getindex` (`:132-133`) and the two `_get_MC̃_*` assemblers
+  (`:187-188`, `:237-238`) — wrap with `mod1`, but the `v`-grid is bounded. At the wrap the second
+  difference of `v` does not vanish, so the two ends couple. Every conservation claim of the two
+  docstrings is conditional on `f` vanishing at the ends of the `v`-grid to `eps(T)`. On a grid
+  that does not vanish there, the moments drift: on `nx = 4` with
+  `v = range(-3, 3; length = 5)`, for the shifted Maxwellian of the invariants testset in
+  `test/gridbased/collisions.jl`, the end value is `0.21` of the maximum. Over ten RK4 steps the
+  relative drift of the cubic form is `3.7e-3` in the momentum and `2.9e-3` in the energy, and
+  that of the quadratic form is `1.1e-3` in the energy, against `eps(T)` on the
+  `range(-10, 10; length = 25)` grid of that testset. No code in the file treats the boundary of
+  the `v`-grid.
+- **kind:** defect
+- **found:** #62. Carried from ReducedBasisMethods, and recorded when the operator was repaired.
+
+### K28 · `CollisionTensor` repeats `PoissonTensor` of GeometricBrackets and does not tie `DT` to its values.
+
+- **location:** `src/gridbased/collisions.jl:3`
+- **evidence:** The review of #62 found equal entries and equal timings for `CollisionTensor` and
+  `GeometricBrackets.PoissonTensor{DT}`, so `ReducedCollisionTensor` could take the latter and the
+  type could go. Independent of that: the constructor `CollisionTensor(DT, nx, nv, f)` (`:8-10`)
+  takes `DT` as a free argument and checks nothing about the values `f` returns, so the element
+  type of the array and the type of its entries can differ. `size(ct)` (`:13`) builds a vector
+  with `ones(Int, 3)` and splats it into a tuple, so it infers `Tuple{Vararg{Int}}`. Whether to
+  replace the type is open.
+- **kind:** defect
+- **found:** #62
+
+### K29 · The two `_get_MC̃_*` assemblers carry arguments they do not use.
+
+- **location:** `src/gridbased/collisions.jl:170`
+- **evidence:** `h₁` is never read in either assembler (`:170-205`, `:222-251`). `ci` is read only
+  for `size(ci)` (`:171`, `:223`) and for the length check of `v`. The quadratic assembler
+  does not read `∫vdv` either. `grep -rn '_get_MC̃_' src test scripts` finds the calls in
+  `src/gridbased/collisions.jl` and `test/gridbased/collisions.jl` only. The nine-argument
+  signature follows the advisor decision recorded in #62. Whether to shorten it is open.
+- **kind:** dead code
+- **found:** #62
+
+### K30 · `size(rt, i)` and `axes(rt, i)` throw for `i > 3` on `ReducedCollisionTensor`.
+
+- **location:** `src/gridbased/collisions.jl:103`
+- **evidence:** `size(rt, i) = size(rt)[i]` (`:103`) and `axes(rt, i) = Base.OneTo(size(rt, i))`
+  (`:104`) index past a three-element tuple, so `size(rt, 4)` and `axes(rt, 4)` throw a
+  `BoundsError`. The `AbstractArray` fallbacks give `1` and `Base.OneTo(1)`. The fix is to delete
+  the two lines.
+- **kind:** defect
+- **found:** #62
+
+### K31 · `_stencil_indices_v` has no caller.
+
+- **location:** `src/gridbased/collisions.jl:109`
+- **evidence:** `grep -rn '_stencil_indices_v' src test scripts docs` returns the definition
+  (`:109-118`) only.
+- **kind:** dead code
+- **found:** #62
+
+### K32 · The `getindex` of `ReducedCollisionTensor` rebuilds three indices in the innermost loop.
+
+- **location:** `src/gridbased/collisions.jl:120`
+- **evidence:** The loop at `:130-148` builds `M`, `N`, `O` and their linear indices for every
+  `(m1, m2, o2, n2)`, although `M`, `O`, `m` and `o` do not depend on `n2`, and the `v`-stencil
+  of `m2` is the one that `QuadraticCollisions` computes (`:66-67`). The loop can be shorter. No
+  benchmark compares the loop with a shorter form.
+- **kind:** not verified
+- **found:** #62
+
+### K33 · Two comments and the CHANGELOG name something a reader cannot find.
+
+- **location:** `src/gridbased/collisions.jl:2`
+- **evidence:** The comment at `:2` says "A N × N × N × tensor" and does not name `N`.
+  `CHANGELOG.md:226` says the open items "are recorded under *Open Issues*", and the CHANGELOG
+  has no such heading: they are in `KNOWN_ISSUES.md`.
+- **kind:** docs
+- **found:** #62
+
+### K34 · Two testsets check words of a docstring.
+
+- **location:** `test/gridbased/collisions.jl:267`
+- **evidence:** `the docstrings name the invariants` (`:267-274`) and
+  `the docstrings state the v-end requirement` (`:276-281`) test `occursin` on the text of
+  `@doc`, so a rewording that keeps the facts fails them and a docstring that names the words
+  but is wrong passes them. The plan of the part names both checks. Whether to keep them is open.
+- **kind:** missing test
+- **found:** #62
