@@ -107,7 +107,6 @@ include("methods/geometric_integrator.jl")
 include("methods/Landau_solver.jl")
 
 export run!
-export run
 export SplittingMethod
 export GeometricIntegrator
 export Picard_iterate_over_particles
@@ -161,9 +160,5 @@ include("gridbased/collisions.jl")
 # names a binding that neither the module nor its dependencies define —
 # `PoissonSolverPBSplines`, `PBSpline`, `ElectricField`, `ParameterSpace` — so including one
 # breaks the load.
-
-# include("sampling.jl")
-
-# export draw_g_accept_reject, draw_g_importance_sampling, weight_f
 
 end

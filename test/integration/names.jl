@@ -83,12 +83,11 @@ const BASE_EXPORTS = Symbol[
 
 # The recorded names that the module does not export. Each is the bold lead of its
 # `CHANGELOG.md` bullet.
-const REMOVED_EXPORTS = Symbol[Symbol("DiffEq", "Integrator")]
+const REMOVED_EXPORTS = Symbol[Symbol("DiffEq", "Integrator"), :run]
 
 @testset "Exported names" begin
-    # Every documented removal is a recorded name, and every recorded name missing from the
-    # module is a documented removal. A name that leaves without a CHANGELOG line fails here.
-    @test issubset(REMOVED_EXPORTS, BASE_EXPORTS)
+    # The recorded names missing from the module are exactly the documented removals. A name
+    # that leaves without a CHANGELOG line fails here.
     @test setdiff(BASE_EXPORTS, names(VlasovMethods)) == REMOVED_EXPORTS
 
     changelog = read(joinpath(pkgdir(VlasovMethods), "CHANGELOG.md"), String)
