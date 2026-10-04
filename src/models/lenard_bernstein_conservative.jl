@@ -19,7 +19,7 @@ function CacheType(AT, c::CLBCache{DT, PT, ST}) where {DT, PT, ST}
 end
 
 struct ConservativeLenardBernstein{
-    XD, VD, DT <: DistributionFunction{XD, VD}, ET <: Entropy, T, CT <: CacheDict} <:
+    XD, VD, DT <: DistributionFunction{<:Any, XD, VD}, ET <: Entropy, T, CT <: CacheDict} <:
        CollisionOperator
     dist::DT    # distribution function
     ent::ET     # entropy 
@@ -28,7 +28,8 @@ struct ConservativeLenardBernstein{
     cache::CT
 
     function ConservativeLenardBernstein(
-            dist::DistributionFunction{XD, VD}, ent::Entropy; ν::T = 1.0) where {XD, VD, T}
+            dist::DistributionFunction{<:Any, XD, VD}, ent::Entropy; ν::T = 1.0) where {
+            XD, VD, T}
         # `scripts/verify_conservation.jl` measures what this warning is about, and the
         # distinction it draws is worth stating exactly, because the obvious reading is wrong.
         #
