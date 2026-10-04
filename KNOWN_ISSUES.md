@@ -351,21 +351,6 @@ takes the next `K<n>`.
 - **kind:** missing test
 - **found:** #62
 
-### K35 · The package stays on the `GeometricBase` 0.14 line, so `SimpleSolvers` 0.14.1 is unreachable.
-
-- **location:** `Project.toml:29`
-- **evidence:** `[compat] GeometricBrackets = "0.1.1"` admits no release that allows GeometricBase
-  0.15, and `SimpleSolvers` 0.14.1 requires GeometricBase 0.15. With `SimpleSolvers = "0.13, 0.14"`
-  the environment resolves to 0.14.0 (GeometricBase 0.14.12, GeometricIntegrators 0.18.5,
-  GeometricBrackets 0.1.2), and `test/integration/metriplectic_solve.jl` passes 18 of 18 there.
-  The registry has a GeometricBase 0.15 release of every other dependency that bounds GeometricBase:
-  GeometricBrackets 0.2.0, GeometricIntegrators 0.18.6, GeometricEquations 0.21.5, SimpleSplines
-  0.3.1, QuadratureRules 0.2.2 and CompactBasisFunctions 0.4.2. `PoissonSolvers` does not bound
-  GeometricBase. The move to that line changes the `GeometricBrackets`, `GeometricIntegrators`,
-  `GeometricEquations` and `SimpleSplines` entries, and its test run is not done.
-- **kind:** defect
-- **found:** 2026-10-04
-
 ### K36 · A metriplectic Picard step whose particles leave the velocity domain stops with the model's `DomainError`.
 
 - **location:** `src/models/lenard_bernstein_metriplectic.jl:344`

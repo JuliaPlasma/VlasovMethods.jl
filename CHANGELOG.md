@@ -97,6 +97,20 @@ first entry is written.
   Version 0.14.0 resolves and passes the metriplectic integration tests; 0.14.1 requires
   `GeometricBase` 0.15, which this package does not adopt (K35).
 
+- **The package moves to the `GeometricBase` 0.15 line, and the 0.14 line is dropped (K35).**
+  `[compat]` now reads `GeometricBrackets = "0.2"`, `GeometricEquations = "0.21.5"`,
+  `GeometricIntegrators = "0.18.6"`, `SimpleSolvers = "0.14.1"`, `SimpleSplines = "0.3.1"` and
+  `PoissonSolvers = "0.6"`. One line only, so that no floor admits a version that cannot resolve:
+  `SimpleSolvers` 0.14.1 requires `GeometricBase` 0.15, `GeometricBrackets` 0.2 requires
+  `SimpleSolvers` 0.14.1, and it also requires `SimpleSplines` 0.3, which no `PoissonSolvers`
+  below 0.6 admits.
+  The earlier bounds `SimpleSolvers = "0.13, 0.14"`, `SimpleSplines = "0.1, 0.2, 0.3"` and
+  `PoissonSolvers = "0.4, 0.5, 0.6"` are gone, so an environment that pins one of the older
+  releases no longer resolves. `src/` is unchanged. `GeometricBrackets` 0.2 rejects
+  `PoissonTensor(Float32, nx, nv, ::Arakawa{Float64})` on construction with an `ArgumentError`,
+  where 0.1 built it and `ReducedTensor` then threw a `MethodError`; the test of that case now
+  expects the `ArgumentError`.
+
 - **`PoissonSolvers` and `StaticArrays` are no longer listed in `[extras]`.** Both are genuine
   `src/` dependencies and are already in `[deps]`, where the test environment picks them up.
   Listing them in both places was redundant. `OffsetArrays` was listed there too; the one file

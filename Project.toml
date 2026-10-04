@@ -26,22 +26,22 @@ TerminalLoggers = "5d786b92-1e48-4d6f-9151-6b4477ca9bed"
 
 [compat]
 Distances = "0.10.11"
-GeometricBrackets = "0.1.1"
-GeometricEquations = "0.21"
-GeometricIntegrators = "0.18"
+GeometricBrackets = "0.2"
+GeometricEquations = "0.21.5"
+GeometricIntegrators = "0.18.6"
 HDF5 = "0.16, 0.17"
 LinearAlgebra = "1"
 Logging = "1"
 MultiIndexArrays = "0.1.1"
 Parameters = "0.12, 0.13"
 ParticleMethods = "0.1"
-# 0.4 is where the SimpleSplines backend and the `p(x, d)` derivative arrived, so the floor is
-# 0.4 rather than anything earlier: this package does not work against 0.3.
-PoissonSolvers = "0.4, 0.5, 0.6"
+# 0.6 is the first PoissonSolvers that admits SimpleSplines 0.3, which GeometricBrackets 0.2
+# requires; 0.4 and 0.5 require SimpleSplines 0.1 or 0.2.
+PoissonSolvers = "0.6"
 ProgressMeter = "1"
 Random = "1"
-SimpleSolvers = "0.13, 0.14"
-SimpleSplines = "0.1, 0.2, 0.3"
+SimpleSolvers = "0.14.1"
+SimpleSplines = "0.3.1"
 Sobol = "1.5"
 SpecialFunctions = "2"
 StaticArrays = "1"
