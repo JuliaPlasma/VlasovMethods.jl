@@ -222,7 +222,7 @@ first entry is written.
   `src/methods/diffeq_integrator.jl`, and the `DiffEqIntegrator` constructor methods for
   `LenardBernstein{1,1}` and `ConservativeLenardBernstein{1,1}` are deleted.
   `scripts/lenard_bernstein.jl:30` still calls the deleted constructor; repairing that belongs to
-  the `scripts/` rewrite, and is recorded as `KNOWN_ISSUES.md` K19.
+  the `scripts/` rewrite, and is recorded as `KNOWN_ISSUES.md` K20.
 
 ### Removals
 
