@@ -296,7 +296,8 @@ end
 
 function Picard_iterate_over_particles(dv::AbstractArray{ST}, vn::AbstractArray{ST},
         vn_minus_one::AbstractArray{ST}, dv_history, ti, t, Δt, m, β,
-        abstol, reltol, mlb::MetriplecticLenardBernstein) where {ST}
+        abstol, reltol, mlb::MetriplecticLenardBernstein;
+        maxiters::Int = 1000) where {ST}
 
     # set up vectors for storing intermediates
     # v_new = copy(vn)
@@ -324,20 +325,26 @@ function Picard_iterate_over_particles(dv::AbstractArray{ST}, vn::AbstractArray{
             t - Δt, vn, t, v_prev, problemGNI, MidpointExtrapolation(5))
     end
 
-    probN = NonlinearProblem{true}((f, v, p) -> f!(f, v, vn, params, Δt, mlb), v_prev)
+    # `SimpleSolvers` solves `F(x) = 0` with the fixed-point (Picard) step `x ← x - α F(x)`.
+    # The implicit midpoint rule here is `x = vn + Δt * dv((x + vn) / 2)`, whose residual is
+    # `F(x) = x - vn - Δt * dv((x + vn) / 2)`; `f!` writes the negation of it, so the sign is
+    # flipped once, here. The unaccelerated Picard step takes neither the acceleration depth `m`
+    # nor the damping `β`, which the signature carries for its callers.
+    probN = SimpleSolvers.NonlinearProblem(
+        (f, v, p) -> (f!(f, v, vn, params, Δt, mlb); f .*= -1), v_prev)
 
-    # NonlinearSolve.jl using Picard w/ anderson acceleration
-    @time sol = NonlinearSolve.solve(probN,
-        NonlinearSolve.NLsolveJL(; method = :anderson, m = m, beta = β);
-        abstol = abstol, reltol = reltol, show_trace = Val(true))
+    status = SimpleSolvers.solve_with_status!(v_prev, probN, SimpleSolvers.Picard();
+        f_abstol = abstol, f_reltol = reltol, max_iterations = maxiters, verbosity = 0)
+
+    SimpleSolvers.isconverged(status) || error(
+        "the Picard solve of the metriplectic Lenard–Bernstein step did not converge: " *
+        "residual = $(status.rfₐ), iterations = $(status.iterations)")
 
     dv_history[:, 2] .= dv_history[:, 1]
     # dv_history[:, 1] .= dv
-    collisional_vectorfield!(view(dv_history, :, 1), sol.u, params, mlb)
+    collisional_vectorfield!(view(dv_history, :, 1), v_prev, params, mlb)
 
-    return sol
-    # return v_new, v_prev, j, err, f 
-
+    return v_prev
 end
 
 # function Picard_iterate_over_particles(dv::AbstractArray{ST}, vn::AbstractArray{ST}, vn_minus_one::AbstractArray{ST}, dv_history, ti, t,  Δt, max_iters, tol, ftol, mlb::MetriplecticLenardBernstein) where {ST}

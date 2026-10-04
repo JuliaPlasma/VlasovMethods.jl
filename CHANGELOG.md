@@ -99,6 +99,17 @@ first entry is written.
 
 ### Breaking Changes
 
+- **The metriplectic Lenard–Bernstein solve uses `SimpleSolvers`.** The one live
+  `NonlinearSolve.NLsolveJL` call, in `Picard_iterate_over_particles`, is replaced by an
+  unaccelerated `SimpleSolvers` Picard solve, so `NonlinearSolve` leaves `[deps]` and
+  `SimpleSolvers` joins it at `0.13`. The solve no longer prints `@time` or an NLsolve trace, and
+  it throws when it does not converge, giving the residual and the iteration count.
+  `Picard_iterate_over_particles` now returns the solved velocity vector instead of an NLsolve
+  solution object, so a caller that read `.u` or `SciMLBase.successful_retcode` changes, and it
+  gains a `maxiters` keyword (default `1000`). A one-step pin test in
+  `test/integration/metriplectic_solve.jl` matches the pre-change result to `1e-13` in `Float64`
+  and to `1e-13 · eps(Float32)/eps(Float64)` in `Float32`.
+
 - **`[compat] julia` rises from 1.10 to 1.11.** `GeometricBrackets` requires 1.11.
 
 - **`projection_energy` is now `projection_second_moment`.** It returns `Σ_α v_α² f_s(v_α)`, the

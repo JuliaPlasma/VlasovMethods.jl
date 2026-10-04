@@ -8,7 +8,6 @@ using Distances
 using HDF5
 using LinearAlgebra
 using MultiIndexArrays: multiindex, linearindex, _stencil_indices
-using NonlinearSolve
 using Parameters
 using ParticleMethods
 using PoissonSolvers
@@ -25,6 +24,10 @@ import SimpleSplines: basis, coefficients, derivative, evaluate, mass_matrix, ma
 
 import GeometricEquations
 import GeometricEquations: ntime
+
+# `import` and not `using`: `SimpleSolvers` exports generic names (`Options`, `Newton`,
+# `Picard`, `solve`), and every use here is qualified as `SimpleSolvers.…`.
+import SimpleSolvers
 
 # The phase-space tensors reduced here are built on the GeometricBrackets grid tensor, and the
 # `_nx`/`_nv` accessors are extended rather than redefined so that one generic covers both.
