@@ -49,11 +49,9 @@ takes the next `K<n>`.
 
 - **location:** `Landau_solver.jl`
 - **evidence:** `Landau_solver.jl` runs exactly five iterations and prints the residual without
-  testing it. `tol`, `ftol`, `β`, `m` and `chunksize` are accepted and unused, and `probN` is
-  constructed and never solved — it is left in place, with the commented-out `NonlinearSolve`
-  calls it belongs to, rather than deleted. Every conservation property in the appendix is a
-  property of the *exactly* solved implicit system, so momentum and energy drift at the size of
-  that printed residual.
+  testing it. `tol`, `ftol`, `β`, `m` and `chunksize` are accepted and unused. Every conservation
+  property in the appendix is a property of the *exactly* solved implicit system, so momentum and
+  energy drift at the size of that printed residual.
 - **kind:** defect
 - **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
   migration. None of these are regressions; each is either a numerical-methods decision or work
@@ -130,14 +128,15 @@ takes the next `K<n>`.
   migration. None of these are regressions; each is either a numerical-methods decision or work
   the migration deliberately did not take on.
 
-### K14 · `fatou lint` reports 10 warnings, of which one is deliberate and nine are a known false positive.
+### K14 · `fatou lint` reports `unused-binding` locals and no `unused-import`.
 
-- **location:** `src/VlasovMethods.jl`
-- **evidence:** The nine are `unused-import` on `src/VlasovMethods.jl`, where the rule does not
-  follow `include` and so flags the module file's load-bearing imports; `ExplicitImports`
-  contradicts all nine. The tenth is `probN` below. An earlier version of this changelog and of the
-  pull request described `fatou lint` as clean, which was not reproducible.
-- **kind:** upstream
+- **location:** `scripts/bump_on_tail.jl:47`
+- **evidence:** `fatou lint --force-exclude --output concise .` reports seven `unused-binding`
+  locals — `scripts/bump_on_tail.jl:47`, `scripts/lenard_bernstein_metriplectic_scaling.jl:38`
+  and `:49`, `src/gridbased/moments.jl:18`, `src/gridbased/reduced_tensors.jl:210`,
+  `test/distributions/spline_distribution.jl:74` and `:76` — and no `unused-import`.
+  `ExplicitImports` agrees with the imports the module file keeps.
+- **kind:** dead code
 - **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
   migration. None of these are regressions; each is either a numerical-methods decision or work
   the migration deliberately did not take on.
@@ -351,3 +350,107 @@ takes the next `K<n>`.
   but is wrong passes them. The plan of the part names both checks. Whether to keep them is open.
 - **kind:** missing test
 - **found:** #62
+
+### K35 · The package stays on the `GeometricBase` 0.14 line, so `SimpleSolvers` 0.14.1 is unreachable.
+
+- **location:** `Project.toml:29`
+- **evidence:** `[compat] GeometricBrackets = "0.1.1"` admits no release that allows GeometricBase
+  0.15, and `SimpleSolvers` 0.14.1 requires GeometricBase 0.15. With `SimpleSolvers = "0.13, 0.14"`
+  the environment resolves to 0.14.0 (GeometricBase 0.14.12, GeometricIntegrators 0.18.5,
+  GeometricBrackets 0.1.2), and `test/integration/metriplectic_solve.jl` passes 18 of 18 there.
+  The registry has a GeometricBase 0.15 release of every other dependency that bounds GeometricBase:
+  GeometricBrackets 0.2.0, GeometricIntegrators 0.18.6, GeometricEquations 0.21.5, SimpleSplines
+  0.3.1, QuadratureRules 0.2.2 and CompactBasisFunctions 0.4.2. `PoissonSolvers` does not bound
+  GeometricBase. The move to that line changes the `GeometricBrackets`, `GeometricIntegrators`,
+  `GeometricEquations` and `SimpleSplines` entries, and its test run is not done.
+- **kind:** defect
+- **found:** 2026-10-04
+
+### K36 · A metriplectic Picard step whose particles leave the velocity domain stops with the model's `DomainError`.
+
+- **location:** `src/models/lenard_bernstein_metriplectic.jl:344`
+- **evidence:** With `ν = 1e6` at `ti = 4`, all 64 particles leave the `-2.0 .. 2.0` velocity
+  support and `projection` throws `DomainError: … 64 of 64 particles left the velocity domain …`
+  from inside the solve. The catch at `:344` rethrows it, so the caller sees that `DomainError`
+  and not the residual-and-count `ErrorException` the author decided for a solve that does not
+  converge or meets a `NaN`. The error is loud, so the solve never returns in silence.
+- **kind:** found late
+- **found:** 2026-10-04
+
+### K37 · The two metriplectic scripts read a solve-result object the solve does not return.
+
+- **location:** `scripts/lenard_bernstein_metriplectic.jl:81`
+- **evidence:** `Picard_iterate_over_particles` returns the solved velocity `Vector`, but
+  `scripts/lenard_bernstein_metriplectic.jl` still reads `sol_object.u` (`:81`, `:91`) and calls
+  `SciMLBase.successful_retcode(sol_object)` (`:84`), and
+  `scripts/lenard_bernstein_metriplectic_scaling.jl` reads `sol_object.u` (`:96`, `:107`); each
+  throws once it reaches those lines. `scripts/lenard_bernstein_metriplectic.jl:70` also sets
+  `abstol = 1e-15`, which the solve now compares with `‖F‖₂` and not `maximum(abs, F)`. That is
+  below the round-off floor of `‖F‖₂`: one step of the uniform cloud of
+  `test/integration/metriplectic_solve.jl` with `abstol = 1e-15` throws at `N = 64`, `256` and
+  `1000` (`residual = 1.21e-15`, `1.26e-15`, `1.74e-15` after 49, 29 and 26 iterations), and
+  returns with the scaling script's `3e-16·√N`. The `scripts/` rewrite (P46) repairs both.
+- **kind:** defect
+- **found:** 2026-10-04
+
+### K39 · The untyped `f!` in `src/methods/Landau_solver.jl` has no caller.
+
+- **location:** `src/methods/Landau_solver.jl:64`
+- **evidence:** `f!(f, vn, vp, params, Δt, landau)` duplicates the method at
+  `src/models/lenard_bernstein_metriplectic.jl:269`, and nothing calls it:
+  `grep -rn 'f!(' src test scripts` finds only calls that pass a `MetriplecticLenardBernstein`,
+  which dispatch to that typed method. The method is left in place for the
+  collision dedupe, which names it as the fallback its pin must catch.
+- **kind:** dead code
+- **found:** 2026-10-04
+
+### K40 · Each metriplectic Picard step builds a fresh `SimpleSolvers` solver and its unused Jacobian cache.
+
+- **location:** `src/models/lenard_bernstein_metriplectic.jl:337`
+- **evidence:** `Picard_iterate_over_particles` constructs a fresh
+  `SimpleSolvers.NonlinearSolver(Picard(), …)` on every call. The constructor allocates an `N×N`
+  `solver.cache.j` and a `ForwardDiff.JacobianConfig` the unaccelerated Picard step never reads:
+  measured `126288 B` at `N = 64` and `96629344 B` at `N = 2000` per step. The solver's type also
+  leaves the chunk size open, so `solve_with_status!` is one dynamic dispatch per call. The return
+  type is concrete and `@inferred` passes. Avoiding the allocation needs the solver to be reused
+  across steps (an API change) or an upstream change to the Picard constructor's cache.
+- **kind:** defect
+- **found:** 2026-10-04
+
+### K41 · `Picard_iterate_over_particles` calls two `SimpleSolvers` names that are not public.
+
+- **location:** `src/models/lenard_bernstein_metriplectic.jl:345`
+- **evidence:** `SimpleSolvers.status` (`:345`) and `SimpleSolvers.isconverged` (`:348`) are neither
+  exported nor declared `public`; `SimpleSolvers` 0.14.1 keeps them unexported at
+  `src/SimpleSolvers.jl:138`. `ExplicitImports.check_all_qualified_accesses_are_public` flags
+  exactly these two. The fix is a `public` declaration in `SimpleSolvers`.
+- **kind:** upstream
+- **found:** 2026-10-04
+
+### K42 · `Picard_iterate_over_particles` takes `dv`, `m` and `β` and ignores them.
+
+- **location:** `src/models/lenard_bernstein_metriplectic.jl:297`
+- **evidence:** The function body does not read `dv`, `m` or `β` after the signature (`:297-300`).
+  They stay so that the call sites do not change, and the CHANGELOG says so. Removing them is an
+  API change.
+- **kind:** dead code
+- **found:** 2026-10-04
+
+### K43 · `Picard_iterate_Landau_nls!` prints from library code.
+
+- **location:** `src/methods/Landau_solver.jl:131`
+- **evidence:** The calls at `:131`, `:143` and `:151` print the residual of each iteration and an
+  empty line. They are the only residual report of the function (K5), so removing them removes
+  the one output that shows the drift.
+- **kind:** defect
+- **found:** 2026-10-04
+
+### K44 · The reference generator of the metriplectic test is in `test/helpers/`.
+
+- **location:** `test/helpers/generate_metriplectic_reference.jl`
+- **evidence:** The file is a script that a person runs to write the reference data, and not a
+  helper that a test loads. A script of this kind belongs in `scripts/`.
+  `test-layout.jl --check` passes with the file where it is, and
+  `test/integration/metriplectic_solve.jl` names this path.
+- **kind:** docs
+- **found:** 2026-10-04

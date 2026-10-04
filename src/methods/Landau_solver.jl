@@ -121,22 +121,6 @@ function Picard_iterate_Landau_nls!(
             t - Δt, v_prev, t, v_guess, problemGNI, MidpointExtrapolation(5))
     end
 
-    probN = NonlinearProblem{true}((f, v, p) -> f!(f, v, v_prev, params, Δt, landau), v_guess)
-
-    # println("nlsolve")
-    # NonlinearSolve.jl using NewtonRaphson
-    # @time sol = NonlinearSolve.solve(probN, 
-    #     NewtonRaphson(linsolve = AppleAccelerateLUFactorization(), autodiff = AutoForwardDiff(; chunksize = chunksize)); 
-    #     reltol = 5e-3, show_trace=Val(true), trace_level = TraceWithJacobianConditionNumber())
-
-    # NonlinearSolve.jl using Picard w/ anderson acceleration
-    # @time sol = NonlinearSolve.solve(probN, 
-    #     NonlinearSolve.NLsolveJL(; method = :anderson, m = m, beta = β); 
-    #     reltol = 5e-3, maxiters = 10, show_trace=Val(true))
-
-    # @time sol = NonlinearSolve.solve(probN, TrustRegion();
-    #     reltol = 5e-3, maxiters = 10, show_trace=Val(true))
-
     # @time sol = nlsolve(g!, v_guess, method=:anderson, iterations = max_iters, m = m, beta = β, xtol = tol, ftol = ftol, show_trace = true)
 
     v_midpoint = landau.cache[eltype(v_guess)].v
