@@ -377,6 +377,9 @@ first entry is written.
 
 ### Internal
 
+- **CI uploads coverage from the `Julia 1 - ubuntu-latest` job instead of `Julia min`, and a
+  test job saves the Julia cache only when it succeeds.**
+
 - **Test suite reorganized to mirror `src/` structure.** Test files grouped under
   `test/distributions/`, `test/projections/`, and `test/gridbased/`; dependencies moved from
   `Project.toml` to `test/Project.toml`, where `OffsetArrays` returns as a test-only dependency.
