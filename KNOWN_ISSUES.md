@@ -38,8 +38,8 @@ takes the next `K<n>`.
   *is* the momentum and energy conservation proof — and a Gonzalez discrete gradient, which *is*
   the discrete H-theorem proof. What runs is the **appendix** two-step `v̇ = K⁺LJ` with plain
   implicit midpoint and `∇S(midpoint)`, which is not a discrete gradient. Neither structural proof
-  transfers to the code as written. `G` is never formed; the gradient form survives only as a
-  commented-out `Landau_rhs`. A gap between paper and code, not an error in either.
+  transfers to the code as written. `G` is never formed, and no code implements the gradient
+  form. A gap between paper and code, not an error in either.
 - **kind:** docs
 - **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
   migration. None of these are regressions; each is either a numerical-methods decision or work
@@ -233,10 +233,10 @@ takes the next `K<n>`.
 
 ### K24 · The Lenard-Bernstein right-hand sides keep an indirection and two plotting copies.
 
-- **location:** `src/models/lenard_bernstein.jl:37`
+- **location:** `src/models/lenard_bernstein.jl:33`
 - **evidence:** `LB_rhs!(v̇, v, params, t)` keeps the argument order of an ODE solver that the
-  package does not use; its one caller is the wrapper `LB_rhs_GI!` at `:48-50`.
-  `LB_rhs` (`:53`) and `CLB_rhs` (`src/models/lenard_bernstein_conservative.jl:210`) repeat the
+  package does not use; its one caller is the wrapper `LB_rhs_GI!` at `:44-46`.
+  `LB_rhs` (`:49`) and `CLB_rhs` (`src/models/lenard_bernstein_conservative.jl:184`) repeat the
   bodies of their `_GI!` functions. `grep -rn -E '\bC?LB_rhs\b' src test scripts` finds
   `LB_rhs` only at `scripts/lenard_bernstein.jl:47` and `:57`, after that script fails at `:30`
   (K20), and `CLB_rhs` only in commented script lines.
@@ -245,10 +245,10 @@ takes the next `K<n>`.
 
 ### K26 · The `LB_rhs!` docstring and comment describe past code.
 
-- **location:** `src/models/lenard_bernstein.jl:30`
-- **evidence:** The admonition "The division by `f_s` was missing" (`:30-35`) says what "both
+- **location:** `src/models/lenard_bernstein.jl:26`
+- **evidence:** The admonition "The division by `f_s` was missing" (`:26-31`) says what "both
   right-hand sides computed", and only one right-hand side is in the file. The comment at
-  `:38-39` explains a line that "threw". The facts belong in the present tense, and the history
+  `:34-35` explains a line that "threw". The facts belong in the present tense, and the history
   in `CHANGELOG.md`.
 - **kind:** docs
 - **found:** #61
@@ -344,10 +344,10 @@ takes the next `K<n>`.
 
 ### K36 · A metriplectic Picard step whose particles leave the velocity domain stops with the model's `DomainError`.
 
-- **location:** `src/models/lenard_bernstein_metriplectic.jl:344`
+- **location:** `src/models/lenard_bernstein_metriplectic.jl:300`
 - **evidence:** With `ν = 1e6` at `ti = 4`, all 64 particles leave the `-2.0 .. 2.0` velocity
   support and `projection` throws `DomainError: … 64 of 64 particles left the velocity domain …`
-  from inside the solve. The catch at `:344` rethrows it, so the caller sees that `DomainError`
+  from inside the solve. The catch at `:300` rethrows it, so the caller sees that `DomainError`
   and not the residual-and-count `ErrorException` the author decided for a solve that does not
   converge or meets a `NaN`. The error is loud, so the solve never returns in silence.
 - **kind:** found late
@@ -371,7 +371,7 @@ takes the next `K<n>`.
 
 ### K40 · Each metriplectic Picard step builds a fresh `SimpleSolvers` solver and its unused Jacobian cache.
 
-- **location:** `src/models/lenard_bernstein_metriplectic.jl:337`
+- **location:** `src/models/lenard_bernstein_metriplectic.jl:293`
 - **evidence:** `Picard_iterate_over_particles` constructs a fresh
   `SimpleSolvers.NonlinearSolver(Picard(), …)` on every call. The constructor allocates an `N×N`
   `solver.cache.j` and a `ForwardDiff.JacobianConfig` the unaccelerated Picard step never reads:
@@ -384,8 +384,8 @@ takes the next `K<n>`.
 
 ### K41 · `Picard_iterate_over_particles` calls two `SimpleSolvers` names that are not public.
 
-- **location:** `src/models/lenard_bernstein_metriplectic.jl:345`
-- **evidence:** `SimpleSolvers.status` (`:345`) and `SimpleSolvers.isconverged` (`:348`) are neither
+- **location:** `src/models/lenard_bernstein_metriplectic.jl:301`
+- **evidence:** `SimpleSolvers.status` (`:301`) and `SimpleSolvers.isconverged` (`:304`) are neither
   exported nor declared `public`; `SimpleSolvers` 0.14.1 keeps them unexported at
   `src/SimpleSolvers.jl:138`. `ExplicitImports.check_all_qualified_accesses_are_public` flags
   exactly these two. The fix is a `public` declaration in `SimpleSolvers`.
@@ -394,8 +394,8 @@ takes the next `K<n>`.
 
 ### K42 · `Picard_iterate_over_particles` takes `dv`, `m` and `β` and ignores them.
 
-- **location:** `src/models/lenard_bernstein_metriplectic.jl:297`
-- **evidence:** The function body does not read `dv`, `m` or `β` after the signature (`:297-300`).
+- **location:** `src/models/lenard_bernstein_metriplectic.jl:253`
+- **evidence:** The function body does not read `dv`, `m` or `β` after the signature (`:253-256`).
   They stay so that the call sites do not change, and the CHANGELOG says so. Removing them is an
   API change.
 - **kind:** dead code
@@ -403,8 +403,8 @@ takes the next `K<n>`.
 
 ### K43 · `Picard_iterate_Landau_nls!` prints from library code.
 
-- **location:** `src/methods/Landau_solver.jl:131`
-- **evidence:** The calls at `:131`, `:143` and `:151` print the residual of each iteration and an
+- **location:** `src/methods/Landau_solver.jl:35`
+- **evidence:** The calls at `:35`, `:47` and `:55` print the residual of each iteration and an
   empty line. They are the only residual report of the function (K5), so removing them removes
   the one output that shows the drift.
 - **kind:** defect

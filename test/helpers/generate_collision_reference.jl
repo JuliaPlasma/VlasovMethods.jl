@@ -2,7 +2,8 @@
 # of each of the five operators on a StableRNGs-seeded input, plus one Picard step of the
 # metriplectic operator (which exercises `f!`).
 #
-# Run against a checkout of the source before the collision dedupe:
+# The pins compare against the tree this runs on, so run it on a tree whose arithmetic is the
+# intended reference:
 #
 #     julia --startup-file=no --project=<worktree> \
 #         -e 'using TestEnv; TestEnv.activate("VlasovMethods"); include("test/helpers/generate_collision_reference.jl")'

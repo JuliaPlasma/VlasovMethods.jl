@@ -8,9 +8,9 @@ using VlasovMethods
 
 # One vector-field evaluation of each of the five collision operators, plus one Picard step of
 # the metriplectic operator (which exercises `f!`), on a StableRNGs-seeded input. The references
-# are written on the pre-dedupe tree by `test/helpers/generate_collision_reference.jl`; the dedupe
-# moves code and must not change arithmetic, so every step here must match its reference to
-# `rtol = 64*eps(T)` — the last bits vary across Julia versions and platforms.
+# in `test/data/` are written by `test/helpers/generate_collision_reference.jl`. A change that
+# moves code without changing arithmetic matches them to `rtol = 64*eps(T)`; the last bits vary
+# across Julia versions and platforms.
 #
 # The velocity input is uniform on the spline domain, so the L² projection stays positive and
 # neither operator stops on the positivity check (KNOWN_ISSUES.md, K8).
@@ -85,16 +85,13 @@ end
         VlasovMethods.collisional_vectorfield!(v̇, v, nothing, model)
         @test isapprox(v̇, reference("collision_mlb_reference.txt"); rtol = rtol(Float64))
 
-        # One Picard step: exercises `f!`, whose last argument must stay typed — the dedupe
-        # deletes the dead untyped `f!` and keeps this one. `@inferred` pins the type stability
-        # that an untyped `f!` would drop.
+        # One Picard step, which exercises `f!`; `@inferred` pins its return type.
         vstep = @inferred Picard_iterate_over_particles(
             zeros(N), v, v, zeros(N, 2), 1, 0.0, ΔT, 3, 0.5, 3e-16 * sqrt(N), 1e-50, model)
         @test isapprox(vstep, reference("collision_mlb_step_reference.txt"); rtol = rtol(Float64))
 
-        # The two `f!` bodies are identical, so a value pin cannot tell them apart: the type of
-        # the last argument is what distinguishes the live typed `f!` from the dead untyped one,
-        # and it is asserted directly.
+        # A value pin cannot tell which `f!` method runs, so the dispatch is asserted:
+        # a metriplectic call reaches the `f!` typed on `MetriplecticLenardBernstein`.
         m = which(VlasovMethods.f!,
             (Vector{Float64}, Vector{Float64}, Vector{Float64},
                 NamedTuple, Float64, typeof(model)))
