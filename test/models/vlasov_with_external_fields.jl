@@ -46,8 +46,7 @@ function trajectory(::Type{T}, field, x₀, v₀, q, m, tspan, tstep) where {T}
     dist = one_particle(T, x₀, v₀)
     model = VlasovWithExternalFields(dist, field; charge = q, mass = m)
     method = SplittingMethod(model, tspan, tstep)
-    sol = GeometricIntegrators.integrate(method.integrator)
-    return method, sol
+    return GeometricIntegrators.integrate(method.integrator)
 end
 
 # `@allocated` through a fixed-arity barrier whose arguments have concrete types, so that a Julia
@@ -127,8 +126,7 @@ end
             err = Dict{T, T}()
             fin = Dict{T, T}()
             for (i, Δt) in enumerate((T_g / 32, T_g / 64))
-                method, sol = trajectory(
-                    T, field, x₀, v₀, q, m, (zero(T), 10 * T_g), Δt)
+                sol = trajectory(T, field, x₀, v₀, q, m, (zero(T), 10 * T_g), Δt)
                 # The step count of the equation rounds up (`div(t₁ - t₀, Δt, RoundUp)`), while
                 # the solution's time series is the range `t₀:Δt:t₁`, so the two disagree by one
                 # whenever the span is not an exact multiple. Both errors are therefore taken at
@@ -159,7 +157,7 @@ end
     @testset "the energy" begin
         for q in (T(2), T(-2))
             T_g = 2 * T(π) * m / (abs(q) * B₀)
-            method, sol = trajectory(T, field, x₀, v₀, q, m, (zero(T), 10 * T_g), T_g / 32)
+            sol = trajectory(T, field, x₀, v₀, q, m, (zero(T), 10 * T_g), T_g / 32)
             N = lastindex(sol.q)
             E₀ = v₀ ⋅ v₀ / 2
             drift = zero(T)
@@ -181,7 +179,7 @@ end
         # the kicks' velocity change in full.
         q, E₀, tstep = T(2), T(0.3), T(4) / T(37)
         field = UniformField(SVector{3, T}(0, 0, E₀), SVector{3, T}(0, 0, B₀))
-        method, sol = trajectory(T, field, x₀, v₀, q, m, (zero(T), T(4)), tstep)
+        sol = trajectory(T, field, x₀, v₀, q, m, (zero(T), T(4)), tstep)
         N = lastindex(sol.q)
         t = sol.t[N]
         z = sol.q[N]
@@ -198,7 +196,7 @@ end
         @test field isa UniformField{Int}
         @test all(iszero, field.E) && all(iszero, field.B)
         q, tstep = T(-2), T(0.1)
-        method, sol = trajectory(T, field, x₀, v₀, q, m, (zero(T), T(1)), tstep)
+        sol = trajectory(T, field, x₀, v₀, q, m, (zero(T), T(1)), tstep)
         N = lastindex(sol.q)
         t = sol.t[N]
         z = sol.q[N]
