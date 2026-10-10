@@ -243,15 +243,6 @@ takes the next `K<n>`.
 - **kind:** dead code
 - **found:** #61
 
-### K25 · `IM_rule!` in `src/methods/Landau_solver.jl` has no caller.
-
-- **location:** `src/methods/Landau_solver.jl:5`
-- **evidence:** `grep -rn 'IM_rule!' src test scripts` finds the definition at `:5-12` and
-  otherwise only comments: `Landau_solver.jl:1` and `:16`, and
-  `src/models/lenard_bernstein_metriplectic.jl:284`, `:394` and `:445`.
-- **kind:** dead code
-- **found:** #61
-
 ### K26 · The `LB_rhs!` docstring and comment describe past code.
 
 - **location:** `src/models/lenard_bernstein.jl:30`
@@ -376,17 +367,6 @@ takes the next `K<n>`.
   `1000` (`residual = 1.21e-15`, `1.26e-15`, `1.74e-15` after 49, 29 and 26 iterations), and
   returns with the scaling script's `3e-16·√N`. The `scripts/` rewrite (P46) repairs both.
 - **kind:** defect
-- **found:** 2026-10-04
-
-### K39 · The untyped `f!` in `src/methods/Landau_solver.jl` has no caller.
-
-- **location:** `src/methods/Landau_solver.jl:64`
-- **evidence:** `f!(f, vn, vp, params, Δt, landau)` duplicates the method at
-  `src/models/lenard_bernstein_metriplectic.jl:269`, and nothing calls it:
-  `grep -rn 'f!(' src test scripts` finds only calls that pass a `MetriplecticLenardBernstein`,
-  which dispatch to that typed method. The method is left in place for the
-  collision dedupe, which names it as the fallback its pin must catch.
-- **kind:** dead code
 - **found:** 2026-10-04
 
 ### K40 · Each metriplectic Picard step builds a fresh `SimpleSolvers` solver and its unused Jacobian cache.

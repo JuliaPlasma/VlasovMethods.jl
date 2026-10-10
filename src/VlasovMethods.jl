@@ -4,7 +4,6 @@ using Logging: global_logger
 using TerminalLoggers: TerminalLogger
 global_logger(TerminalLogger())
 
-using Distances
 using HDF5
 using LinearAlgebra
 using MultiIndexArrays: multiindex, linearindex, _stencil_indices
