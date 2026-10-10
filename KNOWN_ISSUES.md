@@ -430,3 +430,15 @@ takes the next `K<n>`.
   correct; the first construction is wasted.
 - **kind:** defect
 - **found:** 2026-10-10
+
+### K46 · No test re-types a collision cache to an element type other than its parent's.
+
+- **location:** `src/cache.jl:33`
+- **evidence:** The `Cache` method that `@collision_cache` generates builds the new spline with
+  `similar(AT, c.sdist)`, and `CacheType` names it with `similar_type(AT, c.sdist)`. A mutant that
+  keeps `c.sdist` and `ST` instead survives `test/integration/collision_operators.jl`, because the
+  pins run in `Float64`, the parent's element type. The untested re-type predates the macro:
+  `Cache(AT, c::CLBCache)` at `590de77:src/models/lenard_bernstein_conservative.jl:14` had no test
+  either. A one-line pin is `@test eltype(model.cache[Float32].sdist.coefficients) == Float32`.
+- **kind:** missing test
+- **found:** 2026-10-10
