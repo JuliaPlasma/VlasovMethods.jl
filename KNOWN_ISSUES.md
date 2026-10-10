@@ -434,3 +434,39 @@ takes the next `K<n>`.
   parent(model.cache)` is `false`, and for Landau it is `true`.
 - **kind:** defect
 - **found:** 2026-10-10
+
+### K47 · Nineteen lines of commented-out code remain in five collision model files.
+
+- **location:** `src/models/landau.jl:385`
+- **evidence:** The lines are `src/models/landau.jl:385`; `src/models/lenard_bernstein.jl:57`
+  and `:67`; `src/models/lenard_bernstein_conservative.jl:196`, `:206-208` and `:212`;
+  `src/models/lenard_bernstein_metriplectic.jl:259`, `:264-265`, `:267-268` and `:309`;
+  `src/models/rescaled_lenard_bernstein_conservative.jl:125`, `:138-140` and `:144`. Each is an
+  old assignment, call or `return` behind `#`, such as `# int = Integrators.Integrator(equ,
+  Integrators.RK438())`. #69 deleted the other dead code of these files and left these lines,
+  because they are outside its hunks. The fix is to delete the nineteen lines.
+- **kind:** dead code
+- **found:** #69
+
+### K48 · The collision test and its reference generator define the same fixture twice.
+
+- **location:** `test/integration/collision_operators.jl:24`
+- **evidence:** `setup_1d1v` (`:24-33`), `lb_params` (`:35`) and `setup_1d2v` (`:37-48`) of the
+  test repeat `setup_1d1v` (`:32-41`), `lb_params` (`:43`) and `setup_1d2v` (`:76-87`) of
+  `test/helpers/generate_collision_reference.jl`, and both files define `SEED`, `N` and `N1`. A
+  change to one copy that is not made in the other makes the test compare against references
+  from a different input. A shared file is not a simple fix: the generator runs on the tree
+  whose arithmetic is the reference, which can be a tree without the shared file.
+- **kind:** missing test
+- **found:** #69
+
+### K49 · The `which(f!, …)` assertion of the metriplectic collision test cannot fail.
+
+- **location:** `test/integration/collision_operators.jl:94`
+- **evidence:** `f!` has one method, `src/models/lenard_bernstein_metriplectic.jl:240`, and its
+  last argument is `mlb::MetriplecticLenardBernstein`. So `which(VlasovMethods.f!, …)` at
+  `:94-96` either returns that method, and the `@test` at `:97` passes, or throws a
+  `MethodError`. The value pin at `:90` already runs `f!` through the Picard step. Whether to
+  keep the assertion is open.
+- **kind:** missing test
+- **found:** #69
