@@ -419,3 +419,14 @@ takes the next `K<n>`.
   `test/integration/metriplectic_solve.jl` names this path.
 - **kind:** docs
 - **found:** 2026-10-04
+
+### K45 · Three collision caches have no `eltype`, so `CacheDict` builds their first cache twice.
+
+- **location:** `src/cache.jl:12`
+- **evidence:** `CacheDict(p)` stores its parent under `_cachehash(eltype(p))`. Only `LandauCache`
+  defines `Base.eltype` (`src/models/landau.jl:53`); for `CLBCache`, `MLBCache` and `RCLBCache`,
+  `which(eltype, Tuple{C}).module` is `Base`, whose fallback returns `Any`. The first
+  `cache[Float64]` then misses and builds a new cache with `Cache(Float64, parent)`. The result is
+  correct; the first construction is wasted.
+- **kind:** defect
+- **found:** 2026-10-10
