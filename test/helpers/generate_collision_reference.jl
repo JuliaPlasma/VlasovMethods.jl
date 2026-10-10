@@ -11,7 +11,6 @@
 # Each reference is one value per line, `%.17e`, in `test/data/`.
 using VlasovMethods
 using StableRNGs
-using LinearAlgebra
 using Printf
 using ParticleMethods: ParticleList
 using SimpleSplines: BSplineBasis, UniformMesh, Free, SplineQuadrature, nbasis,

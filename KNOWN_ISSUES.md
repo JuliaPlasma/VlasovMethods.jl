@@ -427,18 +427,10 @@ takes the next `K<n>`.
   defines `Base.eltype` (`src/models/landau.jl:53`); for `CLBCache`, `MLBCache` and `RCLBCache`,
   `which(eltype, Tuple{C}).module` is `Base`, whose fallback returns `Any`. The first
   `cache[Float64]` then misses and builds a new cache with `Cache(Float64, parent)`. The result is
-  correct; the first construction is wasted.
+  correct, but the gap decides which spline an operator overwrites. Landau's `cache[Float64]` is
+  the parent, so it projects into `entropy.dist`. The three Lenard–Bernstein operators project
+  into the new cache's own copy of the spline. An `eltype` for the three caches therefore changes
+  what they write, not only how often a cache is built: for each, `model.cache[Float64] ===
+  parent(model.cache)` is `false`, and for Landau it is `true`.
 - **kind:** defect
-- **found:** 2026-10-10
-
-### K46 · No test re-types a collision cache to an element type other than its parent's.
-
-- **location:** `src/cache.jl:33`
-- **evidence:** The `Cache` method that `@collision_cache` generates builds the new spline with
-  `similar(AT, c.sdist)`, and `CacheType` names it with `similar_type(AT, c.sdist)`. A mutant that
-  keeps `c.sdist` and `ST` instead survives `test/integration/collision_operators.jl`, because the
-  pins run in `Float64`, the parent's element type. The untested re-type predates the macro:
-  `Cache(AT, c::CLBCache)` at `590de77:src/models/lenard_bernstein_conservative.jl:14` had no test
-  either. A one-line pin is `@test eltype(model.cache[Float32].sdist.coefficients) == Float32`.
-- **kind:** missing test
 - **found:** 2026-10-10

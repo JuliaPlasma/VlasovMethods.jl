@@ -1,4 +1,3 @@
-using LinearAlgebra
 using ParticleMethods: ParticleList
 using SimpleSplines: BSplineBasis, UniformMesh, Free, SplineQuadrature, nbasis,
                      TensorProductBasis, TensorProductQuadrature
@@ -105,5 +104,22 @@ end
         v̇ = similar(v)
         VlasovMethods.collisional_vectorfield!(v̇, v, nothing, model)
         @test isapprox(vec(v̇), reference("collision_landau_reference.txt"); rtol = rtol(Float64))
+    end
+
+    # The pins run in the parent's element type, where a re-type that kept the parent's spline
+    # would pass. This re-types each cache that `@collision_cache` covers to `Float32`;
+    # `CacheDict`'s `getindex` asserts the `CacheType`, and the tests assert the new spline's
+    # element type and the shared particles.
+    @testset "Re-type a collision cache to Float32" begin
+        pdist2, sdist2 = setup_1d2v(Float64)
+        models = (ConservativeLenardBernstein(pdist, CollisionEntropy(sdist)),
+            RescaledConservativeLenardBernstein(pdist, CollisionEntropy(sdist)),
+            MetriplecticLenardBernstein(pdist, CollisionEntropy(sdist)),
+            Landau(pdist2, CollisionEntropy(sdist2)))
+        @testset "$(nameof(typeof(model)))" for model in models
+            cache = model.cache[Float32]
+            @test eltype(cache.sdist.coefficients) == Float32
+            @test cache.pdist === parent(model.cache).pdist
+        end
     end
 end

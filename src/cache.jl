@@ -27,15 +27,13 @@ end
 
 # Every collision cache is a particle/spline pair with operator-specific buffers added by its
 # own inner constructor. The two methods that re-type a cache for a new element type are
-# identical for every cache, so they are generated once rather than repeated per cache. The
-# construction site is the single place the pair's two fields (`pdist`, `sdist`) are passed to
-# the inner constructor; the collision-operator pins fail if they are swapped.
+# identical for every cache, so they are generated once rather than repeated per cache.
 macro collision_cache(CacheT)
     esc(quote
-        function Cache(AT, c::$CacheT{DT, PT, ST}) where {DT, PT, ST}
+        function Cache(AT, c::$CacheT)
             $CacheT{AT}(c.pdist, similar(AT, c.sdist))
         end
-        function CacheType(AT, c::$CacheT{DT, PT, ST}) where {DT, PT, ST}
+        function CacheType(AT, c::$CacheT{<:Any, PT}) where {PT}
             $CacheT{AT, PT, similar_type(AT, c.sdist)}
         end
     end)
