@@ -296,7 +296,7 @@ first entry is written.
 
 - **`Distances` leaves `[deps]`.** Its one use, `euclidean` in the two residual prints of
   `Picard_iterate_Landau_nls!`, becomes `norm`, which `LinearAlgebra` already provides; the
-  printed residual is unchanged.
+  printed residual can differ in its last digits, from rounding alone.
 
 ### New Features
 
@@ -417,7 +417,11 @@ first entry is written.
   methods on the models themselves go (unreachable — `CacheDict`'s parent is always the cache).
   About 570 lines of commented-out and dead code go with them. Nothing about the arithmetic
   changes: a one-step pin of each of the five collision operators on a `StableRNGs`-seeded input
-  matches the pre-change result bitwise, in `test/integration/collision_operators.jl`.
+  matches the pre-change result to `rtol = 64*eps(Float64)`, in
+  `test/integration/collision_operators.jl`. The testset "Re-type a collision cache to Float32"
+  in that file re-types the cache of each of the four models the macro covers to `Float32`, and
+  asserts the new spline's element type and that the particle distribution is shared. This covers
+  `KNOWN_ISSUES.md` K46, which leaves the file.
 
 ### Bug Fixes
 
