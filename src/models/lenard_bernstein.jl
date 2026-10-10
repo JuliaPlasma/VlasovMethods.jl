@@ -12,10 +12,6 @@ struct LenardBernstein{
     end
 end
 
-# function update_distribution!(model::LenardBernstein, v_new::VT) where {VT}
-#     model.dist.particles.v .= v_new'
-# end
-
 @doc raw"""
 The plain Lenard-Bernstein right-hand side,
 

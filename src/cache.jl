@@ -24,3 +24,17 @@ Base.parent(cd::CacheDict) = cd.parent
         c.caches[key] = Cache(T, parent(c))
     end::CacheType(T, parent(c))
 end
+
+# Every collision cache is a particle/spline pair with operator-specific buffers added by its
+# own inner constructor. The two methods that re-type a cache for a new element type are
+# identical for every cache, so they are generated once rather than repeated per cache.
+macro collision_cache(CacheT)
+    esc(quote
+        function Cache(AT, c::$CacheT)
+            $CacheT{AT}(c.pdist, similar(AT, c.sdist))
+        end
+        function CacheType(AT, c::$CacheT{<:Any, PT}) where {PT}
+            $CacheT{AT, PT, similar_type(AT, c.sdist)}
+        end
+    end)
+end

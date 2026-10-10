@@ -11,12 +11,7 @@ function RCLBCache(pdist::ParticleDistribution{T}, sdist::SplineDistribution{T})
     RCLBCache{T}(pdist, sdist)
 end
 
-function Cache(AT, c::RCLBCache{DT, PT, ST}) where {DT, PT, ST}
-    RCLBCache{AT}(c.pdist, similar(AT, c.sdist))
-end
-function CacheType(AT, c::RCLBCache{DT, PT, ST}) where {DT, PT, ST}
-    RCLBCache{AT, PT, similar_type(AT, c.sdist)}
-end
+@collision_cache RCLBCache
 
 struct RescaledConservativeLenardBernstein{
     XD, VD, DT <: DistributionFunction{<:Any, XD, VD}, ET <: Entropy, T, CT <: CacheDict} <:
@@ -33,13 +28,6 @@ struct RescaledConservativeLenardBernstein{
         cache = CacheDict(RCLBCache(dist, ent.dist))
         new{XD, VD, typeof(dist), typeof(ent), T, typeof(cache)}(dist, ent, ν, cache)
     end
-end
-
-function Cache(AT, clb::RescaledConservativeLenardBernstein)
-    RCLBCache{AT}(clb.dist, similar(AT, clb.ent.dist))
-end
-function CacheType(AT, clb::RescaledConservativeLenardBernstein)
-    RCLBCache{AT, typeof(clb.dist), similar_type(AT, clb.ent.dist)}
 end
 
 @doc raw"""

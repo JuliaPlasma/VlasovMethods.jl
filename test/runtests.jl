@@ -14,6 +14,7 @@ if "core" in GROUPS
     @safetestset "Parameter Order" include("integration/parameter_order.jl")
     @safetestset "Landau Solver" include("integration/landau_solver.jl")
     @safetestset "Metriplectic Solve" include("integration/metriplectic_solve.jl")
+    @safetestset "Collision Operators" include("integration/collision_operators.jl")
     @safetestset "Vlasov–Poisson" include("integration/vlasov_poisson.jl")
     @safetestset "Names" include("integration/names.jl")
     @safetestset "Collisions" include("gridbased/collisions.jl")

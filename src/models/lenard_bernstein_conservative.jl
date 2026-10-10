@@ -11,12 +11,7 @@ function CLBCache(pdist::ParticleDistribution{T}, sdist::SplineDistribution{T}) 
     CLBCache{T}(pdist, sdist)
 end
 
-function Cache(AT, c::CLBCache{DT, PT, ST}) where {DT, PT, ST}
-    CLBCache{AT}(c.pdist, similar(AT, c.sdist))
-end
-function CacheType(AT, c::CLBCache{DT, PT, ST}) where {DT, PT, ST}
-    CLBCache{AT, PT, similar_type(AT, c.sdist)}
-end
+@collision_cache CLBCache
 
 struct ConservativeLenardBernstein{
     XD, VD, DT <: DistributionFunction{<:Any, XD, VD}, ET <: Entropy, T, CT <: CacheDict} <:
@@ -61,13 +56,6 @@ struct ConservativeLenardBernstein{
         cache = CacheDict(CLBCache(dist, ent.dist))
         new{XD, VD, typeof(dist), typeof(ent), T, typeof(cache)}(dist, ent, ν, cache)
     end
-end
-
-function Cache(AT, clb::ConservativeLenardBernstein)
-    CLBCache{AT}(clb.dist, similar(AT, clb.ent.dist))
-end
-function CacheType(AT, clb::ConservativeLenardBernstein)
-    CLBCache{AT, typeof(clb.dist), similar_type(AT, clb.ent.dist)}
 end
 
 @doc raw"""
@@ -160,20 +148,6 @@ function compute_coefficients(
 
     return A1, A2
 end
-
-# function compute_coefficients(distribution::SplineDistribution{1,2}, particle_dist::ParticleDistribution, vp::AbstractArray{VT}) where {VT}
-#     n = zeros(T, 2)
-#     nu = similar(n)
-#     neps = similar(n)
-#     n, nu, neps = compute_f_densities(distribution, vp)
-#     B1, B2 = compute_df_densities(distribution, vp)
-#     B1 *= -1 
-#     B2 *= -1 
-#     A1 = (neps * B1 - nu * B2) / (n * neps - (nu)^2)
-#     A2 = -  (nu * B1 - n * B2) / (n * neps - (nu)^2)
-
-#     return A1, A2
-# end
 
 @doc raw"""
 The conservative Lenard-Bernstein right-hand side,
