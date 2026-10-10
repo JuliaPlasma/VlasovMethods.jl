@@ -470,3 +470,35 @@ takes the next `K<n>`.
   keep the assertion is open.
 - **kind:** missing test
 - **found:** #69
+
+### K50 · `integrate` cannot run a particle list with no particles, so a `VlasovWithExternalFields` over one cannot be integrated.
+
+- **location:** `src/models/vlasov_with_external_fields.jl:190`
+- **evidence:** `GeometricBase` 0.15.0 `State` drops the vector field of an empty state variable:
+  `_novectorfield(x) = ismissing(x) || all(ismissing, x)` (`src/data/state.jl:81`) is true of
+  nothing, so the `q̇` of a `6 × 0` particle matrix is filtered out of the state. The model, its
+  `SplittingMethod` and the two push functions all run over the empty list; only
+  `GeometricIntegrators.integrate(method.integrator)` fails, with
+  `FieldError: type GeometricBase.State has no field q̇, available fields: time, state, solution,
+  vectorfield`. `test/models/vlasov_with_external_fields.jl` pins that exception, so a fix
+  upstream turns the pin into an unexpected pass. The fix is a `length(x) > 0` beside
+  `all(ismissing, x)`.
+- **kind:** upstream
+- **found:** 2026-10-11
+
+### K51 · `run!(::SplittingMethod, h5file)` indexes its time grid past its end when the span is not an exact multiple of the step.
+
+- **location:** `src/methods/splitting.jl:45`
+- **evidence:** `ntime(prob)` is `div(t₁ - t₀, Δt, RoundUp)` (`GeometricEquations`
+  `src/problems/equation_problem.jl:138-140`), while `times = t₀:Δt:t₁` at `:42` has
+  `floor((t₁ - t₀)/Δt) + 1` elements, and the loop at `:44` reaches `times[n + 1]` for
+  `n = ntime(prob)`. A `VlasovWithExternalFields` of one particle with
+  `tspan = (0, 10T_g)`, `tstep = T_g/32` and `T_g = 2π·3/(2·1.7)` gives
+  `ntime(equation) = 321`, `length(t₀:tstep:t₁) = 321` and `321` states from `integrate`, and
+  `run!` then raises
+  `BoundsError: attempt to access 321-element StepRangeLen{…} at index [322]`. The existing
+  Vlasov–Poisson test uses `(0, 1)` with `0.1`, whose exact quotient is an integer, so the
+  mismatch is not reached there. The fix is to loop over the time grid, not over `ntime`, or to
+  take `times[n]` with a grid of `ntime + 1` points.
+- **kind:** defect
+- **found:** 2026-10-11

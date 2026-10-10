@@ -1,7 +1,8 @@
 using JET
 using PoissonSolvers
 using VlasovMethods
-using VlasovMethods: v_acceleration!, s_acceleration!
+using VlasovMethods: v_acceleration!, s_acceleration!, s_drift!, s_lorentz!
+using ElectromagneticFields
 using Test
 
 # Static optimisation analysis of the hot paths: every function of `src/` that a test file
@@ -38,6 +39,33 @@ if isdefined(JET, :JET_AVAILABLE) ? JET.JET_AVAILABLE : JET.JET_LOADABLE
         target_modules = (VlasovMethods,))))
     @test isempty(JET.get_reports(JET.report_opt(s_acceleration!,
         (typeof(pż), Float64, typeof(pz), Float64, typeof(pparams));
+        target_modules = (VlasovMethods,))))
+
+    # test/models/vlasov_with_external_fields.jl and
+    # test/integration/electromagnetic_fields_ext.jl: the external-field push, on its three
+    # `@allocated` calls, at the two field types those files pass — the constant `UniformField`
+    # and the ABC `FieldFunctions` the extension adapts.
+    fz = ParticleDistribution(3, 3, 10).particles.z
+    fż = similar(fz)
+    fmodel = VlasovWithExternalFields(
+        ParticleDistribution(3, 3, 10), UniformField(zeros(3), zeros(3));
+        charge = 2, mass = 3)
+    fparams = SplittingMethod(fmodel, (0.0, 1.0), 0.1).equation.parameters
+    @test isempty(JET.get_reports(JET.report_opt(s_drift!,
+        (typeof(fż), Float64, typeof(fz), Float64, typeof(fparams));
+        target_modules = (VlasovMethods,))))
+    @test isempty(JET.get_reports(JET.report_opt(s_lorentz!,
+        (typeof(fż), Float64, typeof(fz), Float64, typeof(fparams));
+        target_modules = (VlasovMethods,))))
+
+    amodel = VlasovWithExternalFields(
+        ParticleDistribution(3, 3, 10), FieldFunctions(ABCEquilibrium(1.3, 0.7, 0.45));
+        charge = 2, mass = 3)
+    aparams = SplittingMethod(amodel, (0.0, 1.0), 0.1).equation.parameters
+    az = amodel.distribution.particles.z
+    aż = similar(az)
+    @test isempty(JET.get_reports(JET.report_opt(s_lorentz!,
+        (typeof(aż), Float64, typeof(az), Float64, typeof(aparams));
         target_modules = (VlasovMethods,))))
 
     # test/gridbased/collisions.jl: the three hot index paths, asserted `@allocated == 0`

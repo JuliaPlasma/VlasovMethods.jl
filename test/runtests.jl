@@ -16,6 +16,8 @@ if "core" in GROUPS
     @safetestset "Metriplectic Solve" include("integration/metriplectic_solve.jl")
     @safetestset "Collision Operators" include("integration/collision_operators.jl")
     @safetestset "Vlasov–Poisson" include("integration/vlasov_poisson.jl")
+    @safetestset "Vlasov with External Fields" include("models/vlasov_with_external_fields.jl")
+    @safetestset "ElectromagneticFields Extension" include("integration/electromagnetic_fields_ext.jl")
     @safetestset "Names" include("integration/names.jl")
     @safetestset "Collisions" include("gridbased/collisions.jl")
 end

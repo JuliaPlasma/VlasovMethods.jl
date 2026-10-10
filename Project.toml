@@ -23,7 +23,16 @@ SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 TerminalLoggers = "5d786b92-1e48-4d6f-9151-6b4477ca9bed"
 
+[weakdeps]
+ElectromagneticFields = "d6c1ba6f-ee03-53af-b876-68cefeb88ec8"
+
+[extensions]
+VlasovMethodsElectromagneticFieldsExt = "ElectromagneticFields"
+
 [compat]
+# 0.9.1 is the first ElectromagneticFields on GeometricBase 0.15, which `GeometricIntegrators`
+# 0.18.6 requires; 0.9.0 pins GeometricBase 0.14.
+ElectromagneticFields = "0.9.1"
 GeometricBrackets = "0.2"
 GeometricEquations = "0.21.5"
 GeometricIntegrators = "0.18.6"
