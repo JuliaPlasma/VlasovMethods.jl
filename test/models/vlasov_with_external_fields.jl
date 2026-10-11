@@ -156,7 +156,7 @@ end
         # `ẑ` is `z₀ + v∥ t + ½(q/m)E₀t²` exactly for this splitting: the two half drifts carry
         # the kicks' velocity change in full.
         q, E₀, tstep = T(2), T(0.3), T(4) / T(37)
-        field = UniformField(SVector{3, T}(0, 0, E₀), SVector{3, T}(0, 0, B₀))
+        local field = UniformField(SVector{3, T}(0, 0, E₀), SVector{3, T}(0, 0, B₀))
         sol = trajectory(T, field, x₀, v₀, q, m, (zero(T), T(4)), tstep)
         N = lastindex(sol.q)
         t = sol.t[N]
@@ -170,7 +170,7 @@ end
         # A zero field leaves `v` bitwise unchanged: `τ = 0` makes `s = 0` and `qh·E = 0`
         # exactly. Two `Int` coordinates make a `UniformField{Int}`, which the push converts to
         # the particles' element type.
-        field = UniformField(SVector(0, 0, 0), SVector(0, 0, 0))
+        local field = UniformField(SVector(0, 0, 0), SVector(0, 0, 0))
         @test field isa UniformField{Int}
         @test all(iszero, field.E) && all(iszero, field.B)
         q, tstep = T(-2), T(0.1)
@@ -225,8 +225,10 @@ end
         # The right-hand side of each of the two maps, against values written out here. The
         # splitting's own checks below cannot see a zero `ẋ` in the drift, or a `qm` dropped from
         # the Lorentz acceleration: both leave the orbit, the energy and the allocation figures
-        # exactly as they are.
+        # exactly as they are. The field below has `E` and `B` both nonzero and no value a power of
+        # two, so its acceleration is not zero either, and a dropped `E` or `q/m` shows up in it.
         q = T(2)
+        local field = UniformField(SVector{3, T}(0.2, -0.1, 0.3), SVector{3, T}(0, 0, B₀))
         dist = particle_distribution(T, 2)
         dist.particles.x .= SVector{3, T}(0.3, -0.2, 0.1)
         dist.particles.v .= v₀
@@ -238,6 +240,9 @@ end
         t = T(0.4)
         x = SVector{3, T}(0.3, -0.2, 0.1)
         a = (q / m) * (electric_field(field, t, x) + v₀ × magnetic_field(field, t, x))
+
+        @test !all(iszero, a)
+        @test !all(iszero, electric_field(field, t, x))
 
         @test @inferred(v_drift!(ż, t, z, params)) === nothing
         @test @inferred(v_lorentz!(ż, t, z, params)) === nothing
