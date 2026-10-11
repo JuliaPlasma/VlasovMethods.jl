@@ -111,19 +111,28 @@ h(t, q, w) = \frac{1}{2}\sum_i w_i v_i^2 + \frac{1}{2}\int (\partial_x\phi)^2 \,
 ```
 
 where ``\phi`` solves the Poisson problem whose right-hand side is a *fresh deposit of the
-positions in `q`* with the weights `params.w`. The state it reads is the one it is given:
-depositing `model.distribution` in its place would repeat the defect the field update of T3.2
-fixed. It leaves the model's `potential` holding that deposit, as the acceleration substeps do,
-and each of them deposits from its own state before it reads the field, so this cannot change a
-trajectory.
+positions in `q`* with the weights `params.w`: a deposit of `model.distribution` in its place is
+the energy of another state. It leaves the model's `potential` holding that deposit, as the
+acceleration substeps do, and each of them deposits from its own state before it reads the field,
+so this cannot change a trajectory.
 
-The field term is `dot(coefficients(potential), rhs(potential)) / 2`. The Galerkin system of the
-spline solver is ``S c = \text{rhs}`` for the stiffness matrix ``S``, so ``c^\top S c = c^\top
-\text{rhs}`` is ``\frac{1}{2}\int(\partial_x\phi)^2`` without holding ``S`` and without
-allocating.
+The field term is the Gauss quadrature of ``(\partial_x\phi)^2`` at the quadrature points of the
+basis of the model's potential, whose table the constructor builds once, so a call allocates
+nothing. Every term of that sum is non-negative, and the sum holds the relative accuracy of its
+terms. The Galerkin identity ``\int(\partial_x\phi)^2 = c^\top \text{rhs}``, the same integral as
+a bilinear form, sums terms of both signs instead and loses that accuracy on a field that is
+small against them.
 """
-struct VlasovHamiltonian{MT}
+struct VlasovHamiltonian{MT, XT <: AbstractVector, WT <: AbstractVector}
     model::MT
+    nodes::XT
+    weights::WT
+end
+
+function VlasovHamiltonian(model::VlasovPoisson)
+    quadrature = SplineQuadrature(basis(model.potential))
+    return VlasovHamiltonian(
+        model, quadrature_nodes(quadrature), quadrature_weights(quadrature))
 end
 
 function (h::VlasovHamiltonian)(t, q, params)
@@ -136,9 +145,15 @@ function (h::VlasovHamiltonian)(t, q, params)
         e += w[1, i] * q[2, i]^2
     end
 
-    return e / 2 +
-           dot(PoissonSolvers.coefficients(model.potential),
-        PoissonSolvers.rhs(model.potential)) / 2
+    # `_electric_field` is `-∂ₓϕ`, whose square is the integrand of the field energy either way.
+    f = zero(eltype(q))
+    work = model.work
+    for (x, ω) in zip(h.nodes, h.weights)
+        ∂ϕ = _electric_field(model.potential, work, x)
+        f += ω * ∂ϕ^2
+    end
+
+    return e / 2 + f / 2
 end
 
 # Constructor for a splitting method from GeometricIntegrators
@@ -177,8 +192,7 @@ Every member keeps the initial condition `(q = copy(m.particles.z),)` and its ow
 carries different ones from the next, so holding them in the shared model would be wrong for
 every member but one; they are copied so that a later change to a member's distribution does not
 reach the problem. The problem also carries the Hamiltonian `VlasovHamiltonian` as its invariant,
-which no `SODEProblem` of this model had: `invariants(ens)` is then a `NamedTuple` rather than
-`NullInvariants()`.
+so that `invariants(ens)` is a `NamedTuple` rather than `NullInvariants()`.
 
 `GeometricIntegrators.integrate(ens, Strang())` solves every member into one `EnsembleSolution`,
 whose per-member parameters are the members' weights; the HDF5 extension of `GeometricSolutions`

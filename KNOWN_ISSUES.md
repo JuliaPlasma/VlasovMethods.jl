@@ -224,9 +224,9 @@ takes the next `K<n>`.
 
 - **location:** `src/models/vlasov_poisson.jl:18`
 - **evidence:** It deposits from `model.distribution`, which the integrator never writes. The
-  splitting fields call the two-argument method at `:65` and `:83`.
-  `grep -rn 'update_potential!' src test` finds the one-argument call only at
-  `test/integration/vlasov_poisson.jl:122`, where `deposit(model, x₀)` at `:127` builds the
+  splitting fields call the three-argument method at `:73` and `:95`, and the Hamiltonian at
+  `:140`. `grep -rn 'update_potential!' src test` finds the one-argument call only at
+  `test/integration/vlasov_poisson.jl:142`, where `deposit(model, x₀)` at `:147` builds the
   same reference.
 - **kind:** dead code
 - **found:** #61
@@ -470,3 +470,38 @@ takes the next `K<n>`.
   keep the assertion is open.
 - **kind:** missing test
 - **found:** #69
+
+### K50 · An empty member list reaches no decision in `sodeensemble` and fails obscurely.
+
+- **location:** `src/models/vlasov_poisson.jl:210`
+- **evidence:** `sodeensemble(model, ParticleDistribution{Float64,1,1}[], (0.0,0.2), 0.1)` throws
+  `MethodError: no method matching parameter_types(::Vector{Any})`. The `map` at `:210` infers
+  `Vector{Any}` from the empty member vector, and the `SODEEnsemble` constructor has no
+  `parameter_types` for it; the error names neither the member list nor the caller. The
+  untyped `ParticleDistribution[]` fails earlier, with `MethodError: no method matching
+  sodeensemble`, and a single member is the case the plan leaves untested. The no-member
+  contract is what a caller wanting a guard would have to decide.
+- **kind:** found late
+- **found:** 2026-10-11
+
+### K51 · A member with no particles constructs and fails inside the integrator.
+
+- **location:** `src/models/vlasov_poisson.jl:210`
+- **evidence:** Two zero-particle members pass the count check of `:210-214`, since
+  `size(w, 2) == size(z, 2) == 0`, and `integrate(ens, Strang())` then throws `FieldError: type
+  State has no field q̇` — the zero-size state shape of GeometricBase, which parked P13 owns.
+  The plan describes nonempty training clouds, and this is the shape class it does not reach.
+- **kind:** upstream
+- **found:** 2026-10-11
+
+### K52 · A member of another element type than the model is not refused and fails inside the integrator.
+
+- **location:** `src/models/vlasov_poisson.jl:205`
+- **evidence:** `:205-207` takes the model's and the members' element types independently, so
+  `sodeensemble(model, [m32, m32], (0.0,0.2), 0.1)`, with `m32` a
+  `ParticleDistribution{Float32,1,1}` and `model` a `VlasovPoisson{1,1}` on `Float64`,
+  constructs, with Float32 parameters, and `integrate(ens, Strang())` throws `FieldError: type
+  Array has no field q`. The plan decides that mixed input is not supported and requires no
+  guard, so the constructor keeps none and the first failure is the integrator's.
+- **kind:** found late
+- **found:** 2026-10-11

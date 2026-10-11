@@ -1,5 +1,6 @@
 using GeometricBase: h5load, h5save
 using GeometricIntegrators
+using GeometricSolutions: compute_invariant
 using HDF5: h5open, h5read
 using ParticleMethods: ParticleList
 using PoissonSolvers
@@ -95,8 +96,14 @@ end
     @testset "the invariant reads its argument" begin
         ens = sodeensemble(model, members, tspan, tstep)
         h = invariants(equation(ens)).h
-        params = parameters(ens)[1]
-        w = params.w
+
+        # Weights that differ from the model's own: every `NormalDistribution` draw gives the same
+        # weights, so a member's are the model's, and a Hamiltonian that reads
+        # `model.distribution.particles.w` in place of `params.w` — for the deposit or for the
+        # kinetic term — gives the same value at every state of this member.
+        w = 2 .* parameters(ens)[1].w
+        @test w != model.distribution.particles.w
+        params = (w = w,)
 
         # A state that is neither the model's own nor a member's, so that a Hamiltonian reading
         # `model.distribution` in place of its argument gives another value.
@@ -168,9 +175,13 @@ end
         @test w == a.particles.w
         @test all(!iszero, w)
 
-        # A later change to the member's distribution does not reach the problem.
+        # A later change to the member's distribution does not reach the problem. The snapshot is
+        # the test's own copy: a comparison against `a.particles.w` compares an alias with itself
+        # where the problem took no copy, and passes without one.
+        snapshot = copy(a.particles.w)
         a.particles.w .= 0
-        @test parameters(ens)[1].w == w
+        @test w == snapshot
+        @test w != a.particles.w
     end
 
     @testset "a member whose weights and state disagree" begin
@@ -213,6 +224,28 @@ end
         raw = h5read(h5file, "parameters/w")
         @test size(raw) == (1, npart, 2)
         @test raw == cat(members[1].particles.w, members[2].particles.w; dims = 3)
+    end
+
+    @testset "the invariant is evaluated once per saved state" begin
+        ens = sodeensemble(model, members, tspan, tstep)
+        h = invariants(equation(ens)).h
+        sol = integrate(ens, GeometricIntegrators.Strang())
+
+        for i in 1:nsamples(ens)
+            params = parameters(ens)[i]
+            q = sol[i][:q]
+            calls = Ref(0)
+
+            # `compute_invariant` is the per-saved-state evaluation of a problem's invariant: it
+            # applies the invariant once per stored state and never per integration substep, and
+            # `h` of this problem is what it applies here.
+            inv = compute_invariant(sol.t, q, params,
+                (t, x, p) -> (calls[] += 1; h(t, x, p)))
+
+            @test calls[] == length(q)
+            @test length(inv) == length(q)
+            @test all(isfinite, inv)
+        end
     end
 
     @testset "the Hamiltonian is type-stable and does not allocate" begin

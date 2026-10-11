@@ -81,6 +81,15 @@ end
         s = SAcceleration(model)
         @test @inferred(v(z, tstep, z̄, params)) === nothing
         @test @inferred(s(z, tstep, z̄, zero(T), params)) === nothing
+
+        # The parameters are the live view of the model's own weights, so a later change to them
+        # reaches the splitting fields; a copy would leave the parameters behind.
+        weights = copy(model.distribution.particles.w)
+        model.distribution.particles.w .= T(2) .* weights
+        @test params.w == T(2) .* weights
+        @test params.w != weights
+        model.distribution.particles.w .= weights
+        @test params.w == weights
     end
 
     @testset "the acceleration field" begin
@@ -96,6 +105,15 @@ end
         # the field is `-∂ₓϕ`: the derivative of the deposit from the same positions, negated
         reference = deposit(model, z[1, :])
         @test ż[2, :] ≈ -reference.(z[1, :], 1) rtol=√eps(T)
+
+        # The deposit reads the weights of the parameters, not the model's own. The field is
+        # linear in them, so doubling the weights doubles it.
+        params2 = (w = T(2) .* params.w,)
+        @test params2.w != model.distribution.particles.w
+        ż2 = similar(z)
+        VAcceleration(model)(ż2, tstep, z, params2)
+        @test ż2[2, :] ≈ T(2) .* ż[2, :] rtol=√eps(T)
+        @test ż2[2, :] != ż[2, :]
     end
 
     @testset "the field follows the particles" begin

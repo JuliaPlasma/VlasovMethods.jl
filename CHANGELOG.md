@@ -279,15 +279,15 @@ first entry is written.
 - **The `Vlasov–Poisson` acceleration pair carries its model instead of reading it from the
   parameters.** `v_acceleration!` and `s_acceleration!` are replaced by the callable structs
   `VAcceleration` and `SAcceleration`, built as `VAcceleration(model)` and called with the
-  arguments the two functions took; neither is exported, and `SplittingMethod` is their only
-  caller in `src/`. The model, its potential and its work buffer leave the problem's parameters,
-  which now hold the weights of the deposit alone; `SplittingMethod` passes
-  `(w = model.distribution.particles.w,)`, the live view of the model's own weights, so its
-  trajectories are unchanged — bit-identical in `Float64` and `Float32` on a seeded 1000-particle
-  run. `update_potential!(model, z)` becomes `update_potential!(model, z, w)`, whose `w` is the
-  first row of weights the deposit reads. A caller of the two old names, or of the two-argument
-  `update_potential!`, builds `VAcceleration(model)` or `SAcceleration(model)` once and calls it,
-  or passes the weights.
+  arguments the two functions took; neither is exported, and `SplittingMethod` and
+  `sodeensemble` are the two places in `src/` that build them. The model, its potential and its
+  work buffer leave the problem's parameters, which now hold the weights of the deposit alone;
+  `SplittingMethod` passes `(w = model.distribution.particles.w,)`, the live view of the
+  model's own weights, so its trajectories are unchanged — bit-identical in `Float64` and
+  `Float32` on a seeded 1000-particle run. `update_potential!(model, z)` becomes
+  `update_potential!(model, z, w)`, whose `w` is the first row of weights the deposit reads. A
+  caller of the two old names, or of the two-argument `update_potential!`, builds
+  `VAcceleration(model)` or `SAcceleration(model)` once and calls it, or passes the weights.
 
 ### Removals
 
@@ -446,8 +446,11 @@ first entry is written.
   - The problem carries the Hamiltonian
     `h(t, q, w) = ½Σᵢ wᵢvᵢ² + ½∫(∂ₓϕ)²dx` as its invariant, so `invariants(ens)` is a `NamedTuple`
     and not `NullInvariants()`. `hashamiltonian` stays `false`, the equation being an `SODE`. The
-    field term is `dot(coefficients(potential), rhs(potential)) / 2` — the Galerkin system is
-    `S c = rhs`, so `c'Sc = c'rhs` — which holds no matrix and allocates nothing.
+    field term is the Gauss quadrature of `(∂ₓϕ)²` at the quadrature points of the potential's
+    basis, tabulated once in the `VlasovHamiltonian` constructor, so a call allocates nothing. Every
+    term of that sum is non-negative, so the sum keeps the relative accuracy of its terms. The
+    Galerkin identity `c'Sc = c'rhs`, from `S c = rhs`, sums terms of both signs and loses that
+    accuracy where the field is small against them.
   - The weights alone are what HDF5 can store, so the solution round-trips with
     `GeometricBase.h5save` and `h5load` against the same problem, per-member parameters
     included. Their `EnsembleSolution` methods come from the HDF5 extension of
