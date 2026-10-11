@@ -3,6 +3,7 @@ using PoissonSolvers
 using VlasovMethods
 using VlasovMethods: v_acceleration!, s_acceleration!, s_drift!, s_lorentz!
 using ElectromagneticFields
+using VlasovMethods: SAcceleration, VAcceleration, VlasovHamiltonian
 using Test
 
 include("../helpers/external_fields.jl")
@@ -37,10 +38,10 @@ if isdefined(JET, :JET_AVAILABLE) ? JET.JET_AVAILABLE : JET.JET_LOADABLE
     pparams = pmethod.equation.parameters
     pz = pmodel.distribution.particles.z
     pż = similar(pz)
-    @test isempty(JET.get_reports(JET.report_opt(v_acceleration!,
+    @test isempty(JET.get_reports(JET.report_opt(VAcceleration(pmodel),
         (typeof(pż), Float64, typeof(pz), typeof(pparams));
         target_modules = (VlasovMethods,))))
-    @test isempty(JET.get_reports(JET.report_opt(s_acceleration!,
+    @test isempty(JET.get_reports(JET.report_opt(SAcceleration(pmodel),
         (typeof(pż), Float64, typeof(pz), Float64, typeof(pparams));
         target_modules = (VlasovMethods,))))
 
@@ -63,6 +64,12 @@ if isdefined(JET, :JET_AVAILABLE) ? JET.JET_AVAILABLE : JET.JET_LOADABLE
             end
         end
     end
+    # test/integration/sodeensemble.jl: the Hamiltonian invariant, on its `@allocated` call, at
+    # the types of an ensemble member's state and parameters, which the test builds as copies.
+    pensemble = (w = copy(pmodel.distribution.particles.w),)
+    @test isempty(JET.get_reports(JET.report_opt(VlasovHamiltonian(pmodel),
+        (Float64, typeof(copy(pz)), typeof(pensemble));
+        target_modules = (VlasovMethods,))))
 
     # test/gridbased/collisions.jl: the three hot index paths, asserted `@allocated == 0`
     nx, nv = 3, 5

@@ -6,7 +6,7 @@ using PoissonSolvers
 using Random
 using Test
 using VlasovMethods
-using VlasovMethods: projection!, update_potential!, v_acceleration!, s_acceleration!,
+using VlasovMethods: SAcceleration, VAcceleration, projection!, update_potential!,
                      _electric_field
 
 # `ParticleDistribution(xdim, vdim, npart)` always fills `Float64` zeros, so the `Float32` case
@@ -77,8 +77,10 @@ end
 
         z̄ = copy(sol.q[end])
         z = similar(z̄)
-        @test @inferred(v_acceleration!(z, tstep, z̄, params)) === nothing
-        @test @inferred(s_acceleration!(z, tstep, z̄, zero(T), params)) === nothing
+        v = VAcceleration(model)
+        s = SAcceleration(model)
+        @test @inferred(v(z, tstep, z̄, params)) === nothing
+        @test @inferred(s(z, tstep, z̄, zero(T), params)) === nothing
     end
 
     @testset "the acceleration field" begin
@@ -87,7 +89,7 @@ end
         params = method.equation.parameters
         z = copy(model.distribution.particles.z)
         ż = similar(z)
-        v_acceleration!(ż, tstep, z, params)
+        VAcceleration(model)(ż, tstep, z, params)
 
         @test all(iszero, ż[1, :])
 
@@ -107,7 +109,7 @@ end
         z̄[1, :] .= mod.(z̄[1, :] .+ T(0.25) .* sinpi.(2 .* z̄[1, :]), 1)
         @test z̄[1, :] != x₀
         z = similar(z̄)
-        s_acceleration!(z, tstep, z̄, zero(T), params)
+        SAcceleration(model)(z, tstep, z̄, zero(T), params)
 
         reference = deposit(model, z̄[1, :])
         @test PoissonSolvers.coefficients(model.potential) ==
@@ -276,8 +278,8 @@ end
         # Coverage instrumentation allocates on every counted line, so under it the assertion does
         # not run rather than being weakened.
         if Base.JLOptions().code_coverage == 0
-            @test allocations_s(s_acceleration!, z, t, z̄, t̄, params) == 0
-            @test allocations_v(v_acceleration!, z, t, z̄, params) == 0
+            @test allocations_s(SAcceleration(model), z, t, z̄, t̄, params) == 0
+            @test allocations_v(VAcceleration(model), z, t, z̄, params) == 0
         end
         # a control: the barrier machinery sees an allocation, so the zeros above are not vacuous
         @test allocations(collect, z) > 0

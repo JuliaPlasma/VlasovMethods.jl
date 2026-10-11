@@ -82,6 +82,7 @@ const BASE_EXPORTS = Symbol[
     :quadrature_weights,
     :run,
     :run!,
+    :sodeensemble,
     :velocity_moments
 ]
 
