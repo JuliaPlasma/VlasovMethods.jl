@@ -42,9 +42,10 @@ function deposit(model, x, w)
     return p
 end
 
-# `½∫(∂ₓϕ)² dx` of the potential `p`, through the Gauss quadrature of `SimpleSplines`, which is
-# exact for a spline. This is the reference of the Hamiltonian's field term, and independent of
-# the Galerkin identity `c'rhs` that `VlasovHamiltonian` reads it from.
+# `½∫(∂ₓϕ)² dx` of the potential `p`, through the public spline evaluation of `SimpleSplines`: the
+# Gauss quadrature of `p.(x, 1)`, the derivative of the spline at the quadrature nodes, which is
+# exact for a spline. This is the reference of the Hamiltonian's field term, evaluated from the
+# spline itself rather than from the quadrature table the Hamiltonian holds.
 function field_energy(p)
     q = SplineQuadrature(PoissonSolvers.basis(p))
     return sum(quadrature_weights(q) .* p.(quadrature_nodes(q), 1) .^ 2) / 2
@@ -80,6 +81,10 @@ end
     members = [sample(T, 11; npart = npart), sample(T, 22; npart = npart)]
     model = vlasov_poisson(T; npart = npart)
 
+    # `h` sums `npart` kinetic terms and one non-negative term per Gauss node of its field term, so
+    # `(npart + nq)·eps(T)` is the rounding bound of its value.
+    nq = length(quadrature_nodes(SplineQuadrature(PoissonSolvers.basis(model.potential))))
+
     @testset "the invariant exists" begin
         ens = sodeensemble(model, members, tspan, tstep)
         inv = invariants(equation(ens))
@@ -113,15 +118,42 @@ end
         @test q != model.distribution.particles.z
 
         value = h(zero(T), q, params)
-        @test value ≈ kinetic(w, q) + field_energy(deposit(model, q[1, :], w)) rtol = npart *
+        @test value ≈ kinetic(w, q) + field_energy(deposit(model, q[1, :], w)) rtol = (npart +
+                                                                                       nq) *
                                                                                       eps(T)
 
         # One unit of velocity for every particle: the field energy of a fresh deposit of the same
-        # positions does not move, so the value rises by `Σ w (v + ½)`.
+        # positions does not move, so the value rises by `Σ w (v + ½)`. The field term is the same
+        # on both sides of the difference, so its rounding drops out and `npart·eps(T)` binds it.
         q̂ = copy(q)
         q̂[2, :] .+= one(T)
         @test h(zero(T), q̂, params) - value ≈
               sum(w[1, i] * (q[2, i] + T(1) / 2) for i in axes(q, 2)) rtol = npart * eps(T)
+    end
+
+    @testset "a small field keeps the quadrature's accuracy" begin
+        # A field that is small against the terms of the Galerkin bilinear form `cᵀrhs` is where
+        # that form loses the accuracy of `h`: it sums terms of both signs, while the quadrature
+        # and this reference of it sum non-negative ones. All the velocities are zero, so the value
+        # is its field term alone.
+        n = npart
+        a = particle_distribution(T, n)
+        a.particles.w .= T(1) / n
+        for i in axes(a.particles.x, 2)
+            x = T(i - 1) / T(n)
+            a.particles.x[1, i] = x + T(1e-6) * sinpi(T(2) * x)
+        end
+        a.particles.v .= zero(T)
+
+        ens = sodeensemble(model, [a, sample(T, 22; npart = n)], tspan, tstep)
+        params = parameters(ens)[1]
+        q = copy(a.particles.z)
+        h = invariants(equation(ens)).h
+
+        @test h(zero(T), q, params) ≈
+              kinetic(params.w, q) + field_energy(deposit(model, q[1, :], params.w)) rtol = (npart +
+                                                                                             nq) *
+                                                                                            eps(T)
     end
 
     @testset "the members stay independent" begin
@@ -166,22 +198,34 @@ end
     end
 
     @testset "the weights are storable and copied" begin
+        # A member whose weights are a `Matrix` parameter of its `ParticleList`, the shape an
+        # importance-sampled draw gives them: `m.particles.w` is then a `Matrix`, not the view of a
+        # row of its state matrix. The copy has to hold for both shapes.
+        list = ParticleList(zeros(T, 3, npart);
+            variables = (x = 1:1, v = 2:2, z = 1:2),
+            parameters = (w = fill(T(1) / npart, 1, npart),))
+        dense = ParticleDistribution(1, 1, list)
         a = sample(T, 11; npart = npart)
-        ens = sodeensemble(model, [a, sample(T, 22; npart = npart)], tspan, tstep)
-        w = parameters(ens)[1].w
+        ens = sodeensemble(model, [dense, a], tspan, tstep)
 
-        @test w isa Matrix{T}
-        @test size(w) == (1, npart)
-        @test w == a.particles.w
-        @test all(!iszero, w)
+        @test dense.particles.w isa Matrix{T}
+        for (i, m) in enumerate((dense, a))
+            w = parameters(ens)[i].w
 
-        # A later change to the member's distribution does not reach the problem. The snapshot is
-        # the test's own copy: a comparison against `a.particles.w` compares an alias with itself
-        # where the problem took no copy, and passes without one.
-        snapshot = copy(a.particles.w)
-        a.particles.w .= 0
-        @test w == snapshot
-        @test w != a.particles.w
+            @test w isa Matrix{T}
+            @test size(w) == (1, npart)
+            @test w == m.particles.w
+            @test all(!iszero, w)
+
+            # A later change to the member's distribution does not reach the problem. The snapshot
+            # is the test's own copy: a comparison against `m.particles.w` compares an alias with
+            # itself where the problem took no copy, and passes without one.
+            snapshot = copy(m.particles.w)
+            m.particles.w .= 0
+            @test w == snapshot
+            @test w !== m.particles.w
+            @test w != m.particles.w
+        end
     end
 
     @testset "a member whose weights and state disagree" begin
