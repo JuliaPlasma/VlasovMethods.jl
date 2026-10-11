@@ -237,14 +237,18 @@ end
             calls = Ref(0)
 
             # `compute_invariant` is the per-saved-state evaluation of a problem's invariant: it
-            # applies the invariant once per stored state and never per integration substep, and
-            # `h` of this problem is what it applies here.
+            # applies the invariant once per stored state, the initial one included, and never per
+            # integration substep. The invariant it is given here is `h` of this problem, counted so
+            # that the cadence is asserted rather than assumed.
             inv = compute_invariant(sol.t, q, params,
                 (t, x, p) -> (calls[] += 1; h(t, x, p)))
 
             @test calls[] == length(q)
-            @test length(inv) == length(q)
-            @test all(isfinite, inv)
+
+            # and each value is the invariant of the state it is stored for
+            for n in eachindex(inv)
+                @test inv[n] == h(sol.t[n], q[n], params)
+            end
         end
     end
 

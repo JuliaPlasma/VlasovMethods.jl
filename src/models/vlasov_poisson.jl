@@ -145,7 +145,7 @@ function (h::VlasovHamiltonian)(t, q, params)
         e += w[1, i] * q[2, i]^2
     end
 
-    # `_electric_field` is `-∂ₓϕ`, whose square is the integrand of the field energy either way.
+    # `_electric_field` is `-∂ₓϕ`; its square is the field energy's integrand.
     f = zero(eltype(q))
     work = model.work
     for (x, ω) in zip(h.nodes, h.weights)
@@ -197,6 +197,16 @@ so that `invariants(ens)` is a `NamedTuple` rather than `NullInvariants()`.
 `GeometricIntegrators.integrate(ens, Strang())` solves every member into one `EnsembleSolution`,
 whose per-member parameters are the members' weights; the HDF5 extension of `GeometricSolutions`
 round-trips it with `h5save` and `h5load`.
+
+The invariant is evaluated along a solution by the per-saved-state diagnostics of
+`GeometricSolutions`,
+
+```julia
+compute_invariant(sol.t, sol[i][:q], parameters(ens)[i], invariants(equation(ens)).h)
+```
+
+which applies it once per saved state, the initial state included; the integration itself
+evaluates no invariant.
 
 A member whose weights and whose state name a different particle count throws an `ArgumentError`.
 The model, its potential and the state are built in one element type; mixed input is not
