@@ -479,20 +479,20 @@ takes the next `K<n>`.
   `Vector{Any}` from the empty member vector, and the `SODEEnsemble` constructor has no
   `parameter_types` for it; the error names neither the member list nor the caller. The
   untyped `ParticleDistribution[]` fails earlier, with `MethodError: no method matching
-  sodeensemble`, and a single member is the case the plan leaves untested. The no-member
-  contract is what a caller wanting a guard would have to decide.
+  sodeensemble`. An empty member list has no documented constructor contract.
 - **kind:** found late
-- **found:** 2026-10-11
+- **found:** 2026-10-11. Single-member ensembles are outside the part's test coverage; the
+  no-member contract needs a decision before a guard is added.
 
 ### K51 · A member with no particles constructs and fails inside the integrator.
 
 - **location:** `src/models/vlasov_poisson.jl:220`
 - **evidence:** Two zero-particle members pass the count check of `:220-224`, since
   `size(w, 2) == size(z, 2) == 0`, and `integrate(ens, Strang())` then throws `FieldError: type
-  State has no field q̇` — the zero-size state shape of GeometricBase, which parked P13 owns.
-  The plan describes nonempty training clouds, and this is the shape class it does not reach.
+  State has no field q̇` in GeometricBase's zero-size state handling.
 - **kind:** upstream
-- **found:** 2026-10-11
+- **found:** 2026-10-11. P13 owns the upstream zero-size state shape; P14 covers nonempty
+  training clouds.
 
 ### K52 · A member of another element type than the model is not refused and fails inside the integrator.
 
@@ -501,7 +501,8 @@ takes the next `K<n>`.
   `sodeensemble(model, [m32, m32], (0.0,0.2), 0.1)`, with `m32` a
   `ParticleDistribution{Float32,1,1}` and `model` a `VlasovPoisson{1,1}` on `Float64`,
   constructs, with Float32 parameters, and `integrate(ens, Strang())` throws `FieldError: type
-  Array has no field q`. The plan decides that mixed input is not supported and requires no
-  guard, so the constructor keeps none and the first failure is the integrator's.
+  Array has no field q`. The constructor has no mixed-element-type guard, so the first failure
+  is the integrator's.
 - **kind:** found late
-- **found:** 2026-10-11
+- **found:** 2026-10-11. The part's input contract excludes mixed element types and requires
+  no guard.

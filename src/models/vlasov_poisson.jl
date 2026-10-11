@@ -162,8 +162,8 @@ end
 # for parallelisation.
 function SplittingMethod(
         model::VlasovPoisson{1, 1, <:ParticleDistribution}, tspan::Tuple, tstep::Real)
-    # The model's own particles carry the weights of this path, so the parameters are the live
-    # view of them and the deposit reads what it always read.
+    # The parameters alias the model's own weights, so the deposit sees changes to them.
+    # Ensemble members instead carry independent copies of their weights.
     params = (w = model.distribution.particles.w,)
 
     # create geometric problem

@@ -81,16 +81,16 @@ end
     members = [sample(T, 11; npart = npart), sample(T, 22; npart = npart)]
     model = vlasov_poisson(T; npart = npart)
 
-    # `h` sums `npart` kinetic terms and one non-negative term per Gauss node of its field term, so
-    # `(npart + nq)·eps(T)` is the rounding bound of its value.
+    # The value assertion allows rounding in `npart` kinetic terms and `nq` field terms.
+    # Its relative tolerance is `(npart + nq)·eps(T)` for these fixtures.
     nq = length(quadrature_nodes(SplineQuadrature(PoissonSolvers.basis(model.potential))))
 
     @testset "the invariant exists" begin
         ens = sodeensemble(model, members, tspan, tstep)
         inv = invariants(equation(ens))
 
-        # The equation stays a `SODE`, so `hashamiltonian` is false and the clause is met through
-        # `invariants`, as for the splitting method of the same model.
+        # The equation is a `SODE`, so its Hamiltonian is carried in `invariants` rather than
+        # through `hashamiltonian`.
         @test !hashamiltonian(equation(ens))
         @test !(inv isa NullInvariants)
         @test haskey(inv, :h)
@@ -122,9 +122,9 @@ end
                                                                                        nq) *
                                                                                       eps(T)
 
-        # One unit of velocity for every particle: the field energy of a fresh deposit of the same
-        # positions does not move, so the value rises by `Σ w (v + ½)`. The field term is the same
-        # on both sides of the difference, so its rounding drops out and `npart·eps(T)` binds it.
+        # One unit of velocity for every particle: the field energy of the same positions is
+        # unchanged, so the value rises by `Σ w (v + ½)`. This fixture uses `npart·eps(T)` for
+        # the difference; the unchanged field does not bound subtraction error in general.
         q̂ = copy(q)
         q̂[2, :] .+= one(T)
         @test h(zero(T), q̂, params) - value ≈
@@ -217,6 +217,14 @@ end
             @test w == m.particles.w
             @test all(!iszero, w)
 
+            # Initial conditions are snapshots too, not aliases of either particle list shape.
+            q = initial_conditions(ens)[i].q
+            state = copy(m.particles.z)
+            @test q == state
+            m.particles.z .= one(T)
+            @test q == state
+            @test q != m.particles.z
+
             # A later change to the member's distribution does not reach the problem. The snapshot
             # is the test's own copy: a comparison against `m.particles.w` compares an alias with
             # itself where the problem took no copy, and passes without one.
@@ -259,7 +267,7 @@ end
         for i in 1:nsamples(ens)
             @test eltype(loaded[i][:q]) === T
             @test loaded[i][:q] == sol[i][:q]
-            @test parameters(ens)[i].w == members[i].particles.w
+            @test parameters(loaded.problem)[i].w == members[i].particles.w
         end
         @test loaded.t == sol.t
 
