@@ -34,8 +34,8 @@ in `t`, so it is the field of the analytic cases: a gyro-orbit at `E = 0`, and a
 acceleration along `B` at `E ∥ B`.
 
 `E` and `B` are two vectors of length three, or two `SVector{3}`s; a length other than three
-throws the `DimensionMismatch` of `SVector{3}`. There is no method taking a scalar, so a constant
-field of `Int` coordinates is written `UniformField(SVector(0, 0, 0), SVector(0, 0, 0))`.
+throws the `DimensionMismatch` of `SVector{3}`. A constant field of `Int` coordinates is written
+`UniformField(SVector(0, 0, 0), SVector(0, 0, 0))`.
 """
 struct UniformField{T}
     E::SVector{3, T}

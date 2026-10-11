@@ -101,8 +101,8 @@ const ABC_POINTS = ((0.31, -0.52, 0.77), (-1.13, 0.63, 2.05), (2.71, -1.94, 0.37
             # the range, and the two disagree wherever the span is not an exact multiple.
             N = lastindex(sol.q)
 
-            # `φ = 0`, so the Boris push is a rotation and keeps `|v|`; the bound is check 2's,
-            # and no parameter of this field is a power of two.
+            # `φ = 0`, so the Boris push is a rotation and keeps `|v|`; the energy bound allows
+            # rounding from `N` steps, and no parameter of this field is a power of two.
             drift = zero(T)
             for n in 0:N
                 v = sol.q[n]

@@ -125,8 +125,7 @@ first entry is written.
   `t₀:Δt:t₁`, which is one point shorter whenever the span is not an exact multiple of the step: a
   run raised a `BoundsError` before its last step. The dataset now holds one slice per time point
   of the solution, the loop takes the steps `GeometricIntegrators.integrate` takes, and the HDF5
-  chunk of a run with no particles no longer has a zero extent. This covers `KNOWN_ISSUES.md`
-  K51, which leaves the file.
+  chunk of a run with no particles no longer has a zero extent.
 
 ### Breaking Changes
 

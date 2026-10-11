@@ -125,9 +125,8 @@ include("models/lenard_bernstein_metriplectic.jl")
 include("models/rescaled_lenard_bernstein_conservative.jl")
 include("models/vlasov_poisson.jl")
 
-# The `ElectromagneticFields` adapter of this model lives in
-# `ext/VlasovMethodsElectromagneticFieldsExt.jl`, which `Pkg` loads only where that package is
-# present; the field abstract it serves is in this file.
+# The `ElectromagneticFields` adapter lives in `ext/VlasovMethodsElectromagneticFieldsExt.jl`
+# and loads when both packages are loaded. The field interface is defined by the included model.
 include("models/vlasov_with_external_fields.jl")
 
 export VlasovPoisson

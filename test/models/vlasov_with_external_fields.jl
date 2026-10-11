@@ -123,10 +123,9 @@ end
                     gyro_orbit(T, x₀, v₀, q, m, B₀, sol.t[N])))
             end
             # The push is second order, so halving the step divides the error by four. The window
-            # is the check's ±10% about 4; measured here, 3.988 in `Float64` and 3.918 in
-            # `Float32`. A reflected rotation is off by the diameter at every time, so its ratio is
-            # 1; a whole number of periods brings the wrong direction back to its start in `x`–`y`,
-            # which is why the maximum over the trajectory is what the ratio is taken from.
+            # is ±10% about 4. A reflected rotation is off by the diameter at every time, so its
+            # ratio is 1; a whole number of periods brings the wrong direction back to its start
+            # in `x`–`y`, which is why the ratio uses the maximum over the trajectory.
             @test 3.6 ≤ err[1] / err[2] ≤ 4.4
             @test 3.6 ≤ fin[1] / fin[2] ≤ 4.4
         end
