@@ -1,6 +1,7 @@
 [deps]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 ElectromagneticFields = "d6c1ba6f-ee03-53af-b876-68cefeb88ec8"
+GeometricBase = "9a0b12b7-583b-4f04-aa1f-d8551b6addc9"
 GeometricBrackets = "2a9ffa85-4e0d-473f-b05e-278d80d8d306"
 GeometricEquations = "c85262ba-a08a-430a-b926-d29770767bf2"
 GeometricIntegrators = "dcce2d33-59f6-5b8d-9047-0defad88ae06"
@@ -19,6 +20,13 @@ Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 VlasovMethods = "4a954452-39e6-424b-ae51-38fc4bbc42ef"
+
+# The empty particle list needs the `State` of GeometricBase 0.15.1, whose `_novectorfield`
+# keeps the vector field of an empty state variable. No version below it can run the test, so the
+# bound is here rather than in the package's `[compat]`, where it would restrict a user who
+# never integrates an empty state.
+[compat]
+GeometricBase = "0.15.1"
 
 [sources]
 VlasovMethods = {path = ".."}

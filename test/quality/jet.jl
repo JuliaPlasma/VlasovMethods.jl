@@ -1,4 +1,5 @@
 using JET
+using ParticleMethods: ParticleList
 using PoissonSolvers
 using VlasovMethods
 using VlasovMethods: v_acceleration!, s_acceleration!, s_drift!, s_lorentz!
@@ -9,7 +10,8 @@ using Test
 # asserts with `@allocated`, at the concrete argument types those tests pass. A runtime
 # dispatch on one of these paths is what the allocation tests measure only indirectly.
 # Each further element type that a test outside `test/quality/` passes directly to the same
-# method gets one line too; every such call passes `Float64`, so each method has one line.
+# method gets one line too: the Vlasov–Poisson and external-field tests run in `Float64` and
+# `Float32`, so each of those methods has one line per precision.
 
 if isdefined(JET, :JET_AVAILABLE) ? JET.JET_AVAILABLE : JET.JET_LOADABLE
     # test/distributions/spline_distribution.jl: projection onto a 1-D velocity space
@@ -66,6 +68,31 @@ if isdefined(JET, :JET_AVAILABLE) ? JET.JET_AVAILABLE : JET.JET_LOADABLE
     aż = similar(az)
     @test isempty(JET.get_reports(JET.report_opt(s_lorentz!,
         (typeof(aż), Float64, typeof(az), Float64, typeof(aparams));
+        target_modules = (VlasovMethods,))))
+
+    # the same three calls at the `Float32` argument types both test files also pass
+    fz32 = zeros(Float32, 6, 10)
+    fż32 = similar(fz32)
+    fdist32 = ParticleDistribution(3, 3,
+        ParticleList(zeros(Float32, 7, 10); variables = (
+            x = 1:3, v = 4:6, z = 1:6, w = 7:7)))
+    fparams32 = SplittingMethod(
+        VlasovWithExternalFields(
+            fdist32, UniformField(zeros(Float32, 3), zeros(Float32, 3));
+            charge = 2, mass = 3), (0.0f0, 1.0f0), 0.1f0).equation.parameters
+    @test isempty(JET.get_reports(JET.report_opt(s_drift!,
+        (typeof(fż32), Float32, typeof(fz32), Float32, typeof(fparams32));
+        target_modules = (VlasovMethods,))))
+    @test isempty(JET.get_reports(JET.report_opt(s_lorentz!,
+        (typeof(fż32), Float32, typeof(fz32), Float32, typeof(fparams32));
+        target_modules = (VlasovMethods,))))
+
+    aparams32 = SplittingMethod(
+        VlasovWithExternalFields(
+            fdist32, FieldFunctions(ABCEquilibrium(1.3f0, 0.7f0, 0.45f0));
+            charge = 2, mass = 3), (0.0f0, 1.0f0), 0.1f0).equation.parameters
+    @test isempty(JET.get_reports(JET.report_opt(s_lorentz!,
+        (typeof(fż32), Float32, typeof(fz32), Float32, typeof(aparams32));
         target_modules = (VlasovMethods,))))
 
     # test/gridbased/collisions.jl: the three hot index paths, asserted `@allocated == 0`

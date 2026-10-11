@@ -1,27 +1,13 @@
 using GeometricIntegrators: GeometricIntegrators
-using LinearAlgebra: ⋅
-using ParticleMethods: ParticleList
+using HDF5: h5read
+using LinearAlgebra: ×, ⋅
 using StaticArrays
 using Test
 using VlasovMethods
-using VlasovMethods: electric_field, magnetic_field, s_drift!, s_lorentz!
+using VlasovMethods: electric_field, magnetic_field, s_drift!, s_lorentz!, v_drift!,
+                     v_lorentz!
 
-# A `ParticleDistribution{T,3,3}` from a matrix of element type `T`, as
-# `test/integration/vlasov_poisson.jl` builds the `Float32` case: the two-argument constructor
-# always fills `Float64` zeros.
-function particle_distribution(::Type{T}, npart) where {T}
-    z = zeros(T, 7, npart)
-    vars = (x = 1:3, v = 4:6, z = 1:6, w = 7:7)
-    return ParticleDistribution(3, 3, ParticleList(z; variables = vars))
-end
-
-# One particle at `x₀` with velocity `v₀`.
-function one_particle(::Type{T}, x₀, v₀) where {T}
-    dist = particle_distribution(T, 1)
-    dist.particles.x .= SVector{3, T}(x₀)
-    dist.particles.v .= SVector{3, T}(v₀)
-    return dist
-end
+include("../helpers/external_fields.jl")
 
 # A constant `B = B₀ ẑ` and no electric field. The arguments are the ones every test below uses;
 # `q = ±2`, `m = 3` and `B₀ = 1.7` are not powers of two, so a `q/m ↔ m/q` swap or an `abs(q)`
@@ -47,20 +33,6 @@ function trajectory(::Type{T}, field, x₀, v₀, q, m, tspan, tstep) where {T}
     model = VlasovWithExternalFields(dist, field; charge = q, mass = m)
     method = SplittingMethod(model, tspan, tstep)
     return GeometricIntegrators.integrate(method.integrator)
-end
-
-# `@allocated` through a fixed-arity barrier whose arguments have concrete types, so that a Julia
-# 1.11 closure or splat boxing is not counted. It calls the function once before it measures.
-# Coverage instrumentation allocates on every counted line, so the assertions below do not run
-# under it rather than being weakened.
-function allocations_s(f, z, t, z̄, t̄, params)
-    f(z, t, z̄, t̄, params)
-    return @allocated f(z, t, z̄, t̄, params)
-end
-
-function allocations(f, a)
-    f(a)
-    return @allocated f(a)
 end
 
 # Every field of `T`, and every field of a field, has a concrete type. The recursion stops at a
@@ -100,6 +72,12 @@ end
         # a two-dimensional distribution is not a `ParticleDistribution{T,3,3}`
         @test_throws MethodError VlasovWithExternalFields(
             ParticleDistribution(1, 1, 4), field)
+
+        # The count is fixed here and never changes, so an empty list is known at construction.
+        # It warns once and is a vacuum run, not an error; a list with one particle is silent.
+        @test_logs (:warn, r"no particles") VlasovWithExternalFields(
+            particle_distribution(T, 0), field)
+        @test_logs VlasovWithExternalFields(particle_distribution(T, 1), field)
     end
 
     @testset "the mass guard" begin
@@ -219,16 +197,61 @@ end
             @test all(isfinite, z)
             if npart == 1
                 @test (z[4, 1]^2 + z[5, 1]^2 + z[6, 1]^2) / 2 ≈ v₀ ⋅ v₀ / 2 rtol = √eps(T)
-                sol = GeometricIntegrators.integrate(method.integrator)
-                @test size(sol.q[end]) == (6, 1)
-                @test all(isfinite, sol.q[end])
-            else
-                # The one path an empty list cannot take: `GeometricBase` 0.15.0 drops the vector
-                # field of an empty state variable, because `_novectorfield` is `all(ismissing, x)`
-                # and that is true of nothing, so `State` has no `q̇` to fill. The push above runs
-                # over the empty list unchanged; reported as `KNOWN_ISSUES.md` K50.
-                @test_throws FieldError GeometricIntegrators.integrate(method.integrator)
             end
+
+            # The empty list is a vacuum run, not an error: `GeometricBase` 0.15.1 keeps the
+            # vector field of an empty state variable, so `integrate` returns an empty state at
+            # the time points the solution carries.
+            sol = GeometricIntegrators.integrate(method.integrator)
+            @test size(sol.q[end]) == (6, npart)
+            @test all(isfinite, sol.q[end])
+            @test length(sol.t) == 11
+
+            # `run!` serves the empty list too: its chunk has no zero extent, and the dataset
+            # holds one slice per time point, the last of them the model's own state.
+            h5file = tempname() * ".h5"
+            try
+                @test run!(method, h5file) === model.distribution
+                h5z = h5read(h5file, "z")
+                @test size(h5z) == (6, npart, 11)
+                @test h5z[:, :, end] == model.distribution.particles.z
+            finally
+                rm(h5file; force = true)
+            end
+        end
+    end
+
+    @testset "the two vector fields" begin
+        # The right-hand side of each of the two maps, against values written out here. The
+        # splitting's own checks below cannot see a zero `ẋ` in the drift, or a `qm` dropped from
+        # the Lorentz acceleration: both leave the orbit, the energy and the allocation figures
+        # exactly as they are.
+        q = T(2)
+        dist = particle_distribution(T, 2)
+        dist.particles.x .= SVector{3, T}(0.3, -0.2, 0.1)
+        dist.particles.v .= v₀
+        model = VlasovWithExternalFields(dist, field; charge = q, mass = m)
+        method = SplittingMethod(model, (zero(T), T(1)), T(0.1))
+        params = method.equation.parameters
+        z = copy(model.distribution.particles.z)
+        ż = similar(z)
+        t = T(0.4)
+        x = SVector{3, T}(0.3, -0.2, 0.1)
+        a = (q / m) * (electric_field(field, t, x) + v₀ × magnetic_field(field, t, x))
+
+        @test @inferred(v_drift!(ż, t, z, params)) === nothing
+        @test @inferred(v_lorentz!(ż, t, z, params)) === nothing
+
+        v_drift!(ż, t, z, params)
+        for i in axes(z, 2)
+            @test ż[1:3, i] == v₀
+            @test all(iszero, ż[4:6, i])
+        end
+
+        v_lorentz!(ż, t, z, params)
+        for i in axes(z, 2)
+            @test all(iszero, ż[1:3, i])
+            @test ż[4:6, i] == collect(a)
         end
     end
 
@@ -240,6 +263,10 @@ end
         z̄ = copy(model.distribution.particles.z)
         z = similar(z̄)
         t̄ = zero(T)
+        # The two maps are type-stable at the concrete argument types of the model: a runtime
+        # dispatch here is what the allocation figures below measure only indirectly.
+        @test @inferred(s_drift!(z, t̄ + T(0.1), z̄, t̄, params)) === nothing
+        @test @inferred(s_lorentz!(z, t̄ + T(0.1), z̄, t̄, params)) === nothing
         if Base.JLOptions().code_coverage == 0
             @test allocations_s(s_drift!, z, t̄ + T(0.1), z̄, t̄, params) == 0
             @test allocations_s(s_lorentz!, z, t̄ + T(0.1), z̄, t̄, params) == 0

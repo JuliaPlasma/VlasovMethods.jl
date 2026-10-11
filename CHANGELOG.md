@@ -120,6 +120,14 @@ first entry is written.
   before it silently matched nothing. Both files are byte-equal to the NFC normalisation of their
   predecessor, and no string literal was affected.
 
+- **`run!(::SplittingMethod, h5file)` steps over the solution's own time grid.** It sized its
+  dataset by `ntime(equation)`, which rounds the step count up, and then indexed the range
+  `t₀:Δt:t₁`, which is one point shorter whenever the span is not an exact multiple of the step: a
+  run raised a `BoundsError` before its last step. The dataset now holds one slice per time point
+  of the solution, the loop takes the steps `GeometricIntegrators.integrate` takes, and the HDF5
+  chunk of a run with no particles no longer has a zero extent. This covers `KNOWN_ISSUES.md`
+  K51, which leaves the file.
+
 ### Breaking Changes
 
 - **The metriplectic Lenard–Bernstein solve uses `SimpleSolvers`.** The one live
@@ -310,6 +318,10 @@ first entry is written.
     integrates it: a Strang splitting of the drift `ẋ = v` and the Lorentz force
     `v̇ = (q/m)(E + v×B)`, whose rotational step is a Boris push, so a constant magnetic field
     moves a particle along the analytic gyro-orbit to second order and holds `½|v|²` to round-off.
+  - An empty particle list is a **vacuum run**: the constructor warns, and the model, its
+    `SplittingMethod` and `run!` work over the empty state. This needs `GeometricBase` 0.15.1,
+    whose `State` keeps the vector field of an empty state variable; `test/Project.toml` carries
+    that bound.
   - `electric_field(field, t, x)` and `magnetic_field(field, t, x)` are the field interface, each
     returning an `SVector{3,T}` in Cartesian components, with `T` the element type of `x`. There
     is no abstract field type and no fallback method: a field defines one method of each.

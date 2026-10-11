@@ -11,6 +11,7 @@ if "core" in GROUPS
     @safetestset "Projections" include("projections/projections.jl")
     @safetestset "Reduced Tensors" include("gridbased/reduced_tensors.jl")
     @safetestset "Geometric Integrator" include("methods/geometric_integrator.jl")
+    @safetestset "Splitting Method" include("methods/splitting.jl")
     @safetestset "Parameter Order" include("integration/parameter_order.jl")
     @safetestset "Landau Solver" include("integration/landau_solver.jl")
     @safetestset "Metriplectic Solve" include("integration/metriplectic_solve.jl")

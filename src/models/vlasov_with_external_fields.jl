@@ -64,7 +64,8 @@ A `VlasovModel` of one particle species in an external electromagnetic field: th
 particles of `dist`, a `ParticleDistribution{T,3,3}`, pushed by `field`. `charge` and `mass` are
 the species' charge and mass, in units in which the equation of motion reads
 `ẍ = (q/m)(E + ẋ × B)`, and both are stored as `T`. The constructor throws an `ArgumentError`
-unless the converted mass is positive.
+unless the converted mass is positive. An empty particle list is a vacuum run and not an error:
+the constructor warns, and the model, its `SplittingMethod` and `run!` work over the empty state.
 
 The field is any value that defines [`electric_field`](@ref) and [`magnetic_field`](@ref) for an
 `SVector{3}` coordinate; the model puts no bound on the type of its field parameter, so the two
@@ -93,6 +94,11 @@ struct VlasovWithExternalFields{T, DT <: ParticleDistribution{T, 3, 3}, FT} <: V
         # rejected with it; `Inf` passes.
         m = T(mass)
         m > 0 || throw(ArgumentError("the particle mass must be positive, got $mass"))
+        # The particle count is fixed here and never changes, so an empty list is known to be one
+        # for the model's whole life. It is a vacuum run and not an error: every push, and
+        # `integrate`, run over an empty state.
+        size(dist.particles.z, 2) == 0 &&
+            @warn "the particle list has no particles; the model is a vacuum run"
         new{T, typeof(dist), typeof(field)}(dist, field, T(charge), m)
     end
 end

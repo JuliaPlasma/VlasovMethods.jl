@@ -1,12 +1,13 @@
 using ElectromagneticFields
 using GeometricIntegrators: GeometricIntegrators
-using LinearAlgebra: ⋅
-using ParticleMethods: ParticleList
+using LinearAlgebra: ×, ⋅
 using StaticArrays
 using Test
 using TOML
 using VlasovMethods
-using VlasovMethods: s_lorentz!
+using VlasovMethods: s_drift!, s_lorentz!, v_drift!, v_lorentz!
+
+include("../helpers/external_fields.jl")
 
 const EXTENSION = :VlasovMethodsElectromagneticFieldsExt
 const EF_UUID = "d6c1ba6f-ee03-53af-b876-68cefeb88ec8"
@@ -21,21 +22,6 @@ const CHILD = """
     using ElectromagneticFields
     @assert Base.get_extension(VlasovMethods, :$EXTENSION) isa Module
     """
-
-# A `ParticleDistribution{T,3,3}` from a matrix of element type `T`, as in
-# `test/models/vlasov_with_external_fields.jl`.
-function particle_distribution(::Type{T}, npart) where {T}
-    z = zeros(T, 7, npart)
-    vars = (x = 1:3, v = 4:6, z = 1:6, w = 7:7)
-    return ParticleDistribution(3, 3, ParticleList(z; variables = vars))
-end
-
-function one_particle(::Type{T}, x₀, v₀) where {T}
-    dist = particle_distribution(T, 1)
-    dist.particles.x .= SVector{3, T}(x₀)
-    dist.particles.v .= SVector{3, T}(v₀)
-    return dist
-end
 
 # The magnetic field of `ABCEquilibrium(a, b, c)`, which is equal to its own vector potential:
 # `(a sin z + c cos y, b sin x + a cos z, c sin y + b cos x)`. Written out here rather than read
@@ -52,18 +38,6 @@ end
 # adapter is caught.
 const ABC_POINTS = ((0.31, -0.52, 0.77), (-1.13, 0.63, 2.05), (2.71, -1.94, 0.37),
     (0.13, 0.29, -2.17), (-0.71, 2.31, 1.41))
-
-# `@allocated` through a fixed-arity barrier whose arguments have concrete types, as in
-# `test/integration/vlasov_poisson.jl`. It calls the function once before it measures.
-function allocations_s(f, z, t, z̄, t̄, params)
-    f(z, t, z̄, t̄, params)
-    return @allocated f(z, t, z̄, t̄, params)
-end
-
-function allocations(f, a)
-    f(a)
-    return @allocated f(a)
-end
 
 @testset "the ElectromagneticFields extension" begin
     @testset "the extension loads only on demand" begin
@@ -148,6 +122,9 @@ end
             z̄ = copy(model.distribution.particles.z)
             z = similar(z̄)
             t̄ = zero(T)
+            # the two maps are type-stable at the adapter's concrete field type too
+            @test @inferred(s_drift!(z, t̄ + T(0.1), z̄, t̄, params)) === nothing
+            @test @inferred(s_lorentz!(z, t̄ + T(0.1), z̄, t̄, params)) === nothing
             if Base.JLOptions().code_coverage == 0
                 @test allocations_s(s_lorentz!, z, t̄ + T(0.1), z̄, t̄, params) == 0
             end
@@ -163,6 +140,43 @@ end
             # `NamedTuple` of concrete `FieldFunction`s
             @test all(isconcretetype, fieldtypes(typeof((; model.field.functions...))))
             @test eltype(electric_field(field, zero(T), SVector{3, T}(0.1, 0.2, 0.3))) === T
+        end
+
+        @testset "the two vector fields of the adapter" begin
+            # The right-hand side of each map, against values written out here, at the adapter's
+            # own field type and with a nonunit `q/m`. The orbit and energy checks cannot see a
+            # zero `ẋ` in the drift or a dropped `qm`: both leave them unchanged. The perturbation
+            # makes `E` nonzero as well, which the equilibrium alone leaves at zero.
+            q, m, E₀ = T(2), T(3), T(0.3)
+            perturbed = FieldFunctions(ABCEquilibrium(a, b, c), EzCosZPerturbation(E₀))
+            dist = particle_distribution(T, 2)
+            dist.particles.x .= SVector{3, T}(0.31, -0.52, 0.77)
+            dist.particles.v .= SVector{3, T}(0.7, 0.4, 0.25)
+            model = VlasovWithExternalFields(dist, perturbed; charge = q, mass = m)
+            method = SplittingMethod(model, (zero(T), T(1)), T(0.1))
+            params = method.equation.parameters
+            z = copy(model.distribution.particles.z)
+            ż = similar(z)
+            t = T(0.4)
+            x = SVector{3, T}(0.31, -0.52, 0.77)
+            v = SVector{3, T}(0.7, 0.4, 0.25)
+            acc = (q / m) *
+                  (electric_field(perturbed, t, x) + v × magnetic_field(perturbed, t, x))
+
+            @test @inferred(v_drift!(ż, t, z, params)) === nothing
+            @test @inferred(v_lorentz!(ż, t, z, params)) === nothing
+
+            v_drift!(ż, t, z, params)
+            for i in axes(z, 2)
+                @test ż[1:3, i] == v
+                @test all(iszero, ż[4:6, i])
+            end
+
+            v_lorentz!(ż, t, z, params)
+            for i in axes(z, 2)
+                @test all(iszero, ż[1:3, i])
+                @test ż[4:6, i] == collect(acc)
+            end
         end
     end
 
