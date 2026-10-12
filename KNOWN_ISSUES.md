@@ -470,15 +470,3 @@ takes the next `K<n>`.
   keep the assertion is open.
 - **kind:** missing test
 - **found:** #69
-
-### K50 · An empty member list reaches no decision in `sodeensemble` and fails obscurely.
-
-- **location:** `src/models/vlasov_poisson.jl:191`
-- **evidence:** `sodeensemble(model, ParticleDistribution{Float64,1,1}[], (0.0,0.2), 0.1)` throws
-  `MethodError: no method matching parameter_types(::Vector{Any})`. The `map` at `:191` infers
-  `Vector{Any}` from the empty member vector, and the `SODEEnsemble` constructor has no
-  `parameter_types` for it; the error names neither the member list nor the caller. The
-  untyped `ParticleDistribution[]` fails earlier, with `MethodError: no method matching
-  sodeensemble`. An empty member list has no documented constructor contract.
-- **kind:** found late
-- **found:** #71. Whether an empty member list throws an `ArgumentError` is open.

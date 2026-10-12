@@ -441,8 +441,9 @@ first entry is written.
     `(w = copy(m.particles.w),)`, which are what the deposit reads: an importance-sampled draw
     gives each member different ones, so weights held in the shared model would be wrong for
     every member but one. They are copied, so a later change to a member's distribution does not
-    reach the problem, and a member whose weights and state name different particle counts throws
-    an `ArgumentError`.
+    reach the problem. A member whose weights and state name different particle counts throws an
+    `ArgumentError`, and so does an empty member list. A member of another element type than the
+    model throws a `MethodError`.
   - The problem carries the Hamiltonian
     `h(t, q, w) = ½Σᵢ wᵢvᵢ² + ½∫(∂ₓϕ)²dx` as its invariant, so `invariants(ens)` is a `NamedTuple`
     and not `NullInvariants()`. `hashamiltonian` stays `false`, the equation being an `SODE`. The

@@ -246,6 +246,17 @@ end
         @test_throws ArgumentError sodeensemble(model, [a, bad], tspan, tstep)
     end
 
+    @testset "an empty member list" begin
+        @test_throws ArgumentError sodeensemble(model, empty(members), tspan, tstep)
+    end
+
+    @testset "a member of another element type" begin
+        S = T === Float64 ? Float32 : Float64
+        other = [sample(S, 11; npart = npart), sample(S, 22; npart = npart)]
+        @test_throws MethodError sodeensemble(model, other, tspan, tstep)
+        @test_throws MethodError sodeensemble(model, [members[1], other[2]], tspan, tstep)
+    end
+
     @testset "the round trip" begin
         ens = sodeensemble(model, members, tspan, tstep)
         sol = integrate(ens, GeometricIntegrators.Strang())

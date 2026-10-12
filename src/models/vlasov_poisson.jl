@@ -180,12 +180,15 @@ compute_invariant(sol.t, sol[i][:q], parameters(ens)[i], invariants(equation(ens
 All members share the potential and the work buffer of `model`. Solve them one after another, as
 `integrate` does: members solved concurrently read each other's fields, with no error.
 
-A member whose weights and state have different particle counts throws an `ArgumentError`. The
-model and the members have one element type; mixed input is not supported.
+An empty member list, and a member whose weights and state have different particle counts, throw
+an `ArgumentError`. The model and the members have one element type `T`; a member of another
+element type raises a `MethodError`.
 """
-function sodeensemble(model::VlasovPoisson{1, 1, <:ParticleDistribution},
+function sodeensemble(model::VlasovPoisson{1, 1, <:ParticleDistribution{T}},
         members::AbstractVector{<:ParticleDistribution{T, 1, 1}},
         tspan::Tuple, tstep::Real) where {T}
+    isempty(members) && throw(ArgumentError("sodeensemble needs at least one member"))
+
     ics = [(q = copy(m.particles.z),) for m in members]
 
     params = map(members) do m
