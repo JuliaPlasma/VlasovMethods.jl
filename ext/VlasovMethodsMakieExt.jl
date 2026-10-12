@@ -18,9 +18,8 @@ end
 
 function VlasovMethods.plot_distribution(dist::ParticleDistribution{DT, 1, 1};
         xdomain, vdomain, nx::Integer = 100, nv::Integer = 100) where {DT}
-    # `isempty` of a `ParticleList` iterates it, and iterating an empty list raises a
-    # `BoundsError` in ParticleMethods 0.1.2, so the guards of both particle methods ask the list
-    # for its length instead.
+    # `isempty` iterates a `ParticleList` and raises `BoundsError` on an empty list, so both
+    # particle methods check its length directly.
     iszero(length(dist.particles)) && throw(ArgumentError("no particles to plot"))
 
     xa, xb = first(xdomain), last(xdomain)

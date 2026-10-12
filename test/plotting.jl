@@ -78,7 +78,7 @@ end
     # nothing else has no Makie UUID in its manifest, and the extension stays unloaded there.
     @test isempty([name for name in keys(project["deps"]) if occursin("Makie", name)])
 
-    # The plotting stacks this work replaces, and the two the plan forbids in every package.
+    # Legacy plotting stacks and unrelated modelling packages are not hard dependencies.
     for name in ("Plots", "StatsPlots", "LaTeXStrings", "Optimisers", "DifferentialEquations")
         @test !haskey(project["deps"], name)
     end

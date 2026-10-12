@@ -19,7 +19,7 @@ The one-argument method takes a [`GridDistribution`](@ref) and draws `dist.value
 heatmap on the grid's own nodes, untransposed: the columns of the matrix are the `v` nodes, so
 the figure and the matrix have the same orientation.
 
-The method with the two keywords takes a [`ParticleDistribution`](@ref) of one position and one
+The method with the two keywords takes a `ParticleDistribution` of one position and one
 velocity dimension and draws the weighted particle histogram on `nx × nv` cells of `xdomain`
 and `vdomain`. Cell `(i, j)` holds
 
@@ -43,7 +43,7 @@ function plot_distribution end
 @doc raw"""
     plot_particles(dist; xdomain, vdomain) -> Figure
 
-The particles of a [`ParticleDistribution`](@ref) of one position and one velocity dimension, as
+The particles of a `ParticleDistribution` of one position and one velocity dimension, as
 a single scatter of `(x, v)`.
 
 Defined in a package extension: load `CairoMakie` to make it available.
