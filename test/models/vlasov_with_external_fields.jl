@@ -1,11 +1,10 @@
 using GeometricIntegrators: GeometricIntegrators
 using HDF5: h5read
-using LinearAlgebra: ×, ⋅
+using LinearAlgebra: ⋅
 using StaticArrays
 using Test
 using VlasovMethods
-using VlasovMethods: electric_field, magnetic_field, s_drift!, s_lorentz!, v_drift!,
-                     v_lorentz!
+using VlasovMethods: electric_field, magnetic_field, s_drift!, s_lorentz!
 
 include("../helpers/external_fields.jl")
 
@@ -124,19 +123,7 @@ end
     @testset "the energy" begin
         for q in (T(2), T(-2))
             T_g = 2 * T(π) * m / (abs(q) * B₀)
-            sol = trajectory(T, field, x₀, v₀, q, m, (zero(T), 10 * T_g), T_g / 32)
-            N = lastindex(sol.q)
-            E₀ = v₀ ⋅ v₀ / 2
-            drift = zero(T)
-            for n in 0:N
-                v = sol.q[n]
-                E = (v[4, 1]^2 + v[5, 1]^2 + v[6, 1]^2) / 2
-                drift = max(drift, abs(E - E₀))
-            end
-            # The Boris push is a rotation, which keeps `|v|` exactly in exact arithmetic, so the
-            # drift is the rounding of `N` rotations. An explicit kick grows the norm by a factor
-            # per step instead and leaves this bound far behind.
-            @test drift ≤ N * eps(T) * E₀
+            test_energy(trajectory(T, field, x₀, v₀, q, m, (zero(T), 10 * T_g), T_g / 32), v₀)
         end
     end
 
@@ -211,62 +198,13 @@ end
     end
 
     @testset "the two vector fields" begin
-        # The right-hand side of each of the two maps, against values written out here. The
-        # splitting's own checks below cannot see a zero `ẋ` in the drift, or a `qm` dropped from
-        # the Lorentz acceleration: both leave the orbit, the energy and the allocation figures
-        # exactly as they are. The field below has `E` and `B` both nonzero and no value a power of
-        # two, so its acceleration is not zero either, and a dropped `E` or `q/m` shows up in it.
-        q = T(2)
+        # `E` and `B` both nonzero, and no value a power of two
         local field = UniformField(SVector{3, T}(0.2, -0.1, 0.3), SVector{3, T}(0, 0, B₀))
-        dist = particle_distribution(T, 2)
-        dist.particles.x .= SVector{3, T}(0.3, -0.2, 0.1)
-        dist.particles.v .= v₀
-        model = VlasovWithExternalFields(dist, field; charge = q, mass = m)
-        method = SplittingMethod(model, (zero(T), T(1)), T(0.1))
-        params = method.equation.parameters
-        z = copy(model.distribution.particles.z)
-        ż = similar(z)
-        t = T(0.4)
-        x = SVector{3, T}(0.3, -0.2, 0.1)
-        a = (q / m) * (electric_field(field, t, x) + v₀ × magnetic_field(field, t, x))
-
-        @test !all(iszero, a)
-        @test !all(iszero, electric_field(field, t, x))
-
-        @test @inferred(v_drift!(ż, t, z, params)) === nothing
-        @test @inferred(v_lorentz!(ż, t, z, params)) === nothing
-
-        v_drift!(ż, t, z, params)
-        for i in axes(z, 2)
-            @test ż[1:3, i] == v₀
-            @test all(iszero, ż[4:6, i])
-        end
-
-        v_lorentz!(ż, t, z, params)
-        for i in axes(z, 2)
-            @test all(iszero, ż[1:3, i])
-            @test ż[4:6, i] == collect(a)
-        end
+        test_vector_fields(T, field, SVector{3, T}(0.3, -0.2, 0.1), v₀)
     end
 
     @testset "the push does not allocate" begin
-        model = VlasovWithExternalFields(
-            particle_distribution(T, 3), field; charge = T(2), mass = m)
-        method = SplittingMethod(model, (zero(T), T(1)), T(0.1))
-        params = method.equation.parameters
-        z̄ = copy(model.distribution.particles.z)
-        z = similar(z̄)
-        t̄ = zero(T)
-        # The two maps are type-stable at the concrete argument types of the model: a runtime
-        # dispatch here is what the allocation figures below measure only indirectly.
-        @test @inferred(s_drift!(z, t̄ + T(0.1), z̄, t̄, params)) === nothing
-        @test @inferred(s_lorentz!(z, t̄ + T(0.1), z̄, t̄, params)) === nothing
-        if Base.JLOptions().code_coverage == 0
-            @test allocations_s(s_drift!, z, t̄ + T(0.1), z̄, t̄, params) == 0
-            @test allocations_s(s_lorentz!, z, t̄ + T(0.1), z̄, t̄, params) == 0
-        end
-        # a control: the barrier machinery sees an allocation, so the zeros above are not vacuous
-        @test allocations(collect, z) > 0
+        test_push_does_not_allocate(T, field)
     end
 
     @testset "the field of another precision" begin

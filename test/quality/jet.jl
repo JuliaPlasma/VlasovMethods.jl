@@ -45,19 +45,18 @@ if isdefined(JET, :JET_AVAILABLE) ? JET.JET_AVAILABLE : JET.JET_LOADABLE
         target_modules = (VlasovMethods,))))
 
     # test/models/vlasov_with_external_fields.jl and
-    # test/integration/electromagnetic_fields_ext.jl: the external-field push, on its three
-    # `@allocated` calls, at the argument types those files pass — a copied state matrix, in
-    # both precisions, with the constant `UniformField` and the ABC `FieldFunctions` the
-    # extension adapts.
+    # test/integration/electromagnetic_fields_ext.jl: the external-field push, on the
+    # `@allocated` calls of `test_push_does_not_allocate`, at the argument types those files pass
+    # — a copied state matrix, in both precisions, with the constant `UniformField` and the ABC
+    # `FieldFunctions` the extension adapts.
     for T in (Float64, Float32)
-        for (field, maps) in (
-            (UniformField(zeros(T, 3), zeros(T, 3)), (s_drift!, s_lorentz!)),
-            (FieldFunctions(ABCEquilibrium(T(1.3), T(0.7), T(0.45))), (s_lorentz!,)))
+        for field in (UniformField(zeros(T, 3), zeros(T, 3)),
+            FieldFunctions(ABCEquilibrium(T(1.3), T(0.7), T(0.45))))
             model = VlasovWithExternalFields(
                 particle_distribution(T, 10), field; charge = 2, mass = 3)
             params = SplittingMethod(model, (zero(T), one(T)), T(0.1)).equation.parameters
             z = copy(model.distribution.particles.z)
-            for f in maps
+            for f in (s_drift!, s_lorentz!)
                 @test isempty(JET.get_reports(JET.report_opt(f,
                     (typeof(z), T, typeof(z), T, typeof(params));
                     target_modules = (VlasovMethods,))))

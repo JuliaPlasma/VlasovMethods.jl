@@ -1,10 +1,8 @@
 using ElectromagneticFields
 using GeometricIntegrators: GeometricIntegrators
-using LinearAlgebra: ×, ⋅
 using StaticArrays
 using Test
 using VlasovMethods
-using VlasovMethods: s_drift!, s_lorentz!, v_drift!, v_lorentz!
 
 include("../helpers/external_fields.jl")
 
@@ -84,38 +82,14 @@ const ABC_POINTS = ((0.31, -0.52, 0.77), (-1.13, 0.63, 2.05), (2.71, -1.94, 0.37
                 one_particle(T, x₀, v₀), field; charge = q, mass = m)
             method = SplittingMethod(model, (zero(T), T(5)), tstep)
             sol = GeometricIntegrators.integrate(method.integrator)
-            # The solution's own step count: the equation's `ntime` rounds up, the time series is
-            # the range, and the two disagree wherever the span is not an exact multiple.
-            N = lastindex(sol.q)
-
-            # `φ = 0`, so the Boris push is a rotation and keeps `|v|`; the energy bound allows
-            # rounding from `N` steps, and no parameter of this field is a power of two.
-            drift = zero(T)
-            for n in 0:N
-                v = sol.q[n]
-                E = (v[4, 1]^2 + v[5, 1]^2 + v[6, 1]^2) / 2
-                drift = max(drift, abs(E - v₀ ⋅ v₀ / 2))
-            end
-            @test drift ≤ N * eps(T) * (v₀ ⋅ v₀ / 2)
-            @test all(isfinite, sol.q[N])
+            # `φ = 0`, so the Boris push is a rotation and keeps `|v|`; no parameter of this field
+            # is a power of two
+            test_energy(sol, v₀)
+            @test all(isfinite, sol.q[end])
         end
 
         @testset "the push through the adapter does not allocate" begin
-            q, m = T(2), T(3)
-            model = VlasovWithExternalFields(
-                particle_distribution(T, 3), field; charge = q, mass = m)
-            method = SplittingMethod(model, (zero(T), T(1)), T(0.1))
-            params = method.equation.parameters
-            z̄ = copy(model.distribution.particles.z)
-            z = similar(z̄)
-            t̄ = zero(T)
-            # the two maps are type-stable at the adapter's concrete field type too
-            @test @inferred(s_drift!(z, t̄ + T(0.1), z̄, t̄, params)) === nothing
-            @test @inferred(s_lorentz!(z, t̄ + T(0.1), z̄, t̄, params)) === nothing
-            if Base.JLOptions().code_coverage == 0
-                @test allocations_s(s_lorentz!, z, t̄ + T(0.1), z̄, t̄, params) == 0
-            end
-            @test allocations(collect, z) > 0
+            test_push_does_not_allocate(T, field)
         end
 
         @testset "the concrete types of the adapter" begin
@@ -130,40 +104,11 @@ const ABC_POINTS = ((0.31, -0.52, 0.77), (-1.13, 0.63, 2.05), (2.71, -1.94, 0.37
         end
 
         @testset "the two vector fields of the adapter" begin
-            # The right-hand side of each map, against values written out here, at the adapter's
-            # own field type and with a nonunit `q/m`. The orbit and energy checks cannot see a
-            # zero `ẋ` in the drift or a dropped `qm`: both leave them unchanged. The perturbation
-            # makes `E` nonzero as well, which the equilibrium alone leaves at zero.
-            q, m, E₀ = T(2), T(3), T(0.3)
-            perturbed = FieldFunctions(ABCEquilibrium(a, b, c), EzCosZPerturbation(E₀))
-            dist = particle_distribution(T, 2)
-            dist.particles.x .= SVector{3, T}(0.31, -0.52, 0.77)
-            dist.particles.v .= SVector{3, T}(0.7, 0.4, 0.25)
-            model = VlasovWithExternalFields(dist, perturbed; charge = q, mass = m)
-            method = SplittingMethod(model, (zero(T), T(1)), T(0.1))
-            params = method.equation.parameters
-            z = copy(model.distribution.particles.z)
-            ż = similar(z)
-            t = T(0.4)
-            x = SVector{3, T}(0.31, -0.52, 0.77)
-            v = SVector{3, T}(0.7, 0.4, 0.25)
-            acc = (q / m) *
-                  (electric_field(perturbed, t, x) + v × magnetic_field(perturbed, t, x))
-
-            @test @inferred(v_drift!(ż, t, z, params)) === nothing
-            @test @inferred(v_lorentz!(ż, t, z, params)) === nothing
-
-            v_drift!(ż, t, z, params)
-            for i in axes(z, 2)
-                @test ż[1:3, i] == v
-                @test all(iszero, ż[4:6, i])
-            end
-
-            v_lorentz!(ż, t, z, params)
-            for i in axes(z, 2)
-                @test all(iszero, ż[1:3, i])
-                @test ż[4:6, i] == collect(acc)
-            end
+            # at the adapter's own field type; the perturbation makes `E` nonzero, which the
+            # equilibrium alone leaves at zero
+            perturbed = FieldFunctions(ABCEquilibrium(a, b, c), EzCosZPerturbation(T(0.3)))
+            test_vector_fields(T, perturbed, SVector{3, T}(0.31, -0.52, 0.77),
+                SVector{3, T}(0.7, 0.4, 0.25))
         end
     end
 
