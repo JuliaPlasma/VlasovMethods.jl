@@ -194,7 +194,7 @@ first entry is written.
   `VlasovPoisson` now holds a `work` buffer of the width the deposit and the field evaluation
   need — a fifth type parameter `WT` — and the two fields fill it rather than allocating one per
   evaluation. Code that names `VlasovPoisson` with four type parameters stops matching. Because
-  the constructor allocates that buffer, a **particle** `VlasovPoisson` on a basis with no
+  the constructor allocates that buffer, a **particle or spline** `VlasovPoisson` on a basis with no
   deposit-buffer method — an `FFTWBasis` or a `FiniteDifferenceBasis` — now throws at
   construction rather than at the first deposit (K19).
 
@@ -322,7 +322,7 @@ first entry is written.
 
 - **The grid 1D1V Vlasov–Poisson scheme.** `VlasovPoisson(dist::GridDistribution,
   potential::Potential)` is a new method of the exported constructor, and
-  `GeometricIntegrator(model, tspan, tstep, method = Integrators.ImplicitMidpoint())` steps it.
+  `VlasovMethods.GeometricIntegrator(model, tspan, tstep, method = Integrators.ImplicitMidpoint())` steps it.
   The state is `vec(dist.values)` and the right-hand side is GeometricBrackets' Arakawa bracket,
   `∂ₜf = −[f, v²/2 + ϕ]` with `ϕ` the potential's own solve, so the scheme holds the discrete
   Hamiltonian `hx·hv·Σ f v²/2 + (hx/2)·Σ ρᵢϕᵢ` to round-off, and the `L¹` norm `hx·hv·Σ|f|` to
@@ -342,9 +342,10 @@ first entry is written.
     only where `h` is constant along it, and `h = v²/2 + ϕ(x)` is not constant on `v = v_b`. A run
     is valid only while `f` vanishes to `eps(T)·maximum(f)` at both ends of the velocity range,
     which the docstrings state and the tests assert at every step.
-  - `run!(::GeometricIntegrator, h5file)` works with the grid model. The write-back is now a
-    dispatched `_write_back!`, which keeps the particles' positions for a `ParticleDistribution`
-    and reshapes into `distribution.values` for a `GridDistribution`.
+  - `run!(::GeometricIntegrator, h5file)` works with the grid model. At the end it writes the
+    final state back into the model's distribution: the velocities of a `ParticleDistribution`,
+    the row the particle models step, with the positions left as they were, and
+    `distribution.values`, reshaped, for a `GridDistribution`.
   - `scripts/landau_damping_1d1v.jl` fits the linear Landau damping rate to the peaks of
     `|E₁(t)|` and reproduces the textbook `γ ≈ −0.1533` for `k = 0.5` and unit thermal velocity.
     Run with `julia --project=scripts scripts/landau_damping_1d1v.jl`, it measures
