@@ -5,7 +5,6 @@ using TerminalLoggers: TerminalLogger
 global_logger(TerminalLogger())
 
 using HDF5
-using HDF5: H5DataStore
 using LinearAlgebra
 using MultiIndexArrays: multiindex, linearindex, _stencil_indices
 using Parameters

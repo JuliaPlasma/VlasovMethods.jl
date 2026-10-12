@@ -191,7 +191,7 @@ end
 
 ### HDF5
 
-function Snapshots(h5::H5DataStore, path::AbstractString = "/")
+function Snapshots(h5::HDF5.H5DataStore, path::AbstractString = "/")
     group = h5[path]
 
     X = read(group["X"])
@@ -212,7 +212,7 @@ function Snapshots(fpath::AbstractString, path::AbstractString = "/")
     end
 end
 
-function h5save(h5::H5DataStore, s::Snapshots; path::AbstractString = "/")
+function h5save(h5::HDF5.H5DataStore, s::Snapshots; path::AbstractString = "/")
     group = haskey(h5, path) ? h5[path] : create_group(h5, path)
 
     group["X"] = s.X
@@ -225,6 +225,6 @@ function h5save(h5::H5DataStore, s::Snapshots; path::AbstractString = "/")
     h5save(group, s.paramspace; path = "parameterspace")
 end
 
-function h5load(::Type{Snapshots}, h5::H5DataStore; path::AbstractString = "/")
+function h5load(::Type{Snapshots}, h5::HDF5.H5DataStore; path::AbstractString = "/")
     Snapshots(h5, path)
 end
