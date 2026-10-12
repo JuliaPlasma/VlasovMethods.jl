@@ -8,7 +8,7 @@ using VlasovMethods
 include("../helpers/external_fields.jl")
 
 @testset "run!(::SplittingMethod, h5file), $T" for T in (Float64, Float32)
-    # The gyro benchmark's grid: ten periods at a step that does not divide the span.
+    # The gyro benchmark's grid: ten periods at a step of `T_g/32`, 320 steps in exact arithmetic.
     m, B₀ = T(3), T(1.7)
     q = T(2)
     T_g = 2 * T(π) * m / (abs(q) * B₀)
@@ -18,9 +18,10 @@ include("../helpers/external_fields.jl")
     model = VlasovWithExternalFields(one_particle(T, x₀, v₀), field; charge = q, mass = m)
     method = SplittingMethod(model, (zero(T), 10 * T_g), T_g / 32)
 
-    # The equation's `ntime` rounds the step count up (`div(t₁ - t₀, Δt, RoundUp)`) while the
-    # solution carries the range `t₀:Δt:t₁`, one state per point of it. The two differ by one
-    # here, which is what the run below has to take its step count from.
+    # `T_g/32` is exact, but the rounded span `10 * T_g` exceeds `320Δt`, so the equation's
+    # `ntime` (`div(t₁ - t₀, Δt, RoundUp)`) rounds the step count up to 321. The solution carries
+    # the range `t₀:Δt:t₁`, 321 points, one state per point, so `run!` has to take its step count
+    # from the solution. The pinned values guard that the test exercises this mismatched grid.
     @test ntime(method.equation) == 321
     sol = GeometricIntegrators.integrate(method.integrator)
     @test length(sol.t) == 321
