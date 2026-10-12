@@ -120,6 +120,13 @@ first entry is written.
   before it silently matched nothing. Both files are byte-equal to the NFC normalisation of their
   predecessor, and no string literal was affected.
 
+- **`run!(::SplittingMethod, h5file)` steps over the solution's own time grid.** It sized its
+  dataset by `ntime(equation)`, which rounds the step count up, and then indexed the range
+  `t₀:Δt:t₁`, which is one point shorter whenever the span is not an exact multiple of the step: a
+  run raised a `BoundsError` before its last step. The dataset now holds one slice per time point
+  of the solution, the loop takes the steps `GeometricIntegrators.integrate` takes, and the HDF5
+  chunk of a run with no particles no longer has a zero extent.
+
 ### Breaking Changes
 
 - **The metriplectic Lenard–Bernstein solve uses `SimpleSolvers`.** The one live
@@ -299,6 +306,33 @@ first entry is written.
   printed residual can differ in its last digits, from rounding alone.
 
 ### New Features
+
+- **`VlasovWithExternalFields`, one species in an external electromagnetic field, and the
+  `ElectromagneticFields` extension that supplies such a field.** `VlasovWithExternalFields`,
+  `UniformField`, `electric_field` and `magnetic_field` are exported.
+
+  - The model holds the particles of a `ParticleDistribution{T,3,3}` and the field they move in,
+    with `charge` and `mass` keywords stored as `T`; the two-argument constructor throws an
+    `ArgumentError` unless the converted mass is positive. `SplittingMethod(model, tspan, tstep)`
+    integrates it: a Strang splitting of the drift `ẋ = v` and the Lorentz force
+    `v̇ = (q/m)(E + v×B)`, whose rotational step is a Boris push, so a constant magnetic field
+    moves a particle along the analytic gyro-orbit to second order and holds `½|v|²` to round-off.
+  - An empty particle list is a **vacuum run**, and the constructor does not warn: the model, its
+    `SplittingMethod` and `run!` work over the empty state. This needs `GeometricBase` 0.15.1,
+    whose `State` keeps the vector field of an empty state variable. `GeometricBase` is a direct
+    dependency, and `[compat]` bounds it at `0.15.1`, so a `GeometricBase` 0.15.0 does not resolve
+    with this version.
+  - `electric_field(field, t, x)` and `magnetic_field(field, t, x)` are the field interface, each
+    returning an `SVector{3,T}` in Cartesian components, with `T` the element type of `x`. There
+    is no abstract field type and no fallback method: a field defines one method of each.
+  - `UniformField(E, B)` is the field type this package ships, constant in `x` and in `t`.
+  - `ElectromagneticFields` is a **weak** dependency. The extension
+    `VlasovMethodsElectromagneticFieldsExt` adds the two methods for a `FieldFunctions` of a
+    Cartesian chart, so `FieldFunctions(ABCEquilibrium(a, b, c))` goes to the constructor as it
+    is. It is confined to Cartesian charts by dispatch — `B♯` and `E♯` are the Cartesian
+    components only where the chart is the identity map — so a curvilinear field raises its
+    `MethodError` at the first kick. `[compat]` is `ElectromagneticFields = "0.9.1"`, the first
+    release on `GeometricBase` 0.15.
 
 - **`GridDistribution`, the distribution function on a 1D1V phase-space grid.** It is a third
   `DistributionFunction{DT, 1, 1}`, beside `ParticleDistribution` and `SplineDistribution`, and
