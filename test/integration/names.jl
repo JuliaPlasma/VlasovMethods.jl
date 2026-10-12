@@ -74,6 +74,8 @@ const BASE_EXPORTS = Symbol[
     :nbasis,
     :ncells,
     :order,
+    :plot_distribution,
+    :plot_particles,
     :polynomial_reproduction,
     :project_Maxwellian,
     :project_function,
