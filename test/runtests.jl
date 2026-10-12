@@ -8,6 +8,7 @@ if "core" in GROUPS
     @safetestset "Spline Distribution" include("distributions/spline_distribution.jl")
     @safetestset "Grid Distribution" include("distributions/grid_distribution.jl")
     @safetestset "Particle Distribution" include("distributions/particle_distribution.jl")
+    @safetestset "Plotting" include("plotting.jl")
     @safetestset "Projections" include("projections/projections.jl")
     @safetestset "Reduced Tensors" include("gridbased/reduced_tensors.jl")
     @safetestset "Geometric Integrator" include("methods/geometric_integrator.jl")
@@ -18,4 +19,5 @@ if "core" in GROUPS
     @safetestset "Vlasov–Poisson" include("integration/vlasov_poisson.jl")
     @safetestset "Names" include("integration/names.jl")
     @safetestset "Collisions" include("gridbased/collisions.jl")
+    @safetestset "Plotting extension" include("integration/makie_extension.jl")
 end

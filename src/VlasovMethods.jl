@@ -88,6 +88,12 @@ export SplineDistribution
 export GridDistribution, velocity_moments
 export check_conservation_basis, project_function, project_Maxwellian
 
+# plotting
+
+include("plotting.jl")
+
+export plot_distribution, plot_particles
+
 # entropy models
 
 include("entropies/collision_entropy.jl")

@@ -384,6 +384,20 @@ first entry is written.
   correct and only the run time changes. Guarded on `--check-bounds=auto`, because `Pkg.test()`'s
   default `=yes` inflates allocation counts and would make the ceiling meaningless.
 
+- **`plot_distribution` and `plot_particles` are exported and drawn by a CairoMakie package
+  extension.** Their methods live in `ext/VlasovMethodsMakieExt.jl`, which loads with `CairoMakie`;
+  `src/plotting.jl` declares the two names and documents them. `plot_distribution(dist::GridDistribution)`
+  draws `dist.values` as one heatmap on the grid's own nodes, untransposed.
+  `plot_distribution(dist::ParticleDistribution{T,1,1}; xdomain, vdomain, nx = 100, nv = 100)` draws
+  the weighted particle histogram: each cell holds its summed weight divided by `hx·hv`, `x` is
+  wrapped into the periodic `xdomain`, and a particle whose `v` lies outside `[va, vb)` is dropped
+  rather than clamped into an end cell.
+  `plot_particles(dist::ParticleDistribution{T,1,1}; xdomain, vdomain)` draws the wrapped `x` against
+  `v`, with the axis limits set to the two domains. Both particle methods throw `ArgumentError` on a
+  distribution with no particles. `CairoMakie` is a weak dependency, so the package installs and
+  loads with no Makie; without the extension loaded, each name has no methods, and calling it throws
+  `MethodError`.
+
 ### Internal
 
 - **CI uploads coverage from the `Julia 1 - ubuntu-latest` job instead of `Julia min`, and a

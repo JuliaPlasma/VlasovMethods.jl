@@ -23,7 +23,14 @@ SpecialFunctions = "276daf66-3868-5448-9aa4-cd146d93841b"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 TerminalLoggers = "5d786b92-1e48-4d6f-9151-6b4477ca9bed"
 
+[weakdeps]
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+
+[extensions]
+VlasovMethodsMakieExt = "CairoMakie"
+
 [compat]
+CairoMakie = "0.12, 0.13, 0.14, 0.15"
 GeometricBrackets = "0.2"
 GeometricEquations = "0.21.5"
 GeometricIntegrators = "0.18.6"
