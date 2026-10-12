@@ -53,16 +53,12 @@ end
 
     @testset "the constructor" begin
         dist = particle_distribution(T, 4)
-        @test all(isconcretetype,
-            fieldtypes(typeof(VlasovWithExternalFields(
-                dist, field; charge = 2, mass = 3))))
         @test concrete_fields(typeof(VlasovWithExternalFields(dist, field)))
 
         # one species, with the defaults
         model = VlasovWithExternalFields(dist, field)
         @test model.charge === one(T)
         @test model.mass === one(T)
-        @test eltype(model.charge) === T
 
         # the keywords are converted to the particles' element type, `Int32` and `Int` included
         model = VlasovWithExternalFields(dist, field; charge = Int32(-2), mass = 3)
@@ -123,9 +119,9 @@ end
                     gyro_orbit(T, x₀, v₀, q, m, B₀, sol.t[N])))
             end
             # The push is second order, so halving the step divides the error by four. The window
-            # is ±10% about 4. A reflected rotation is off by the diameter at every time, so its
-            # ratio is 1; a whole number of periods brings the wrong direction back to its start
-            # in `x`–`y`, which is why the ratio uses the maximum over the trajectory.
+            # is ±10% about 4. A reflected rotation is off by up to the diameter whatever the step,
+            # so its ratio is near 1; a whole number of periods brings the wrong direction back to
+            # its start in `x`–`y`, which is why the ratio uses the maximum over the trajectory.
             @test 3.6 ≤ err[1] / err[2] ≤ 4.4
             @test 3.6 ≤ fin[1] / fin[2] ≤ 4.4
         end

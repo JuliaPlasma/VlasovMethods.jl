@@ -1,6 +1,6 @@
-# The fixtures the two external-field test files share. It is included by
-# `test/models/vlasov_with_external_fields.jl` and
-# `test/integration/electromagnetic_fields_ext.jl`, and is listed in no `runtests.jl`.
+# The fixtures the external-field test files share. It is included by
+# `test/models/vlasov_with_external_fields.jl`, `test/integration/electromagnetic_fields_ext.jl`
+# and `test/quality/jet.jl`, and is listed in no `runtests.jl`.
 
 using ParticleMethods: ParticleList
 using StaticArrays

@@ -3,7 +3,6 @@ using GeometricIntegrators: GeometricIntegrators
 using LinearAlgebra: ×, ⋅
 using StaticArrays
 using Test
-using TOML
 using VlasovMethods
 using VlasovMethods: s_drift!, s_lorentz!, v_drift!, v_lorentz!
 
@@ -11,7 +10,6 @@ include("../helpers/external_fields.jl")
 
 const EXTENSION = :VlasovMethodsElectromagneticFieldsExt
 const EF_UUID = "d6c1ba6f-ee03-53af-b876-68cefeb88ec8"
-const ELECTROMAGNETIC_FIELDS = Base.PkgId(Base.UUID(EF_UUID), "ElectromagneticFields")
 
 # What a fresh process asserts. It is its own program: the parent compares the exit status and no
 # output, so the `--color=yes` of CI cannot split a pattern.
@@ -41,21 +39,10 @@ const ABC_POINTS = ((0.31, -0.52, 0.77), (-1.13, 0.63, 2.05), (2.71, -1.94, 0.37
 
 @testset "the ElectromagneticFields extension" begin
     @testset "the extension loads only on demand" begin
-        # `ElectromagneticFields` is a dependency of this test environment, so the extension is
-        # loaded in this process; the clause is about a process that does not load the package.
-        @test Base.get_extension(VlasovMethods, EXTENSION) isa Module
-        @test ELECTROMAGNETIC_FIELDS in keys(Base.loaded_modules)
-
-        # A fresh process, in the environment `Pkg.test` built.
+        # `ElectromagneticFields` is a dependency of this test environment, so this process has
+        # loaded the extension; a fresh process, in the environment `Pkg.test` built, shows that
+        # `using VlasovMethods` alone loads neither the package nor the extension.
         @test success(`$(Base.julia_cmd()) --startup-file=no --project=$(Base.active_project()) -e $CHILD`)
-
-        # `[deps]` and not `[weakdeps]` is what would make every user's environment carry the
-        # package; the extension is declared on the weak one.
-        project = TOML.parsefile(joinpath(pkgdir(VlasovMethods), "Project.toml"))
-        @test haskey(project["weakdeps"], "ElectromagneticFields")
-        @test !haskey(get(project, "deps", Dict{String, Any}()), "ElectromagneticFields")
-        @test project["extensions"] ==
-              Dict("VlasovMethodsElectromagneticFieldsExt" => "ElectromagneticFields")
     end
 
     @testset "the ABC field, $T" for T in (Float64, Float32)

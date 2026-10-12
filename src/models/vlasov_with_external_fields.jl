@@ -9,7 +9,7 @@ The two functions are the interface between a [`VlasovWithExternalFields`](@ref)
 field its particles move in. The model calls them once per particle and per kick, with `x` the
 particle's position and `t` the time the kick starts at, and a field type defines one method of
 each. There is no abstract field type and no fallback method, so a field that defines neither
-raises its `MethodError` at the first kick inside `integrate`, which is where a position exists.
+raises its `MethodError` at the first kick inside `integrate`.
 
 [`UniformField`](@ref) is the one field type in this package. The `ElectromagneticFields`
 extension adds methods for that package's `FieldFunctions` of a Cartesian chart; see
@@ -87,25 +87,18 @@ struct VlasovWithExternalFields{T, DT <: ParticleDistribution{T, 3, 3}, FT} <: V
     charge::T
     mass::T
 
-    function VlasovWithExternalFields(dist::ParticleDistribution{T, 3, 3}, field,
-            charge::Real, mass::Real) where {T}
-        # The guard reads the converted mass: `1e-50` is not positive in `Float32`, where it
-        # converts to `0f0`, although it is in `Float64`. `NaN` fails the comparison and is
-        # rejected with it; `Inf` passes.
+    function VlasovWithExternalFields(dist::ParticleDistribution{T, 3, 3}, field;
+            charge::Real = one(T), mass::Real = one(T)) where {T}
+        # The guard reads the converted mass, so `1e-50` is rejected in `Float32` (`0f0`) and
+        # accepted in `Float64`; `NaN` fails the comparison, `Inf` passes.
         m = T(mass)
         m > 0 || throw(ArgumentError("the particle mass must be positive, got $mass"))
-        # The particle count is fixed here and never changes, so an empty list is known to be one
-        # for the model's whole life. It is a vacuum run and not an error: every push, and
-        # `integrate`, run over an empty state.
+        # The particle count never changes, so an empty list is a vacuum run for the model's
+        # whole life.
         size(dist.particles.z, 2) == 0 &&
             @warn "the particle list has no particles; the model is a vacuum run"
         new{T, typeof(dist), typeof(field)}(dist, field, T(charge), m)
     end
-end
-
-function VlasovWithExternalFields(dist::ParticleDistribution{T, 3, 3}, field;
-        charge = one(T), mass = one(T)) where {T}
-    VlasovWithExternalFields(dist, field, charge, mass)
 end
 
 #################################################################

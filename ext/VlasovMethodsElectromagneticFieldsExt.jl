@@ -1,7 +1,7 @@
 module VlasovMethodsElectromagneticFieldsExt
 
-using ElectromagneticFields
-using StaticArrays
+import ElectromagneticFields
+using StaticArrays: SVector
 
 import VlasovMethods: electric_field, magnetic_field
 
@@ -13,10 +13,9 @@ import VlasovMethods: electric_field, magnetic_field
 # therefore by dispatch, and a curvilinear `FieldFunctions` has no method of either function, so
 # the first kick raises its `MethodError`.
 #
-# `FieldFunctions` is a concrete type with six parameters, and the two important ones are the
-# first two; the rest are left free. Both perturbations that a Cartesian chart admits are in the
-# union: `ZeroPerturbation`, which the constructor takes as its default and which is not a
-# `CartesianPerturbation`, and the Cartesian perturbations such as `EzCosZPerturbation`.
+# The alias binds the first two of the six parameters of `FieldFunctions`: a Cartesian
+# equilibrium, and either the default `ZeroPerturbation`, which is not a `CartesianPerturbation`,
+# or a Cartesian perturbation such as `EzCosZPerturbation`.
 const CartesianFieldFunctions = ElectromagneticFields.FieldFunctions{
     <:ElectromagneticFields.CartesianEquilibrium,
     <:Union{ElectromagneticFields.ZeroPerturbation,
