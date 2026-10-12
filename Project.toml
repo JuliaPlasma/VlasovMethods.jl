@@ -30,7 +30,7 @@ CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 VlasovMethodsMakieExt = "CairoMakie"
 
 [compat]
-CairoMakie = "0.12, 0.13, 0.14, 0.15"
+CairoMakie = "0.15"
 GeometricBrackets = "0.2"
 GeometricEquations = "0.21.5"
 GeometricIntegrators = "0.18.6"

@@ -396,7 +396,8 @@ first entry is written.
   `v`, with the axis limits set to the two domains. Both particle methods throw `ArgumentError` on a
   distribution with no particles. `CairoMakie` is a weak dependency, so the package installs and
   loads with no Makie; without the extension loaded, each name has no methods, and calling it throws
-  `MethodError`.
+  `MethodError`. `[compat] CairoMakie` is `"0.15"`, the only version the extension is tested
+  against.
 
 ### Internal
 
