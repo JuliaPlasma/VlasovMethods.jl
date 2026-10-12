@@ -16,6 +16,7 @@ const BASE_EXPORTS = Symbol[
     :Dirichlet,
     :DoubleMaxwellian,
     :Free,
+    :FullyReducedTensor,
     :GeneralMesh,
     :GeometricIntegrator,
     :GradedMesh,
@@ -33,7 +34,6 @@ const BASE_EXPORTS = Symbol[
     :PotentialReducedTensor,
     :RandomMesh,
     :RecombinedBSplineBasis,
-    :ReducedTensor,
     :RescaledConservativeLenardBernstein,
     :Robin,
     :ShiftedNormalV,
@@ -94,6 +94,10 @@ const REMOVED_EXPORTS = Symbol[Symbol("DiffEq", "Integrator"), :run]
     # The recorded names missing from the module are exactly the documented removals. A name
     # that leaves without a CHANGELOG line fails here.
     @test setdiff(BASE_EXPORTS, names(VlasovMethods)) == REMOVED_EXPORTS
+
+    # `ReducedTensor` belongs to `ReducedBasisMethods`, which this module imports it from by name,
+    # so it is not an export here and a caller has to reach it at its own package
+    @test !(:ReducedTensor in names(VlasovMethods))
 
     changelog = read(joinpath(pkgdir(VlasovMethods), "CHANGELOG.md"), String)
     for name in REMOVED_EXPORTS

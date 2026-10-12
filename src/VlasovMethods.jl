@@ -6,12 +6,13 @@ global_logger(TerminalLogger())
 
 using HDF5
 using LinearAlgebra
-using MultiIndexArrays: multiindex, linearindex, _stencil_indices
+using MultiIndexArrays: multiindex, linearindex, GridTensor, MultiIndexAxis
 using Parameters
 using ParticleMethods
 using PoissonSolvers
 using ProgressMeter
 using Random
+using ReducedBasisMethods: ReducedTensor
 using Sobol
 using SpecialFunctions
 using StaticArrays
@@ -26,9 +27,10 @@ import GeometricEquations: ntime
 # `Picard`, `solve`), and every use here is qualified as `SimpleSolvers.…`.
 import SimpleSolvers
 
-# The phase-space tensors reduced here are built on the GeometricBrackets grid tensor, and the
-# `_nx`/`_nv` accessors are extended rather than redefined so that one generic covers both.
-using GeometricBrackets: Arakawa, PoissonTensor, poisson_apply
+# The `_nx` and `_nv` accessors are extended rather than redefined, so that one generic covers
+# both collision tensors. `Arakawa` and `poisson_apply` are the grid scheme's (P16); the
+# `PoissonTensor` that VlasovMethods' own `ReducedTensor` needed goes with that type.
+using GeometricBrackets: Arakawa, poisson_apply
 import GeometricBrackets: _nx, _nv
 
 # `import A.B` binds only `B`, so the bare module name needs an import of its own for the call
@@ -160,7 +162,7 @@ export _apply_∫dv!
 
 include("gridbased/reduced_tensors.jl")
 
-export ReducedTensor, PotentialReducedTensor, VelocityReducedMatrix
+export PotentialReducedTensor, VelocityReducedMatrix, FullyReducedTensor
 
 include("gridbased/collisions.jl")
 
