@@ -44,10 +44,12 @@ const BASE_EXPORTS = Symbol[
     :SumMaxwellian,
     :TensorProductBasis,
     :UniformDistribution,
+    :UniformField,
     :UniformMesh,
     :VelocityReducedMatrix,
     :VlasovMethods,
     :VlasovPoisson,
+    :VlasovWithExternalFields,
     :_apply_∫dv!,
     :basis_index,
     :basis_values,
@@ -56,6 +58,7 @@ const BASE_EXPORTS = Symbol[
     :degree,
     :derivative,
     :domain,
+    :electric_field,
     :evaluate,
     :evaluate_all,
     :evaluate_all!,
@@ -63,6 +66,7 @@ const BASE_EXPORTS = Symbol[
     :l2_projection,
     :l2_projection!,
     :local_width,
+    :magnetic_field,
     :mass_matrix,
     :mass_operator,
     :mass_solve!,
@@ -80,6 +84,7 @@ const BASE_EXPORTS = Symbol[
     :quadrature_weights,
     :run,
     :run!,
+    :sodeensemble,
     :velocity_moments
 ]
 

@@ -4,6 +4,7 @@ authors = ["Michael Kraus"]
 version = "0.2.1"
 
 [deps]
+GeometricBase = "9a0b12b7-583b-4f04-aa1f-d8551b6addc9"
 GeometricBrackets = "2a9ffa85-4e0d-473f-b05e-278d80d8d306"
 GeometricEquations = "c85262ba-a08a-430a-b926-d29770767bf2"
 GeometricIntegrators = "dcce2d33-59f6-5b8d-9047-0defad88ae06"
@@ -25,12 +26,20 @@ TerminalLoggers = "5d786b92-1e48-4d6f-9151-6b4477ca9bed"
 
 [weakdeps]
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+ElectromagneticFields = "d6c1ba6f-ee03-53af-b876-68cefeb88ec8"
 
 [extensions]
+VlasovMethodsElectromagneticFieldsExt = "ElectromagneticFields"
 VlasovMethodsMakieExt = "CairoMakie"
 
 [compat]
 CairoMakie = "0.15"
+# 0.9.1 is the first ElectromagneticFields on GeometricBase 0.15, which `GeometricIntegrators`
+# 0.18.6 requires; 0.9.0 pins GeometricBase 0.14.
+ElectromagneticFields = "0.9.1"
+# 0.15.1 is the first GeometricBase whose `State` keeps the vector field of an empty state
+# variable, which the vacuum run of `VlasovWithExternalFields` needs.
+GeometricBase = "0.15.1"
 GeometricBrackets = "0.2"
 GeometricEquations = "0.21.5"
 GeometricIntegrators = "0.18.6"

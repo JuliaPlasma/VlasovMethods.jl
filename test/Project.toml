@@ -1,9 +1,12 @@
 [deps]
 Aqua = "4c88cf16-eb10-579e-8560-4a9242c79595"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
+ElectromagneticFields = "d6c1ba6f-ee03-53af-b876-68cefeb88ec8"
+GeometricBase = "9a0b12b7-583b-4f04-aa1f-d8551b6addc9"
 GeometricBrackets = "2a9ffa85-4e0d-473f-b05e-278d80d8d306"
 GeometricEquations = "c85262ba-a08a-430a-b926-d29770767bf2"
 GeometricIntegrators = "dcce2d33-59f6-5b8d-9047-0defad88ae06"
+GeometricSolutions = "7843afe4-64f4-4df4-9231-049495c56661"
 HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
 JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
@@ -14,10 +17,16 @@ Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 SafeTestsets = "1bc83da4-3b8d-516f-aca4-4fe02f6d838f"
 SimpleSplines = "ac480f6c-9a94-4d53-a283-9db69f109154"
 StableRNGs = "860ef19b-820b-49d6-a774-d7a799459cd3"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 VlasovMethods = "4a954452-39e6-424b-ae51-38fc4bbc42ef"
+
+[compat]
+# Test-only: `src/` does not call it. 0.6.6 is the first GeometricSolutions with the HDF5
+# extension that defines the `EnsembleSolution` methods of `h5save` and `h5load`.
+GeometricSolutions = "0.6.6"
 
 [sources]
 VlasovMethods = {path = ".."}

@@ -186,7 +186,7 @@ takes the next `K<n>`.
 - **kind:** upstream
 - **found:** 2026-10-02
 
-### K19 · `VlasovPoisson` cannot be built with a grid `Potential` basis.
+### K19 · A particle or spline `VlasovPoisson` cannot be built with a grid `Potential` basis.
 
 - **location:** `src/models/vlasov_poisson.jl`
 - **evidence:** `PoissonSolvers.FFTWBasis` and `FiniteDifferenceBasis` are not
@@ -224,9 +224,9 @@ takes the next `K<n>`.
 
 - **location:** `src/models/vlasov_poisson.jl:18`
 - **evidence:** It deposits from `model.distribution`, which the integrator never writes. The
-  splitting fields call the two-argument method at `:65` and `:83`.
-  `grep -rn 'update_potential!' src test` finds the one-argument call only at
-  `test/integration/vlasov_poisson.jl:122`, where `deposit(model, x₀)` at `:127` builds the
+  splitting fields call the three-argument method at `:70` and `:92`, and the Hamiltonian at
+  `:131`. `grep -rn 'update_potential!' src test` finds the one-argument call only at
+  `test/integration/vlasov_poisson.jl:142`, where `deposit(model, x₀)` at `:147` builds the
   same reference.
 - **kind:** dead code
 - **found:** #61
@@ -470,3 +470,71 @@ takes the next `K<n>`.
   keep the assertion is open.
 - **kind:** missing test
 - **found:** #69
+
+### K50 · `VlasovPoisson` does not warn on an empty particle list.
+
+- **location:** `src/models/vlasov_poisson.jl:11`
+- **evidence:** An empty particle list is a vacuum run: the deposit gives `ρ ≡ 0` and the solve
+  `ϕ ≡ 0`, and no error occurs. The author decided that `VlasovPoisson` warns in that case, and
+  the inner constructor at `:11-15` has no `@warn`. Three questions are open: the text of the message;
+  whether `sodeensemble` also warns for an empty member; and whether `VlasovWithExternalFields`
+  warns too. It does not: `src/models/vlasov_with_external_fields.jl:67` and `CHANGELOG.md:333`
+  say that its constructor does not warn.
+- **kind:** defect
+- **found:** #71
+
+### K51 · The grid `VlasovPoisson` checks the grid size and the grid nodes with two guards and two exception types.
+
+- **location:** `src/gridbased/vlasov_poisson_1d1v.jl:27`
+- **evidence:** `_green_matrix` throws `DimensionMismatch` when `length(b) != nx` (`:27`), and
+  `ArgumentError` when `b.xgrid[1:nx] != dist.x` (`:31`). The second comparison also fails on a
+  wrong length, so one guard with one exception type would do. The `VlasovPoisson` docstring, the
+  CHANGELOG and the guard test name `DimensionMismatch`, so the merge changes a documented
+  exception. Whether to merge the two guards is open.
+- **kind:** defect
+- **found:** #72
+
+### K52 · The grid `VlasovPoisson` reads two internal fields of PoissonSolvers.
+
+- **location:** `src/gridbased/vlasov_poisson_1d1v.jl:20`
+- **evidence:** `_green_matrix` reads `potential.solver` (`:20`) and `b.xgrid` (`:31`). Neither
+  field has a public accessor in PoissonSolvers, so a change of the field names in PoissonSolvers
+  breaks the constructor. The fix is a public accessor upstream.
+- **kind:** upstream
+- **found:** #72
+
+### K53 · `_grid_1d1v_rhs!` allocates its intermediate arrays on every call.
+
+- **location:** `src/gridbased/vlasov_poisson_1d1v.jl:66`
+- **evidence:** The density (`sum`, then `.*`), `ϕ = G * …`, `h = vec(ϕ .+ v' .^ 2 ./ 2)` and the
+  result of `poisson_apply` (`:66-68`) are new arrays on each evaluation of the vector field.
+  Buffers in `params` and `mul!` would avoid them. No measurement compares the two forms.
+- **kind:** not verified
+- **found:** #72
+
+### K54 · Projecting a spline distribution back onto particles is not implemented.
+
+- **location:** `src/projections/distribution.jl:179`
+- **evidence:** The method raises
+  `error("projecting a spline distribution back onto particles is not implemented")`. Two meanings
+  are available for the direction and neither is chosen: (a) draw a new particle sample from
+  `f_s`, the reverse of the projection onto the spline, which is the direction a reduced model
+  would lift a reduced state back onto particles with; (b) keep the particle positions and set the
+  weights `w_α ∝ f_s(v_α)`, which is a quadrature of `f_s` at the positions that happen to be
+  there rather than a sample of it. Each needs a rule for where `f_s < 0`, which K8 records as
+  open. The docs page on the projections names the direction as absent and writes the two
+  meanings out.
+- **kind:** defect
+- **found:** #73
+
+### K55 · The manual's navbar carries no repository link.
+
+- **location:** `docs/make.jl:9`
+- **evidence:** Every build of the manual warns
+  `┌ Warning: Unable to determine the repository root URL for the navbar link.`, and the same
+  message names the two remedies: pass a `Remotes.Remote` object to `repo`, or set `repolink` on
+  the `HTML` format. The `makedocs` call passes the string
+  `"https://github.com/JuliaPlasma/VlasovMethods.jl/blob/{commit}{path}#{line}"`, which serves the
+  source links but not the navbar.
+- **kind:** docs
+- **found:** #73

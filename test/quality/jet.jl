@@ -1,14 +1,18 @@
 using JET
 using PoissonSolvers
 using VlasovMethods
-using VlasovMethods: v_acceleration!, s_acceleration!
+using VlasovMethods: SAcceleration, VAcceleration, VlasovHamiltonian, s_drift!, s_lorentz!
+using ElectromagneticFields
 using Test
+
+include("../helpers/external_fields.jl")
 
 # Static optimisation analysis of the hot paths: every function of `src/` that a test file
 # asserts with `@allocated`, at the concrete argument types those tests pass. A runtime
 # dispatch on one of these paths is what the allocation tests measure only indirectly.
 # Each further element type that a test outside `test/quality/` passes directly to the same
-# method gets one line too; every such call passes `Float64`, so each method has one line.
+# method is analysed at it too: the external-field tests run in `Float64` and `Float32`, so
+# each of their methods is analysed once per precision.
 
 if isdefined(JET, :JET_AVAILABLE) ? JET.JET_AVAILABLE : JET.JET_LOADABLE
     # test/distributions/spline_distribution.jl: projection onto a 1-D velocity space
@@ -33,11 +37,37 @@ if isdefined(JET, :JET_AVAILABLE) ? JET.JET_AVAILABLE : JET.JET_LOADABLE
     pparams = pmethod.equation.parameters
     pz = pmodel.distribution.particles.z
     pż = similar(pz)
-    @test isempty(JET.get_reports(JET.report_opt(v_acceleration!,
+    @test isempty(JET.get_reports(JET.report_opt(VAcceleration(pmodel),
         (typeof(pż), Float64, typeof(pz), typeof(pparams));
         target_modules = (VlasovMethods,))))
-    @test isempty(JET.get_reports(JET.report_opt(s_acceleration!,
+    @test isempty(JET.get_reports(JET.report_opt(SAcceleration(pmodel),
         (typeof(pż), Float64, typeof(pz), Float64, typeof(pparams));
+        target_modules = (VlasovMethods,))))
+
+    # test/models/vlasov_with_external_fields.jl and
+    # test/integration/electromagnetic_fields_ext.jl: the external-field push, on the
+    # `@allocated` calls of `test_push_does_not_allocate`, at the argument types those files pass
+    # — a copied state matrix, in both precisions, with the constant `UniformField` and the ABC
+    # `FieldFunctions` the extension adapts.
+    for T in (Float64, Float32)
+        for field in (UniformField(zeros(T, 3), zeros(T, 3)),
+            FieldFunctions(ABCEquilibrium(T(1.3), T(0.7), T(0.45))))
+            model = VlasovWithExternalFields(
+                particle_distribution(T, 10), field; charge = 2, mass = 3)
+            params = SplittingMethod(model, (zero(T), one(T)), T(0.1)).equation.parameters
+            z = copy(model.distribution.particles.z)
+            for f in (s_drift!, s_lorentz!)
+                @test isempty(JET.get_reports(JET.report_opt(f,
+                    (typeof(z), T, typeof(z), T, typeof(params));
+                    target_modules = (VlasovMethods,))))
+            end
+        end
+    end
+    # test/integration/sodeensemble.jl: the Hamiltonian invariant, on its `@allocated` call, at
+    # the types of an ensemble member's state and parameters, which the test builds as copies.
+    pensemble = (w = copy(pmodel.distribution.particles.w),)
+    @test isempty(JET.get_reports(JET.report_opt(VlasovHamiltonian(pmodel),
+        (Float64, typeof(copy(pz)), typeof(pensemble));
         target_modules = (VlasovMethods,))))
 
     # test/gridbased/collisions.jl: the three hot index paths, asserted `@allocated == 0`

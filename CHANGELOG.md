@@ -120,6 +120,13 @@ first entry is written.
   before it silently matched nothing. Both files are byte-equal to the NFC normalisation of their
   predecessor, and no string literal was affected.
 
+- **`run!(::SplittingMethod, h5file)` steps over the solution's own time grid.** It sized its
+  dataset by `ntime(equation)`, which rounds the step count up, and then indexed the range
+  `t₀:Δt:t₁`, which is one point shorter whenever the span is not an exact multiple of the step: a
+  run raised a `BoundsError` before its last step. The dataset now holds one slice per time point
+  of the solution, the loop takes the steps `GeometricIntegrators.integrate` takes, and the HDF5
+  chunk of a run with no particles no longer has a zero extent.
+
 ### Breaking Changes
 
 - **The metriplectic Lenard–Bernstein solve uses `SimpleSolvers`.** The one live
@@ -187,9 +194,9 @@ first entry is written.
   `VlasovPoisson` now holds a `work` buffer of the width the deposit and the field evaluation
   need — a fifth type parameter `WT` — and the two fields fill it rather than allocating one per
   evaluation. Code that names `VlasovPoisson` with four type parameters stops matching. Because
-  the constructor allocates that buffer, a `Potential` on a basis with no deposit-buffer method —
-  an `FFTWBasis` or a `FiniteDifferenceBasis` — now throws at construction rather than at the
-  first deposit (K19).
+  the constructor allocates that buffer, a **particle or spline** `VlasovPoisson` on a basis with no
+  deposit-buffer method — an `FFTWBasis` or a `FiniteDifferenceBasis` — now throws at
+  construction rather than at the first deposit (K19).
 
 - **A particle outside the velocity domain is an error.** It used to be dropped silently in the
   one-dimensional projection and printed a per-particle warning in the two-dimensional one.
@@ -269,6 +276,19 @@ first entry is written.
   of `scripts/lenard_bernstein.jl` calling `VlasovMethods.run` now resolves to `Base.run`,
   also recorded in `KNOWN_ISSUES.md` K20.
 
+- **The `Vlasov–Poisson` acceleration pair carries its model instead of reading it from the
+  parameters.** `v_acceleration!` and `s_acceleration!` are replaced by the callable structs
+  `VAcceleration` and `SAcceleration`, built as `VAcceleration(model)` and called with the
+  arguments the two functions took; neither is exported, and `SplittingMethod` and
+  `sodeensemble` are the two places in `src/` that build them. The model, its potential and its
+  work buffer leave the problem's parameters, which now hold the weights of the deposit alone;
+  `SplittingMethod` passes `(w = model.distribution.particles.w,)`, the live view of the
+  model's own weights, so its trajectories are unchanged, bit-identical in `Float64` and
+  `Float32`. `update_potential!(model, z)` becomes
+  `update_potential!(model, z, w)`, whose `w` is the first row of weights the deposit reads. A
+  caller of the two old names, or of the two-argument `update_potential!`, builds
+  `VAcceleration(model)` or `SAcceleration(model)` once and calls it, or passes the weights.
+
 ### Removals
 
 - **Five dead `src/` files are deleted.** `vlasov_poisson.jl`, `electric_field.jl` and
@@ -299,6 +319,69 @@ first entry is written.
   printed residual can differ in its last digits, from rounding alone.
 
 ### New Features
+
+- **The grid 1D1V Vlasov–Poisson scheme.** `VlasovPoisson(dist::GridDistribution,
+  potential::Potential)` is a new method of the exported constructor, and
+  `VlasovMethods.GeometricIntegrator(model, tspan, tstep, method = Integrators.ImplicitMidpoint())` steps it.
+  The state is `vec(dist.values)` and the right-hand side is GeometricBrackets' Arakawa bracket,
+  `∂ₜf = −[f, v²/2 + ϕ]` with `ϕ` the potential's own solve, so the scheme holds the discrete
+  Hamiltonian `hx·hv·Σ f v²/2 + (hx/2)·Σ ρᵢϕᵢ` to round-off, and the `L¹` norm `hx·hv·Σ|f|` to
+  round-off plus twice the negative mass it accumulates, over a horizon long enough to distinguish
+  that from a passing tolerance.
+
+  - The field is solved once, at construction, as the `nx × nx` Green's matrix of the potential's
+    backend: `ϕ = Gρ` for `ρᵢ = hv·Σⱼ f_ij`, which makes `∂H/∂f = hx·hv·h` exact. `G` is stored in
+    `VlasovPoisson`'s `work` field, whose type parameter `WT` widens from `AbstractVector` to
+    `AbstractArray`: `work` is the deposit buffer of a particle distribution and this matrix for a
+    grid one. Code that requires `work` to be a vector stops matching.
+  - The constructor throws `ArgumentError` unless the potential's solver is a `PoissonSolverFFT`
+    or a `PoissonSolverMatrixFree` — on a spline basis the density at the nodes is not a Galerkin
+    load vector — `DimensionMismatch` unless it has one degree of freedom per `x`-node, and
+    `ArgumentError` unless its `x`-grid is the distribution's.
+  - The scheme is **periodic in `v`** as well as in `x`: Arakawa's stencil conserves at a boundary
+    only where `h` is constant along it, and `h = v²/2 + ϕ(x)` is not constant on `v = v_b`. A run
+    is valid only while `f` vanishes to `eps(T)·maximum(f)` at both ends of the velocity range,
+    which the docstrings state and the tests assert at every step.
+  - `run!(::GeometricIntegrator, h5file)` works with the grid model. At the end it writes the
+    final state back into the model's distribution: the velocities of a `ParticleDistribution`,
+    the row the particle models step, with the positions left as they were, and
+    `distribution.values`, reshaped, for a `GridDistribution`.
+  - `GeometricIntegrator` is a `VlasovMethod` and no longer a `ParticleMethod`, because it steps
+    the grid model too. Code that dispatches on `ParticleMethod` no longer reaches it.
+  - `scripts/landau_damping_1d1v.jl` fits the linear Landau damping rate to the peaks of
+    `|E₁(t)|` and reproduces the textbook `γ ≈ −0.1533` for `k = 0.5` and unit thermal velocity.
+    Run with `julia --project=scripts scripts/landau_damping_1d1v.jl`, it measures
+    `γ = −0.153534` at `nv = 1025`, `dt = 0.05` and `γ = −0.153474` at `nv = 2049`, `dt = 0.025`
+    — an error of `2.3e-4` and a change of `6.0e-5` — and requires the first to be within
+    `1.5e-3` of `−0.1533` and the two to agree to `1.5e-4`. That second requirement is the reason
+    the 1% tolerance is defensible, and `nv = 513` fails it.
+
+- **`VlasovWithExternalFields`, one species in an external electromagnetic field, and the
+  `ElectromagneticFields` extension that supplies such a field.** `VlasovWithExternalFields`,
+  `UniformField`, `electric_field` and `magnetic_field` are exported.
+
+  - The model holds the particles of a `ParticleDistribution{T,3,3}` and the field they move in,
+    with `charge` and `mass` keywords stored as `T`; the two-argument constructor throws an
+    `ArgumentError` unless the converted mass is positive. `SplittingMethod(model, tspan, tstep)`
+    integrates it: a Strang splitting of the drift `ẋ = v` and the Lorentz force
+    `v̇ = (q/m)(E + v×B)`, whose rotational step is a Boris push, so a constant magnetic field
+    moves a particle along the analytic gyro-orbit to second order and holds `½|v|²` to round-off.
+  - An empty particle list is a **vacuum run**, and the constructor does not warn: the model, its
+    `SplittingMethod` and `run!` work over the empty state. This needs `GeometricBase` 0.15.1,
+    whose `State` keeps the vector field of an empty state variable. `GeometricBase` is a direct
+    dependency, and `[compat]` bounds it at `0.15.1`, so a `GeometricBase` 0.15.0 does not resolve
+    with this version.
+  - `electric_field(field, t, x)` and `magnetic_field(field, t, x)` are the field interface, each
+    returning an `SVector{3,T}` in Cartesian components, with `T` the element type of `x`. There
+    is no abstract field type and no fallback method: a field defines one method of each.
+  - `UniformField(E, B)` is the field type this package ships, constant in `x` and in `t`.
+  - `ElectromagneticFields` is a **weak** dependency. The extension
+    `VlasovMethodsElectromagneticFieldsExt` adds the two methods for a `FieldFunctions` of a
+    Cartesian chart, so `FieldFunctions(ABCEquilibrium(a, b, c))` goes to the constructor as it
+    is. It is confined to Cartesian charts by dispatch — `B♯` and `E♯` are the Cartesian
+    components only where the chart is the identity map — so a curvilinear field raises its
+    `MethodError` at the first kick. `[compat]` is `ElectromagneticFields = "0.9.1"`, the first
+    release on `GeometricBase` 0.15.
 
 - **`GridDistribution`, the distribution function on a 1D1V phase-space grid.** It is a third
   `DistributionFunction{DT, 1, 1}`, beside `ParticleDistribution` and `SplineDistribution`, and
@@ -384,6 +467,48 @@ first entry is written.
   correct and only the run time changes. Guarded on `--check-bounds=auto`, because `Pkg.test()`'s
   default `=yes` inflates allocation counts and would make the ceiling meaningless.
 
+- **`sodeensemble`, the training data of a `Vlasov–Poisson` model as an `EnsembleProblem`.** It
+  is exported. `sodeensemble(model, members, tspan, tstep)` takes one `ParticleDistribution` per
+  member and returns a `GeometricEquations.SODEEnsemble`, which
+  `GeometricIntegrators.integrate(ens, Strang())` solves into one
+  `GeometricSolutions.EnsembleSolution`.
+
+  - Each member keeps its own initial condition `(q = copy(m.particles.z),)` and its own weights
+    `(w = copy(m.particles.w),)`, which are what the deposit reads: an importance-sampled draw
+    gives each member different ones, so weights held in the shared model would be wrong for
+    every member but one. They are copied, so a later change to a member's distribution does not
+    reach the problem. A member whose weights and state name different particle counts throws an
+    `ArgumentError`, and so does an empty member list. A member of another element type than the
+    model throws a `MethodError`.
+  - The problem carries the Hamiltonian
+    `h(t, q, w) = ½Σᵢ wᵢvᵢ² + ½∫(∂ₓϕ)²dx` as its invariant, so `invariants(ens)` is a `NamedTuple`
+    and not `NullInvariants()`. `hashamiltonian` stays `false`, the equation being an `SODE`. The
+    field term is the Gauss quadrature of `(∂ₓϕ)²` at the quadrature points of the potential's
+    basis, tabulated once in the `VlasovHamiltonian` constructor, so a call allocates nothing. Every
+    term of that sum is non-negative, so the sum keeps the relative accuracy of its terms.
+  - The weights alone are what HDF5 can store, so the solution round-trips with
+    `GeometricBase.h5save` and `h5load` against the same problem, per-member parameters
+    included. Their `EnsembleSolution` methods come from the HDF5 extension of
+    `GeometricSolutions` 0.6.6, so `GeometricSolutions` joins
+    `test/Project.toml` as a test-only dependency. `GeometricBase` is already a dependency of the
+    package; `test/Project.toml` lists it so that the test can load `h5save` and `h5load` from it.
+    Nothing in `src/` calls `GeometricSolutions`.
+
+### Documentation
+
+- **The manual gains a page on projecting between the three representations of the distribution
+  function.** `docs/src/projections.md` is the map of the directions between
+  `ParticleDistribution`, `SplineDistribution` and `GridDistribution`: every direction that a
+  method implements runs as an executed `@example` block, so the page fails its own build when a
+  call drifts from the API, and every direction that no method implements is named as absent
+  rather than left out. Deposition is the worked example of `test/projections/projections.jl` —
+  the same million particles, seed, sampler and tolerance — and it ends in a CairoMakie figure of
+  the particle histogram, the projected density and the analytic density on one axis. The page
+  names `spline → particles` as absent, and K54 records why. `docs/Project.toml` gains CairoMakie,
+  PoissonSolvers, SimpleSplines and Random, and a `[sources]` entry so that the examples run
+  against the checkout instead of the registered package. The build warns that the navbar carries
+  no repository link, which K55 records.
+
 - **`plot_distribution` and `plot_particles` are exported and drawn by a CairoMakie package
   extension.** Their methods live in `ext/VlasovMethodsMakieExt.jl`, which loads with `CairoMakie`;
   `src/plotting.jl` declares the two names and documents them. `plot_distribution(dist::GridDistribution)`
@@ -397,7 +522,8 @@ first entry is written.
   distribution with no particles. `CairoMakie` is a weak dependency, so the package installs and
   loads with no Makie; without the extension loaded, each name has no methods, and calling it throws
   `MethodError`. `[compat] CairoMakie` is `"0.15"`, the only version the extension is tested
-  against.
+  against; the docs-only `CairoMakie` bound leaves `docs/Project.toml`, since the root's bound now
+  governs it.
 
 ### Internal
 

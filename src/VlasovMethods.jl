@@ -28,7 +28,7 @@ import SimpleSolvers
 
 # The phase-space tensors reduced here are built on the GeometricBrackets grid tensor, and the
 # `_nx`/`_nv` accessors are extended rather than redefined so that one generic covers both.
-using GeometricBrackets: Arakawa, PoissonTensor
+using GeometricBrackets: Arakawa, PoissonTensor, poisson_apply
 import GeometricBrackets: _nx, _nv
 
 # `import A.B` binds only `B`, so the bare module name needs an import of its own for the call
@@ -131,7 +131,13 @@ include("models/lenard_bernstein_metriplectic.jl")
 include("models/rescaled_lenard_bernstein_conservative.jl")
 include("models/vlasov_poisson.jl")
 
+# The `ElectromagneticFields` adapter lives in `ext/VlasovMethodsElectromagneticFieldsExt.jl`
+# and loads when both packages are loaded. The field interface is defined by the included model.
+include("models/vlasov_with_external_fields.jl")
+
 export VlasovPoisson
+export VlasovWithExternalFields, UniformField, electric_field, magnetic_field
+export sodeensemble
 export LenardBernstein
 export ConservativeLenardBernstein
 export RescaledConservativeLenardBernstein
@@ -163,6 +169,10 @@ include("gridbased/reduced_tensors.jl")
 export ReducedTensor, PotentialReducedTensor, VelocityReducedMatrix
 
 include("gridbased/collisions.jl")
+
+# The grid 1D1V Vlasov–Poisson scheme adds methods whose signatures name `VlasovPoisson` and
+# `GeometricIntegrator`, so it is included after both.
+include("gridbased/vlasov_poisson_1d1v.jl")
 
 # The particle-based reduction in `src/particles/` is not included: each of the four files
 # names a binding that neither the module nor its dependencies define —
