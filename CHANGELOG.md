@@ -317,10 +317,11 @@ first entry is written.
     integrates it: a Strang splitting of the drift `ẋ = v` and the Lorentz force
     `v̇ = (q/m)(E + v×B)`, whose rotational step is a Boris push, so a constant magnetic field
     moves a particle along the analytic gyro-orbit to second order and holds `½|v|²` to round-off.
-  - An empty particle list is a **vacuum run**: the constructor warns, and the model, its
+  - An empty particle list is a **vacuum run**, and the constructor does not warn: the model, its
     `SplittingMethod` and `run!` work over the empty state. This needs `GeometricBase` 0.15.1,
-    whose `State` keeps the vector field of an empty state variable; `test/Project.toml` carries
-    that bound.
+    whose `State` keeps the vector field of an empty state variable. `GeometricBase` is a direct
+    dependency, and `[compat]` bounds it at `0.15.1`, so a `GeometricBase` 0.15.0 does not resolve
+    with this version.
   - `electric_field(field, t, x)` and `magnetic_field(field, t, x)` are the field interface, each
     returning an `SVector{3,T}` in Cartesian components, with `T` the element type of `x`. There
     is no abstract field type and no fallback method: a field defines one method of each.
