@@ -228,7 +228,6 @@ end
     @testset "run! writes the grid state back" begin
         nx, nv = 8, 12
         xd = (0.0, 4π)
-        vd = (-5.0, 5.0)
         dist = maxwellian_grid(Float64, nx, nv, 5.0, 0.01)
         f₀ = copy(vec(dist.values))
         model = VlasovPoisson(dist, Potential(FFTWBasis(xd, nx)))
