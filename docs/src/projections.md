@@ -48,8 +48,7 @@ deposited onto the basis of the potential's right-hand side. Each particle contr
 periodic axis is reduced into the domain before evaluation, so the unwrapped position the state
 keeps needs no handling at the call site.
 
-[`projection!`](@ref) is a verb on a solver object rather than a constructor, which is why it is
-not exported, and the block brings it into scope explicitly.
+[`projection!`](@ref) is not exported, so the block brings it into scope explicitly.
 
 The rest of the block is the worked example of `test/projections/projections.jl`: the same
 `npart`, the same seed, the same sampler and the same tolerance, so that the figure below and
@@ -112,14 +111,14 @@ x = range(domain[begin], domain[end]; length = 501)
 # The assertion is taken on the test's own grid, where its tolerance belongs.
 xa = domain[begin]:0.1:domain[end]
 
-# The error here is the sampling error of a million draws, measured at ~1.3e-2 across seeds
-# and Julia versions. The tolerance keeps a factor of two over that and no more.
-maximum(abs, f.(xa) .- ρ.(xa)) ≤ 2.5e-2 || error("the projected density is off by ",
-    maximum(abs, f.(xa) .- ρ.(xa)))
+# The error here is the sampling error of a million draws: 9.3e-3 at the seed above. The
+# tolerance below is the test's own, and it is not widened for this page.
+err = maximum(abs, f.(xa) .- ρ.(xa))
+err ≤ 2.5e-2 || error("the projected density is off by ", err)
 
 fig = Figure(size = (760, 420))
 ax = Axis(fig[1, 1]; xlabel = "x", ylabel = "density",
-    title = "10⁶ particles on a periodic cubic basis")
+    title = "10⁶ particles on a periodic quartic basis")
 hist!(ax, samples; bins = 100, weights = fill(1 / npart, npart),
     normalization = :pdf, color = (:gray, 0.6), label = "particles")
 lines!(ax, x, ρ.(x); color = :red, linewidth = 2, label = "projected ρ")
