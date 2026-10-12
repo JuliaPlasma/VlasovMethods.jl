@@ -376,7 +376,6 @@ first entry is written.
   through that same particle-shaped reshape, so a sweep of a particle list with two position
   components threw a `DimensionMismatch` instead of reducing. `Φ` loses the component axis of that
   layout, which held the filled first row and the zeros of `nd − 1` more.
-  `KNOWN_ISSUES.md` K1 narrows to the three files of `src/particles/` that stay out of the module.
 
 - **`VlasovWithExternalFields`, one species in an external electromagnetic field, and the
   `ElectromagneticFields` extension that supplies such a field.** `VlasovWithExternalFields`,

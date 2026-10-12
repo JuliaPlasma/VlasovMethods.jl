@@ -510,3 +510,17 @@ takes the next `K<n>`.
   Buffers in `params` and `mul!` would avoid them. No measurement compares the two forms.
 - **kind:** not verified
 - **found:** #72
+
+### K54 · `Parameter` of `ReducedComplexityModeling` cannot build a one-sample sweep.
+
+- **location:** `~/.julia/packages/ReducedComplexityModeling/JQ2wf/src/parameters/parameter.jl:33`
+- **evidence:** `Parameter(name, minimum::DT, maximum::DT, n::Int)` builds
+  `LinRange(minimum, maximum, n)`, which throws for `n == 1`:
+  `julia --startup-file=no --project=<worktree> -e 'using ReducedComplexityModeling; Parameter(:β, 5.95, 6.05, 1)'`
+  prints `ArgumentError: range(5.95, stop=6.05, length=1): endpoints differ` on the RCM 0.1.1 this
+  package resolves, while `Parameter(:β, 5.95, 6.05, 2)` gives
+  `Parameter{Float64, Vector{Float64}}(:β, 5.95, 6.05, [5.95, 6.05])`. A `ParameterSpace`, and so
+  any sweep of one sample, therefore cannot be built. The method is the same in the 0.3.0 tree, at
+  `Packages/ReducedComplexityModeling/src/parameters/parameter.jl:38`.
+- **kind:** upstream
+- **found:** 2026-10-12

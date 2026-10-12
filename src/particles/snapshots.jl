@@ -1,5 +1,5 @@
 """
-    Snapshots{T}
+    Snapshots{T, PS}
 
 The snapshots of a parameter sweep: the positions `X`, the velocities `V`, the accelerations `A`,
 the potentials `Φ`, and the diagnostics `W`, `K` and `M`, on the `ParameterSpace` the sweep ran.
@@ -23,7 +23,7 @@ extents of those arrays, so they are read from the arrays rather than stored bes
 
 `==` compares all eight fields, `paramspace` included.
 """
-struct Snapshots{T <: Number}
+struct Snapshots{T <: Number, PS <: ParameterSpace}
     X::Array{T, 4}
     V::Array{T, 4}
     A::Array{T, 4}
@@ -31,12 +31,12 @@ struct Snapshots{T <: Number}
     W::Array{T, 2}
     K::Array{T, 2}
     M::Array{T, 2}
-    paramspace::ParameterSpace
+    paramspace::PS
 
     function Snapshots(X::AbstractArray{T, 4}, V::AbstractArray{T, 4},
             A::AbstractArray{T, 4}, Φ::AbstractArray{T, 3}, W::AbstractArray{T, 2},
             K::AbstractArray{T, 2}, M::AbstractArray{T, 2},
-            paramspace::ParameterSpace) where {T}
+            paramspace::PS) where {T, PS <: ParameterSpace}
         size(V) == size(X) || throw(ArgumentError(
             "V needs the size $(size(X)) of X, got $(size(V))"))
         size(A) == size(X) || throw(ArgumentError(
@@ -50,7 +50,7 @@ struct Snapshots{T <: Number}
         size(X, 4) == length(paramspace) || throw(ArgumentError(
             "the snapshots hold $(size(X, 4)) samples, the parameter space holds " *
             "$(length(paramspace))"))
-        new{T}(X, V, A, Φ, W, K, M, paramspace)
+        new{T, PS}(X, V, A, Φ, W, K, M, paramspace)
     end
 end
 
@@ -117,8 +117,8 @@ saved quantity, whose column `(p - 1) * size(Y, 3) + t` is `vec(Y[:, :, t, p])`:
 `(size(Y, 1), size(Y, 2))` matrix of the saved time `t` of the sample `p`, in the
 component-fastest order of `vec`.
 
-It is a `reshape` of `Y`: it shares the memory of `Y` and copies nothing. Reshaping `Y` to
-`(size(Y, 2), :)` instead, as the old driver did, is valid only for `size(Y, 1) == 1`.
+It is a `reshape` of `Y`: it shares the memory of `Y` and copies nothing. A reshape to
+`(size(Y, 2), :)` instead is valid only for `size(Y, 1) == 1`.
 """
 function _snapshot_matrix(Y::AbstractArray)
     return reshape(Y, size(Y, 1) * size(Y, 2), size(Y, 3) * size(Y, 4))

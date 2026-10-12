@@ -88,11 +88,13 @@ end
         for T in (Float32, Float64)
             s = snapshot_fixture(T)
             s.X[ND, :, :, :] .= zero(T)
-            s₁ = Snapshots(T, 1, NP, NH, NS, s.paramspace)
-            s₁.X .= s.X[1:1, :, :, :]
 
             σ₂ = svdvals(VlasovMethods._snapshot_matrix(s.X))
-            σ₁ = svdvals(VlasovMethods._snapshot_matrix(s₁.X))
+            # the `nd = 1` reference is assembled by hand, column `(p - 1) * NS + t` =
+            # `vec(X[1, :, t, p])`, and not with `_snapshot_matrix`: a layout that does not depend
+            # on `nd` would be applied to both sides and cancel from the comparison
+            M₁ = reduce(hcat, [s.X[1, :, t, p] for p in 1:NPARAM for t in 1:NS])
+            σ₁ = svdvals(M₁)
 
             # a swapped row keeps the singular values; a column that mixes two times does not
             @test length(σ₂) == length(σ₁) == NS * NPARAM
@@ -145,10 +147,13 @@ end
             fb = field_basis(PODSVD(), s; k = 5)
             @test size(Matrix(fb), 1) == length(s.A[:, :, 1, 1]) == ND * NP
 
-            # at full rank it reproduces `A`, whose columns span another subspace than `X`'s
-            full = field_basis(PODSVD(), s; k = NS * NPARAM)
-            @test projection_error(full, VlasovMethods._field_snapshots(s)) ≤
-                  √eps(T) * norm(VlasovMethods._field_snapshots(s))
+            # at full rank each POD tag reproduces `A`, whose columns span another subspace than
+            # `X`'s, so a field basis built from `X` does not pass
+            F = VlasovMethods._field_snapshots(s)
+            for alg in (PODSVD(), PODEVD())
+                full = field_basis(alg, s; k = NS * NPARAM)
+                @test projection_error(full, F) ≤ √eps(T) * norm(F)
+            end
         end
     end
 
@@ -217,12 +222,16 @@ end
 @testset "the two builders" begin
     for T in (Float32, Float64)
         s = snapshot_fixture(T)
+        pars = (μ = one(T),)
 
         for alg in (PODSVD(), PODEVD(), CotangentLiftSVD(), CotangentLiftEVD(), ComplexSVD())
             b = particle_basis(alg, s; k = 5)
             @test b.k == 5
             @test b.parameters == NamedTuple()
             @test b.paramspace == s.paramspace
+
+            # a `parameters` keyword reaches the returned basis, so the builder passes it on
+            @test particle_basis(alg, s; parameters = pars, k = 5).parameters == pars
 
             # `k`, `tolerance` and the parameter space reach `ReducedBasis` unchanged
             @test particle_basis(alg, s; tolerance = 1e-3).k ==
@@ -231,11 +240,16 @@ end
         end
 
         for alg in (PODSVD(), PODEVD())
+            b = field_basis(alg, s; k = 5)
+            @test b.k == 5
+            @test b.parameters == NamedTuple()
+            @test b.paramspace == s.paramspace
+
+            @test field_basis(alg, s; parameters = pars, k = 5).parameters == pars
+
             @test field_basis(alg, s; tolerance = 1e-3).k ==
                   ReducedBasis(alg, VlasovMethods._field_snapshots(s), NamedTuple(),
                 s.paramspace; tolerance = 1e-3).k
-            @test field_basis(alg, s; parameters = (μ = one(T),), k = 5).parameters ==
-                  (μ = one(T),)
         end
 
         # the field basis is built from the `nd·nₚ` rows of `A`, which no PSD tag splits
