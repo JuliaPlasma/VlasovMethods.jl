@@ -88,25 +88,9 @@ function s_acceleration!(z, t, z̄, t̄, params)
     end
 end
 
-# Constructor for a splitting method from GeometricIntegrators
-# The problem is setup such that one solution step pushes all particles.
-# While this allows for a simple implementation, it is not well-suited
-# for parallelisation.
 function SplittingMethod(
         model::VlasovPoisson{1, 1, <:ParticleDistribution}, tspan::Tuple, tstep::Real)
-    # collect parameters
     params = (ϕ = model.potential, model = model)
-
-    # create geometric problem
-    equ = GeometricEquations.SODEProblem(
-        (v_advection!, v_acceleration!),
-        (s_advection!, s_acceleration!),
-        tspan, tstep, copy(model.distribution.particles.z);
-        parameters = params)
-
-    # create integrator
-    int = GeometricIntegrators.GeometricIntegrator(equ, GeometricIntegrators.Strang())
-
-    # put together splitting method
-    SplittingMethod(model, equ, int)
+    _splitting_method(model, (v_advection!, v_acceleration!),
+        (s_advection!, s_acceleration!), params, tspan, tstep, GeometricIntegrators.Strang())
 end

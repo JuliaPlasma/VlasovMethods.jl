@@ -68,12 +68,6 @@ end
         # a two-dimensional distribution is not a `ParticleDistribution{T,3,3}`
         @test_throws MethodError VlasovWithExternalFields(
             ParticleDistribution(1, 1, 4), field)
-
-        # The count is fixed here and never changes, so an empty list is known at construction.
-        # It warns once and is a vacuum run, not an error; a list with one particle is silent.
-        @test_logs (:warn, r"no particles") VlasovWithExternalFields(
-            particle_distribution(T, 0), field)
-        @test_logs VlasovWithExternalFields(particle_distribution(T, 1), field)
     end
 
     @testset "the mass guard" begin

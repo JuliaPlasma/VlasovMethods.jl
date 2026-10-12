@@ -12,6 +12,18 @@ struct SplittingMethod{MT, ET, IT} <: ParticleMethod
     end
 end
 
+# The splitting method of a model from GeometricIntegrators, over a copy of the model's particle
+# state: one solution step pushes all particles. This keeps the implementation simple, but does
+# not suit parallelisation. `fields` and `solutions` are the vector fields and their exact
+# solutions, one pair per component, and `splitting` is the composition.
+function _splitting_method(model, fields::Tuple, solutions::Tuple, params, tspan::Tuple,
+        tstep::Real, splitting)
+    equ = GeometricEquations.SODEProblem(fields, solutions, tspan, tstep,
+        copy(model.distribution.particles.z); parameters = params)
+    int = GeometricIntegrators.GeometricIntegrator(equ, splitting)
+    return SplittingMethod(model, equ, int)
+end
+
 # solution storage
 function copy_to_hdf5(h5z, z, n)
     h5z[:, :, n + 1] = z

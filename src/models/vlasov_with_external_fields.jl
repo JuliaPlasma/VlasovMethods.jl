@@ -65,7 +65,7 @@ particles of `dist`, a `ParticleDistribution{T,3,3}`, pushed by `field`. `charge
 the species' charge and mass, in units in which the equation of motion reads
 `ẍ = (q/m)(E + ẋ × B)`, and both are stored as `T`. The constructor throws an `ArgumentError`
 unless the converted mass is positive. An empty particle list is a vacuum run and not an error:
-the constructor warns, and the model, its `SplittingMethod` and `run!` work over the empty state.
+the model, its `SplittingMethod` and `run!` work over the empty state.
 
 The field is any value that defines [`electric_field`](@ref) and [`magnetic_field`](@ref) for an
 `SVector{3}` coordinate; the model puts no bound on the type of its field parameter, so the two
@@ -93,10 +93,6 @@ struct VlasovWithExternalFields{T, DT <: ParticleDistribution{T, 3, 3}, FT} <: V
         # accepted in `Float64`; `NaN` fails the comparison, `Inf` passes.
         m = T(mass)
         m > 0 || throw(ArgumentError("the particle mass must be positive, got $mass"))
-        # The particle count never changes, so an empty list is a vacuum run for the model's
-        # whole life.
-        size(dist.particles.z, 2) == 0 &&
-            @warn "the particle list has no particles; the model is a vacuum run"
         new{T, typeof(dist), typeof(field)}(dist, field, T(charge), m)
     end
 end
@@ -175,23 +171,13 @@ function s_lorentz!(z, t, z̄, t̄, params)
     end
 end
 
-# Constructor for a splitting method from GeometricIntegrators, as for the Vlasov–Poisson model:
-# one solution step pushes all particles.
 function SplittingMethod(
         model::VlasovWithExternalFields, tspan::Tuple, tstep::Real)
-    # collect parameters
     params = (field = model.field, qm = model.charge / model.mass)
-
-    # create geometric problem
-    equ = GeometricEquations.SODEProblem(
-        (v_drift!, v_lorentz!),
-        (s_drift!, s_lorentz!),
-        tspan, tstep, copy(model.distribution.particles.z);
-        parameters = params)
-
-    # create integrator
-    int = GeometricIntegrators.GeometricIntegrator(equ, GeometricIntegrators.Strang())
-
-    # put together splitting method
-    SplittingMethod(model, equ, int)
+    # `Strang`, not `StrangA`: a step makes two half Boris pushes rather than one full push. On
+    # the gyro-orbit of the tests, ten periods at `T_g/32` and `T_g/64` in `Float64` and
+    # `Float32`, the maximum position error is then about four times smaller, for twice the
+    # Lorentz substeps.
+    _splitting_method(model, (v_drift!, v_lorentz!), (s_drift!, s_lorentz!), params, tspan,
+        tstep, GeometricIntegrators.Strang())
 end
