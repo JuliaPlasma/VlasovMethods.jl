@@ -356,6 +356,28 @@ first entry is written.
     `1.5e-3` of `−0.1533` and the two to agree to `1.5e-4`. That second requirement is the reason
     the 1% tolerance is defensible, and `nv = 513` fails it.
 
+- **`Snapshots`, the snapshots of a parameter sweep, and the two reduced bases built from them:
+  `particle_basis` and `field_basis`.** `Snapshots{T}` holds the positions `X`, the velocities
+  `V`, the accelerations `A`, the potential `Φ` and the diagnostics `W`, `K` and `M` of a sweep on
+  a `ParameterSpace`, with `X`, `V` and `A` of size `(nd, nₚ, nₛ, nparam)` and `Φ` of size
+  `(nh, nₛ, nparam)`. `Snapshots(particles, poisson, nₛ, paramspace)` reads `nd` and `nₚ` from the
+  particle list and `nh` from its Poisson solver, so a 2D particle list gives `size(X, 1) == 2`,
+  and throws an `ArgumentError` when `v` holds a different component count than `x`, which the
+  cotangent lift cannot pair. `Snapshots(T, nd, nₚ, nh, nₛ, paramspace)` is the zero array form, for
+  a sweep of a model with no potential. `h5save` and `h5load` write and read the eight fields under
+  the keys `X`, `V`, `A`, `Φ`, `W`, `K` and `M` and the `parameterspace` group, through the
+  generics of `ReducedComplexityModeling`. `particle_basis(algorithm, s; parameters, k,
+  tolerance)` reduces the stacked `[Q; P]` of `X` and `V` with any of the five
+  `ReducedBasisMethods` tags, and `field_basis(algorithm, s; …)` reduces `A` with one of the two
+  POD tags; both pass the `ParameterSpace` and the keywords to `ReducedBasis` unchanged. A snapshot
+  matrix is the `(nd·nₚ) × (nₛ·nparam)` reshape of the four-dimensional array, so its column
+  `(p−1)·nₛ + t` is `vec(X[:, :, t, p])`. The reduced-basis driver this replaces reshaped to
+  `(nₚ, nₛ·nparam)` — the layout of `nd == 1` alone — and fed the acceleration to the field basis
+  through that same particle-shaped reshape, so a sweep of a particle list with two position
+  components threw a `DimensionMismatch` instead of reducing. `Φ` loses the component axis of that
+  layout, which held the filled first row and the zeros of `nd − 1` more.
+  `KNOWN_ISSUES.md` K1 narrows to the three files of `src/particles/` that stay out of the module.
+
 - **`VlasovWithExternalFields`, one species in an external electromagnetic field, and the
   `ElectromagneticFields` extension that supplies such a field.** `VlasovWithExternalFields`,
   `UniformField`, `electric_field` and `magnetic_field` are exported.
@@ -495,6 +517,12 @@ first entry is written.
     Nothing in `src/` calls `GeometricSolutions`.
 
 ### Internal
+
+- **`KNOWN_ISSUES.md` K1 covers the three files of `src/particles/` that stay out of the module.**
+  `src/particles/snapshots.jl` is included now, and its `ParameterSpace` binding comes from
+  `ReducedComplexityModeling`, so the clause that named both leaves the entry; the comment above
+  the new `include` in `src/VlasovMethods.jl` names what remains. `electric_field.jl`, `poisson.jl`
+  and `time_marching.jl` stay out.
 
 - **CI uploads coverage from the `Julia 1 - ubuntu-latest` job instead of `Julia min`, and a
   test job saves the Julia cache only when it succeeds.**

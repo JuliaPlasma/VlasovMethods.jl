@@ -4,16 +4,15 @@ What is known to be wrong in VlasovMethods and is not fixed. An entry leaves thi
 fix merges, and the CHANGELOG entry of that fix names its ID. IDs are never reused; a new entry
 takes the next `K<n>`.
 
-### K1 · `src/particles/` is present but not included.
+### K1 · Three files of `src/particles/` are present but not included.
 
 - **location:** `src/particles/`
-- **evidence:** The four files imported from ReducedBasisMethods — `electric_field.jl`,
-  `poisson.jl`, `snapshots.jl`, `time_marching.jl` — each name a binding that no longer exists, so
-  including any one breaks the load: `poisson.jl` wants `PoissonSolverPBSplines`;
-  `time_marching.jl` imports `PBSpline`, `stiffnessmatrix`, `eval_deriv_PBSBasis` and
-  `rhs_particles_PBSBasis` from `PoissonSolvers` (neither 0.5 nor 0.6 has any);
-  `electric_field.jl` wants `ElectricField`, which nothing under `src/` defines, and
-  `snapshots.jl` wants `ParameterSpace`. They were moved unrepaired on
+- **evidence:** The three files imported from ReducedBasisMethods — `electric_field.jl`,
+  `poisson.jl`, `time_marching.jl` — each name a binding that no longer exists, so including any
+  one breaks the load: `poisson.jl` wants `PoissonSolverPBSplines`; `time_marching.jl` imports
+  `PBSpline`, `stiffnessmatrix`, `eval_deriv_PBSBasis` and `rhs_particles_PBSBasis` from
+  `PoissonSolvers` (neither 0.5 nor 0.6 has any); `electric_field.jl` wants `ElectricField`, which
+  nothing under `src/` defines. They were moved unrepaired on
   purpose, so the relocation stays reviewable.
 - **kind:** dead code
 - **found:** 2026-09-17. Carried over from the audit that accompanied the `SimpleSplines`
