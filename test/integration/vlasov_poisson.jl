@@ -6,7 +6,7 @@ using PoissonSolvers
 using Random
 using Test
 using VlasovMethods
-using VlasovMethods: projection!, update_potential!, v_acceleration!, s_acceleration!,
+using VlasovMethods: SAcceleration, VAcceleration, projection!, update_potential!,
                      _electric_field
 
 # `ParticleDistribution(xdim, vdim, npart)` always fills `Float64` zeros, so the `Float32` case
@@ -77,8 +77,19 @@ end
 
         z̄ = copy(sol.q[end])
         z = similar(z̄)
-        @test @inferred(v_acceleration!(z, tstep, z̄, params)) === nothing
-        @test @inferred(s_acceleration!(z, tstep, z̄, zero(T), params)) === nothing
+        v = VAcceleration(model)
+        s = SAcceleration(model)
+        @test @inferred(v(z, tstep, z̄, params)) === nothing
+        @test @inferred(s(z, tstep, z̄, zero(T), params)) === nothing
+
+        # The parameters are the live view of the model's own weights, so a later change to them
+        # reaches the splitting fields; a copy would leave the parameters behind.
+        weights = copy(model.distribution.particles.w)
+        model.distribution.particles.w .= T(2) .* weights
+        @test params.w == T(2) .* weights
+        @test params.w != weights
+        model.distribution.particles.w .= weights
+        @test params.w == weights
     end
 
     @testset "the acceleration field" begin
@@ -87,13 +98,22 @@ end
         params = method.equation.parameters
         z = copy(model.distribution.particles.z)
         ż = similar(z)
-        v_acceleration!(ż, tstep, z, params)
+        VAcceleration(model)(ż, tstep, z, params)
 
         @test all(iszero, ż[1, :])
 
         # the field is `-∂ₓϕ`: the derivative of the deposit from the same positions, negated
         reference = deposit(model, z[1, :])
         @test ż[2, :] ≈ -reference.(z[1, :], 1) rtol=√eps(T)
+
+        # The deposit reads the weights of the parameters, not the model's own. The field is
+        # linear in them, so doubling the weights doubles it.
+        params2 = (w = T(2) .* params.w,)
+        @test params2.w != model.distribution.particles.w
+        ż2 = similar(z)
+        VAcceleration(model)(ż2, tstep, z, params2)
+        @test ż2[2, :] ≈ T(2) .* ż[2, :] rtol=√eps(T)
+        @test ż2[2, :] != ż[2, :]
     end
 
     @testset "the field follows the particles" begin
@@ -107,7 +127,7 @@ end
         z̄[1, :] .= mod.(z̄[1, :] .+ T(0.25) .* sinpi.(2 .* z̄[1, :]), 1)
         @test z̄[1, :] != x₀
         z = similar(z̄)
-        s_acceleration!(z, tstep, z̄, zero(T), params)
+        SAcceleration(model)(z, tstep, z̄, zero(T), params)
 
         reference = deposit(model, z̄[1, :])
         @test PoissonSolvers.coefficients(model.potential) ==
@@ -276,8 +296,8 @@ end
         # Coverage instrumentation allocates on every counted line, so under it the assertion does
         # not run rather than being weakened.
         if Base.JLOptions().code_coverage == 0
-            @test allocations_s(s_acceleration!, z, t, z̄, t̄, params) == 0
-            @test allocations_v(v_acceleration!, z, t, z̄, params) == 0
+            @test allocations_s(SAcceleration(model), z, t, z̄, t̄, params) == 0
+            @test allocations_v(VAcceleration(model), z, t, z̄, params) == 0
         end
         # a control: the barrier machinery sees an allocation, so the zeros above are not vacuous
         @test allocations(collect, z) > 0
