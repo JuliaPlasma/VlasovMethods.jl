@@ -470,3 +470,15 @@ takes the next `K<n>`.
   keep the assertion is open.
 - **kind:** missing test
 - **found:** #69
+
+### K50 · `VlasovPoisson` does not warn on an empty particle list.
+
+- **location:** `src/models/vlasov_poisson.jl:11`
+- **evidence:** An empty particle list is a vacuum run: the deposit gives `ρ ≡ 0` and the solve
+  `ϕ ≡ 0`, and no error occurs. The author decided that `VlasovPoisson` warns in that case, and
+  the inner constructor at `:11-15` has no `@warn`. Three questions are open: the text of the message;
+  whether `sodeensemble` also warns for an empty member; and whether `VlasovWithExternalFields`
+  warns too. It does not: `src/models/vlasov_with_external_fields.jl:67` and `CHANGELOG.md:333`
+  say that its constructor does not warn.
+- **kind:** defect
+- **found:** #71
