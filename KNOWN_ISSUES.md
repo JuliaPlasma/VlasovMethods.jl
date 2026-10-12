@@ -224,9 +224,9 @@ takes the next `K<n>`.
 
 - **location:** `src/models/vlasov_poisson.jl:18`
 - **evidence:** It deposits from `model.distribution`, which the integrator never writes. The
-  splitting fields call the two-argument method at `:65` and `:83`.
-  `grep -rn 'update_potential!' src test` finds the one-argument call only at
-  `test/integration/vlasov_poisson.jl:122`, where `deposit(model, x₀)` at `:127` builds the
+  splitting fields call the three-argument method at `:70` and `:92`, and the Hamiltonian at
+  `:131`. `grep -rn 'update_potential!' src test` finds the one-argument call only at
+  `test/integration/vlasov_poisson.jl:142`, where `deposit(model, x₀)` at `:147` builds the
   same reference.
 - **kind:** dead code
 - **found:** #61

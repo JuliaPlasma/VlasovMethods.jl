@@ -276,6 +276,19 @@ first entry is written.
   of `scripts/lenard_bernstein.jl` calling `VlasovMethods.run` now resolves to `Base.run`,
   also recorded in `KNOWN_ISSUES.md` K20.
 
+- **The `Vlasov–Poisson` acceleration pair carries its model instead of reading it from the
+  parameters.** `v_acceleration!` and `s_acceleration!` are replaced by the callable structs
+  `VAcceleration` and `SAcceleration`, built as `VAcceleration(model)` and called with the
+  arguments the two functions took; neither is exported, and `SplittingMethod` and
+  `sodeensemble` are the two places in `src/` that build them. The model, its potential and its
+  work buffer leave the problem's parameters, which now hold the weights of the deposit alone;
+  `SplittingMethod` passes `(w = model.distribution.particles.w,)`, the live view of the
+  model's own weights, so its trajectories are unchanged, bit-identical in `Float64` and
+  `Float32`. `update_potential!(model, z)` becomes
+  `update_potential!(model, z, w)`, whose `w` is the first row of weights the deposit reads. A
+  caller of the two old names, or of the two-argument `update_potential!`, builds
+  `VAcceleration(model)` or `SAcceleration(model)` once and calls it, or passes the weights.
+
 ### Removals
 
 - **Five dead `src/` files are deleted.** `vlasov_poisson.jl`, `electric_field.jl` and
@@ -417,6 +430,33 @@ first entry is written.
   cannot come back unnoticed — nothing else in the suite would see it, since the results stay
   correct and only the run time changes. Guarded on `--check-bounds=auto`, because `Pkg.test()`'s
   default `=yes` inflates allocation counts and would make the ceiling meaningless.
+
+- **`sodeensemble`, the training data of a `Vlasov–Poisson` model as an `EnsembleProblem`.** It
+  is exported. `sodeensemble(model, members, tspan, tstep)` takes one `ParticleDistribution` per
+  member and returns a `GeometricEquations.SODEEnsemble`, which
+  `GeometricIntegrators.integrate(ens, Strang())` solves into one
+  `GeometricSolutions.EnsembleSolution`.
+
+  - Each member keeps its own initial condition `(q = copy(m.particles.z),)` and its own weights
+    `(w = copy(m.particles.w),)`, which are what the deposit reads: an importance-sampled draw
+    gives each member different ones, so weights held in the shared model would be wrong for
+    every member but one. They are copied, so a later change to a member's distribution does not
+    reach the problem. A member whose weights and state name different particle counts throws an
+    `ArgumentError`, and so does an empty member list. A member of another element type than the
+    model throws a `MethodError`.
+  - The problem carries the Hamiltonian
+    `h(t, q, w) = ½Σᵢ wᵢvᵢ² + ½∫(∂ₓϕ)²dx` as its invariant, so `invariants(ens)` is a `NamedTuple`
+    and not `NullInvariants()`. `hashamiltonian` stays `false`, the equation being an `SODE`. The
+    field term is the Gauss quadrature of `(∂ₓϕ)²` at the quadrature points of the potential's
+    basis, tabulated once in the `VlasovHamiltonian` constructor, so a call allocates nothing. Every
+    term of that sum is non-negative, so the sum keeps the relative accuracy of its terms.
+  - The weights alone are what HDF5 can store, so the solution round-trips with
+    `GeometricBase.h5save` and `h5load` against the same problem, per-member parameters
+    included. Their `EnsembleSolution` methods come from the HDF5 extension of
+    `GeometricSolutions` 0.6.6, so `GeometricSolutions` joins
+    `test/Project.toml` as a test-only dependency. `GeometricBase` is already a dependency of the
+    package; `test/Project.toml` lists it so that the test can load `h5save` and `h5load` from it.
+    Nothing in `src/` calls `GeometricSolutions`.
 
 ### Internal
 

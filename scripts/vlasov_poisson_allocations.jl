@@ -10,7 +10,7 @@
 using PoissonSolvers
 using Random
 using VlasovMethods
-using VlasovMethods: s_acceleration!, v_acceleration!
+using VlasovMethods: SAcceleration, VAcceleration
 
 function measure(::Type{T}; npart = 10000, ncells = 16, order = 3) where {T}
     # `ParticleDistribution(1, 1, npart)` always fills `Float64` zeros, so the particles of
@@ -29,17 +29,19 @@ function measure(::Type{T}; npart = 10000, ncells = 16, order = 3) where {T}
     ż = similar(z̄)
     t, t̄ = T(0.1), zero(T)
 
-    s_acceleration!(ż, t, z̄, t̄, params)
-    v_acceleration!(ż, t, z̄, params)
+    s_acc = SAcceleration(method.model)
+    v_acc = VAcceleration(method.model)
+    s_acc(ż, t, z̄, t̄, params)
+    v_acc(ż, t, z̄, params)
 
-    return (s_acceleration! = @allocated(s_acceleration!(ż, t, z̄, t̄, params)),
-        v_acceleration! = @allocated(v_acceleration!(ż, t, z̄, params)))
+    return (SAcceleration = @allocated(s_acc(ż, t, z̄, t̄, params)),
+        VAcceleration = @allocated(v_acc(ż, t, z̄, params)))
 end
 
 results = [T => measure(T) for T in (Float64, Float32)]
 for (T, bytes) in results
-    println(rpad(string(T), 8), " s_acceleration! ", bytes.s_acceleration!, " bytes, ",
-        "v_acceleration! ", bytes.v_acceleration!, " bytes")
+    println(rpad(string(T), 8), " SAcceleration ", bytes.SAcceleration, " bytes, ",
+        "VAcceleration ", bytes.VAcceleration, " bytes")
 end
 
 exit(all(r -> all(iszero, values(r[2])), results) ? 0 : 1)

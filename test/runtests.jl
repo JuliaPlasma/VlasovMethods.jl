@@ -19,6 +19,7 @@ if "core" in GROUPS
     @safetestset "Vlasov–Poisson" include("integration/vlasov_poisson.jl")
     @safetestset "Vlasov with External Fields" include("models/vlasov_with_external_fields.jl")
     @safetestset "ElectromagneticFields Extension" include("integration/electromagnetic_fields_ext.jl")
+    @safetestset "SODE Ensemble" include("integration/sodeensemble.jl")
     @safetestset "Names" include("integration/names.jl")
     @safetestset "Collisions" include("gridbased/collisions.jl")
 end

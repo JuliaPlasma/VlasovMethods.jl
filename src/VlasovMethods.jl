@@ -131,6 +131,7 @@ include("models/vlasov_with_external_fields.jl")
 
 export VlasovPoisson
 export VlasovWithExternalFields, UniformField, electric_field, magnetic_field
+export sodeensemble
 export LenardBernstein
 export ConservativeLenardBernstein
 export RescaledConservativeLenardBernstein
