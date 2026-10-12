@@ -146,79 +146,83 @@ bound(::Type{DT}, R) where {DT} = sqrt(eps(DT)) * maximum(abs, R)
     end
 
     @testset "a grid of one dimension is only a potential" begin
-        local DT = Float64
-        # a width-1 tensor on a one-dimensional grid still satisfies the contract, so the dense
-        # reference is what the stencil sum has to reproduce
-        local gt = neighbourhood_tensor(Xoshiro(1), DT, (7,), 1)
-        local Pi = orthonormal(Xoshiro(1), DT, 7, 3)
-        local Pj = orthonormal(Xoshiro(2), DT, 7, 2)
-        local Pk = orthonormal(Xoshiro(3), DT, 7, 4)
-        local Px = orthonormal(Xoshiro(4), DT, 7, 4)
+        for DT in (Float32, Float64)
+            # a width-1 tensor on a one-dimensional grid still satisfies the contract, so the
+            # dense reference is what the stencil sum has to reproduce
+            local gt = neighbourhood_tensor(Xoshiro(1), DT, (7,), 1)
+            local Pi = orthonormal(Xoshiro(1), DT, 7, 3)
+            local Pj = orthonormal(Xoshiro(2), DT, 7, 2)
+            local Pk = orthonormal(Xoshiro(3), DT, 7, 4)
+            local Px = orthonormal(Xoshiro(4), DT, 7, 4)
 
-        # the third index of a `PotentialReducedTensor` is one per grid node, so a
-        # one-dimensional grid serves it
-        local prt = PotentialReducedTensor(gt, Pi, Pj, Pk)
-        local ref = contract(hand_projection(Array(gt), Pi, Pj), Pk)
-        @test size(prt) == (3, 2, 4)
-        @test maximum(abs, ref) > 0
-        @test maximum(abs, Array(prt) .- ref) ≤ bound(DT, ref)
+            # the third index of a `PotentialReducedTensor` is one per grid node, so a
+            # one-dimensional grid serves it
+            local prt = PotentialReducedTensor(gt, Pi, Pj, Pk)
+            local ref = contract(hand_projection(Array(gt), Pi, Pj), Pk)
+            @test size(prt) == (3, 2, 4)
+            @test maximum(abs, ref) > 0
+            @test maximum(abs, Array(prt) .- ref) ≤ bound(DT, ref)
 
-        # a velocity index and an `x` index are one per node of a two-dimensional grid
-        @test_throws ArgumentError VelocityReducedMatrix(gt, Pi, Pj, ones(DT, 7))
-        @test_throws ArgumentError FullyReducedTensor(gt, Pi, Pj, Px)
+            # a velocity index and an `x` index are one per node of a two-dimensional grid
+            @test_throws ArgumentError VelocityReducedMatrix(gt, Pi, Pj, ones(DT, 7))
+            @test_throws ArgumentError FullyReducedTensor(gt, Pi, Pj, Px)
+        end
     end
 
     @testset "the constructor refuses what it cannot project" begin
-        local DT = Float32
-        local nx, nv = 8, 6
-        local N = nx * nv
-        local dist = grid(DT, nx, nv)
-        local gt = arakawa_tensor(DT, nx, nv, step(dist.x), step(dist.v))
-        local v² = collect(dist.v .^ 2)
-        local Pi = orthonormal(Xoshiro(1), DT, N, 3)
-        local Pj = orthonormal(Xoshiro(2), DT, N, 2)
-        local Pk = orthonormal(Xoshiro(3), DT, N, 4)
-        local Px = orthonormal(Xoshiro(4), DT, nx, 4)
+        for DT in (Float32, Float64)
+            local OT = DT == Float32 ? Float64 : Float32
+            local nx, nv = 8, 6
+            local N = nx * nv
+            local dist = grid(DT, nx, nv)
+            local gt = arakawa_tensor(DT, nx, nv, step(dist.x), step(dist.v))
+            local v² = collect(dist.v .^ 2)
+            local Pi = orthonormal(Xoshiro(1), DT, N, 3)
+            local Pj = orthonormal(Xoshiro(2), DT, N, 2)
+            local Pk = orthonormal(Xoshiro(3), DT, N, 4)
+            local Px = orthonormal(Xoshiro(4), DT, nx, 4)
 
-        # the valid input, on the non-square grid that shows a guard against the other extent
-        @test PotentialReducedTensor(gt, Pi, Pj, Pk) isa PotentialReducedTensor
-        @test VelocityReducedMatrix(gt, Pi, Pj, v²) isa VelocityReducedMatrix
-        @test FullyReducedTensor(gt, Pi, Pj, Px) isa FullyReducedTensor
+            # the valid input, on the non-square grid that shows a guard against the other extent
+            @test PotentialReducedTensor(gt, Pi, Pj, Pk) isa PotentialReducedTensor
+            @test VelocityReducedMatrix(gt, Pi, Pj, v²) isa VelocityReducedMatrix
+            @test FullyReducedTensor(gt, Pi, Pj, Px) isa FullyReducedTensor
 
-        # a guard against the wrong extent refuses the valid input, and a deleted guard lets each
-        # of these construct
-        @test_throws DimensionMismatch PotentialReducedTensor(
-            gt, Pi, Pj, randn(Xoshiro(5), DT, N - 1, 4))
-        @test_throws DimensionMismatch VelocityReducedMatrix(
-            gt, Pi, Pj, randn(Xoshiro(5), DT, nx))
-        @test_throws DimensionMismatch FullyReducedTensor(
-            gt, Pi, Pj, randn(Xoshiro(5), DT, nv, 4))
+            # a guard against the wrong extent refuses the valid input, and a deleted guard lets
+            # each of these construct
+            @test_throws DimensionMismatch PotentialReducedTensor(
+                gt, Pi, Pj, randn(Xoshiro(5), DT, N - 1, 4))
+            @test_throws DimensionMismatch VelocityReducedMatrix(
+                gt, Pi, Pj, randn(Xoshiro(5), DT, nx))
+            @test_throws DimensionMismatch FullyReducedTensor(
+                gt, Pi, Pj, randn(Xoshiro(5), DT, nv, 4))
 
-        # the element type of every projection is the tensor's, not a promoted one
-        @test_throws ArgumentError PotentialReducedTensor(gt, Pi, Pj, Float64.(Pk))
-        @test_throws ArgumentError VelocityReducedMatrix(gt, Pi, Pj, Float64.(v²))
-        @test_throws ArgumentError FullyReducedTensor(gt, Pi, Pj, Float64.(Px))
+            # the element type of every projection is the tensor's, not a promoted one
+            @test_throws ArgumentError PotentialReducedTensor(gt, Pi, Pj, OT.(Pk))
+            @test_throws ArgumentError VelocityReducedMatrix(gt, Pi, Pj, OT.(v²))
+            @test_throws ArgumentError FullyReducedTensor(gt, Pi, Pj, OT.(Px))
 
-        # the checks of `ReducedTensor` are the ones that run, and the constructors keep no copy
-        local long = orthonormal(Xoshiro(6), DT, N + 1, 3)
-        @test_throws DimensionMismatch PotentialReducedTensor(gt, long, Pj, Pk)
-        @test_throws DimensionMismatch VelocityReducedMatrix(gt, long, Pj, v²)
-        @test_throws DimensionMismatch FullyReducedTensor(gt, long, Pj, Px)
-        @test_throws ArgumentError PotentialReducedTensor(gt, Float64.(Pi), Pj, Pk)
-        @test_throws ArgumentError VelocityReducedMatrix(gt, Float64.(Pi), Pj, v²)
-        @test_throws ArgumentError FullyReducedTensor(gt, Float64.(Pi), Pj, Px)
+            # the checks of `ReducedTensor` are the ones that run, and the constructors keep no
+            # copy
+            local long = orthonormal(Xoshiro(6), DT, N + 1, 3)
+            @test_throws DimensionMismatch PotentialReducedTensor(gt, long, Pj, Pk)
+            @test_throws DimensionMismatch VelocityReducedMatrix(gt, long, Pj, v²)
+            @test_throws DimensionMismatch FullyReducedTensor(gt, long, Pj, Px)
+            @test_throws ArgumentError PotentialReducedTensor(gt, OT.(Pi), Pj, Pk)
+            @test_throws ArgumentError VelocityReducedMatrix(gt, OT.(Pi), Pj, v²)
+            @test_throws ArgumentError FullyReducedTensor(gt, OT.(Pi), Pj, Px)
 
-        # a direction shorter than `2w + 1` makes the stencil name a node twice, which
-        # `ReducedTensor` refuses; the 2 × 5 grid is long enough for width 1 per direction
-        local short = neighbourhood_tensor(Xoshiro(7), DT, (2, 5), 1)
-        local Qi = orthonormal(Xoshiro(1), DT, 10, 3)
-        local Qj = orthonormal(Xoshiro(2), DT, 10, 2)
-        local Qk = orthonormal(Xoshiro(3), DT, 10, 4)
-        local Qx = orthonormal(Xoshiro(4), DT, 2, 2)
-        local w² = randn(Xoshiro(8), DT, 5)
-        @test_throws ArgumentError PotentialReducedTensor(short, Qi, Qj, Qk)
-        @test_throws ArgumentError VelocityReducedMatrix(short, Qi, Qj, w²)
-        @test_throws ArgumentError FullyReducedTensor(short, Qi, Qj, Qx)
+            # a direction shorter than `2w + 1` makes the stencil name a node twice, which
+            # `ReducedTensor` refuses; the 2 × 5 grid is long enough for width 1 per direction
+            local short = neighbourhood_tensor(Xoshiro(7), DT, (2, 5), 1)
+            local Qi = orthonormal(Xoshiro(1), DT, 10, 3)
+            local Qj = orthonormal(Xoshiro(2), DT, 10, 2)
+            local Qk = orthonormal(Xoshiro(3), DT, 10, 4)
+            local Qx = orthonormal(Xoshiro(4), DT, 2, 2)
+            local w² = randn(Xoshiro(8), DT, 5)
+            @test_throws ArgumentError PotentialReducedTensor(short, Qi, Qj, Qk)
+            @test_throws ArgumentError VelocityReducedMatrix(short, Qi, Qj, w²)
+            @test_throws ArgumentError FullyReducedTensor(short, Qi, Qj, Qx)
+        end
     end
 
     @testset "an index off the array throws its own BoundsError" begin
@@ -357,6 +361,10 @@ bound(::Type{DT}, R) where {DT} = sqrt(eps(DT)) * maximum(abs, R)
                     if Base.JLOptions().code_coverage == 0
                         n == 0 || error("one entry of \$x allocated \$n bytes at \$g, m = \$m")
                     end
+                    # the barrier sees an allocation when there is one, so the zeros are not
+                    # vacuous
+                    entry((r, i) -> collect(r), x, inds) > 0 ||
+                        error("the barrier sees no allocation")
                 end
             end
             """

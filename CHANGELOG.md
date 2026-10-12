@@ -110,8 +110,9 @@ first entry is written.
   deleted, because `collect(rt)` and `Array(rt)` already materialise these arrays (K16).
   `VlasovMethods.ReducedTensor` is deleted and not re-exported: the type belongs to
   `ReducedBasisMethods`, and the `PoissonTensor` it wrapped is not a `GridTensor`, so no public
-  path led from one to the other (K17). K17's grid mismatch is refused where the tensor is built,
-  by the `Arakawa` check of the required `GeometricBrackets` 0.2.
+  path led from one to the other (K17). K17's grid mismatch is refused only on the deleted
+  `PoissonTensor` path, by the `Arakawa` check of the required `GeometricBrackets` 0.2; the three
+  types take a `GridTensor` instead and assume the contract their docstrings state.
 
 - **Three more `[compat]` floors name a version that resolves.** `HDF5` `0.16, 0.17` becomes
   `0.17`: no `HDF5` 0.16 release resolves with `GeometricIntegrators` 0.18.6, which requires
