@@ -54,7 +54,8 @@ function VlasovMethods.plot_particles(dist::ParticleDistribution{DT, 1, 1};
 
     # `mod(-1e-20, 1.0) == 1.0` in `Float64` leaves a position at `xb`, which the half-open
     # domain excludes; the two ends of a periodic domain are one point, so it is plotted at `xa`.
-    # A position that the wrap cannot place, a non-finite one, is left as it is.
+    # A position that the wrap cannot place, a non-finite one, leaves `mod` as `NaN`, and neither
+    # the `xb` test nor the axis places it: it is plotted as `NaN`.
     x = map(vec(dist.particles.x)) do x₀
         x̃ = _wrap(x₀, xdomain)
         x̃ == xb ? xa : x̃

@@ -200,8 +200,9 @@ end
     @test all(p -> first(XDOMAIN) ≤ p[1] < last(XDOMAIN), points)
 end
 
-@testset "a non-finite position is left as it is" begin
-    # the wrap cannot place these, and the axis skips them; neither is moved onto an end
+@testset "a non-finite position is plotted as NaN" begin
+    # the wrap cannot place these: `mod` maps them to `NaN`, the `xb` test is false for it, and
+    # the axis skips it; neither is moved onto an end
     for bad in (NaN, Inf)
         points = only_plot(plot_particles(particle(bad, 0.0);
             xdomain = XDOMAIN, vdomain = VDOMAIN))[1][]
