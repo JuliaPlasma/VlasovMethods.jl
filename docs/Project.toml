@@ -13,5 +13,4 @@ VlasovMethods = "4a954452-39e6-424b-ae51-38fc4bbc42ef"
 VlasovMethods = {path = ".."}
 
 [compat]
-CairoMakie = "0.15"
 Documenter = "1.19.0"

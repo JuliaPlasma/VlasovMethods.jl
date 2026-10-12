@@ -494,6 +494,21 @@ first entry is written.
     package; `test/Project.toml` lists it so that the test can load `h5save` and `h5load` from it.
     Nothing in `src/` calls `GeometricSolutions`.
 
+- **`plot_distribution` and `plot_particles` are exported and drawn by a CairoMakie package
+  extension.** Their methods live in `ext/VlasovMethodsMakieExt.jl`, which loads with `CairoMakie`;
+  `src/plotting.jl` declares the two names and documents them. `plot_distribution(dist::GridDistribution)`
+  draws `dist.values` as one heatmap on the grid's own nodes, untransposed.
+  `plot_distribution(dist::ParticleDistribution{T,1,1}; xdomain, vdomain, nx = 100, nv = 100)` draws
+  the weighted particle histogram: each cell holds its summed weight divided by `hx·hv`, `x` is
+  wrapped into the periodic `xdomain`, and a particle whose `v` lies outside `[va, vb)`, or whose
+  `x` is not finite, is dropped rather than clamped into an end cell.
+  `plot_particles(dist::ParticleDistribution{T,1,1}; xdomain, vdomain)` draws the wrapped `x` against
+  `v`, with the axis limits set to the two domains. Both particle methods throw `ArgumentError` on a
+  distribution with no particles. `CairoMakie` is a weak dependency, so the package installs and
+  loads with no Makie; without the extension loaded, each name has no methods, and calling it throws
+  `MethodError`. `[compat] CairoMakie` is `"0.15"`, the only version the extension is tested
+  against.
+
 ### Documentation
 
 - **The manual gains a page on projecting between the three representations of the distribution
@@ -510,6 +525,11 @@ first entry is written.
   no repository link, which K55 records.
 
 ### Internal
+
+- **The `ProgressMeter` compat floor rises to `1.3.3`.** The CairoMakie test dependency brings in
+  TiffImages, whose 0.10 releases require `ProgressMeter` 1.3.3 or later, and the Downgrade job
+  resolves every floor to its oldest admissible version: with `ProgressMeter = "1"` it reports
+  `Unsatisfiable requirements detected for package TiffImages` and runs no test.
 
 - **CI uploads coverage from the `Julia 1 - ubuntu-latest` job instead of `Julia min`, and a
   test job saves the Julia cache only when it succeeds.**
