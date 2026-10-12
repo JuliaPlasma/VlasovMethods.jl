@@ -2,7 +2,7 @@
     Snapshots{T, PS}
 
 The snapshots of a parameter sweep: the positions `X`, the velocities `V`, the accelerations `A`,
-the potentials `Φ`, and the diagnostics `W`, `K` and `M`, on the `ParameterSpace` the sweep ran.
+the potentials `Φ`, and the diagnostics `W`, `K` and `M`, on the sweep's `ParameterSpace`.
 
 `X`, `V` and `A` are indexed `[component, particle, time, sample]` and have the size
 `(nd, nₚ, nₛ, nparam)`, with `nparam = length(paramspace)`. `X[:, :, t, p]` is the `(nd, nₚ)`
@@ -14,7 +14,7 @@ these arrays has one column per saved time and sample.
 
 `Φ` has the size `(nh, nₛ, nparam)`: the potential is a scalar on the one dimension of the
 Poisson problem, so it carries no component axis, and `nh` is the number of degrees of freedom of
-the Poisson solver the sweep used. `W`, `K` and `M` have the size `(nₛ, nparam)`, one value each
+the sweep's Poisson solver. `W`, `K` and `M` have the size `(nₛ, nparam)`, one value each
 per saved time and sample. `W` is the field energy, not a particle weight: the snapshots store no
 weights.
 
@@ -142,8 +142,8 @@ _particle_snapshots(s::Snapshots) = vcat(_snapshot_matrix(s.X), _snapshot_matrix
 The `nd * nₚ × nₛ * nparam` field snapshot matrix of `s`: the acceleration `A` of each saved time
 and sample, in the component-fastest order of `vec`, one column each.
 
-It is `A` that the field basis is built from, and not the potential: the field of the reduced
-model multiplies the particle basis, so it has the `nd * nₚ` rows of `X`.
+The field basis uses `A`, not the potential: the reduced field couples it to the position
+block of the particle basis, which has the `nd * nₚ` rows of `X`.
 """
 _field_snapshots(s::Snapshots) = _snapshot_matrix(s.A)
 
@@ -177,7 +177,7 @@ The `ReducedBasis` of the field snapshots of `s`, built by `algorithm`.
 
 The basis is built from `_field_snapshots(s)`, the `nd * nₚ × nₛ * nparam` matrix of the
 accelerations, and not from the potential `Φ`, whose `nh` degrees of freedom are another space.
-Its `nd * nₚ` rows are the rows of the particle basis, as the reduced field multiplies it.
+Its `nd * nₚ` rows match the position block of the stacked particle basis.
 
 `algorithm` is one of the two POD tags: a PSD or complex tag would split the `nd * nₚ` rows of
 `A` in the middle and reduce the halves as positions and velocities, so it is refused with a
@@ -213,7 +213,7 @@ function Snapshots(fpath::AbstractString, path::AbstractString = "/")
 end
 
 function h5save(h5::H5DataStore, s::Snapshots; path::AbstractString = "/")
-    group = _create_group(h5, path)
+    group = haskey(h5, path) ? h5[path] : create_group(h5, path)
 
     group["X"] = s.X
     group["V"] = s.V

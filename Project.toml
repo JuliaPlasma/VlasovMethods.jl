@@ -53,10 +53,10 @@ ParticleMethods = "0.1.2"
 PoissonSolvers = "0.6"
 ProgressMeter = "1"
 Random = "1"
-# 0.2 is the first ReducedBasisMethods that does not require `VlasovMethods = "0.1"`, and the
-# version that carries the snapshot-based `ReducedBasis` and DEIM.
+# ReducedBasisMethods 0.2 provides the snapshot-based `ReducedBasis` and DEIM without a
+# dependency on VlasovMethods.
 ReducedBasisMethods = "0.2"
-# the bound ReducedBasisMethods 0.2.0 admits
+# ReducedComplexityModeling provides `ParameterSpace` and its HDF5 generics for the bases.
 ReducedComplexityModeling = "0.1.1"
 SimpleSolvers = "0.14.1"
 SimpleSplines = "0.3.1"

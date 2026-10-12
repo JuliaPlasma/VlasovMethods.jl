@@ -9,7 +9,7 @@ using ReducedBasisMethods: ComplexSVD, CotangentLiftEVD, CotangentLiftSVD, PODSV
 using ReducedComplexityModeling: Parameter, ParameterSpace, h5load, h5save
 using Test
 
-# The sweep of T8.1: two position and two velocity components, one Poisson solver of `NH` degrees
+# The snapshot sweep: two position and two velocity components, one Poisson solver of `NH` degrees
 # of freedom, `NS` saved times and the six training `β`. No two extents are equal, so a swapped
 # axis changes a size.
 const ND, NP, NH, NS, NPARAM = 2, 100, 16, 11, 6
@@ -36,7 +36,7 @@ end
 
 "`s` with one entry of `field` raised by one, or another `ParameterSpace`, and nothing else."
 function perturbed(s::Snapshots{T}, field::Symbol) where {T}
-    args = Any[copy(s.X), copy(s.V), copy(s.A), copy(s.Φ), copy(s.W), copy(s.K), copy(s.M)]
+    args = (copy(s.X), copy(s.V), copy(s.A), copy(s.Φ), copy(s.W), copy(s.K), copy(s.M))
     field === :paramspace &&
         return Snapshots(args..., ParameterSpace(Parameter(:β, T(5.9), T(6.1), NPARAM)))
     a = args[findfirst(isequal(field), (:X, :V, :A, :Φ, :W, :K, :M))]

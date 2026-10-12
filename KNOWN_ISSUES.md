@@ -7,13 +7,12 @@ takes the next `K<n>`.
 ### K1 · Three files of `src/particles/` are present but not included.
 
 - **location:** `src/particles/`
-- **evidence:** The three files imported from ReducedBasisMethods — `electric_field.jl`,
-  `poisson.jl`, `time_marching.jl` — each name a binding that no longer exists, so including any
-  one breaks the load: `poisson.jl` wants `PoissonSolverPBSplines`; `time_marching.jl` imports
+- **evidence:** The three files — `electric_field.jl`, `poisson.jl`, `time_marching.jl` — each
+  name an undefined binding, so including any one breaks the load: `poisson.jl` wants
+  `PoissonSolverPBSplines`; `time_marching.jl` imports
   `PBSpline`, `stiffnessmatrix`, `eval_deriv_PBSBasis` and `rhs_particles_PBSBasis` from
   `PoissonSolvers` (neither 0.5 nor 0.6 has any); `electric_field.jl` wants `ElectricField`, which
-  nothing under `src/` defines. They were moved unrepaired on
-  purpose, so the relocation stays reviewable.
+  nothing under `src/` defines.
 - **kind:** dead code
 - **found:** 2026-09-17. Carried over from the audit that accompanied the `SimpleSplines`
   migration. None of these are regressions; each is either a numerical-methods decision or work
@@ -511,16 +510,17 @@ takes the next `K<n>`.
 - **kind:** not verified
 - **found:** #72
 
-### K54 · `Parameter` of `ReducedComplexityModeling` cannot build a one-sample sweep.
+### K54 · `Parameter` of `ReducedComplexityModeling` rejects distinct bounds for a one-sample range.
 
 - **location:** `~/.julia/packages/ReducedComplexityModeling/JQ2wf/src/parameters/parameter.jl:33`
 - **evidence:** `Parameter(name, minimum::DT, maximum::DT, n::Int)` builds
-  `LinRange(minimum, maximum, n)`, which throws for `n == 1`:
+  `LinRange(minimum, maximum, n)`, which throws for `n == 1` when the endpoints differ:
   `julia --startup-file=no --project=<worktree> -e 'using ReducedComplexityModeling; Parameter(:β, 5.95, 6.05, 1)'`
   prints `ArgumentError: range(5.95, stop=6.05, length=1): endpoints differ` on the RCM 0.1.1 this
   package resolves, while `Parameter(:β, 5.95, 6.05, 2)` gives
-  `Parameter{Float64, Vector{Float64}}(:β, 5.95, 6.05, [5.95, 6.05])`. A `ParameterSpace`, and so
-  any sweep of one sample, therefore cannot be built. The method is the same in the 0.3.0 tree, at
-  `Packages/ReducedComplexityModeling/src/parameters/parameter.jl:38`.
+  `Parameter{Float64, Vector{Float64}}(:β, 5.95, 6.05, [5.95, 6.05])`. A one-sample sweep is
+  supported through `Parameter(:β, [6.0])` or equal bounds, `Parameter(:β, 6.0, 6.0, 1)`:
+  each gives a `ParameterSpace` of length 1 and `size(Snapshots(Float64, 2, 100, 16, 11, ps).X)`
+  is `(2, 100, 11, 1)`.
 - **kind:** upstream
 - **found:** 2026-10-12
