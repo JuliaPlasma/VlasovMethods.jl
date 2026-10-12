@@ -194,9 +194,9 @@ first entry is written.
   `VlasovPoisson` now holds a `work` buffer of the width the deposit and the field evaluation
   need — a fifth type parameter `WT` — and the two fields fill it rather than allocating one per
   evaluation. Code that names `VlasovPoisson` with four type parameters stops matching. Because
-  the constructor allocates that buffer, a `Potential` on a basis with no deposit-buffer method —
-  an `FFTWBasis` or a `FiniteDifferenceBasis` — now throws at construction rather than at the
-  first deposit (K19).
+  the constructor allocates that buffer, a **particle or spline** `VlasovPoisson` on a basis with no
+  deposit-buffer method — an `FFTWBasis` or a `FiniteDifferenceBasis` — now throws at
+  construction rather than at the first deposit (K19).
 
 - **A particle outside the velocity domain is an error.** It used to be dropped silently in the
   one-dimensional projection and printed a per-particle warning in the two-dimensional one.
@@ -319,6 +319,42 @@ first entry is written.
   printed residual can differ in its last digits, from rounding alone.
 
 ### New Features
+
+- **The grid 1D1V Vlasov–Poisson scheme.** `VlasovPoisson(dist::GridDistribution,
+  potential::Potential)` is a new method of the exported constructor, and
+  `VlasovMethods.GeometricIntegrator(model, tspan, tstep, method = Integrators.ImplicitMidpoint())` steps it.
+  The state is `vec(dist.values)` and the right-hand side is GeometricBrackets' Arakawa bracket,
+  `∂ₜf = −[f, v²/2 + ϕ]` with `ϕ` the potential's own solve, so the scheme holds the discrete
+  Hamiltonian `hx·hv·Σ f v²/2 + (hx/2)·Σ ρᵢϕᵢ` to round-off, and the `L¹` norm `hx·hv·Σ|f|` to
+  round-off plus twice the negative mass it accumulates, over a horizon long enough to distinguish
+  that from a passing tolerance.
+
+  - The field is solved once, at construction, as the `nx × nx` Green's matrix of the potential's
+    backend: `ϕ = Gρ` for `ρᵢ = hv·Σⱼ f_ij`, which makes `∂H/∂f = hx·hv·h` exact. `G` is stored in
+    `VlasovPoisson`'s `work` field, whose type parameter `WT` widens from `AbstractVector` to
+    `AbstractArray`: `work` is the deposit buffer of a particle distribution and this matrix for a
+    grid one. Code that requires `work` to be a vector stops matching.
+  - The constructor throws `ArgumentError` unless the potential's solver is a `PoissonSolverFFT`
+    or a `PoissonSolverMatrixFree` — on a spline basis the density at the nodes is not a Galerkin
+    load vector — `DimensionMismatch` unless it has one degree of freedom per `x`-node, and
+    `ArgumentError` unless its `x`-grid is the distribution's.
+  - The scheme is **periodic in `v`** as well as in `x`: Arakawa's stencil conserves at a boundary
+    only where `h` is constant along it, and `h = v²/2 + ϕ(x)` is not constant on `v = v_b`. A run
+    is valid only while `f` vanishes to `eps(T)·maximum(f)` at both ends of the velocity range,
+    which the docstrings state and the tests assert at every step.
+  - `run!(::GeometricIntegrator, h5file)` works with the grid model. At the end it writes the
+    final state back into the model's distribution: the velocities of a `ParticleDistribution`,
+    the row the particle models step, with the positions left as they were, and
+    `distribution.values`, reshaped, for a `GridDistribution`.
+  - `GeometricIntegrator` is a `VlasovMethod` and no longer a `ParticleMethod`, because it steps
+    the grid model too. Code that dispatches on `ParticleMethod` no longer reaches it.
+  - `scripts/landau_damping_1d1v.jl` fits the linear Landau damping rate to the peaks of
+    `|E₁(t)|` and reproduces the textbook `γ ≈ −0.1533` for `k = 0.5` and unit thermal velocity.
+    Run with `julia --project=scripts scripts/landau_damping_1d1v.jl`, it measures
+    `γ = −0.153534` at `nv = 1025`, `dt = 0.05` and `γ = −0.153474` at `nv = 2049`, `dt = 0.025`
+    — an error of `2.3e-4` and a change of `6.0e-5` — and requires the first to be within
+    `1.5e-3` of `−0.1533` and the two to agree to `1.5e-4`. That second requirement is the reason
+    the 1% tolerance is defensible, and `nv = 513` fails it.
 
 - **`VlasovWithExternalFields`, one species in an external electromagnetic field, and the
   `ElectromagneticFields` extension that supplies such a field.** `VlasovWithExternalFields`,
