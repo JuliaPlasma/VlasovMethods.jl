@@ -511,3 +511,30 @@ takes the next `K<n>`.
   Buffers in `params` and `mul!` would avoid them. No measurement compares the two forms.
 - **kind:** not verified
 - **found:** #72
+
+### K54 · Projecting a spline distribution back onto particles is not implemented.
+
+- **location:** `src/projections/distribution.jl:179`
+- **evidence:** The method raises
+  `error("projecting a spline distribution back onto particles is not implemented")`. Two meanings
+  are available for the direction and neither is chosen: (a) draw a new particle sample from
+  `f_s`, the reverse of the projection onto the spline, which is the direction a reduced model
+  would lift a reduced state back onto particles with; (b) keep the particle positions and set the
+  weights `w_α ∝ f_s(v_α)`, which is a quadrature of `f_s` at the positions that happen to be
+  there rather than a sample of it. Each needs a rule for where `f_s < 0`, which K8 records as
+  open. The docs page on the projections names the direction as absent and writes the two
+  meanings out.
+- **kind:** defect
+- **found:** #73
+
+### K55 · The manual's navbar carries no repository link.
+
+- **location:** `docs/make.jl:9`
+- **evidence:** Every build of the manual warns
+  `┌ Warning: Unable to determine the repository root URL for the navbar link.`, and the same
+  message names the two remedies: pass a `Remotes.Remote` object to `repo`, or set `repolink` on
+  the `HTML` format. The `makedocs` call passes the string
+  `"https://github.com/JuliaPlasma/VlasovMethods.jl/blob/{commit}{path}#{line}"`, which serves the
+  source links but not the navbar.
+- **kind:** docs
+- **found:** #73
