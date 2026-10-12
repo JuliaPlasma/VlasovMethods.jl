@@ -173,6 +173,21 @@ end
     @test count(!iszero, F) == 1
 end
 
+@testset "a non-finite position is dropped from the histogram" begin
+    # the wrap maps `NaN` and `Inf` to `NaN`, which no cell index can be taken from
+    w_inside = 0.25
+    dist = ParticleDistribution(1, 1,
+        ParticleList([NaN, Inf, 0.5], [0.0, 0.0, 0.0], [1.0, 1.0, w_inside]))
+    nx, nv = 8, 8
+    hx = (last(XDOMAIN) - first(XDOMAIN)) / nx
+    hv = (last(VDOMAIN) - first(VDOMAIN)) / nv
+    F = plotted_matrix(plot_distribution(dist;
+        xdomain = XDOMAIN, vdomain = VDOMAIN, nx = nx, nv = nv))
+
+    @test sum(F) * hx * hv == w_inside
+    @test count(!iszero, F) == 1
+end
+
 @testset "plot_particles wraps x into the domain" begin
     period = last(XDOMAIN) - first(XDOMAIN)
     dist = ParticleDistribution(1, 1,

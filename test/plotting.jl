@@ -52,11 +52,16 @@ using VlasovMethods
         """
 
     # `JULIA_LOAD_PATH` without `@v1.x`, so that a CairoMakie of the shared environment cannot
-    # satisfy a stray `using` in the program
+    # satisfy a stray `using` in the program; its entries are separated by `;` on Windows
+    load_path = join(("@", "@stdlib"), Sys.iswindows() ? ';' : ':')
     command = addenv(`$(Base.julia_cmd()) --startup-file=no -e $program`,
-        "JULIA_LOAD_PATH" => "@:@stdlib")
+        "JULIA_LOAD_PATH" => load_path)
 
-    @test success(command)
+    # `success` reports only the exit status, so the subprocess's output is shown on a failure
+    output = IOBuffer()
+    process = run(pipeline(ignorestatus(command); stdout = output, stderr = output))
+    success(process) || print(String(take!(output)))
+    @test success(process)
 end
 
 @testset "the docstrings name the extension and CairoMakie" begin

@@ -390,8 +390,8 @@ first entry is written.
   draws `dist.values` as one heatmap on the grid's own nodes, untransposed.
   `plot_distribution(dist::ParticleDistribution{T,1,1}; xdomain, vdomain, nx = 100, nv = 100)` draws
   the weighted particle histogram: each cell holds its summed weight divided by `hx·hv`, `x` is
-  wrapped into the periodic `xdomain`, and a particle whose `v` lies outside `[va, vb)` is dropped
-  rather than clamped into an end cell.
+  wrapped into the periodic `xdomain`, and a particle whose `v` lies outside `[va, vb)`, or whose
+  `x` is not finite, is dropped rather than clamped into an end cell.
   `plot_particles(dist::ParticleDistribution{T,1,1}; xdomain, vdomain)` draws the wrapped `x` against
   `v`, with the axis limits set to the two domains. Both particle methods throw `ArgumentError` on a
   distribution with no particles. `CairoMakie` is a weak dependency, so the package installs and

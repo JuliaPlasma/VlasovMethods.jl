@@ -29,12 +29,14 @@ function VlasovMethods.plot_distribution(dist::ParticleDistribution{DT, 1, 1};
 
     F = zeros(DT, nx, nv)
     for k in eachindex(dist.particles)
+        x = dist.particles.x[1, k]
         v = dist.particles.v[1, k]
-        va ≤ v < vb || continue
+        # the wrap cannot place a non-finite position, and no cell holds a `v` outside the domain
+        isfinite(x) && va ≤ v < vb || continue
         # `mod(-1e-20, 2π) == 2π` in `Float64`, so the last cell needs the clamp.
-        i = min(floor(Int, (_wrap(dist.particles.x[1, k], xdomain) - xa) / hx) + 1, nx)
-        # `(v - va)/hv` rounds up to `nv` at the upper end, as `prevfloat(vb)` does, so the last
-        # cell needs the clamp as well.
+        i = min(floor(Int, (_wrap(x, xdomain) - xa) / hx) + 1, nx)
+        # `(v - va)/hv` can round up to `nv` for `v = prevfloat(vb)`, so the last cell needs the
+        # clamp as well.
         j = min(floor(Int, (v - va) / hv) + 1, nv)
         F[i, j] += dist.particles.w[1, k] / (hx * hv)
     end

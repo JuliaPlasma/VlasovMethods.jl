@@ -33,6 +33,7 @@ it keeps. A cell is half-open, `[x_a + (i-1) h_x, x_a + i h_x)` and likewise in 
 
 `xdomain` is periodic and `x` wraps into it. `vdomain` is bounded, and a particle outside it —
 `v < v_a` or `v >= v_b` — is dropped from the histogram rather than clamped into an end cell.
+A particle with a non-finite `x`, which the wrap cannot place, is dropped as well.
 A distribution with no particles throws an `ArgumentError`.
 
 There are no other keywords, and the two domains are required. Use the returned `Figure` to set
