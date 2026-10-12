@@ -1,11 +1,3 @@
-# The grid 1D1V Vlasov–Poisson scheme: Arakawa's bracket on the doubly periodic phase-space
-# grid of a `GridDistribution`, with the field of a PoissonSolvers backend held as a Green's
-# matrix, and GeometricIntegrators' implicit midpoint — Newton with an autodiff Jacobian — as
-# the stepper. The scheme is periodic in `v` as well as in `x`: Arakawa's stencil conserves at a
-# boundary only where the spacing of the Hamiltonian along it is constant, and `h = v²/2 + ϕ(x)`
-# is not constant on `v = v_b`. `GridDistribution`'s `v`-grid is bounded, so a run is valid only
-# while `f` vanishes at both ends of it, and every docstring here says so.
-
 @doc raw"""
     _green_matrix(dist::GridDistribution, potential::Potential)
 
@@ -96,8 +88,9 @@ the order of `vec(dist.values)`.
 The bracket is doubly periodic, so the ``v``-index of the last node wraps onto the first with
 the spacing ``h_v = (v_b - v_a)/(n_v - 1)``. **The scheme is periodic in `v`; it is valid while
 `f` vanishes to `eps(T)·maximum(f)` at `v_a` and `v_b`**, where `T` is the element type of the
-state. A run whose distribution reaches the ends of the velocity range of `GridDistribution`
-conserves nothing, because the wrap is then a physical transport of mass across the domain.
+state: a distribution that reaches the ends of the velocity range of a `GridDistribution` is
+then solved as the periodic problem, the wrap transporting mass from ``v_b`` to ``v_a``, while
+the torus identities it is checked by still hold.
 """
 function _grid_1d1v_rhs!(ḟ, t, f, params)
     b = params.arakawa
@@ -136,6 +129,9 @@ with step `tstep`, in the state `vec(model.distribution.values)`.
 caller chooses: `ImplicitMidpoint()` keeps ``H``, `ExplicitMidpoint()` is of the same second
 order and does not, and `RK4()` is what `scripts/landau_damping_1d1v.jl` integrates with — the
 implicit midpoint's dense Newton Jacobian is out of reach on that script's ``n_v``.
+
+The scheme runs in `Float32` and `Float64`; `Float16` is not supported, since FFTW has no
+`Float16` plan.
 
 The vector field is [`_grid_1d1v_rhs!`](@ref), whose parameters carry a fresh `Arakawa` bracket
 over `model.distribution`'s grid, its velocity nodes, and the Green's matrix `model.work`. The

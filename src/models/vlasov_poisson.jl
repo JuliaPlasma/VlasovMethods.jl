@@ -16,10 +16,8 @@ struct VlasovPoisson{XD, VD, DT <: DistributionFunction{<:Any, XD, VD}, PT <: Po
         new{XD, VD, typeof(dist), typeof(potential), typeof(work)}(dist, potential, work)
     end
 
-    # The grid method is a second inner constructor, because only an inner method reaches `new`.
-    # It is more specific in both arguments than the method above, so no call is ambiguous, and
-    # it is the only one that does not deposit: its field is solved through the Green's matrix
-    # that `_green_matrix` assembles, in `src/gridbased/vlasov_poisson_1d1v.jl`.
+    # A second inner constructor, more specific in both arguments than the one above, because
+    # only an inner method reaches `new`: its field is the Green's matrix `_green_matrix` solves.
     function VlasovPoisson(dist::GridDistribution, potential::Potential)
         work = _green_matrix(dist, potential)
         new{1, 1, typeof(dist), typeof(potential), typeof(work)}(dist, potential, work)

@@ -17,9 +17,10 @@ const VM = VlasovMethods
 #
 # `H` is the discrete Hamiltonian of the scheme, `hx*hv*Σ f v²/2 + (hx/2)*dot(ρ, ϕ)` with `ϕ` the
 # field the backend returns for `ρ = hv*Σ f`. It is computed here and not in `src`, so that a sign
-# or a scale flip in the right-hand side cannot be matched by an equally flipped energy. `Σ` and
-# `L¹` are the two sums check 2 separates, `edge` the velocity edge of check 3 in units of
-# `eps(T)*maximum(abs, f)`, and `negmass` the negative mass of the L¹ bound.
+# or a scale flip in the right-hand side cannot be matched by an equally flipped energy. `Σ` is
+# `hx*hv*Σf` and `L¹` is `hx*hv*Σ|f|`, the two sums the mass assertions separate; `edge` is the
+# velocity edge in units of `eps(T)*maximum(abs, f)`, and `negmass` the negative mass of the L¹
+# bound.
 function march(int)
     prob = int.equation
     dist = int.model.distribution
@@ -71,7 +72,7 @@ end
 march(model, tspan, tstep, method) = march(GeometricIntegrator(model, tspan, tstep, method))
 march(model, tspan, tstep) = march(GeometricIntegrator(model, tspan, tstep))
 
-# The initial state of the conservation runs, on the grid of check 4: `x ∈ [0, 4π)` with `nx`
+# The initial state of the conservation runs, on the scheme's own grid: `x ∈ [0, 4π)` with `nx`
 # nodes and the periodic endpoint not stored, `v ∈ [-vlim, vlim]` with `nv` nodes and both ends
 # nodes. `α` and `vlim` are the ones of the run's row.
 function maxwellian_grid(T, nx, nv, vlim, α; k = T(0.5))
@@ -85,7 +86,7 @@ end
 
 @testset "Grid 1D1V Vlasov–Poisson" begin
     @testset "the exact right-hand side, $T" for T in (Float32, Float64)
-        # check 4's grid facts, and the stencil they are read through. `f = cos(k x_i) v_j` has a
+        # the grid facts, and the stencil they are read through. `f = cos(k x_i) v_j` has a
         # vanishing density, so `ϕ = 0` and `h = v²/2` exactly, and the expected right-hand side is
         # the transcribed Arakawa stencil at every row, rows 1 and nv included.
         nx, nv, k = 8, 12, T(0.5)
@@ -112,6 +113,8 @@ end
         q = copy(prob.ics.q)
         ḟ = similar(q)
         prob.equation.v(ḟ, zero(T), q, prob.parameters)
+        # the vector field of every Newton iteration is type-stable
+        @test @inferred(VM._grid_1d1v_rhs!(ḟ, zero(T), q, prob.parameters)) === ḟ
 
         c = cos.(k .* x)
         H = v .^ 2 ./ 2
@@ -150,8 +153,8 @@ end
 
     @testset "the fourth-order matrix-free backend" begin
         # Float64 only. The error of G·cos(kx) against cos(kx)/k² falls by 16 from nx = 16 to 32
-        # under the (−1, 16, −30, 16, −1)/12h² stencil, and by 4 under the old
-        # (5, −32, 54, −32, 5)/12h² one, which P5 replaced.
+        # under the (−1, 16, −30, 16, −1)/12h² stencil, and by 4 under the second-order
+        # (5, −32, 54, −32, 5)/12h² one.
         k = 0.5
         errs = Float64[]
         for nx in (16, 32)
@@ -167,9 +170,9 @@ end
 
     @testset "checks 1 to 3: conservation, $T" for (T, vlim, α, dt, nsteps) in ((
         Float64, 10.0, 0.01, 0.05, 40), (Float32, 7.5, 0.5, 0.2, 14))
-        # one conserving run, read by all three checks: the horizon `T` and the step `dt` are
-        # Q5's, the grid is check 4's, and the velocity range keeps `f` below `eps(T)·maximum(f)`
-        # at both ends (check 3, Q7)
+        # one conserving run, read by all three checks: the horizon `T` and the step `dt` are the
+        # row's, the grid is the scheme's, and the velocity range keeps `f` below
+        # `eps(T)·maximum(f)` at both ends
         nx, nv = 16, 64
         dist = maxwellian_grid(T, nx, nv, vlim, α)
         model = VlasovPoisson(dist, Potential(FFTWBasis((zero(T), T(4π)), nx)))
@@ -177,8 +180,8 @@ end
 
         run = march(model, tspan, T(dt))
 
-        # check 1: the discrete Hamiltonian, and the explicit midpoint of the same order at the
-        # same step, whose drift must be at least ten times the bound
+        # the discrete Hamiltonian, and the explicit midpoint of the same order at the same step,
+        # whose drift must be at least ten times the bound
         drift = abs(run.H[end] - run.H[1]) / abs(run.H[1])
         bound = nsteps * 2eps(T)
         explicit = march(model, tspan, T(dt), GeometricIntegrators.ExplicitMidpoint())
@@ -188,16 +191,19 @@ end
         @test driftₑ ≥ 10 * bound
         @test driftₑ ≥ 10 * drift
 
-        # check 2: the mass, and the L¹ norm `hx*hv*Σ|f|` rather than `hx*hv*Σf`. Arakawa keeps
-        # L¹ only up to twice the negative mass, which is the second term; a test that used `Σf`
-        # here would compare the mass drift against this bound and PINS.
+        # the mass, and the L¹ norm `hx*hv*Σ|f|` rather than `hx*hv*Σf`. Arakawa keeps L¹ only up
+        # to twice the negative mass, which is the second term. The identity below is what
+        # separates the two sums: `|f| = f + 2*max(-f, 0)` at every node, so a run whose L¹ was
+        # `Σf` would miss its right-hand side by twice this negative mass.
         mass_bound = 10 * nsteps * eps(T)
         @test abs(run.Σ[end] - run.Σ[1]) / abs(run.Σ[1]) ≤ mass_bound
         @test abs(run.L¹[end] - run.L¹[1]) / abs(run.L¹[1]) ≤
               mass_bound + 2 * run.negmass[end] / abs(run.L¹[1])
+        @test isapprox(run.L¹[end], run.Σ[end] + 2 * run.negmass[end];
+            rtol = 4 * nx * nv * eps(T))
 
-        # check 3: the torus identities of the first two hold only while `f` vanishes at `v_a`
-        # and `v_b`, which is asserted at every saved step
+        # the mass and the Hamiltonian above keep only while `f` vanishes at `v_a` and `v_b`,
+        # because the bracket is periodic in `v`; the bound is asserted at every saved step
         @test maximum(run.edge) ≤ 1
 
         diagnostics = (; T_horizon = tspan[2], n_steps = nsteps, drift, driftₑ, bound,
@@ -205,11 +211,11 @@ end
         @info "checks 1 to 3" T diagnostics
     end
 
-    @testset "the constructor's guards" begin
+    @testset "the constructor's guards" for T in (Float32, Float64)
         nx, nv = 8, 12
-        xd = (0.0, 4π)
-        vd = (-5.0, 5.0)
-        dist = GridDistribution(zeros(nx, nv), xd, vd)
+        xd = (zero(T), T(4π))
+        vd = (T(-5), T(5))
+        dist = GridDistribution(zeros(T, nx, nv), xd, vd)
 
         # a spline basis samples ρ at the nodes rather than forming a Galerkin load vector
         @test_throws ArgumentError VlasovPoisson(dist, Potential(PeriodicBasisSpline(xd, 4, nx)))
@@ -217,11 +223,11 @@ end
         @test_throws DimensionMismatch VlasovPoisson(dist, Potential(FFTWBasis(xd, nx + 1)))
         # the potential's own x-nodes, compared exactly
         @test_throws ArgumentError VlasovPoisson(dist,
-            Potential(FFTWBasis((0.0, 4π + 0.1), nx)))
-        # fewer than three velocity nodes is Arakawa's own check, raised at construction
-        @test_throws ArgumentError VlasovPoisson(GridDistribution(zeros(nx, 2), xd, vd),
+            Potential(FFTWBasis((zero(T), T(4π) + T(0.1)), nx)))
+        # fewer than three nodes per direction is Arakawa's own check, raised at construction
+        @test_throws ArgumentError VlasovPoisson(GridDistribution(zeros(T, nx, 2), xd, vd),
             Potential(FFTWBasis(xd, nx)))
-        @test_throws ArgumentError VlasovPoisson(GridDistribution(zeros(2, nv), xd, vd),
+        @test_throws ArgumentError VlasovPoisson(GridDistribution(zeros(T, 2, nv), xd, vd),
             Potential(FFTWBasis(xd, 2)))
     end
 

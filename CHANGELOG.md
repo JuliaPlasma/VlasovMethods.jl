@@ -305,8 +305,9 @@ first entry is written.
   `GeometricIntegrator(model, tspan, tstep, method = Integrators.ImplicitMidpoint())` steps it.
   The state is `vec(dist.values)` and the right-hand side is GeometricBrackets' Arakawa bracket,
   `∂ₜf = −[f, v²/2 + ϕ]` with `ϕ` the potential's own solve, so the scheme holds the discrete
-  Hamiltonian `hx·hv·Σ f v²/2 + (hx/2)·Σ ρᵢϕᵢ` and the `L¹` norm `hx·hv·Σ|f|` to round-off over a
-  horizon long enough to distinguish that from a passing tolerance.
+  Hamiltonian `hx·hv·Σ f v²/2 + (hx/2)·Σ ρᵢϕᵢ` to round-off, and the `L¹` norm `hx·hv·Σ|f|` to
+  round-off plus twice the negative mass it accumulates, which Arakawa keeps non-negative only
+  up to round-off, over a horizon long enough to distinguish that from a passing tolerance.
 
   - The field is solved once, at construction, as the `nx × nx` Green's matrix of the potential's
     backend: `ϕ = Gρ` for `ρᵢ = hv·Σⱼ f_ij`, which makes `∂H/∂f = hx·hv·h` exact. `G` is stored in
@@ -318,9 +319,9 @@ first entry is written.
     load vector — `DimensionMismatch` unless it has one degree of freedom per `x`-node, and
     `ArgumentError` unless its `x`-grid is the distribution's.
   - The scheme is **periodic in `v`** as well as in `x`: Arakawa's stencil conserves at a boundary
-    only where the spacing of the Hamiltonian along it is constant, and `v²/2 + ϕ(x)` is not
-    constant on `v = v_b`. A run is valid only while `f` vanishes to `eps(T)·maximum(f)` at both
-    ends of the velocity range, which the docstrings state and the tests assert at every step.
+    only where `h` is constant along it, and `h = v²/2 + ϕ(x)` is not constant on `v = v_b`. A run
+    is valid only while `f` vanishes to `eps(T)·maximum(f)` at both ends of the velocity range,
+    which the docstrings state and the tests assert at every step.
   - `run!(::GeometricIntegrator, h5file)` works with the grid model. The write-back is now a
     dispatched `_write_back!`, which keeps the particles' positions for a `ParticleDistribution`
     and reshapes into `distribution.values` for a `GridDistribution`.
