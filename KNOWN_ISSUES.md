@@ -484,4 +484,16 @@ takes the next `K<n>`.
   open. The docs page on the projections names the direction as absent and writes the two
   meanings out.
 - **kind:** defect
-- **found:** 2026-10-12. The pull-request number replaces the date when the pull request opens.
+- **found:** 2026-10-12
+
+### K51 · The manual's navbar carries no repository link.
+
+- **location:** `docs/make.jl:9`
+- **evidence:** Every build of the manual warns
+  `┌ Warning: Unable to determine the repository root URL for the navbar link.`, and the same
+  message names the two remedies: pass a `Remotes.Remote` object to `repo`, or set `repolink` on
+  the `HTML` format. The `makedocs` call passes the string
+  `"https://github.com/JuliaPlasma/VlasovMethods.jl/blob/{commit}{path}#{line}"`, which serves the
+  source links but not the navbar.
+- **kind:** docs
+- **found:** 2026-10-12

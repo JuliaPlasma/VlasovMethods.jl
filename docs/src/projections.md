@@ -4,12 +4,12 @@ CurrentModule = VlasovMethods
 
 # Projecting between representations of the distribution function
 
-A distribution function is stored here in one of three forms, and a projection is the only thing
-that carries data from one of them to another.
+A distribution function is stored here in one of three forms. This page describes projections
+and sampling operations between them.
 
   - A `ParticleDistribution` is the Klimontovich measure ``f_p(v) = \sum_\alpha w_\alpha
-    \delta(v - v_\alpha)``. It is what the integrators move, and every moment of a run is a sum
-    over its particles.
+    \delta(v - v_\alpha)``. The particle integrators evolve this representation, and its
+    moments are weighted sums over particles.
   - A [`SplineDistribution`](@ref) holds the coefficients of ``f_s(v) = \sum_I \hat{f}_I
     \varphi_I(v)``. It is what the collision operators differentiate, and it gives a continuous
     ``f_s`` where a particle measure has none.
@@ -36,7 +36,7 @@ reads as if that direction existed, which is worse than a page that says it does
 | `spline → moments` | implemented, as sums over particles `Σ_α π(v_α) f_s(v_α)`, not integrals; "energy" is `projection_second_moment` | `projection_density`, `projection_momentum`, `projection_second_moment` |
 | `spline → particles` | a stub that raises an error | `projection!(sdist, pdist)` |
 | `particles → grid, grid → particles` | absent: no method takes both types | — |
-| `spline → grid, grid → spline` | absent; the spline is in `v` only, so only a product `g(x)·f_s(v)` is possible | — |
+| `spline → grid, grid → spline` | absent; a spline has no `x`-dependence, so these directions need a spatial factor or spatial reduction | — |
 | `function → grid` | by sampling, `grid.values .= g.(grid.x) .* h.(grid.v')` | — |
 | `grid → moments` | implemented, rectangle rule | `velocity_moments(grid)` |
 
@@ -80,10 +80,10 @@ Random.seed!(1234)
 σ = 2.0
 f = x -> exp(-0.5 * (4π * x - μ - 2π)^2 / σ^2) * sqrt(π * σ^2) / sqrt(2)
 
-# Substituting 4πx - 2π = 2π(2x - 1) turns `f` into √(2π)·exp(-2π²(x - ½)²), which is the
-# normal density with mean 1/2 and standard deviation 1/(2π) — exponent and normalising
-# constant both match. So the sample is drawn from that normal directly, and a draw outside
-# the domain is replaced.
+# Substituting 4πx - 2π = 2π(2x - 1) turns `f` into √(2π)·exp(-2π²(x - ½)²), the normal
+# density with mean 1/2 and standard deviation 1/(2π). Rejecting draws outside the domain
+# samples that normal conditioned on the domain. Its density differs from `f` by the
+# normalisation for the excluded tails; the comparison below includes that truncation error.
 xmean = 0.5
 xstd = 1 / 2π
 samples = Vector{Float64}(undef, npart)
@@ -101,9 +101,8 @@ dist.particles.w .= (ones(npart) ./ npart)'
 
 projection!(potential, dist)
 
-# The deposit is the load vector ∫ρφᵢ; the density's spline coefficients are what the mass
-# matrix maps that to. The two steps are written out separately because the figure below is
-# about the reconstruction, not about the residual that is solved for.
+# The deposit is the load vector ∫ρφᵢ. Solving the mass-matrix system gives the density's
+# spline coefficients, rather than the load vector plotted as though it were a density.
 quadrature = SplineQuadrature(pbasis)
 ρ = Spline(pbasis, mass_factorization(quadrature) \ PoissonSolvers.rhs(potential))
 
@@ -111,9 +110,9 @@ x = range(domain[begin], domain[end]; length = 501)
 # The assertion is taken on the test's own grid, where its tolerance belongs.
 xa = domain[begin]:0.1:domain[end]
 
-# The error here is the sampling error of a million draws: 9.3e-3 at the seed above. The
-# tolerance below is the test's own, and it is not widened for this page.
-err = maximum(abs, f.(xa) .- ρ.(xa))
+# Match the test's Euclidean norm and absolute tolerance on its grid. The error includes
+# sampling, truncation and spline approximation; no tolerance is widened for this page.
+err = sqrt(sum(abs2, f.(xa) .- ρ.(xa)))
 err ≤ 2.5e-2 || error("the projected density is off by ", err)
 
 fig = Figure(size = (760, 420))
@@ -133,10 +132,9 @@ length(ax.scene.plots) == 3 || error("expected three plots, got ", length(ax.sce
 fig
 ```
 
-The three curves are the deposition accuracy seen at once: the histogram is the sample, ``\rho``
-is what the projection made of it, and ``f`` is the density the sample was drawn from. The
-assertion above them is the same statement `test/projections/projections.jl` makes numerically,
-with the tolerance that the sampling error of ``10^6`` draws justifies.
+The histogram shows the sampled, truncated density. The spline ``\rho`` reconstructs the
+deposited particles, and ``f`` is the untruncated normal density. The assertion uses the same
+Euclidean norm and tolerance as `test/projections/projections.jl`.
 
 ## Particles → spline
 
@@ -195,10 +193,12 @@ and `SVector` accepts both, so `project_Maxwellian` is one method for every dime
 
 ## Spline → moments
 
-These are the moments the collision operators read off ``f_s``, and they are **sums over the
-particles**, ``\sum_\alpha \pi(v_\alpha) f_s(v_\alpha)``, not integrals ``\int \pi(v) f_s(v)
-\, dv`` — the spline is sampled where the particles are and nowhere else. The `isDerivative`
-keyword puts ``f_s'`` in place of ``f_s``, and no particle weight enters either.
+These helper functions compute **sums over the particles**,
+``\sum_\alpha \pi(v_\alpha) f_s(v_\alpha)``, not integrals ``\int \pi(v) f_s(v) \, dv``.
+The spline is sampled only at the supplied velocities. The `isDerivative` keyword puts
+``f_s'`` in place of ``f_s``, and no particle weight enters either. The collision operators
+do not call these helpers; the conservative Lenard–Bernstein coefficients use weighted
+particle moments instead.
 
 The third of them is the second moment ``v^2`` and is called `projection_second_moment`, not an
 energy: an energy would carry the factor ``\tfrac{1}{2}``, and in a phase-space model it also
@@ -243,10 +243,10 @@ the direction as absent and `KNOWN_ISSUES.md` records it.
 beside the other two, but no method takes a `ParticleDistribution` and a `GridDistribution`
 together, or a `SplineDistribution` and a `GridDistribution` together.
 
-The spline one is absent for a reason that is worth stating: a `SplineDistribution` is a spline
-in ``v`` only, with no ``x``-dependence at all. A phase-space function on a grid therefore has no
-spline it could be projected onto, and the only thing a spline can contribute to a grid is a
-factor ``f_s(v)`` in a product ``g(x) \cdot f_s(v)``.
+A `SplineDistribution` represents a function of ``v`` only. Mapping a general phase-space
+grid to one therefore needs a choice of spatial slice or spatial average, which these
+interfaces do not provide. In the other direction, a spatial factor ``g(x)`` can supply the
+missing dependence through the separable product ``g(x) \cdot f_s(v)``.
 
 ## Function → grid
 
