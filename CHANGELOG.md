@@ -306,8 +306,8 @@ first entry is written.
   The state is `vec(dist.values)` and the right-hand side is GeometricBrackets' Arakawa bracket,
   `∂ₜf = −[f, v²/2 + ϕ]` with `ϕ` the potential's own solve, so the scheme holds the discrete
   Hamiltonian `hx·hv·Σ f v²/2 + (hx/2)·Σ ρᵢϕᵢ` to round-off, and the `L¹` norm `hx·hv·Σ|f|` to
-  round-off plus twice the negative mass it accumulates, which Arakawa keeps non-negative only
-  up to round-off, over a horizon long enough to distinguish that from a passing tolerance.
+  round-off plus twice the negative mass it accumulates, over a horizon long enough to distinguish
+  that from a passing tolerance.
 
   - The field is solved once, at construction, as the `nx × nx` Green's matrix of the potential's
     backend: `ϕ = Gρ` for `ρᵢ = hv·Σⱼ f_ij`, which makes `∂H/∂f = hx·hv·h` exact. `G` is stored in

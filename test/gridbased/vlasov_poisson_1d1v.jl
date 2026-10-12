@@ -202,8 +202,8 @@ end
         @test isapprox(run.L¹[end], run.Σ[end] + 2 * run.negmass[end];
             rtol = 4 * nx * nv * eps(T))
 
-        # the mass and the Hamiltonian above keep only while `f` vanishes at `v_a` and `v_b`,
-        # because the bracket is periodic in `v`; the bound is asserted at every saved step
+        # the scheme is periodic in `v`, so a run is valid only while `f` vanishes at `v_a` and `v_b`;
+        # the bound is asserted at every saved step
         @test maximum(run.edge) ≤ 1
 
         diagnostics = (; T_horizon = tspan[2], n_steps = nsteps, drift, driftₑ, bound,
