@@ -28,8 +28,7 @@ import GeometricEquations: ntime
 import SimpleSolvers
 
 # The `_nx` and `_nv` accessors are extended rather than redefined, so that one generic covers
-# both collision tensors. `Arakawa` and `poisson_apply` are the grid scheme's (P16); the
-# `PoissonTensor` that VlasovMethods' own `ReducedTensor` needed goes with that type.
+# both collision tensors.
 using GeometricBrackets: Arakawa, poisson_apply
 import GeometricBrackets: _nx, _nv
 
