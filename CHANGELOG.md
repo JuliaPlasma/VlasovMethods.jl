@@ -384,6 +384,20 @@ first entry is written.
   correct and only the run time changes. Guarded on `--check-bounds=auto`, because `Pkg.test()`'s
   default `=yes` inflates allocation counts and would make the ceiling meaningless.
 
+### Documentation
+
+- **The manual gains a page on projecting between the three representations of the distribution
+  function.** `docs/src/projections.md` is the map of the directions between
+  `ParticleDistribution`, `SplineDistribution` and `GridDistribution`: every direction that a
+  method implements runs as an executed `@example` block, so the page fails its own build when a
+  call drifts from the API, and every direction that no method implements is named as absent
+  rather than left out. Deposition is the worked example of `test/projections/projections.jl` —
+  the same million particles, seed, sampler and tolerance — and it ends in a CairoMakie figure of
+  the particle histogram, the projected density and the analytic density on one axis. The page
+  names `spline → particles` as absent, and K50 records why. `docs/Project.toml` gains CairoMakie,
+  PoissonSolvers, SimpleSplines and Random, and a `[sources]` entry so that the examples run
+  against the checkout instead of the registered package.
+
 ### Internal
 
 - **CI uploads coverage from the `Julia 1 - ubuntu-latest` job instead of `Julia min`, and a

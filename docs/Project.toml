@@ -1,6 +1,16 @@
 [deps]
+CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+PoissonSolvers = "8f9e8900-be71-40de-a258-603fdc860a2d"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+SimpleSplines = "ac480f6c-9a94-4d53-a283-9db69f109154"
 VlasovMethods = "4a954452-39e6-424b-ae51-38fc4bbc42ef"
+
+# Relative, so that it resolves in a clone as well as here. `Pkg.develop` writes an absolute
+# machine-local path in its place — do not let it. Without this entry the projection page's
+# examples run against the registered VlasovMethods rather than the tree they document.
+[sources]
+VlasovMethods = {path = ".."}
 
 [compat]
 Documenter = "1.19.0"

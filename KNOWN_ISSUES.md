@@ -470,3 +470,18 @@ takes the next `K<n>`.
   keep the assertion is open.
 - **kind:** missing test
 - **found:** #69
+
+### K50 · Projecting a spline distribution back onto particles is not implemented.
+
+- **location:** `src/projections/distribution.jl:179`
+- **evidence:** The method raises
+  `error("projecting a spline distribution back onto particles is not implemented")`. Two meanings
+  are available for the direction and neither is chosen: (a) draw a new particle sample from
+  `f_s`, the reverse of the projection onto the spline, which is the direction a reduced model
+  would lift a reduced state back onto particles with; (b) keep the particle positions and set the
+  weights `w_α ∝ f_s(v_α)`, which is a quadrature of `f_s` at the positions that happen to be
+  there rather than a sample of it. Each needs a rule for where `f_s < 0`, which K8 records as
+  open. The docs page on the projections names the direction as absent and writes the two
+  meanings out.
+- **kind:** defect
+- **found:** 2026-10-12. The pull-request number replaces the date when the pull request opens.
