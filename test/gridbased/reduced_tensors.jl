@@ -212,7 +212,7 @@ bound(::Type{DT}, R) where {DT} = sqrt(eps(DT)) * maximum(abs, R)
             @test_throws ArgumentError FullyReducedTensor(gt, OT.(Pi), Pj, Px)
 
             # a direction shorter than `2w + 1` makes the stencil name a node twice, which
-            # `ReducedTensor` refuses; the 2 × 5 grid is long enough for width 1 per direction
+            # `ReducedTensor` refuses; the 2 × 5 grid is too short for width 1 in its first direction
             local short = neighbourhood_tensor(Xoshiro(7), DT, (2, 5), 1)
             local Qi = orthonormal(Xoshiro(1), DT, 10, 3)
             local Qj = orthonormal(Xoshiro(2), DT, 10, 2)

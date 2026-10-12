@@ -47,7 +47,7 @@ GeometricIntegrators = "0.18.6"
 HDF5 = "0.17"
 LinearAlgebra = "1"
 Logging = "1"
-# 0.1.2 is the first release that exports `GridTensor`, and the floor of ReducedBasisMethods 0.2.
+# `GridTensor` and ReducedBasisMethods 0.2 require MultiIndexArrays 0.1.2 or newer.
 MultiIndexArrays = "0.1.2"
 Parameters = "0.12, 0.13"
 ParticleMethods = "0.1.2"

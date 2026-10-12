@@ -100,8 +100,8 @@ first entry is written.
   pins `MultiIndexArrays` 0.1.1 does not resolve.
 
 - **The three reduced grid tensors are rebuilt (K3, K15, K16, K17).** `FullyReducedTensor` never
-  constructed: its constructor asserted on a parameter named `Pα` while its argument is the
-  potential's projection, and its `getindex` then read an undefined `α` (K3). It now takes that
+  constructed: its constructor asserted on the undefined `Pk` while its argument, the potential's
+  projection, was named `Pα`, and its `getindex` read an undefined `α` (K3). It now takes that
   projection and is exported. `VelocityReducedMatrix` read `v²[k]` at the linear node where its
   own comment weights the velocity node, and without the `½`; the `½` is applied inside the sum
   and `v²` holds the `nv` squared velocity nodes. `size(rt, i)` and `axes(rt, i)` on the three
@@ -452,7 +452,7 @@ first entry is written.
   `ReducedTensor(tensor, Pi, Pj)` from them first, so that its checks on the rows, on the element
   types and on the stencil width run once and live in one place. With `R` that reduced tensor and
   `(n₁, n₂)` the grid indices of the node `K`, `PotentialReducedTensor[i, j, k] = ∑_K R[i, j, K]
-  · Pk[K, k]` projects the third index onto a basis of `N` modes,
+  · Pk[K, k]` projects the third index onto a basis of `size(Pk, 2)` modes over the `N` nodes,
   `FullyReducedTensor[i, j, k] = ∑_K R[i, j, K] · Px[n₁, k]` projects it onto the potential's
   modes at the node's `x` index, and `VelocityReducedMatrix[i, j] = ∑_K R[i, j, K] · v²[n₂] / 2`
   contracts it with the squared velocity nodes. `Px` has one row per `x` node and not one per
