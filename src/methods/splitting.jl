@@ -12,6 +12,18 @@ struct SplittingMethod{MT, ET, IT} <: ParticleMethod
     end
 end
 
+# The splitting method of a model from GeometricIntegrators, over a copy of the model's particle
+# state: one solution step pushes all particles. This keeps the implementation simple, but does
+# not suit parallelisation. `fields` and `solutions` are the vector fields and their exact
+# solutions, one pair per component, and `splitting` is the composition.
+function _splitting_method(model, fields::Tuple, solutions::Tuple, params, tspan::Tuple,
+        tstep::Real, splitting)
+    equ = GeometricEquations.SODEProblem(fields, solutions, tspan, tstep,
+        copy(model.distribution.particles.z); parameters = params)
+    int = GeometricIntegrators.GeometricIntegrator(equ, splitting)
+    return SplittingMethod(model, equ, int)
+end
+
 # solution storage
 function copy_to_hdf5(h5z, z, n)
     h5z[:, :, n + 1] = z
@@ -25,23 +37,29 @@ function run!(method::SplittingMethod, h5file)
     nd = size(z₀, 1)
     np = size(z₀, 2)
 
-    # create HDF5 file and copy initial conditions
+    # The time grid of a `Solution` of the same problem, the range `t₀:Δt:t₁`. Its length is the
+    # number of states a run holds, the initial one included. It is one point shorter than
+    # `ntime(equation) + 1` wherever the span is not an exact multiple of the step, because
+    # `ntime` rounds the step count up (`div(t₁ - t₀, Δt, RoundUp)`).
+    prob = method.equation
+    t₀ = GeometricEquations.initialtime(prob)
+    t₁ = GeometricEquations.finaltime(prob)
+    times = t₀:GeometricEquations.timestep(prob):t₁
+
+    # create HDF5 file and copy initial conditions. A chunk dimension of zero is invalid, and a
+    # zero-particle run has one: the dataset itself may be empty, its chunk may not.
     h5 = h5open(h5file, "w")
     h5z = create_dataset(
-        h5, "z", eltype(z₀), ((nd, np, ntime(method.equation)+1), (nd, np, -1)),
-        chunk = (nd, np, 1))
+        h5, "z", eltype(z₀), ((nd, np, length(times)), (nd, np, -1)),
+        chunk = (nd, max(np, 1), 1))
     copy_to_hdf5(h5z, z₀, 0)
 
     # One solution step is advanced through the run and written out after each step, so only one
     # state is held. The step times are those of a `Solution` of the same problem.
-    prob = method.equation
     solstep = GeometricIntegrators.GeometricIntegratorsBase.solutionstep(
         method.integrator, GeometricEquations.initialstate(prob))
-    t₀ = GeometricEquations.initialtime(prob)
-    t₁ = GeometricEquations.finaltime(prob)
-    times = t₀:GeometricEquations.timestep(prob):t₁
     try
-        for n in 1:ntime(prob)
+        for n in 1:(length(times) - 1)
             GeometricIntegrators.reset!(solstep, times[n + 1])
             GeometricIntegrators.integrate!(solstep, method.integrator)
             copy_to_hdf5(h5z, solstep.q, n)

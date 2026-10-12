@@ -125,7 +125,13 @@ include("models/lenard_bernstein_metriplectic.jl")
 include("models/rescaled_lenard_bernstein_conservative.jl")
 include("models/vlasov_poisson.jl")
 
+# The `ElectromagneticFields` adapter lives in `ext/VlasovMethodsElectromagneticFieldsExt.jl`
+# and loads when both packages are loaded. The field interface is defined by the included model.
+include("models/vlasov_with_external_fields.jl")
+
 export VlasovPoisson
+export VlasovWithExternalFields, UniformField, electric_field, magnetic_field
+export sodeensemble
 export LenardBernstein
 export ConservativeLenardBernstein
 export RescaledConservativeLenardBernstein
