@@ -15,7 +15,7 @@ function run!(int::GeometricIntegrator, h5file)
     t₀ = GeometricEquations.initialtime(prob)
     z₀ = prob.ics.q
 
-    # dimensions and number of particles
+    # the length of the state
     np = size(z₀, 1)
 
     # create HDF5 file and copy initial conditions
@@ -49,8 +49,7 @@ function run!(int::GeometricIntegrator, h5file)
     return _write_back!(int.model, solstep.q)
 end
 
-# The particle models keep their positions in `dist.particles.v`, whose first row the integrator
-# steps; a grid model keeps the whole state in `distribution.values` and has its own method, in
+# The particle models step the first row of `dist.particles.v`; a grid model keeps the whole state in `distribution.values` and has its own method, in
 # `src/gridbased/vlasov_poisson_1d1v.jl`. Both return the distribution.
 function _write_back!(model, q)
     model.dist.particles.v[1, :] .= q

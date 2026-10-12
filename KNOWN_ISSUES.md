@@ -186,7 +186,7 @@ takes the next `K<n>`.
 - **kind:** upstream
 - **found:** 2026-10-02
 
-### K19 · A particle `VlasovPoisson` cannot be built with a grid `Potential` basis.
+### K19 · A particle or spline `VlasovPoisson` cannot be built with a grid `Potential` basis.
 
 - **location:** `src/models/vlasov_poisson.jl`
 - **evidence:** `PoissonSolvers.FFTWBasis` and `FiniteDifferenceBasis` are not

@@ -164,8 +164,8 @@ export ReducedTensor, PotentialReducedTensor, VelocityReducedMatrix
 
 include("gridbased/collisions.jl")
 
-# The grid 1D1V Vlasov–Poisson scheme is last of the gridbased files: it defines the method of
-# `_write_back!` that `run!(::GeometricIntegrator, h5file)` reaches for a grid model.
+# The grid 1D1V Vlasov–Poisson scheme adds methods whose signatures name `VlasovPoisson` and
+# `GeometricIntegrator`, so it is included after both.
 include("gridbased/vlasov_poisson_1d1v.jl")
 
 # The particle-based reduction in `src/particles/` is not included: each of the four files

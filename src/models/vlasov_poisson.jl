@@ -12,17 +12,13 @@ struct VlasovPoisson{XD, VD, DT <: DistributionFunction{<:Any, XD, VD}, PT <: Po
 
     function VlasovPoisson(dist::DistributionFunction{<:Any, XD, VD}, potential) where {
             XD, VD}
-        work = _deposit_buffer(potential)
+        work = _work(dist, potential)
         new{XD, VD, typeof(dist), typeof(potential), typeof(work)}(dist, potential, work)
     end
-
-    # A second inner constructor, more specific in both arguments than the one above, because
-    # only an inner method reaches `new`: its field is the Green's matrix `_green_matrix` solves.
-    function VlasovPoisson(dist::GridDistribution, potential::Potential)
-        work = _green_matrix(dist, potential)
-        new{1, 1, typeof(dist), typeof(potential), typeof(work)}(dist, potential, work)
-    end
 end
+
+_work(dist, potential) = _deposit_buffer(potential)
+_work(dist::GridDistribution, potential::Potential) = _green_matrix(dist, potential)
 
 function update_potential!(model::VlasovPoisson)
     projection!(model.potential, model.distribution)

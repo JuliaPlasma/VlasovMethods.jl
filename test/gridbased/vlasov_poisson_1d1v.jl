@@ -1,4 +1,3 @@
-import GeometricEquations
 using GeometricEquations: ntime
 using GeometricIntegrators: GeometricIntegrators
 using HDF5: h5read
@@ -10,19 +9,13 @@ using VlasovMethods
 
 const VM = VlasovMethods
 
-# The scheme's own stepping loop, without the HDF5 file, so that every saved step can be read:
-# `run!(::GeometricIntegrator, h5file)` advances the same solution step the same way. The two
-# `march(model, …)` forms build the integrator, so that the three-argument one exercises the
-# method the constructor defaults to.
-#
-# `H` is the discrete Hamiltonian of the scheme, `hx*hv*Σ f v²/2 + (hx/2)*dot(ρ, ϕ)` with `ϕ` the
-# field the backend returns for `ρ = hv*Σ f`. It is computed here and not in `src`, so that a sign
-# or a scale flip in the right-hand side cannot be matched by an equally flipped energy. `Σ` is
-# `hx*hv*Σf` and `L¹` is `hx*hv*Σ|f|`, the two sums the mass assertions separate; `edge` is the
-# velocity edge in units of `eps(T)*maximum(abs, f)`, and `negmass` the negative mass of the L¹
-# bound.
+# The diagnostics of every step of a run of `int`, which builds the method the constructor
+# defaults to when `march(model, tspan, tstep)` is called. `H` is the discrete Hamiltonian
+# `hx*hv*Σ f v²/2 + (hx/2)*dot(ρ, ϕ)` with `ϕ` the backend's field for `ρ = hv*Σ f`, computed here
+# and not in `src`, so that a sign or a scale flip in the right-hand side cannot be matched by an
+# equally flipped energy. `Σ` is `hx*hv*Σf`, `L¹` is `hx*hv*Σ|f|`, `negmass` the negative mass of
+# the L¹ bound, and `edge` the velocity edge in units of `eps(T)*maximum(abs, f)`.
 function march(int)
-    prob = int.equation
     dist = int.model.distribution
     T = eltype(dist.values)
     nx, nv = size(dist.values)
@@ -30,44 +23,21 @@ function march(int)
     v = dist.v
     solver = int.model.potential.solver
 
-    function energy(f)
-        F = reshape(f, nx, nv)
+    function energy(F)
         ρ = hv .* vec(sum(F; dims = 2))
         return hx * hv * sum(F[i, j] * v[j]^2 / 2 for j in 1:nv, i in 1:nx) +
                (hx / 2) * dot(ρ, solve(solver, ρ))
     end
+    edge(F) = max(maximum(abs, @view(F[:, 1])), maximum(abs, @view(F[:, nv]))) /
+              (eps(T) * maximum(abs, F))
 
-    times = GeometricEquations.initialtime(prob):GeometricEquations.timestep(prob):GeometricEquations.finaltime(prob)
-    n = ntime(prob)
-    solstep = GeometricIntegrators.GeometricIntegratorsBase.solutionstep(
-        int.integrator, GeometricEquations.initialstate(prob))
+    sol = GeometricIntegrators.integrate(int.integrator)
+    Fs = [reshape(sol.q[n], nx, nv) for n in 0:ntime(int.equation)]
 
-    H = Vector{T}(undef, n + 1)
-    Σ = Vector{T}(undef, n + 1)
-    L¹ = Vector{T}(undef, n + 1)
-    negmass = Vector{T}(undef, n + 1)
-    minf = Vector{T}(undef, n + 1)
-    edge = Vector{T}(undef, n + 1)
-
-    function record!(s, f)
-        F = reshape(f, nx, nv)
-        H[s] = energy(f)
-        Σ[s] = hx * hv * sum(F)
-        L¹[s] = hx * hv * sum(abs, F)
-        negmass[s] = hx * hv * sum(fᵢ -> max(-fᵢ, zero(T)), F)
-        minf[s] = minimum(F)
-        edge[s] = max(maximum(abs, @view(F[:, 1])), maximum(abs, @view(F[:, nv]))) /
-                  (eps(T) * maximum(abs, F))
-    end
-
-    record!(1, solstep.q)
-    for s in 1:n
-        GeometricIntegrators.reset!(solstep, times[s + 1])
-        GeometricIntegrators.integrate!(solstep, int.integrator)
-        record!(s + 1, solstep.q)
-    end
-
-    return (H = H, Σ = Σ, L¹ = L¹, negmass = negmass, minf = minf, edge = edge)
+    return (H = energy.(Fs), Σ = [hx * hv * sum(F) for F in Fs],
+        L¹ = [hx * hv * sum(abs, F) for F in Fs],
+        negmass = [hx * hv * sum(fᵢ -> max(-fᵢ, zero(T)), F) for F in Fs],
+        minf = minimum.(Fs), edge = edge.(Fs))
 end
 
 march(model, tspan, tstep, method) = march(GeometricIntegrator(model, tspan, tstep, method))
@@ -93,8 +63,8 @@ end
         nx, nv, k = 8, 12, T(0.5)
         xd = (zero(T), T(4π))
         vd = (T(-5), T(5))
-        x = range(xd[1], xd[2]; length = nx + 1)[1:nx]
-        v = range(vd[1], vd[2]; length = nv)
+        dist = GridDistribution(zeros(T, nx, nv), xd, vd)
+        x, v = dist.x, dist.v
         hx, hv = step(x), step(v)
 
         # the grid of `GridDistribution`, not the driver's `range(0, 1, length = nx)` with
@@ -106,7 +76,7 @@ end
         @test first(v) == vd[1]
         @test last(v) == vd[2]
 
-        dist = GridDistribution([cos(k * x[i]) * v[j] for i in 1:nx, j in 1:nv], xd, vd)
+        dist.values .= cos.(k .* x) .* v'
         model = VlasovPoisson(dist, Potential(FFTWBasis(xd, nx)))
 
         int = GeometricIntegrator(model, (zero(T), one(T)), one(T))
@@ -179,36 +149,35 @@ end
         model = VlasovPoisson(dist, Potential(FFTWBasis((zero(T), T(4π)), nx)))
         tspan = (zero(T), T(nsteps) * T(dt))
 
-        run = march(model, tspan, T(dt))
+        res = march(model, tspan, T(dt))
 
         # the discrete Hamiltonian, and the explicit midpoint of the same order at the same step,
         # whose drift must be at least ten times the bound
-        drift = abs(run.H[end] - run.H[1]) / abs(run.H[1])
+        drift = abs(res.H[end] - res.H[1]) / abs(res.H[1])
         bound = nsteps * 2eps(T)
         explicit = march(model, tspan, T(dt), GeometricIntegrators.ExplicitMidpoint())
         driftₑ = abs(explicit.H[end] - explicit.H[1]) / abs(explicit.H[1])
 
         @test drift ≤ bound
         @test driftₑ ≥ 10 * bound
-        @test driftₑ ≥ 10 * drift
 
         # the mass, and the L¹ norm `hx*hv*Σ|f|` rather than `hx*hv*Σf`. Arakawa keeps L¹ only up
         # to twice the negative mass, which is the second term. The identity below is what
         # separates the two sums: `|f| = f + 2*max(-f, 0)` at every node, so a run whose L¹ was
         # `Σf` would miss its right-hand side by twice this negative mass.
         mass_bound = 10 * nsteps * eps(T)
-        @test abs(run.Σ[end] - run.Σ[1]) / abs(run.Σ[1]) ≤ mass_bound
-        @test abs(run.L¹[end] - run.L¹[1]) / abs(run.L¹[1]) ≤
-              mass_bound + 2 * run.negmass[end] / abs(run.L¹[1])
-        @test isapprox(run.L¹[end], run.Σ[end] + 2 * run.negmass[end];
+        @test abs(res.Σ[end] - res.Σ[1]) / abs(res.Σ[1]) ≤ mass_bound
+        @test abs(res.L¹[end] - res.L¹[1]) / abs(res.L¹[1]) ≤
+              mass_bound + 2 * res.negmass[end] / abs(res.L¹[1])
+        @test isapprox(res.L¹[end], res.Σ[end] + 2 * res.negmass[end];
             rtol = 4 * nx * nv * eps(T))
 
         # the scheme is periodic in `v`, so a run is valid only while `f` vanishes at `v_a` and `v_b`;
         # the bound is asserted at every saved step
-        @test maximum(run.edge) ≤ 1
+        @test maximum(res.edge) ≤ 1
 
         diagnostics = (; T_horizon = tspan[2], n_steps = nsteps, drift, driftₑ, bound,
-            minf = minimum(run.minf), negmass = run.negmass[end], edge = maximum(run.edge))
+            minf = minimum(res.minf), negmass = res.negmass[end], edge = maximum(res.edge))
         @info "checks 1 to 3" T diagnostics
     end
 

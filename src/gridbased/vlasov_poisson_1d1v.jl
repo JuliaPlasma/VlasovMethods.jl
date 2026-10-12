@@ -9,7 +9,7 @@ gives the field of a density in one product:
 ```
 
 It is assembled once, at model construction, by solving the backend for the ``n_x`` unit vectors,
-and symmetrised in place. ``\phi`` is linear in ``\rho``, so ``G \rho`` is the backend's
+and symmetrised. ``\phi`` is linear in ``\rho``, so ``G \rho`` is the backend's
 ``\phi`` to round-off, and `G`'s symmetry makes ``\partial H / \partial f = h_x h_v h`` exact:
 the discrete Hamiltonian ``H = h_x h_v \sum_{ij} f_{ij} v_j^2 / 2 + (h_x/2) \sum_i \rho_i \phi_i``
 is quadratic in ``f``, and this is what lets an implicit midpoint step conserve it. `G` is
@@ -47,28 +47,19 @@ function _green_matrix(dist::GridDistribution, potential::Potential)
 
     b.xgrid[1:nx] == dist.x || throw(ArgumentError(
         "the potential's x-grid $(collect(b.xgrid[1:nx])) is not the distribution's " *
-        "$(collect(dist.x)); build the distribution from the same domain with " *
-        "`GridDistribution(values, xdomain, vdomain)`"))
+        "$(collect(dist.x)); build the distribution from the same domain, in the potential's " *
+        "element type, with `GridDistribution(values, xdomain, vdomain)`"))
 
     # Fewer than three nodes per direction is Arakawa's own check, which the bracket the run
     # uses performs too; this one surfaces it at construction. It is discarded.
     Arakawa(nx, nv, step(dist.x), step(dist.v))
 
-    S = eltype(b)
-    G = zeros(eltype(dist.values), nx, nx)
-    col = zeros(S, nx)
-    solution = similar(col)
-    for c in 1:nx
-        fill!(col, zero(S))
-        col[c] = one(S)
-        # the cell problem is solved in the solver's element type and converted into `G`, so a
-        # potential of another precision is converted rather than refused
-        PoissonSolvers.solve!(solution, solver, col)
-        G[:, c] .= solution
-    end
-    G .= (G .+ G') ./ 2
+    # the unit vectors are solved in the potential's element type and `G` is stored in the
+    # distribution's; the two differ only where the exact grid comparison above holds in both
+    T, S = eltype(dist.values), eltype(b)
+    G = stack(T.(PoissonSolvers.solve(solver, S.(1:nx .== c))) for c in 1:nx)
 
-    return G
+    return (G + G') / 2
 end
 
 @doc raw"""
@@ -84,7 +75,7 @@ Arakawa's discretisation of the 1D1V Vlasov–Poisson right-hand side, as the ve
 
 for a charge of ``+1`` and ``-\phi'' = \rho - \bar{\rho}``, with `G` the Green's matrix that
 [`_green_matrix`](@ref) assembles. `params.arakawa` is the bracket, `params.v` the velocity
-nodes and `params.work` that matrix; the state `f` is the node values of a `GridDistribution` in
+nodes and `params.G` that matrix; the state `f` is the node values of a `GridDistribution` in
 the order of `vec(dist.values)`.
 
 The bracket is doubly periodic, so the ``v``-index of the last node wraps onto the first with
@@ -95,27 +86,10 @@ then solved as the periodic problem, the wrap transporting mass from ``v_b`` to 
 the torus identities it is checked by still hold.
 """
 function _grid_1d1v_rhs!(ḟ, t, f, params)
-    b = params.arakawa
-    v = params.v
-    G = params.work
-    T = eltype(f)
-    nx, nv = b.nx, b.nv
-    hx, hv = b.hx, b.hv
-
-    ρ = zeros(T, nx)
-    for j in 1:nv, i in 1:nx
-
-        ρ[i] += hv * f[i + (j - 1) * nx]
-    end
-    ϕ = G * ρ
-
-    h = Vector{T}(undef, nx * nv)
-    for j in 1:nv, i in 1:nx
-
-        h[i + (j - 1) * nx] = v[j]^2 / 2 + ϕ[i]
-    end
-
-    ḟ .= poisson_apply(b, f, h) ./ (hx * hv)
+    (; arakawa, v, G) = params
+    ϕ = G * (arakawa.hv .* vec(sum(reshape(f, arakawa.nx, arakawa.nv); dims = 2)))
+    h = vec(ϕ .+ v' .^ 2 ./ 2)
+    ḟ .= poisson_apply(arakawa, f, h) ./ (arakawa.hx * arakawa.hv)
 
     return ḟ
 end
@@ -144,7 +118,7 @@ function GeometricIntegrator(model::VlasovPoisson{1, 1, <:GridDistribution}, tsp
         tstep::Real, method = Integrators.ImplicitMidpoint())
     dist = model.distribution
     params = (arakawa = Arakawa(size(dist.values)..., step(dist.x), step(dist.v)),
-        v = dist.v, work = model.work)
+        v = dist.v, G = model.work)
 
     equ = GeometricEquations.ODEProblem(
         _grid_1d1v_rhs!, tspan, tstep, copy(vec(dist.values));
@@ -159,8 +133,7 @@ end
 # write-back reshapes instead of touching `dist.particles.v`. The particle models' method is in
 # `src/methods/geometric_integrator.jl`.
 function _write_back!(model::VlasovPoisson{1, 1, <:GridDistribution}, q)
-    dist = model.distribution
-    dist.values .= reshape(q, size(dist.values))
+    copyto!(model.distribution.values, q)
 
-    return dist
+    return model.distribution
 end
