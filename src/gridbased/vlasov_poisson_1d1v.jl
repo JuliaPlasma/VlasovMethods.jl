@@ -41,8 +41,8 @@ function _green_matrix(dist::GridDistribution, potential::Potential)
             " PoissonSolverFFT or PoissonSolverMatrixFree; got a $(typeof(solver))"))
 
     nx, nv = size(dist.values)
-    PoissonSolvers.ndofs(b) == nx || throw(DimensionMismatch(
-        "the potential has $(PoissonSolvers.ndofs(b)) degrees of freedom on a distribution of " *
+    length(b) == nx || throw(DimensionMismatch(
+        "the potential has $(length(b)) degrees of freedom on a distribution of " *
         "$nx x-nodes"))
 
     b.xgrid[1:nx] == dist.x || throw(ArgumentError(
@@ -57,12 +57,14 @@ function _green_matrix(dist::GridDistribution, potential::Potential)
     S = eltype(b)
     G = zeros(eltype(dist.values), nx, nx)
     col = zeros(S, nx)
+    solution = similar(col)
     for c in 1:nx
         fill!(col, zero(S))
         col[c] = one(S)
         # the cell problem is solved in the solver's element type and converted into `G`, so a
         # potential of another precision is converted rather than refused
-        G[:, c] .= solve(solver, col)
+        PoissonSolvers.solve!(solution, solver, col)
+        G[:, c] .= solution
     end
     G .= (G .+ G') ./ 2
 

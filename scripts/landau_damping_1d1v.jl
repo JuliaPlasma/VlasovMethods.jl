@@ -27,7 +27,7 @@ function mode1(q, solver, nv, hv, x)
     ρ = hv .* vec(sum(reshape(q, NX, nv); dims = 2))
     ϕ = solve(solver, ρ)
 
-    return K * (2 / NX) * abs(sum(ϕ .* exp.(-im * K .* x)))
+    return K * (2 / NX) * abs(sum(ϕᵢ * exp(-im * K * xᵢ) for (ϕᵢ, xᵢ) in zip(ϕ, x)))
 end
 
 # The local maxima of `y = log|E₁|`, each refined by the parabola through the three samples around
@@ -57,7 +57,8 @@ function slope(ts, ys)
     t̄ = sum(ts) / length(ts)
     ȳ = sum(ys) / length(ys)
 
-    return sum((ts .- t̄) .* (ys .- ȳ)) / sum((ts .- t̄) .^ 2)
+    return sum((t - t̄) * (y - ȳ) for (t, y) in zip(ts, ys)) /
+           sum(abs2(t - t̄) for t in ts)
 end
 
 function landau_rate(nv, dt)

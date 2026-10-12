@@ -33,7 +33,8 @@ function march(int)
     function energy(f)
         F = reshape(f, nx, nv)
         ρ = hv .* vec(sum(F; dims = 2))
-        return hx * hv * sum(F .* (v' .^ 2 ./ 2)) + (hx / 2) * dot(ρ, solve(solver, ρ))
+        return hx * hv * sum(F[i, j] * v[j]^2 / 2 for j in 1:nv, i in 1:nx) +
+               (hx / 2) * dot(ρ, solve(solver, ρ))
     end
 
     times = GeometricEquations.initialtime(prob):GeometricEquations.timestep(prob):GeometricEquations.finaltime(prob)
@@ -53,9 +54,9 @@ function march(int)
         H[s] = energy(f)
         Σ[s] = hx * hv * sum(F)
         L¹[s] = hx * hv * sum(abs, F)
-        negmass[s] = hx * hv * sum(max.(-F, zero(T)))
+        negmass[s] = hx * hv * sum(fᵢ -> max(-fᵢ, zero(T)), F)
         minf[s] = minimum(F)
-        edge[s] = max(maximum(abs, F[:, 1]), maximum(abs, F[:, nv])) /
+        edge[s] = max(maximum(abs, @view(F[:, 1])), maximum(abs, @view(F[:, nv]))) /
                   (eps(T) * maximum(abs, F))
     end
 
