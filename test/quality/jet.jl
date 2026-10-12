@@ -1,9 +1,8 @@
 using JET
 using PoissonSolvers
 using VlasovMethods
-using VlasovMethods: v_acceleration!, s_acceleration!, s_drift!, s_lorentz!
+using VlasovMethods: SAcceleration, VAcceleration, VlasovHamiltonian, s_drift!, s_lorentz!
 using ElectromagneticFields
-using VlasovMethods: SAcceleration, VAcceleration, VlasovHamiltonian
 using Test
 
 include("../helpers/external_fields.jl")

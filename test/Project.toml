@@ -22,10 +22,8 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 VlasovMethods = "4a954452-39e6-424b-ae51-38fc4bbc42ef"
 
 [compat]
-# Both are test-only: `src/` calls neither. GeometricBase carries `h5save` and `h5load`; 0.6.6 is
-# the first GeometricSolutions with the HDF5 extension that defines their `EnsembleSolution`
-# methods, and it requires GeometricBase 0.15.
-GeometricBase = "0.15"
+# Test-only: `src/` does not call it. 0.6.6 is the first GeometricSolutions with the HDF5
+# extension that defines the `EnsembleSolution` methods of `h5save` and `h5load`.
 GeometricSolutions = "0.6.6"
 
 [sources]

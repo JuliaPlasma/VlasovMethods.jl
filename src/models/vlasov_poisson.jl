@@ -20,11 +20,9 @@ function update_potential!(model::VlasovPoisson)
     PoissonSolvers.update!(model.potential)
 end
 
-# The integrator steps its own copy of the particle state, so the field of a step is deposited
-# from the positions in the first row of `z`, and not from `model.distribution`, which the
-# integrator never writes. The weights come in as an argument for the same reason: the members of
-# a training-data ensemble draw their own, so a deposit that read them off the model would be
-# wrong for every member but one.
+# The field of a step is deposited from the positions in the first row of `z`, with the weights
+# `w`, and not from `model.distribution`: the integrator steps its own copy of the state, and each
+# member of a training-data ensemble carries its own weights.
 function update_potential!(model::VlasovPoisson, z::AbstractMatrix, w::AbstractMatrix)
     _deposit!(model.potential, model.work, z, w)
     PoissonSolvers.update!(model.potential)
@@ -62,9 +60,8 @@ function v_advection!(ż, t, z, params)
     end
 end
 
-# Vector field for acceleration. It carries the model instead of taking it out of the parameters:
-# a training-data ensemble's parameters are its members' weights alone, so that an
-# `EnsembleSolution` round-trips through HDF5.
+# Vector field for acceleration. It holds the model, so that the parameters are the weights
+# alone, which HDF5 can store.
 struct VAcceleration{MT}
     model::MT
 end
@@ -86,7 +83,7 @@ function s_advection!(z, t, z̄, t̄, params)
     end
 end
 
-# Solution for Lorentz force
+# Solution for acceleration
 struct SAcceleration{MT}
     model::MT
 end
@@ -103,25 +100,19 @@ end
 @doc raw"""
     VlasovHamiltonian(model)
 
-The energy of the Vlasov–Poisson model of `model`, as a callable invariant of signature
-`h(t, q, params)`,
+The energy of the Vlasov–Poisson model `model`, as an invariant `h(t, q, params)`,
 
 ```math
 h(t, q, w) = \frac{1}{2}\sum_i w_i v_i^2 + \frac{1}{2}\int (\partial_x\phi)^2 \,\mathrm{d}x ,
 ```
 
-where ``\phi`` solves the Poisson problem whose right-hand side is a *fresh deposit of the
-positions in `q`* with the weights `params.w`: a deposit of `model.distribution` in its place is
-the energy of another state. It leaves the model's `potential` holding that deposit, as the
-acceleration substeps do, and each of them deposits from its own state before it reads the field,
-so this cannot change a trajectory.
+where ``\phi`` solves the Poisson problem for a fresh deposit of the positions in `q` with the
+weights `params.w`. The call leaves that deposit in `model.potential`. Each acceleration substep
+deposits its own state before it reads the field, so this does not change a trajectory.
 
-The field term is the Gauss quadrature of ``(\partial_x\phi)^2`` at the quadrature points of the
-basis of the model's potential, whose table the constructor builds once, so a call allocates
-nothing. Every term of that sum is non-negative, and the sum holds the relative accuracy of its
-terms. The Galerkin identity ``\int(\partial_x\phi)^2 = c^\top \text{rhs}``, the same integral as
-a bilinear form, sums terms of both signs instead and loses that accuracy on a field that is
-small against them.
+The field term is the Gauss quadrature of ``(\partial_x\phi)^2`` on the basis of the potential,
+tabulated once by the constructor, so a call allocates nothing. Its terms are non-negative, so the
+sum keeps their relative accuracy also for a small field.
 """
 struct VlasovHamiltonian{MT, XT <: AbstractVector, WT <: AbstractVector}
     model::MT
@@ -156,61 +147,41 @@ function (h::VlasovHamiltonian)(t, q, params)
     return e / 2 + f / 2
 end
 
-# Constructor for a splitting method from GeometricIntegrators
-# The problem is setup such that one solution step pushes all particles.
-# While this allows for a simple implementation, it is not well-suited
-# for parallelisation.
 function SplittingMethod(
         model::VlasovPoisson{1, 1, <:ParticleDistribution}, tspan::Tuple, tstep::Real)
-    # The parameters alias the model's own weights, so the deposit sees changes to them.
-    # Ensemble members instead carry independent copies of their weights.
+    # the live view of the model's own weights, so that the deposit sees a change to them
     params = (w = model.distribution.particles.w,)
-
-    # create geometric problem
-    equ = GeometricEquations.SODEProblem(
-        (v_advection!, VAcceleration(model)),
-        (s_advection!, SAcceleration(model)),
-        tspan, tstep, copy(model.distribution.particles.z);
-        parameters = params)
-
-    # create integrator
-    int = GeometricIntegrators.GeometricIntegrator(equ, GeometricIntegrators.Strang())
-
-    # put together splitting method
-    SplittingMethod(model, equ, int)
+    _splitting_method(model, (v_advection!, VAcceleration(model)),
+        (s_advection!, SAcceleration(model)), params, tspan, tstep, GeometricIntegrators.Strang())
 end
 
 @doc raw"""
     sodeensemble(model, members, tspan, tstep)
 
-An `EnsembleProblem` that generates the training data of `model`: one sample per member of
-`members`, each member a `ParticleDistribution` whose particle count is the number of particles
-the model's potential is deposited from.
+The training data of `model` as a `GeometricEquations.SODEEnsemble`, one sample per
+`ParticleDistribution` in `members`.
 
-Every member keeps the initial condition `(q = copy(m.particles.z),)` and its own weights,
-`(w = copy(m.particles.w),)`. The weights are the deposit's, and an importance-sampled member
-carries different ones from the next, so holding them in the shared model would be wrong for
-every member but one; they are copied so that a later change to a member's distribution does not
-reach the problem. The problem also carries the Hamiltonian `VlasovHamiltonian` as its invariant,
-so that `invariants(ens)` is a `NamedTuple` rather than `NullInvariants()`.
+The initial condition of a member `m` is `(q = copy(m.particles.z),)`, and its parameters are its
+own weights, `(w = copy(m.particles.w),)`, because an importance-sampled draw gives each member
+different weights. Both are copies, so a later change to `m` does not reach the problem. The
+invariant `h` is the `VlasovHamiltonian` of `model`.
 
 `GeometricIntegrators.integrate(ens, Strang())` solves every member into one `EnsembleSolution`,
-whose per-member parameters are the members' weights; the HDF5 extension of `GeometricSolutions`
-round-trips it with `h5save` and `h5load`.
-
-The invariant is evaluated along a solution by the per-saved-state diagnostics of
-`GeometricSolutions`,
+which `h5save` and `h5load` round-trip through the HDF5 extension of `GeometricSolutions`. The
+invariant is evaluated along a stored solution once per saved state, the initial state included,
+with
 
 ```julia
 compute_invariant(sol.t, sol[i][:q], parameters(ens)[i], invariants(equation(ens)).h)
 ```
 
-which applies it once per saved state, the initial state included; the integration itself
-evaluates no invariant.
+`integrate` itself evaluates no invariant.
 
-A member whose weights and whose state name a different particle count throws an `ArgumentError`.
-The model, its potential and the state are built in one element type; mixed input is not
-supported.
+All members share the potential and the work buffer of `model`. Solve them one after another, as
+`integrate` does: members solved concurrently read each other's fields, with no error.
+
+A member whose weights and state have different particle counts throws an `ArgumentError`. The
+model and the members have one element type; mixed input is not supported.
 """
 function sodeensemble(model::VlasovPoisson{1, 1, <:ParticleDistribution},
         members::AbstractVector{<:ParticleDistribution{T, 1, 1}},

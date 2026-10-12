@@ -81,9 +81,9 @@ end
     members = [sample(T, 11; npart = npart), sample(T, 22; npart = npart)]
     model = vlasov_poisson(T; npart = npart)
 
-    # The value assertion allows rounding in `npart` kinetic terms and `nq` field terms.
-    # Its relative tolerance is `(npart + nq)·eps(T)` for these fixtures.
+    # The value assertions allow rounding in `npart` kinetic terms and `nq` field terms.
     nq = length(quadrature_nodes(SplineQuadrature(PoissonSolvers.basis(model.potential))))
+    rtol_h = (npart + nq) * eps(T)
 
     @testset "the invariant exists" begin
         ens = sodeensemble(model, members, tspan, tstep)
@@ -118,9 +118,7 @@ end
         @test q != model.distribution.particles.z
 
         value = h(zero(T), q, params)
-        @test value ≈ kinetic(w, q) + field_energy(deposit(model, q[1, :], w)) rtol = (npart +
-                                                                                       nq) *
-                                                                                      eps(T)
+        @test value ≈ kinetic(w, q) + field_energy(deposit(model, q[1, :], w)) rtol = rtol_h
 
         # One unit of velocity for every particle: the field energy of the same positions is
         # unchanged, so the value rises by `Σ w (v + ½)`. This fixture uses `npart·eps(T)` for
@@ -151,9 +149,7 @@ end
         h = invariants(equation(ens)).h
 
         @test h(zero(T), q, params) ≈
-              kinetic(params.w, q) + field_energy(deposit(model, q[1, :], params.w)) rtol = (npart +
-                                                                                             nq) *
-                                                                                            eps(T)
+              kinetic(params.w, q) + field_energy(deposit(model, q[1, :], params.w)) rtol = rtol_h
     end
 
     @testset "the members stay independent" begin
@@ -241,9 +237,8 @@ end
         z = zeros(T, 3, npart)
         # the weights of one particle more than the state, as a parameter of the list, so that
         # `w` is not the view of a row of `z`
-        list = ParticleList(z;
-            variables = (x = 1:1, v = 2:2, z = 1:2), parameters = (w = zeros(T, 1, npart +
-                                                                                   1),))
+        w = zeros(T, 1, npart + 1)
+        list = ParticleList(z; variables = (x = 1:1, v = 2:2, z = 1:2), parameters = (w = w,))
         bad = ParticleDistribution(1, 1, list)
 
         @test size(bad.particles.w, 2) == npart + 1
@@ -267,12 +262,12 @@ end
         for i in 1:nsamples(ens)
             @test eltype(loaded[i][:q]) === T
             @test loaded[i][:q] == sol[i][:q]
-            @test parameters(loaded.problem)[i].w == members[i].particles.w
         end
         @test loaded.t == sol.t
 
         # A parameter tuple of the weights alone is what makes the round trip possible; the file
-        # holds `(1, npart, nsamples)`.
+        # holds `(1, npart, nsamples)`. `h5load` takes the problem's parameters, so the file's are
+        # read here.
         raw = h5read(h5file, "parameters/w")
         @test size(raw) == (1, npart, 2)
         @test raw == cat(members[1].particles.w, members[2].particles.w; dims = 3)

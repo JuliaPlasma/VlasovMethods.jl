@@ -283,8 +283,8 @@ first entry is written.
   `sodeensemble` are the two places in `src/` that build them. The model, its potential and its
   work buffer leave the problem's parameters, which now hold the weights of the deposit alone;
   `SplittingMethod` passes `(w = model.distribution.particles.w,)`, the live view of the
-  model's own weights, so its trajectories are unchanged — bit-identical in `Float64` and
-  `Float32` on a seeded 1000-particle run. `update_potential!(model, z)` becomes
+  model's own weights, so its trajectories are unchanged, bit-identical in `Float64` and
+  `Float32`. `update_potential!(model, z)` becomes
   `update_potential!(model, z, w)`, whose `w` is the first row of weights the deposit reads. A
   caller of the two old names, or of the two-argument `update_potential!`, builds
   `VAcceleration(model)` or `SAcceleration(model)` once and calls it, or passes the weights.
@@ -448,14 +448,14 @@ first entry is written.
     and not `NullInvariants()`. `hashamiltonian` stays `false`, the equation being an `SODE`. The
     field term is the Gauss quadrature of `(∂ₓϕ)²` at the quadrature points of the potential's
     basis, tabulated once in the `VlasovHamiltonian` constructor, so a call allocates nothing. Every
-    term of that sum is non-negative, so the sum keeps the relative accuracy of its terms. The
-    Galerkin identity `c'Sc = c'rhs`, from `S c = rhs`, sums terms of both signs and loses that
-    accuracy where the field is small against them.
+    term of that sum is non-negative, so the sum keeps the relative accuracy of its terms.
   - The weights alone are what HDF5 can store, so the solution round-trips with
     `GeometricBase.h5save` and `h5load` against the same problem, per-member parameters
     included. Their `EnsembleSolution` methods come from the HDF5 extension of
-    `GeometricSolutions` 0.6.6, so `GeometricSolutions` and `GeometricBase` join
-    `test/Project.toml` as test-only dependencies. Nothing in `src/` calls either.
+    `GeometricSolutions` 0.6.6, so `GeometricSolutions` joins
+    `test/Project.toml` as a test-only dependency. `GeometricBase` is already a dependency of the
+    package; `test/Project.toml` lists it so that the test can load `h5save` and `h5load` from it.
+    Nothing in `src/` calls `GeometricSolutions`.
 
 ### Internal
 
