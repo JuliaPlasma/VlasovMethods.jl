@@ -1,4 +1,4 @@
-struct GeometricIntegrator{MT, ET, IT} <: ParticleMethod
+struct GeometricIntegrator{MT, ET, IT} <: VlasovMethod
     model::MT
     equation::ET
     integrator::IT

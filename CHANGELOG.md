@@ -346,6 +346,8 @@ first entry is written.
     final state back into the model's distribution: the velocities of a `ParticleDistribution`,
     the row the particle models step, with the positions left as they were, and
     `distribution.values`, reshaped, for a `GridDistribution`.
+  - `GeometricIntegrator` is a `VlasovMethod` and no longer a `ParticleMethod`, because it steps
+    the grid model too. Code that dispatches on `ParticleMethod` no longer reaches it.
   - `scripts/landau_damping_1d1v.jl` fits the linear Landau damping rate to the peaks of
     `|E₁(t)|` and reproduces the textbook `γ ≈ −0.1533` for `k = 0.5` and unit thermal velocity.
     Run with `julia --project=scripts scripts/landau_damping_1d1v.jl`, it measures

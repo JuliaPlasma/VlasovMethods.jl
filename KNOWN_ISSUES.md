@@ -482,3 +482,32 @@ takes the next `K<n>`.
   say that its constructor does not warn.
 - **kind:** defect
 - **found:** #71
+
+### K51 · The grid `VlasovPoisson` checks the grid size and the grid nodes with two guards and two exception types.
+
+- **location:** `src/gridbased/vlasov_poisson_1d1v.jl:27`
+- **evidence:** `_green_matrix` throws `DimensionMismatch` when `length(b) != nx` (`:27`), and
+  `ArgumentError` when `b.xgrid[1:nx] != dist.x` (`:31`). The second comparison also fails on a
+  wrong length, so one guard with one exception type would do. The `VlasovPoisson` docstring, the
+  CHANGELOG and the guard test name `DimensionMismatch`, so the merge changes a documented
+  exception. Whether to merge the two guards is open.
+- **kind:** defect
+- **found:** #72
+
+### K52 · The grid `VlasovPoisson` reads two internal fields of PoissonSolvers.
+
+- **location:** `src/gridbased/vlasov_poisson_1d1v.jl:20`
+- **evidence:** `_green_matrix` reads `potential.solver` (`:20`) and `b.xgrid` (`:31`). Neither
+  field has a public accessor in PoissonSolvers, so a change of the field names in PoissonSolvers
+  breaks the constructor. The fix is a public accessor upstream.
+- **kind:** upstream
+- **found:** #72
+
+### K53 · `_grid_1d1v_rhs!` allocates its intermediate arrays on every call.
+
+- **location:** `src/gridbased/vlasov_poisson_1d1v.jl:66`
+- **evidence:** The density (`sum`, then `.*`), `ϕ = G * …`, `h = vec(ϕ .+ v' .^ 2 ./ 2)` and the
+  result of `poisson_apply` (`:66-68`) are new arrays on each evaluation of the vector field.
+  Buffers in `params` and `mul!` would avoid them. No measurement compares the two forms.
+- **kind:** not verified
+- **found:** #72

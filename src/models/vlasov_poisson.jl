@@ -1,4 +1,26 @@
+@doc raw"""
+    VlasovPoisson(dist::DistributionFunction, potential::Potential)
 
+The Vlasov–Poisson model of one species with the distribution `dist`, whose field is the solution
+of `potential`.
+
+For a `ParticleDistribution` or a `SplineDistribution`, the field is the potential's solve for the
+deposit of the distribution, and `potential` is on a B-spline basis.
+
+For a 1D1V `GridDistribution`, the field is ``\phi = G \rho`` with ``\rho_i = h_v \sum_j f_{ij}``,
+and the constructor assembles the ``n_x \times n_x`` Green's matrix ``G`` of the potential's
+backend once. `GeometricIntegrator(model, tspan, tstep, method)` steps the model. The constructor
+throws:
+
+  - `ArgumentError` unless the potential's solver is a `PoissonSolverFFT` or a
+    `PoissonSolverMatrixFree`;
+  - `DimensionMismatch` unless the potential has one degree of freedom per `x`-node of `dist`;
+  - `ArgumentError` unless the potential's `x`-nodes are `dist.x`, and unless `dist` has at least
+    three nodes in each direction.
+
+The grid scheme is **periodic in `v`**: it is valid only while `f` vanishes to `eps(T)·maximum(f)`
+at both ends of the velocity range.
+"""
 struct VlasovPoisson{XD, VD, DT <: DistributionFunction{<:Any, XD, VD}, PT <: Potential,
     WT <: AbstractArray} <: VlasovModel
     distribution::DT
