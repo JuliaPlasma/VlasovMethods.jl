@@ -28,7 +28,7 @@ import SimpleSolvers
 
 # The phase-space tensors reduced here are built on the GeometricBrackets grid tensor, and the
 # `_nx`/`_nv` accessors are extended rather than redefined so that one generic covers both.
-using GeometricBrackets: Arakawa, PoissonTensor
+using GeometricBrackets: Arakawa, PoissonTensor, poisson_apply
 import GeometricBrackets: _nx, _nv
 
 # `import A.B` binds only `B`, so the bare module name needs an import of its own for the call
@@ -157,6 +157,11 @@ include("gridbased/reduced_tensors.jl")
 export ReducedTensor, PotentialReducedTensor, VelocityReducedMatrix
 
 include("gridbased/collisions.jl")
+
+# The grid 1D1V Vlasov–Poisson scheme is last of the gridbased files: it defines the method of
+# `_write_back!` that `run!(::GeometricIntegrator, h5file)` reaches for a grid model, and the
+# grid method of the `VlasovPoisson` constructor that `src/models/vlasov_poisson.jl` declares.
+include("gridbased/vlasov_poisson_1d1v.jl")
 
 # The particle-based reduction in `src/particles/` is not included: each of the four files
 # names a binding that neither the module nor its dependencies define —

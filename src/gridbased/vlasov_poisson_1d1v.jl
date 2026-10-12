@@ -1,0 +1,168 @@
+# The grid 1D1V Vlasov–Poisson scheme: Arakawa's bracket on the doubly periodic phase-space
+# grid of a `GridDistribution`, with the field of a PoissonSolvers backend held as a Green's
+# matrix, and GeometricIntegrators' implicit midpoint — Newton with an autodiff Jacobian — as
+# the stepper. The scheme is periodic in `v` as well as in `x`: Arakawa's stencil conserves at a
+# boundary only where the spacing of the Hamiltonian along it is constant, and `h = v²/2 + ϕ(x)`
+# is not constant on `v = v_b`. `GridDistribution`'s `v`-grid is bounded, so a run is valid only
+# while `f` vanishes at both ends of it, and every docstring here says so.
+
+@doc raw"""
+    _green_matrix(dist::GridDistribution, potential::Potential)
+
+The ``n_x \times n_x`` Green's matrix ``G`` of `potential`'s backend on the grid of `dist`, which
+gives the field of a density in one product:
+
+```math
+\rho_i = h_v \sum_j f_{ij} , \qquad \phi = G \rho .
+```
+
+It is assembled once, at model construction, by solving the backend for the ``n_x`` unit vectors,
+and symmetrised in place. ``\phi`` is linear in ``\rho``, so ``G \rho`` is the backend's
+``\phi`` to round-off, and `G`'s symmetry makes ``\partial H / \partial f = h_x h_v h`` exact:
+the discrete Hamiltonian ``H = h_x h_v \sum_{ij} f_{ij} v_j^2 / 2 + (h_x/2) \sum_i \rho_i \phi_i``
+is quadratic in ``f``, and this is what lets an implicit midpoint step conserve it. `G` is
+mean-free, the background being neutralising. `PoissonSolverMatrixFree` bounds its residual and
+not its error, which may exceed that bound by the condition number of its operator — growing as
+``n_x^2`` — so on a fine grid in `Float32` its cell solves are accurate to far fewer digits than
+``eps(Float32)``, and `G` is then only as accurate as those solves.
+
+The constructor of a grid `VlasovPoisson` calls this, so its three errors are raised there:
+
+  - `ArgumentError` unless the potential's solver is a `PoissonSolverFFT` or a
+    `PoissonSolverMatrixFree`. On a spline basis the density sampled at the nodes is not a
+    Galerkin load vector, and the field would not be the one the scheme conserves with.
+  - `DimensionMismatch` unless the potential has `size(dist.values, 1)` degrees of freedom.
+  - `ArgumentError` unless the potential's own x-nodes are the distribution's. Both are laid out
+    by `range(a, b, nx + 1)` over the same domain, so a matching grid compares exactly, and a
+    grid built in another way is refused rather than run.
+
+`dist.x` and `dist.v` also decide the bracket: `Arakawa(size(dist.values)..., step(dist.x),
+step(dist.v))` is the one the run uses, and its own check refuses fewer than three nodes per
+direction.
+"""
+function _green_matrix(dist::GridDistribution, potential::Potential)
+    b = basis(potential)
+    solver = potential.solver
+    (solver isa PoissonSolverFFT || solver isa PoissonSolverMatrixFree) ||
+        throw(ArgumentError(
+            "the grid 1D1V Vlasov–Poisson scheme solves the field through PoissonSolvers'" *
+            " PoissonSolverFFT or PoissonSolverMatrixFree; got a $(typeof(solver))"))
+
+    nx, nv = size(dist.values)
+    PoissonSolvers.ndofs(b) == nx || throw(DimensionMismatch(
+        "the potential has $(PoissonSolvers.ndofs(b)) degrees of freedom on a distribution of " *
+        "$nx x-nodes"))
+
+    b.xgrid[1:nx] == dist.x || throw(ArgumentError(
+        "the potential's x-grid $(collect(b.xgrid[1:nx])) is not the distribution's " *
+        "$(collect(dist.x)); build the distribution from the same domain with " *
+        "`GridDistribution(values, xdomain, vdomain)`"))
+
+    # Fewer than three nodes per direction is Arakawa's own check, which the bracket the run
+    # uses performs too; this one surfaces it at construction. It is discarded.
+    Arakawa(nx, nv, step(dist.x), step(dist.v))
+
+    S = eltype(b)
+    G = zeros(eltype(dist.values), nx, nx)
+    col = zeros(S, nx)
+    for c in 1:nx
+        fill!(col, zero(S))
+        col[c] = one(S)
+        # the cell problem is solved in the solver's element type and converted into `G`, so a
+        # potential of another precision is converted rather than refused
+        G[:, c] .= solve(solver, col)
+    end
+    G .= (G .+ G') ./ 2
+
+    return G
+end
+
+@doc raw"""
+    _grid_1d1v_rhs!(ḟ, t, f, params)
+
+Arakawa's discretisation of the 1D1V Vlasov–Poisson right-hand side, as the vector field of a
+`GeometricEquations.ODEProblem`:
+
+```math
+\dot{f} = - [f, h] , \qquad h_{ij} = \frac{v_j^2}{2} + \phi_i , \qquad \phi = G \rho ,
+\qquad \rho_i = h_v \sum_j f_{ij} ,
+```
+
+for a charge of ``+1`` and ``-\phi'' = \rho - \bar{\rho}``, with `G` the Green's matrix that
+[`_green_matrix`](@ref) assembles. `params.arakawa` is the bracket, `params.v` the velocity
+nodes and `params.work` that matrix; the state `f` is the node values of a `GridDistribution` in
+the order of `vec(dist.values)`.
+
+The bracket is doubly periodic, so the ``v``-index of the last node wraps onto the first with
+the spacing ``h_v = (v_b - v_a)/(n_v - 1)``. **The scheme is periodic in `v`; it is valid while
+`f` vanishes to `eps(T)·maximum(f)` at `v_a` and `v_b`**, where `T` is the element type of the
+state. A run whose distribution reaches the ends of the velocity range of `GridDistribution`
+conserves nothing, because the wrap is then a physical transport of mass across the domain.
+"""
+function _grid_1d1v_rhs!(ḟ, t, f, params)
+    b = params.arakawa
+    v = params.v
+    G = params.work
+    T = eltype(f)
+    nx, nv = b.nx, b.nv
+    hx, hv = b.hx, b.hv
+
+    ρ = zeros(T, nx)
+    for j in 1:nv, i in 1:nx
+
+        ρ[i] += hv * f[i + (j - 1) * nx]
+    end
+    ϕ = G * ρ
+
+    h = Vector{T}(undef, nx * nv)
+    for j in 1:nv, i in 1:nx
+
+        h[i + (j - 1) * nx] = v[j]^2 / 2 + ϕ[i]
+    end
+
+    ḟ .= poisson_apply(b, f, h) ./ (hx * hv)
+
+    return ḟ
+end
+
+@doc raw"""
+    GeometricIntegrator(model::VlasovPoisson{1, 1, <:GridDistribution}, tspan, tstep,
+                        method = Integrators.ImplicitMidpoint())
+
+The `GeometricIntegrator` that steps the grid 1D1V Vlasov–Poisson model `model` over `tspan`
+with step `tstep`, in the state `vec(model.distribution.values)`.
+
+`method` is any `GeometricIntegrators` method for an `ODEProblem`, and it is the one thing a
+caller chooses: `ImplicitMidpoint()` keeps ``H``, `ExplicitMidpoint()` is of the same second
+order and does not, and `RK4()` is what `scripts/landau_damping_1d1v.jl` integrates with — the
+implicit midpoint's dense Newton Jacobian is out of reach on that script's ``n_v``.
+
+The vector field is [`_grid_1d1v_rhs!`](@ref), whose parameters carry a fresh `Arakawa` bracket
+over `model.distribution`'s grid, its velocity nodes, and the Green's matrix `model.work`. The
+scheme is **periodic in `v`**, and valid only while `f` vanishes to `eps(T)·maximum(f)` at both
+ends of the velocity range: see [`_grid_1d1v_rhs!`](@ref).
+"""
+function GeometricIntegrator(model::VlasovPoisson{1, 1, <:GridDistribution}, tspan::Tuple,
+        tstep::Real, method = Integrators.ImplicitMidpoint())
+    dist = model.distribution
+    params = (arakawa = Arakawa(size(dist.values)..., step(dist.x), step(dist.v)),
+        v = dist.v, work = model.work)
+
+    equ = GeometricEquations.ODEProblem(
+        _grid_1d1v_rhs!, tspan, tstep, copy(vec(dist.values));
+        parameters = params)
+
+    int = Integrators.GeometricIntegrator(equ, method)
+
+    return GeometricIntegrator(model, equ, int)
+end
+
+# The grid model's state is the whole node array rather than a column of positions, so its
+# write-back reshapes instead of touching `dist.particles.v`. The particle models' method is in
+# `src/methods/geometric_integrator.jl`.
+function _write_back!(model::VlasovPoisson{1, 1, <:GridDistribution}, q)
+    dist = model.distribution
+    dist.values .= reshape(q, size(dist.values))
+
+    return dist
+end

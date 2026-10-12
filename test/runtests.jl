@@ -18,4 +18,5 @@ if "core" in GROUPS
     @safetestset "Vlasov–Poisson" include("integration/vlasov_poisson.jl")
     @safetestset "Names" include("integration/names.jl")
     @safetestset "Collisions" include("gridbased/collisions.jl")
+    @safetestset "Grid 1D1V Vlasov–Poisson" include("gridbased/vlasov_poisson_1d1v.jl")
 end

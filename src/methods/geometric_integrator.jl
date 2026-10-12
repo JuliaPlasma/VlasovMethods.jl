@@ -46,7 +46,14 @@ function run!(int::GeometricIntegrator, h5file)
         close(h5)
     end
 
-    int.model.dist.particles.v[1, :] .= solstep.q
+    return _write_back!(int.model, solstep.q)
+end
 
-    return int.model.dist
+# The particle models keep their positions in `dist.particles.v`, whose first row the integrator
+# steps; a grid model keeps the whole state in `distribution.values` and has its own method, in
+# `src/gridbased/vlasov_poisson_1d1v.jl`. Both return the distribution.
+function _write_back!(model, q)
+    model.dist.particles.v[1, :] .= q
+
+    return model.dist
 end
