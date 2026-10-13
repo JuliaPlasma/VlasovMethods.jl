@@ -48,7 +48,8 @@ GeometricIntegrators = "0.18.6"
 HDF5 = "0.17"
 LinearAlgebra = "1"
 Logging = "1"
-MultiIndexArrays = "0.1.1"
+# 0.1.2 is the floor ReducedBasisMethods 0.2 needs; the Downgrade job cannot resolve 0.1.1.
+MultiIndexArrays = "0.1.2"
 Parameters = "0.12, 0.13"
 ParticleMethods = "0.1.2"
 # 0.6 is the first PoissonSolvers that admits SimpleSplines 0.3, which GeometricBrackets 0.2

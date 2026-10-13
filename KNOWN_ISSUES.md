@@ -12,7 +12,9 @@ takes the next `K<n>`.
   `PoissonSolverPBSplines`; `time_marching.jl` imports
   `PBSpline`, `stiffnessmatrix`, `eval_deriv_PBSBasis` and `rhs_particles_PBSBasis` from
   `PoissonSolvers` (neither 0.5 nor 0.6 has any); `electric_field.jl` wants `ElectricField`, which
-  nothing under `src/` defines.
+  nothing under `src/` defines. `save_solution` in `time_marching.jl` writes the `(nd, nₚ)` layout
+  of `Snapshots`, but fills the scalar momentum `M` with `dot(w, v)`, which holds for `nd == 1`
+  only and throws a `DimensionMismatch` for `nd > 1`.
 - **kind:** dead code
 - **found:** 2026-09-17. Carried over from the audit that accompanied the `SimpleSplines`
   migration. None of these are regressions; each is either a numerical-methods decision or work
@@ -539,10 +541,10 @@ takes the next `K<n>`.
 
 ### K56 · `Parameter` of `ReducedComplexityModeling` rejects distinct bounds for a one-sample range.
 
-- **location:** `~/.julia/packages/ReducedComplexityModeling/JQ2wf/src/parameters/parameter.jl:33`
+- **location:** `ReducedComplexityModeling` v0.1.1, `src/parameters/parameter.jl:33`
 - **evidence:** `Parameter(name, minimum::DT, maximum::DT, n::Int)` builds
   `LinRange(minimum, maximum, n)`, which throws for `n == 1` when the endpoints differ:
-  `julia --startup-file=no --project=<worktree> -e 'using ReducedComplexityModeling; Parameter(:β, 5.95, 6.05, 1)'`
+  `julia --startup-file=no --project -e 'using ReducedComplexityModeling; Parameter(:β, 5.95, 6.05, 1)'`
   prints `ArgumentError: range(5.95, stop=6.05, length=1): endpoints differ` on the RCM 0.1.1 this
   package resolves, while `Parameter(:β, 5.95, 6.05, 2)` gives
   `Parameter{Float64, Vector{Float64}}(:β, 5.95, 6.05, [5.95, 6.05])`. A one-sample sweep is
