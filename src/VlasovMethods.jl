@@ -21,6 +21,13 @@ using StaticArrays
 using SimpleSplines
 import SimpleSplines: basis, coefficients, derivative, evaluate, mass_matrix, mass_operator
 
+# The reduced bases of a snapshot sweep are `ReducedBasisMethods`', and the parameter samples that
+# index the snapshots are `ReducedComplexityModeling`'s. `h5save` and `h5load` are that package's
+# generics, so the methods of `Snapshots` join them rather than the ones of ParticleMethods.
+using ReducedBasisMethods: ReducedBasis, PODSVD, PODEVD
+using ReducedComplexityModeling: ParameterSpace
+import ReducedComplexityModeling: h5save, h5load
+
 import GeometricEquations
 import GeometricEquations: ntime
 
@@ -173,9 +180,14 @@ include("gridbased/collisions.jl")
 # `GeometricIntegrator`, so it is included after both.
 include("gridbased/vlasov_poisson_1d1v.jl")
 
-# The particle-based reduction in `src/particles/` is not included: each of the four files
-# names a binding that neither the module nor its dependencies define —
-# `PoissonSolverPBSplines`, `PBSpline`, `ElectricField`, `ParameterSpace` — so including one
+# The particle-based reduction: the snapshots of a sweep, and the reduced bases of the particle
+# and of the field snapshot matrix they hold. The other three files of `src/particles/` are
+# present but not included, because each names a binding that neither the module nor its
+# dependencies define — `PoissonSolverPBSplines`, `PBSpline`, `ElectricField` — so including one
 # breaks the load.
+
+include("particles/snapshots.jl")
+
+export Snapshots, particle_basis, field_basis
 
 end

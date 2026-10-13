@@ -1,5 +1,5 @@
 
-using LinearAlgebra: lu, ldiv!, norm, Diagonal
+using LinearAlgebra: lu, ldiv!, norm
 using PoissonSolvers: PBSpline, stiffnessmatrix, eval_deriv_PBSBasis, rhs_particles_PBSBasis
 using ParticleMethods: ParticleList
 
@@ -83,21 +83,21 @@ function save_solution(SS, IC, Ψ, efield, w, p, t, ts, nsave, save = true)
         # advance time step index
         ts = ts+1
 
-        # create views
-        x = @view SS.X[1, :, ts, p]
-        v = @view SS.V[1, :, ts, p]
+        # create views of the `(nd, nₚ)` positions and velocities
+        x = @view SS.X[:, :, ts, p]
+        v = @view SS.V[:, :, ts, p]
 
         # reconstruct high fidelity solution
-        mul!(x, Ψ, IC.zₓ)
-        mul!(v, Ψ, IC.zᵥ)
+        mul!(vec(x), Ψ, IC.zₓ)
+        mul!(vec(v), Ψ, IC.zᵥ)
 
         # solve for potential and copy efield coefficients
         update!(efield, IC.zₓ, w, t)
-        SS.Φ[1, :, ts, p] .= coefficients(efield)
+        SS.Φ[:, ts, p] .= coefficients(efield)
 
-        # diagnostics
+        # diagnostics; the scalar momentum `M` is defined for `nd == 1` only
         SS.W[ts, p] = energy(efield)
-        SS.K[ts, p] = dot(v, Diagonal(w), v) / 2
+        SS.K[ts, p] = dot(w, sum(abs2, v; dims = 1)) / 2
         SS.M[ts, p] = dot(w, v)
     end
 
