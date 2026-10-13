@@ -1,7 +1,12 @@
 using JET
+using LinearAlgebra
 using PoissonSolvers
+using Random
+using ReducedBasisMethods: get_DEIM_interpolation_matrix
 using VlasovMethods
-using VlasovMethods: SAcceleration, VAcceleration, VlasovHamiltonian, s_drift!, s_lorentz!
+using VlasovMethods: DEIMElectricField, PoissonField, ReducedElectricField, SAcceleration,
+                     VAcceleration, VlasovHamiltonian, efield!, s_drift!, s_lorentz!,
+                     update!
 using ElectromagneticFields
 using Test
 
@@ -85,6 +90,30 @@ if isdefined(JET, :JET_AVAILABLE) ? JET.JET_AVAILABLE : JET.JET_LOADABLE
         (typeof(ct), Int, Int, Int); target_modules = (VlasovMethods,))))
     @test isempty(JET.get_reports(JET.report_opt(getindex,
         (typeof(rt), Int, Int, Int); target_modules = (VlasovMethods,))))
+
+    # test/electric_field.jl and test/particles/electric_field.jl: the full-order field and the
+    # two reduced fields, on their `@allocated` calls, at the `Float64` and `Float32` argument
+    # types those files pass. Each field is analysed once per precision, because each test file
+    # runs both.
+    for T in (Float64, Float32)
+        Random.seed!(1234)
+        q = T(0.2) .+ T(0.6) .* rand(T, 200)
+        w = fill(T(1) / 200, 200)
+        efield = PoissonField(Potential(PeriodicBasisSpline((zero(T), one(T)), 3, 16)))
+        Ψₓ = Matrix(qr(randn(T, 200, 20)).Q)
+        Ψₑ = Matrix(qr(randn(T, 200, 8)).Q)
+        Πₑ = get_DEIM_interpolation_matrix(Ψₑ)
+        X = Ψₓ' * q
+        E = similar(X)
+        t = zero(T)
+        for f in (efield, ReducedElectricField(efield, Ψₓ, X),
+            DEIMElectricField(efield, Ψₓ, Ψₑ, Πₑ, X))
+            @test isempty(JET.get_reports(JET.report_opt(update!,
+                (typeof(f), typeof(X), typeof(w), T); target_modules = (VlasovMethods,))))
+            @test isempty(JET.get_reports(JET.report_opt(efield!,
+                (typeof(f), typeof(E), typeof(X)); target_modules = (VlasovMethods,))))
+        end
+    end
 else
     @test_skip "JET does not work on this Julia version"  # aviatesk/JET.jl#681
 end

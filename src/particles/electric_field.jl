@@ -1,10 +1,32 @@
+"""
+    ReducedElectricField(field, Ψₓ, Ψₚ, Ψₑ, X)
+    ReducedElectricField(field, Ψ, X)
 
+The reduced electric field of the full-order `field`: the lift, solve and project path, with no
+hyper-reduction. The reduced coordinates `X` are lifted to the particle positions by `Ψₓ`, the
+field is deposited from them and solved, evaluated at the positions lifted by `Ψₚ`, and projected
+back by `Ψₑ`:
+
+```julia
+update!(f, X, w, t)     # deposit  Ψₓ X  and solve
+efield!(f, E, X)        # E = Ψₑ E(Ψₚ X)
+```
+
+A `DEIMElectricField` is the same path with `Ψₚ = ΠₑᵀΨₓ` and `Ψₑ = ΨₓᵀΨₑ(ΠₑᵀΨₑ)⁻¹`, which lifts
+the field evaluation to the interpolation points of the DEIM matrix instead of to every particle.
+
+The three-argument form is the full lift and the transpose projection,
+`ReducedElectricField(field, Ψ, X) = ReducedElectricField(field, Ψ, Ψ, Ψ', X)`, which is exact at
+full basis size: the reduced field then equals the projection of the full-order field onto the
+basis. See [`ElectricField`](@ref) for the interface, and [`DEIMElectricField`](@ref) for the
+hyper-reduced path.
+"""
 struct ReducedElectricField{
     FT <: ElectricField, ΨₓT <: AbstractMatrix, ΨₚT <: AbstractMatrix,
     ΨₑT <: AbstractMatrix, AT <: AbstractArray} <: ElectricField
     field::FT
     Ψₓ::ΨₓT
-    Ψₚ::ΨₑT
+    Ψₚ::ΨₚT
     Ψₑ::ΨₑT
     x::AT
     y::AT
@@ -36,7 +58,22 @@ VlasovMethods.energy(f::ReducedElectricField) = energy(f.field)
 
 VlasovMethods.coefficients(f::ReducedElectricField) = coefficients(f.field)
 
-# $ \Psi_x^T \Psi_{DEIM} \nabla \phi ( \Pi_{DEIM} \Psi_x x) $
+"""
+    DEIMElectricField(field, Ψₓ, Ψₑ, Πₑ, X)
+
+The hyper-reduced reduced electric field of the full-order `field`: a `ReducedElectricField` with
+`Ψₚ = ΠₑᵀΨₓ` and `Ψₑ = ΨₓᵀΨₑ(ΠₑᵀΨₑ)⁻¹`, where `Πₑ` is the DEIM interpolation matrix of the
+field basis `Ψₑ`. The lift of the field evaluation is
+
+```math
+E_{\\text{DEIM}} = \\Psi_x^T \\Psi_e (\\Pi_e^T \\Psi_e)^{-1} E(\\Pi_e^T \\Psi_x x),
+```
+
+so the field is evaluated at the ``k_e`` interpolation points of `Πₑ` rather than at every
+particle, and the reduced acceleration agrees with the non-hyper-reduced one to the DEIM error
+bound of the paper `ReducedBasisMethods.get_DEIM_interpolation_matrix` cites. `X` is the reduced
+coordinate the buffers of the field are sized from.
+"""
 function DEIMElectricField(field, Ψₓ, Ψₑ, Πₑ, X)
     ΠₑᵀΨₓ = Πₑ' * Ψₓ
     ΨₓᵀPₑ = Ψₓ' * Ψₑ * inv(Πₑ' * Ψₑ)

@@ -63,9 +63,10 @@ first entry is written.
   every name `LinearSolve` exports is also exported by `NonlinearSolve` (which this release also
   removes); `QuadratureRules` matched only a local variable named `weights`; `SimpleSolvers` and
   `NaNMath` were reached only from commented-out code, and `SimpleSolvers` returns below.
-  `LaTeXStrings`, `OffsetArrays` and `Plots` are reached only from `src/electric_field.jl` and
-  `src/visualisation.jl`, which no `include` names. `SciMLBase` is used only by `scripts/`, which
-  now declares it itself.
+  `LaTeXStrings`, `OffsetArrays` and `Plots` were reached only from `src/electric_field.jl` and
+  `src/visualisation.jl`, which no `include` names, and both were deleted; the
+  `src/electric_field.jl` the reduced field brings back uses none of them. `SciMLBase` is used
+  only by `scripts/`, which now declares it itself.
 
 - **`AdaptiveRejectionSampling` no longer constrains a runtime install.** It was used in one line
   of `test/projections/projections.jl` and nowhere in `src/`, yet it sat in `[deps]` rather than
@@ -110,8 +111,9 @@ first entry is written.
 - **`PoissonSolvers` and `StaticArrays` are no longer listed in `[extras]`.** Both are genuine
   `src/` dependencies and are already in `[deps]`, where the test environment picks them up.
   Listing them in both places was redundant. `OffsetArrays` was listed there too; the one file
-  that uses it, `test/electric_field.jl`, is in the `broken` group of `test/runtests.jl`
-  (issue #56), and `src/electric_field.jl`, which it covers, is commented out.
+  that used it, `test/electric_field.jl`, was in the `broken` group of `test/runtests.jl`
+  (issue #56), and the `src/electric_field.jl` it covered was deleted. The `test/electric_field.jl`
+  and `test/particles/electric_field.jl` the reduced field adds use no `OffsetArrays`.
 
 - **`scripts/` has its own environment.** Until now the scripts ran against the package's own
   `Project.toml`, which forced every package they use — `GLMakie` among them — to be a dependency
@@ -554,8 +556,46 @@ first entry is written.
   `v`, with the axis limits set to the two domains. Both particle methods throw `ArgumentError` on a
   distribution with no particles. `CairoMakie` is a weak dependency, so the package installs and
   loads with no Makie; without the extension loaded, each name has no methods, and calling it throws
-  `MethodError`. `[compat] CairoMakie` is `"0.15"`, the only version the extension is tested
+  against. `[compat] CairoMakie` is `"0.15"`, the only version the extension is tested
   against.
+
+- **`ElectricField`, the electric field of a particle Vlasov–Poisson problem, and `PoissonField`,
+  the field of a `PoissonSolvers.Potential`.** Both are exported. `ElectricField` is the
+  interface a reduced field lifts into: `update!(f, x, w, t)` deposits the positions `x` with the
+  weights `w` and solves the potential, `efield!(f, e, x)` writes ``E(x) = -\partial_x\phi(x)``
+  at each position into `e`, and the three call forms `f(e, x, w, t)`, `f(e, x)` and `f(x, w, t)`
+  are those two in sequence. `PoissonField(potential)` deposits through `_deposit!`, solves
+  through the potential's own `PoissonSolvers.update!`, evaluates through `_electric_field`, and
+  holds the buffer of `local_width(basis)` basis values that both of those fill and the
+  quadrature of the basis that `energy` integrates ``(\partial_x\phi)^2`` with, so that neither
+  `update!` nor `efield!` allocates. `energy` agrees with ``\phi^T S \phi / 2`` on the
+  stiffness matrix of the same basis. Both functions are type-stable and allocation-free in
+  `Float64` and `Float32`, asserted through a fixed-arity barrier behind the coverage guard, and
+  analysed by `test/quality/jet.jl`. The `src/electric_field.jl` that holds them returns here
+  without `ScaledField` and without `ExternalField`, which the reduced march does not need; it
+  takes a vector of lifted positions, which the `_deposit!` of `projection!` reads from the
+  first row of a state matrix rather than from a vector of its own.
+
+- **`ReducedElectricField` and `DEIMElectricField`, the reduced electric field and its hyper-reduced
+  counterpart.** Both are exported. `ReducedElectricField(field, Ψ, X)` is the non-hyper-reduced
+  path — lift the reduced coordinates by `Ψ`, deposit, solve, evaluate the field at every lifted
+  position and project by `Ψ'` — and equals the full-order field to `√eps(T)` at full basis size,
+  which is the only setting where the two must agree exactly. `DEIMElectricField(field, Ψₓ, Ψₑ,
+  Πₑ, X)` is the DEIM path, ``E = \Psi_x^T \Psi_e (\Pi_e^T \Psi_e)^{-1} E(\Pi_e^T \Psi_x x)``: the
+  field is evaluated at the `kₑ` interpolation points of `Πₑ` rather than at every particle. It
+  agrees with the non-hyper-reduced path to the DEIM error bound of the paper
+  `ReducedBasisMethods.get_DEIM_interpolation_matrix` cites, measured against the bound at a
+  rank-one field basis, and is measurably cheaper: `scripts/electric_field_timing.jl` runs each
+  path in a cold process of its own with one `BLAS` thread, takes the median of five runs of the
+  run size of `bump_on_tail_3_testing.jl`, 5·10⁴ particles and `k = 20`, and exits non-zero unless
+  the DEIM median is below the reduced one — measured `0.86 ms` against `2.12 ms` per field
+  evaluation. The tests assert the reduced-path error at `√eps(Float64)` and at the `Float32`
+  accuracy of the Poisson solve, `1e-5`, and both paths type-stable and allocation-free through a
+  fixed-arity barrier behind the coverage guard. The field basis type is now the `ΨₚT` the struct
+  declares, so the three-argument constructor takes a `Matrix` basis, where before it threw a
+  `MethodError` at construction; the DEIM selection that left `ΠₑᵀΨₑ` singular for a field basis
+  whose largest residual entry is negative is fixed by the `max|r|` selection of
+  `ReducedBasisMethods` 0.2.
 
 ### Documentation
 
@@ -574,11 +614,12 @@ first entry is written.
 
 ### Internal
 
-- **`KNOWN_ISSUES.md` K1 covers the three files of `src/particles/` that stay out of the module.**
+- **`KNOWN_ISSUES.md` K1 covers the two files of `src/particles/` that stay out of the module.**
   `src/particles/snapshots.jl` is included now, and its `ParameterSpace` binding comes from
   `ReducedComplexityModeling`, so the clause that named both leaves the entry; the comment above
-  the new `include` in `src/VlasovMethods.jl` names what remains. `electric_field.jl`, `poisson.jl`
-  and `time_marching.jl` stay out.
+  the new `include` in `src/VlasovMethods.jl` names what remains. `src/particles/electric_field.jl`
+  and `src/electric_field.jl` are included now as well, so K1 covers `poisson.jl` and
+  `time_marching.jl` alone.
 
 - **The `ProgressMeter` compat floor rises to `1.3.3`.** The CairoMakie test dependency brings in
   TiffImages, whose 0.10 releases require `ProgressMeter` 1.3.3 or later, and the Downgrade job

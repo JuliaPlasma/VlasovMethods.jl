@@ -4,21 +4,22 @@ What is known to be wrong in VlasovMethods and is not fixed. An entry leaves thi
 fix merges, and the CHANGELOG entry of that fix names its ID. IDs are never reused; a new entry
 takes the next `K<n>`.
 
-### K1 · Three files of `src/particles/` are present but not included.
+### K1 · Two files of `src/particles/` are present but not included.
 
 - **location:** `src/particles/`
-- **evidence:** The three files — `electric_field.jl`, `poisson.jl`, `time_marching.jl` — each
-  name an undefined binding, so including any one breaks the load: `poisson.jl` wants
+- **evidence:** The two files — `poisson.jl` and `time_marching.jl` — each name an undefined
+  binding, so including either one breaks the load: `poisson.jl` wants
   `PoissonSolverPBSplines`; `time_marching.jl` imports
   `PBSpline`, `stiffnessmatrix`, `eval_deriv_PBSBasis` and `rhs_particles_PBSBasis` from
-  `PoissonSolvers` (neither 0.5 nor 0.6 has any); `electric_field.jl` wants `ElectricField`, which
-  nothing under `src/` defines. `save_solution` in `time_marching.jl` writes the `(nd, nₚ)` layout
-  of `Snapshots`, but fills the scalar momentum `M` with `dot(w, v)`, which holds for `nd == 1`
-  only and throws a `DimensionMismatch` for `nd > 1`.
+  `PoissonSolvers` (neither 0.5 nor 0.6 has any). `save_solution` in `time_marching.jl` writes the
+  `(nd, nₚ)` layout of `Snapshots`, but fills the scalar momentum `M` with `dot(w, v)`, which
+  holds for `nd == 1` only and throws a `DimensionMismatch` for `nd > 1`.
 - **kind:** dead code
 - **found:** 2026-09-17. Carried over from the audit that accompanied the `SimpleSplines`
   migration. None of these are regressions; each is either a numerical-methods decision or work
-  the migration deliberately did not take on.
+  the migration deliberately did not take on. `electric_field.jl` left this entry when the
+  `ElectricField` it wanted was re-added in `src/electric_field.jl` and both it and the reduced
+  field were included.
 
 ### K4 · The implemented Landau scheme is not the one the main text derives.
 
