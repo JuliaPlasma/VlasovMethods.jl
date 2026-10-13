@@ -6,7 +6,8 @@ global_logger(TerminalLogger())
 
 using HDF5
 using LinearAlgebra
-using MultiIndexArrays: multiindex, linearindex, GridTensor, MultiIndexAxis
+using MultiIndexArrays: multiindex, linearindex, GridTensor, MultiIndexAxis,
+                        MultiIndexLazyArray
 using Parameters
 using ParticleMethods
 using PoissonSolvers
@@ -27,10 +28,7 @@ import GeometricEquations: ntime
 # `Picard`, `solve`), and every use here is qualified as `SimpleSolvers.…`.
 import SimpleSolvers
 
-# The `_nx` and `_nv` accessors are extended rather than redefined, so that one generic covers
-# both collision tensors.
 using GeometricBrackets: Arakawa, poisson_apply
-import GeometricBrackets: _nx, _nv
 
 # `import A.B` binds only `B`, so the bare module name needs an import of its own for the call
 # sites that qualify names as `GeometricIntegrators.…`.
@@ -167,7 +165,7 @@ export _apply_∫dv!
 
 include("gridbased/reduced_tensors.jl")
 
-export PotentialReducedTensor, VelocityReducedMatrix, FullyReducedTensor
+export bracket_tensor, PotentialReducedTensor, VelocityReducedMatrix, FullyReducedTensor
 
 include("gridbased/collisions.jl")
 

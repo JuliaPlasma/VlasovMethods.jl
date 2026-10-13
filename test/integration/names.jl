@@ -53,6 +53,7 @@ const BASE_EXPORTS = Symbol[
     :_apply_∫dv!,
     :basis_index,
     :basis_values,
+    :bracket_tensor,
     :breakpoints,
     :check_conservation_basis,
     :degree,

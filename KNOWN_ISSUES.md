@@ -120,10 +120,10 @@ takes the next `K<n>`.
 ### K14 · `fatou lint` reports `unused-binding` locals and no `unused-import`.
 
 - **location:** `scripts/bump_on_tail.jl:47`
-- **evidence:** `fatou lint --force-exclude --output concise .` reports seven `unused-binding`
+- **evidence:** `fatou lint --force-exclude --output concise .` reports six `unused-binding`
   locals — `scripts/bump_on_tail.jl:47`, `scripts/lenard_bernstein_metriplectic_scaling.jl:38`
-  and `:49`, `src/gridbased/moments.jl:18`, `src/gridbased/reduced_tensors.jl:210`,
-  `test/distributions/spline_distribution.jl:74` and `:76` — and no `unused-import`.
+  and `:49`, `src/gridbased/moments.jl:18`, `test/distributions/spline_distribution.jl:74` and
+  `:76` — and no `unused-import`.
   `ExplicitImports` agrees with the imports the module file keeps.
 - **kind:** dead code
 - **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
