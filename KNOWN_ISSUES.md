@@ -509,3 +509,47 @@ takes the next `K<n>`.
   is `(2, 100, 11, 1)`.
 - **kind:** upstream
 - **found:** #75
+
+### K57 · `plot_distribution` checks neither the orientation of the two domains nor the cell counts.
+
+- **location:** `ext/VlasovMethodsMakieExt.jl:19-28`
+- **evidence:** A reversed `xdomain` gives a histogram with a negative "density" and no error, and
+  `nx = 0` fails with an indexing error; every other edge case of the two methods raises
+  `ArgumentError`. Probe, CairoMakie 0.15.15 on Julia 1.13.1 (the review of #74, finding 3):
+  `xdomain = (1.0, 0.0)` with one particle of weight 1 and `nx = nv = 4` returns a density of
+  `-8.0`; `nx = 0` throws `BoundsError: attempt to access 0×100 Matrix{Float64} at index [0, 51]`.
+  One guard covers both cases: `nx ≥ 1 && nv ≥ 1 && xa < xb && va < vb || throw(ArgumentError(…))`.
+- **kind:** defect
+- **found:** #74
+
+### K58 · A particle whose `v` is `NaN` is dropped from the histogram without a word.
+
+- **location:** `src/plotting.jl:34-36`
+- **evidence:** A particle whose `v` is `NaN` is also dropped, because `va ≤ v` is false for it.
+  Neither the docstring nor the CHANGELOG mentions this case; both name only `v` outside
+  `[va, vb)` and a non-finite `x`. Probe (the review of #74, finding 6): particles `(0.5, NaN,
+  w = 1)` and `(0.5, 0.0, w = 0.25)`, and `sum(F)·hx·hv == 0.25` passes.
+- **kind:** defect
+- **found:** #74
+
+### K59 · The grid heatmap's docstring says the heatmap is drawn "on the grid's own nodes".
+
+- **location:** `src/plotting.jl:19-20`
+- **evidence:** Makie treats the nodes as cell centres, so the drawn `v` range extends `hv/2` past
+  `vdomain` at each end and every `x` cell is centred on its node. Probe (the review of #74,
+  finding 5): `GridDistribution(reshape(1:21, 7, 3), (0, 1), (-1, 1))` draws `v` cell edges
+  `[-1.5, -0.5, 0.5, 1.5]` and `x` edges `[-0.0714…, …, 0.9286…]`. `plot.args[]` equals
+  `(dist.x, dist.v)`, as the test asserts.
+- **kind:** docs
+- **found:** #74
+
+### K60 · The CairoMakie extension relies on implicit imports.
+
+- **location:** `ext/VlasovMethodsMakieExt.jl:3-4`
+- **evidence:** `print_explicit_imports(VlasovMethodsMakieExt; report_non_public = true)` reports
+  `relying on implicit imports for 8 names`: `using CairoMakie: CairoMakie, Axis, Figure,
+  heatmap!, scatter!` and `using VlasovMethods: VlasovMethods, GridDistribution,
+  ParticleDistribution`. GeometricBrackets' extension uses the same pattern.
+- **kind:** defect
+- **found:** #74
+
