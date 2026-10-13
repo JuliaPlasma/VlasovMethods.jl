@@ -20,17 +20,6 @@ takes the next `K<n>`.
   migration. None of these are regressions; each is either a numerical-methods decision or work
   the migration deliberately did not take on.
 
-### K3 · `FullyReducedTensor` cannot be constructed.
-
-- **location:** —
-- **evidence:** Its inner constructor asserts `size(Pk, 1) == size(tensor, 3)`, but the parameter
-  is named `Pα`, so `Pk` is undefined; and its `getindex` reads `rt.projection_k[k, α]` with `α`
-  unbound. Imported unrepaired from ReducedBasisMethods, where it had the same defects.
-- **kind:** defect
-- **found:** 2026-09-17. Carried over from the audit that accompanied the `SimpleSplines`
-  migration. None of these are regressions; each is either a numerical-methods decision or work
-  the migration deliberately did not take on.
-
 ### K4 · The implemented Landau scheme is not the one the main text derives.
 
 - **location:** —
@@ -131,48 +120,15 @@ takes the next `K<n>`.
 ### K14 · `fatou lint` reports `unused-binding` locals and no `unused-import`.
 
 - **location:** `scripts/bump_on_tail.jl:47`
-- **evidence:** `fatou lint --force-exclude --output concise .` reports seven `unused-binding`
+- **evidence:** `fatou lint --force-exclude --output concise .` reports six `unused-binding`
   locals — `scripts/bump_on_tail.jl:47`, `scripts/lenard_bernstein_metriplectic_scaling.jl:38`
-  and `:49`, `src/gridbased/moments.jl:18`, `src/gridbased/reduced_tensors.jl:210`,
-  `test/distributions/spline_distribution.jl:74` and `:76` — and no `unused-import`.
+  and `:49`, `src/gridbased/moments.jl:18`, `test/distributions/spline_distribution.jl:74` and
+  `:76` — and no `unused-import`.
   `ExplicitImports` agrees with the imports the module file keeps.
 - **kind:** dead code
 - **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
   migration. None of these are regressions; each is either a numerical-methods decision or work
   the migration deliberately did not take on.
-
-### K15 · `size(rt, i)` and `axes(rt, i)` throw for `i > ndims(rt)` on three reduced tensors.
-
-- **location:** `src/gridbased/reduced_tensors.jl:82`
-- **evidence:** `PotentialReducedTensor` (`:82-83`), `VelocityReducedMatrix` (`:137-138`) and
-  `FullyReducedTensor` (`:188-189`) define `size(rt, i) = size(rt)[i]` and
-  `axes(rt, i) = Base.OneTo(size(rt, i))`, which index past the tuple:
-  `size(PotentialReducedTensor(t, Pi, Pj, Pk), 4)`, `axes(…, 4)`,
-  `size(VelocityReducedMatrix(t, Pi, Pj, v²), 3)` and `axes(…, 3)` each throw a `BoundsError`.
-  The `AbstractArray` fallbacks give `1` and `Base.OneTo(1)`, as `size(rt, 4)` and `axes(rt, 4)`
-  do for `ReducedTensor`, which defines neither. The fix is to delete the six lines.
-- **kind:** defect
-- **found:** #51
-
-### K16 · A commented-out `Base.materialize` for `ReducedTensor` and `PotentialReducedTensor` remains.
-
-- **location:** `src/gridbased/reduced_tensors.jl:113-115`
-- **evidence:** The three lines are comments, so no method exists; `collect(rt)` and `Array(rt)`
-  already materialise any of these `AbstractArray`s. The fix is to delete the three lines.
-- **kind:** dead code
-- **found:** #51
-
-### K17 · `ReducedTensor` accepts a tensor whose grid is not the grid of its `Arakawa`.
-
-- **location:** `src/gridbased/reduced_tensors.jl:24`
-- **evidence:** `PoissonTensor(DT, nx, nv, f)` in GeometricBrackets does not check that `f` is on
-  the `nx × nv` grid, and the `ReducedTensor` constructor does not check it either. The 3 × 3
-  stencil then loses coefficients or counts one twice, and no error occurs:
-  `ReducedTensor(PoissonTensor(Float64, 2, 3, Arakawa(3, 3, 0.5, 0.5)), Pi, Pj)` deviates from the
-  dense sum by up to 0.50, and `PoissonTensor(Float64, 5, 4, Arakawa(3, 3, …))` by up to 2.51. The
-  fix is a grid check in the `PoissonTensor` constructor of GeometricBrackets.
-- **kind:** upstream
-- **found:** #53
 
 ### K18 · Revise prints EMFILE errors in the test log
 

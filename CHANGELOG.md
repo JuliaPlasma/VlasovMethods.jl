@@ -92,7 +92,12 @@ first entry is written.
   no longer admitted, so an environment that pins one of them does not resolve. `src/` is
   unchanged. `GeometricBrackets` 0.2 rejects `PoissonTensor(Float32, nx, nv, ::Arakawa{Float64})`
   on construction with an `ArgumentError`, where 0.1 built it and `ReducedTensor` then threw a
-  `MethodError`; the test of that case expects the `ArgumentError`.
+  `MethodError`.
+
+- **`ReducedBasisMethods` joins `[deps]`, and `MultiIndexArrays` rises to `0.1.2`.** `0.1.2` is
+  the first `MultiIndexArrays` that exports `GridTensor`, and the floor of `ReducedBasisMethods`
+  0.2, whose `ReducedTensor` the three reduced grid tensors are built on. An environment that
+  pins `MultiIndexArrays` 0.1.1 does not resolve.
 
 - **Three more `[compat]` floors name a version that resolves.** `HDF5` `0.16, 0.17` becomes
   `0.17`: no `HDF5` 0.16 release resolves with `GeometricIntegrators` 0.18.6, which requires
@@ -430,13 +435,12 @@ first entry is written.
 
 - **The reduced phase-space tensors and velocity moments, imported from ReducedBasisMethods.**
   Every function and struct body is byte-identical to its source, except
-  `src/gridbased/collisions.jl`, whose working form is described under *Bug Fixes* above.
+  `src/gridbased/collisions.jl`, whose working form is described under *Bug Fixes* above, and
+  the three tensors of `src/gridbased/reduced_tensors.jl`, described below.
   Three files arrive under `src/gridbased/`:
 
   - `reduced_tensors.jl` — `PotentialReducedTensor`, `VelocityReducedMatrix` and
-    `FullyReducedTensor`, which project a `GeometricBrackets.PoissonTensor` onto reduced bases in
-    its first two indices and, respectively, project the third, contract it with `v²/2`, or
-    project it onto the potential's modes. The first two are exported.
+    `FullyReducedTensor`, described in the entry for the three reduced grid tensors below.
   - `moments.jl` — `_apply_∫dv!` and its transpose, the weighted pair `_apply_∫dv_μ!` /
     `_apply_∫dvᵀ_μ!`, and the first and second moments `_apply_∫vdv!` and `_apply_∫v²dv!`.
     Only `_apply_∫dv!` is exported, as before. The Laplace and nullspace stencils that shared
@@ -446,19 +450,38 @@ first entry is written.
     it was reachable there. It **is** included here, and these five names are defined in the
     module; the run-time faults they arrived with are repaired under *Bug Fixes* above.
 
-  New dependencies: `GeometricBrackets`, for the `PoissonTensor` the three tensors wrap and the
-  `_nx` / `_nv` accessors they extend, and `MultiIndexArrays`, for `multiindex` and
-  `_stencil_indices`.
+  New dependencies: `GeometricBrackets`, for `Arakawa`, which `bracket_tensor` takes, and for
+  `poisson_apply`; `MultiIndexArrays`, for `multiindex`, `linearindex`, `GridTensor`,
+  `MultiIndexAxis` and `MultiIndexLazyArray`; and `ReducedBasisMethods`, for the `ReducedTensor`
+  the three tensors are built on.
 
-- **`ReducedTensor`, lazy projection of a grid `PoissonTensor` onto two reduced bases.** The
-  type `ReducedTensor(tensor::PoissonTensor{DT, Arakawa{DT}}, Pi, Pj)` is a
-  `size(Pi, 2) × size(Pj, 2) × N` `AbstractArray{DT,3}` that projects the tensor's first two
-  indices onto reduced bases via matrices `Pi` and `Pj`, without materializing the full array:
-  `rt[i, j, k]` sums over the 3 × 3 stencil around `k` only, which holds every nonzero
-  coefficient of the `Arakawa` bracket when the `Arakawa` is on the tensor's own grid. The
-  constructor throws `DimensionMismatch` if `Pi` or `Pj` lacks N rows, or `ArgumentError` if the
-  element types of `Pi` or `Pj` differ from the tensor's; `getindex` throws `BoundsError` for an
-  out-of-range index.
+- **The three reduced grid tensors, on `ReducedBasisMethods`' `ReducedTensor`.** Each of
+  `PotentialReducedTensor`, `VelocityReducedMatrix` and `FullyReducedTensor` takes a bracket's
+  rank-3 `MultiIndexArrays.GridTensor`, which `bracket_tensor` builds from an `Arakawa` bracket on
+  that bracket's own grid, and the projections of its first two indices.
+  `PotentialReducedTensor` is the only struct, a lazy `AbstractArray{DT, 3}`;
+  `VelocityReducedMatrix` and `FullyReducedTensor` are functions over it.
+  `VelocityReducedMatrix` returns `view(prt, :, :, 1)` of the `PotentialReducedTensor` whose
+  one-column projection carries `v²[n₂] / 2` for each node, and `FullyReducedTensor` returns the
+  `PotentialReducedTensor` whose projection has the row `Px[n₁, :]` for each node. Each builds
+  `ReducedTensor(tensor, Pi, Pj)` from them first, so that its checks on the rows, on the element
+  types and on the stencil width run once and live in one place. With `R` that reduced tensor and
+  `(n₁, n₂)` the grid indices of the node `K`, `PotentialReducedTensor[i, j, k] = ∑_K R[i, j, K]
+  · Pk[K, k]` projects the third index onto a basis of `size(Pk, 2)` modes over the `N` nodes,
+  `FullyReducedTensor[i, j, k] = ∑_K R[i, j, K] · Px[n₁, k]` projects it onto the potential's
+  modes at the node's `x` index, and `VelocityReducedMatrix[i, j] = ∑_K R[i, j, K] · v²[n₂] / 2`
+  contracts it with the squared velocity nodes. `Px` has one row per `x` node and not one per
+  phase-space node, and `v²` has one entry per velocity node, so it holds the `nv` squared
+  velocity nodes `dist.v .^ 2` and not one entry per grid node; the `½` is written `/ 2`, so a
+  `Float32` sum stays in `Float32`. `FullyReducedTensor` is constructed from the `x`-node
+  projection `Px` (K3). `getindex` and materialisation into a preallocated output (`copyto!`)
+  allocate 0 bytes for all three. `PotentialReducedTensor` defines no `size` or `axes` past its
+  own rank, so `size(rt, d)` and `axes(rt, d)` answer as `AbstractArray` does, and the view of
+  `VelocityReducedMatrix` answers through `SubArray` (K15). No `Base.materialize` method exists:
+  `collect` and `Array` materialise them (K16). All three are exported; `ReducedTensor` is not,
+  and stays `ReducedBasisMethods`' type. A grid mismatch cannot arise through `bracket_tensor`,
+  which reads the grid from its bracket (K17). A tensor written by hand is assumed to be on its
+  bracket's grid, as the docstrings state.
 
 - **`scripts/verify_conservation.jl`** measures the two conservation claims of the manuscripts
   and separates them, because they are not the same claim and the obvious reading is wrong.
