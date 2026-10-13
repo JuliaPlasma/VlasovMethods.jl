@@ -105,7 +105,6 @@ if isdefined(JET, :JET_AVAILABLE) ? JET.JET_AVAILABLE : JET.JET_LOADABLE
         Πₑ = get_DEIM_interpolation_matrix(Ψₑ)
         X = Ψₓ' * q
         E = similar(X)
-        t = zero(T)
         for f in (efield, ReducedElectricField(efield, Ψₓ, X),
             DEIMElectricField(efield, Ψₓ, Ψₑ, Πₑ, X))
             @test isempty(JET.get_reports(JET.report_opt(update!,

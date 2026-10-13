@@ -58,7 +58,7 @@ end
         # the field `Ψₚ` is typed `ΨₚT`, the parameter the struct declares, so a `Matrix` basis
         # is accepted: before the fix `new` threw `MethodError: Cannot convert … Matrix … to …
         # Adjoint`, because the field was typed `ΨₑT` and the constructor passes `Ψ` as `Ψₚ`.
-        field, q, w = poisson_field(T; n = 20)
+        field, q, _ = poisson_field(T; n = 20)
         Ψ = orthogonal(T, 20, 4)
         X = Ψ' * q
 
@@ -162,7 +162,7 @@ end
     @testset "check 5: the DEIM field is evaluated at the interpolation points" begin
         # the field of the DEIM path is evaluated at the `kₑ` interpolation points, not at every
         # particle: `scripts/electric_field_timing.jl` times what this counts
-        field, q, w = poisson_field(T; n = 60)
+        field, q, _ = poisson_field(T; n = 60)
         n, k, kₑ = 60, 4, 4
         Ψₓ = orthogonal(T, n, k; seed = 1)
         Ψₑ = orthogonal(T, n, kₑ; seed = 2)
