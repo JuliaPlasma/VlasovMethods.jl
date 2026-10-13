@@ -25,4 +25,5 @@ if "core" in GROUPS
     @safetestset "Collisions" include("gridbased/collisions.jl")
     @safetestset "Plotting extension" include("integration/makie_extension.jl")
     @safetestset "Grid 1D1V Vlasov–Poisson" include("gridbased/vlasov_poisson_1d1v.jl")
+    @safetestset "Snapshots" include("particles/snapshots.jl")
 end

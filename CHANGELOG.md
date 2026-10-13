@@ -356,6 +356,31 @@ first entry is written.
     `1.5e-3` of `−0.1533` and the two to agree to `1.5e-4`. That second requirement is the reason
     the 1% tolerance is defensible, and `nv = 513` fails it.
 
+- **`Snapshots`, the snapshots of a parameter sweep, and the two reduced bases built from them:
+  `particle_basis` and `field_basis`.** `Snapshots{T}` holds the positions `X`, the velocities
+  `V`, the accelerations `A`, the potential `Φ` and the diagnostics `W`, `K` and `M` of a sweep on
+  a `ParameterSpace`, with `X`, `V` and `A` of size `(nd, nₚ, nₛ, nparam)` and `Φ` of size
+  `(nh, nₛ, nparam)`. `Snapshots(particles, poisson, nₛ, paramspace)` reads `nd` and `nₚ` from the
+  particle list and `nh` from its Poisson solver, so a 2D particle list gives `size(X, 1) == 2`,
+  and throws an `ArgumentError` when `v` holds a different component count than `x`, which the
+  cotangent lift cannot pair. `Snapshots(T, nd, nₚ, nh, nₛ, paramspace)` is the zero array form, for
+  a sweep of a model with no potential; with `nh = 0` its empty `Φ` round-trips through HDF5.
+  The inner constructor takes plain `Array`s only: a view or an `OffsetArray` throws a `MethodError`.
+  `==` and `isequal` compare all eight fields, `paramspace` included, and `hash` agrees with them.
+  `h5save` and `h5load` write and read the eight fields under the keys `X`, `V`, `A`, `Φ`, `W`,
+  `K` and `M` and the `parameterspace` group, through the generics of `ReducedComplexityModeling`,
+  which take an open file or a file path. `particle_basis(algorithm, s; parameters, …)` reduces the
+  stacked `[Q; P]` of `X` and `V` with any of the five `ReducedBasisMethods` tags, and
+  `field_basis(algorithm, s; …)` reduces `A` with one of the two POD tags. The tags are
+  `ReducedBasisMethods`' and VlasovMethods does not export them. Both pass the `ParameterSpace` and
+  every keyword other than `parameters`, such as `k` or `tolerance`, to `ReducedBasis` unchanged.
+  A snapshot matrix is the `(nd·nₚ) × (nₛ·nparam)` reshape of the four-dimensional array, so its column
+  `(p−1)·nₛ + t` is `vec(X[:, :, t, p])`. The reduced-basis driver this replaces reshaped to
+  `(nₚ, nₛ·nparam)` — the layout of `nd == 1` alone — and fed the acceleration to the field basis
+  through that same particle-shaped reshape, so a sweep of a particle list with two position
+  components threw a `DimensionMismatch` instead of reducing. `Φ` loses the component axis of that
+  layout, which held the filled first row and the zeros of `nd − 1` more.
+
 - **`VlasovWithExternalFields`, one species in an external electromagnetic field, and the
   `ElectromagneticFields` extension that supplies such a field.** `VlasovWithExternalFields`,
   `UniformField`, `electric_field` and `magnetic_field` are exported.
@@ -526,10 +551,21 @@ first entry is written.
 
 ### Internal
 
+- **`KNOWN_ISSUES.md` K1 covers the three files of `src/particles/` that stay out of the module.**
+  `src/particles/snapshots.jl` is included now, and its `ParameterSpace` binding comes from
+  `ReducedComplexityModeling`, so the clause that named both leaves the entry; the comment above
+  the new `include` in `src/VlasovMethods.jl` names what remains. `electric_field.jl`, `poisson.jl`
+  and `time_marching.jl` stay out.
+
 - **The `ProgressMeter` compat floor rises to `1.3.3`.** The CairoMakie test dependency brings in
   TiffImages, whose 0.10 releases require `ProgressMeter` 1.3.3 or later, and the Downgrade job
   resolves every floor to its oldest admissible version: with `ProgressMeter = "1"` it reports
   `Unsatisfiable requirements detected for package TiffImages` and runs no test.
+
+- **The `MultiIndexArrays` compat floor rises to `0.1.2`.** `ReducedBasisMethods` 0.2.0, which this
+  release requires, depends on `MultiIndexArrays` in `0.1.2 - 0.1`, and the Downgrade job resolves
+  every floor to its oldest admissible version: with `MultiIndexArrays = "0.1.1"` its forcedeps
+  check reports `MultiIndexArrays resolved to 0.1.2 but lower bound is 0.1.1` and fails.
 
 - **CI uploads coverage from the `Julia 1 - ubuntu-latest` job instead of `Julia min`, and a
   test job saves the Julia cache only when it succeeds.**
