@@ -344,14 +344,15 @@ first entry is written.
 
 ### New Features
 
-- **Every `scripts/` driver reads its output directories and its parameters from the command
-  line.** A new `scripts/options.jl` is the directory's only argument parser: it accepts
-  `--runs-dir` and `--results-dir`, defaulting to `runs/` and `results/` beside the repository
-  root, creates both, and rejects an unrecognised flag with an `ArgumentError` rather than
-  ignoring it. Each driver writes its numbers under `--runs-dir` and a figure or a report under
-  `--results-dir`, so a run leaves the working tree untouched and `git status --short --ignored`
-  is the same before and after it; `/runs` and `/results` join `.gitignore`. The surviving
-  drivers draw with CairoMakie, and `scripts/Project.toml` loses `Plots`, `LaTeXStrings`,
+- **Every `scripts/` driver reads its output directories from the command line, and a driver
+  that takes parameters reads them there too.** A new `scripts/options.jl` is the directory's
+  only argument parser: it accepts `--runs-dir` and `--results-dir`, defaulting to `runs/` and
+  `results/` beside the repository root, creates both, and rejects an unrecognised flag with an
+  `ArgumentError` rather than ignoring it. Each driver writes its numbers under `--runs-dir` and
+  a figure or a report under `--results-dir`, so a run at the defaults adds no untracked path and
+  `git status --short` is unchanged. The first run creates both ignored directories;
+  `/runs` and `/results` join `.gitignore`. The surviving drivers draw with CairoMakie, and
+  `scripts/Project.toml` loses `Plots`, `LaTeXStrings`,
   `GLMakie`, `SciMLBase`, `TerminalLoggers` and `Logging` and gains `CairoMakie`. Their defaults
   are measured to run: `lenard_bernstein.jl` steps `dt = 1e-2` over `t ∈ [0, 1]` for all three of
   its models, where the `dt = 0.1` over `t ∈ [0, 10]` it carried fails for every one of them, and

@@ -1,5 +1,6 @@
 # The shared layer under every driver in this directory: where output goes and how the command line
-# is parsed. No work happens at top level, so a driver can `include` this and pay only the load.
+# is parsed. Nothing at top level does simulation work or writes to the filesystem, so a driver can
+# `include` this and pay only the load.
 #
 # Code in `scripts/`, data in `runs/`, figures in `results/` — the tree-wide rule in
 # `Packages/CLAUDE.md`. `RUNS_DIR` and `RESULTS_DIR` are `Ref`s rather than constants so that
