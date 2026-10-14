@@ -1,18 +1,30 @@
 # The linear Landau damping rate of the grid 1D1V Vlasov–Poisson scheme, and its stability under
 # refinement. Run from the repository root:
 #
-#   julia --project=scripts scripts/landau_damping_1d1v.jl
+#   julia --project=scripts scripts/landau_damping_1d1v.jl [--runs-dir dir] [--results-dir dir]
 #
 # The rate is fitted to the peaks of log|E₁(t)| and checked against the textbook value
 # γ ≈ −0.1533 for k = 0.5 and unit thermal velocity, to 1%. The second run halves h_v and dt, and
 # its rate must agree with the first to 1.5e-4: that is the reason the 1% tolerance is defensible,
 # and the run is what shows it. The stepper is RK4 — the implicit midpoint's dense Newton Jacobian
 # at n_x·n_v = 64·2049 would need 137 GB.
+#
+# Each run's own series goes to `--runs-dir`, the figure with both fitted rates to
+# `--results-dir`, and the script fails when the two conditions above do not hold.
 
-using VlasovMethods
-using PoissonSolvers
-using GeometricIntegrators
+include(joinpath(@__DIR__, "options.jl"))
+
 using Printf
+
+using CairoMakie
+using GeometricIntegrators
+using PoissonSolvers
+using VlasovMethods
+
+const PARSED = let (positional, options) = parse_arguments(ARGS)
+    no_positional(positional, "landau_damping_1d1v.jl")
+    options
+end
 
 const K = 0.5
 const ALPHA = 0.01
@@ -20,6 +32,10 @@ const NX = 64
 const L = 4π
 const VDOMAIN = (-8.6, 8.6)
 const TSPAN = (0.0, 40.0)
+
+# The two runs of the refinement pair, and what the fit has to satisfy.
+const RUNS = ((1025, 0.05), (2049, 0.025))
+const TEXTBOOK = -0.1533
 
 # |E₁(t)| = k·(2/nx)·|Σᵢ ϕᵢ e^{−ikxᵢ}|, with ϕ the field of the density ρᵢ = h_v Σⱼ f_ij. The
 # field energy decays at 2γ, so the fit is taken on the field's own mode and not on its energy.
@@ -61,6 +77,8 @@ function slope(ts, ys)
            sum(abs2(t - t̄) for t in ts)
 end
 
+# The whole run: the fitted rate, the peaks it was fitted through, and the series behind them, so
+# that the caller can write both out.
 function landau_rate(nv, dt)
     basis = FFTWBasis((0.0, L), NX)
     x = basis.xgrid[1:NX]
@@ -97,21 +115,64 @@ function landau_rate(nv, dt)
 
     ts, ys = peaks(times, logE)
 
-    return slope(ts, ys), length(ts)
+    return slope(ts, ys), ts, ys, times, logE
 end
 
 function main()
     rates = Float64[]
-    for (nv, dt) in ((1025, 0.05), (2049, 0.025))
-        γ, npeaks = landau_rate(nv, dt)
-        @printf("nv = %d, dt = %.3f: γ = %.6f over %d peaks\n", nv, dt, γ, npeaks)
+    series = []
+
+    for (nv, dt) in RUNS
+        γ, ts, ys, times, logE = landau_rate(nv, dt)
+        @printf("nv = %d, dt = %.3f: γ = %.6f over %d peaks\n", nv, dt, γ, length(ts))
         push!(rates, γ)
+        push!(series, (
+            nv = nv, dt = dt, γ = γ, ts = ts, ys = ys, times = times, logE = logE))
+
+        # every fifth sample: the series is 801 and 1601 points, and the peaks are what the fit
+        # reads, so the sampled series is written alongside them
+        numbers = runs_path(@sprintf("landau_damping_1d1v_nv%d.txt", nv))
+        open(numbers, "w") do io
+            @printf(io, "# nv = %d, dt = %.3f, gamma = %.6f, %d peaks\n", nv, dt, γ,
+                length(ts))
+            println(io, "# t log|E1|")
+            for (t, y) in zip(times, logE)
+                @printf(io, "%.6f %.15e\n", t, y)
+            end
+            println(io, "# peak t, peak log|E1|")
+            for (t, y) in zip(ts, ys)
+                @printf(io, "%.6f %.15e\n", t, y)
+            end
+        end
+        @printf("  wrote %s\n", numbers)
     end
 
     γ₁, γ₂ = rates
-    (abs(γ₁ + 0.1533) ≤ 1.5e-3 && abs(γ₁ - γ₂) < 1.5e-4) || error(
-        "the fitted rate γ = $(γ₁) is not within 1.5e-3 of the textbook −0.1533, or halving h_v " *
-        "and dt moved it by $(abs(γ₁ - γ₂)) ≥ 1.5e-4 (γ = $(γ₂))")
+    ok = abs(γ₁ - TEXTBOOK) ≤ 1.5e-3 && abs(γ₁ - γ₂) < 1.5e-4
+
+    fig = Figure(size = (1200, 500))
+    ax = Axis(fig[1, 1], xlabel = "t", ylabel = "log|E₁|",
+        title = @sprintf("k = %.2f, α = %.2f, nx = %d", K, ALPHA, NX))
+    colours = (:steelblue, :firebrick)
+    for (s, colour) in zip(series, colours)
+        lines!(ax, s.times, s.logE, color = colour,
+            label = @sprintf("nv = %d, dt = %.3f: γ = %.6f", s.nv, s.dt, s.γ))
+        scatter!(ax, s.ts, s.ys, color = colour, markersize = 8)
+    end
+    axislegend(ax; position = :lb)
+    # the textbook slope, laid through the first peak of the first run: the fit's own intercept is
+    # what the data decides, so the comparison is the slope and not the height
+    t₀, y₀ = series[1].ts[1], series[1].ys[1]
+    lines!(ax, [8.0, 40.0], y₀ .+ TEXTBOOK .* ([8.0, 40.0] .- t₀), color = :black,
+        linestyle = :dash, label = @sprintf("γ = %.4f", TEXTBOOK))
+
+    figure = results_path("landau_damping_1d1v.png")
+    save(figure, fig)
+    @printf("  wrote %s\n", figure)
+
+    ok || error(
+        "the fitted rate γ = $(γ₁) is not within 1.5e-3 of the textbook $(TEXTBOOK), or " *
+        "halving h_v and dt moved it by $(abs(γ₁ - γ₂)) ≥ 1.5e-4 (γ = $(γ₂))")
 
     return nothing
 end

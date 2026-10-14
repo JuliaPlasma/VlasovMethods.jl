@@ -65,8 +65,9 @@ first entry is written.
   `NaNMath` were reached only from commented-out code, and `SimpleSolvers` returns below.
   `LaTeXStrings`, `OffsetArrays` and `Plots` were reached only from `src/electric_field.jl` and
   `src/visualisation.jl`, which no `include` names, and both were deleted; the
-  `src/electric_field.jl` the reduced field brings back uses none of them. `SciMLBase` is used
-  only by `scripts/`, which now declares it itself.
+  `src/electric_field.jl` the reduced field brings back uses none of them. `SciMLBase` was
+  reached only from `scripts/`, and the `scripts/` rewrite recorded under *Removals* leaves no
+  caller of it anywhere.
 
 - **`AdaptiveRejectionSampling` no longer constrains a runtime install.** It was used in one line
   of `test/projections/projections.jl` and nowhere in `src/`, yet it sat in `[deps]` rather than
@@ -122,12 +123,13 @@ first entry is written.
   of `VlasovMethods` itself, or to go undeclared. `GLMakie` was in fact undeclared and worked only
   by accident of the shared environment.
 
-- `src/models/vlasov_poisson.jl` and `scripts/charged_particles.jl` are now Unicode
-  NFC-normalised. They stored `ż` as a base letter plus a combining mark, inherited from macOS
-  rather than chosen. Nothing about the compiled code changes — Julia's parser normalises
-  identifiers to NFC — but a `grep` pattern or an editor search typed in NFC now matches, where
-  before it silently matched nothing. Both files are byte-equal to the NFC normalisation of their
-  predecessor, and no string literal was affected.
+- `src/models/vlasov_poisson.jl` is now Unicode NFC-normalised. It stored `ż` as a base letter
+  plus a combining mark, inherited from macOS rather than chosen. Nothing about the compiled code
+  changes — Julia's parser normalises identifiers to NFC — but a `grep` pattern or an editor
+  search typed in NFC now matches, where before it silently matched nothing. The file is
+  byte-equal to the NFC normalisation of its predecessor, and no string literal was affected.
+  `scripts/charged_particles.jl`, normalised in the same commit, is deleted by the `scripts/`
+  rewrite recorded under *Removals*.
 
 - **`run!(::SplittingMethod, h5file)` steps over the solution's own time grid.** It sized its
   dataset by `ntime(equation)`, which rounds the step count up, and then indexed the range
@@ -276,14 +278,13 @@ first entry is written.
   a comment — so every `DifferentialEquations.ODEProblem` and `DifferentialEquations.solve` call
   threw `UndefVarError` when reached. The exported type, its `run!` and `run` methods, the file
   `src/methods/diffeq_integrator.jl`, and the `DiffEqIntegrator` constructor methods for
-  `LenardBernstein{1,1}` and `ConservativeLenardBernstein{1,1}` are deleted.
-  `scripts/lenard_bernstein.jl:30` still calls the deleted constructor, recorded in
-  `KNOWN_ISSUES.md` K20.
+  `LenardBernstein{1,1}` and `ConservativeLenardBernstein{1,1}` are deleted. The one script that
+  called the deleted constructor, `scripts/lenard_bernstein.jl`, was rewritten against
+  `GeometricIntegrator` in the same release; the rewrite is recorded under *Removals*.
 
 - **`run` is no longer exported.** Its only method was in the deleted `DiffEqIntegrator`
-  type; removing the export keeps `names(VlasovMethods)` from listing `Base.run`. Line 37
-  of `scripts/lenard_bernstein.jl` calling `VlasovMethods.run` now resolves to `Base.run`,
-  also recorded in `KNOWN_ISSUES.md` K20.
+  type; removing the export keeps `names(VlasovMethods)` from listing `Base.run`. A call of
+  `VlasovMethods.run` in `scripts/` now resolves to `Base.run`.
 
 - **The `Vlasov–Poisson` acceleration pair carries its model instead of reading it from the
   parameters.** `v_acceleration!` and `s_acceleration!` are replaced by the callable structs
@@ -299,6 +300,19 @@ first entry is written.
   `VAcceleration(model)` or `SAcceleration(model)` once and calls it, or passes the weights.
 
 ### Removals
+
+- **Four `scripts/` drivers are deleted and four merge into a survivor.** The fifteen `.jl` files
+  under `scripts/` become eight — seven drivers and one shared parser. `bump_on_tail.jl` goes:
+  `using VlasovMethods.BumpOnTail` names a module that does not exist and six further names are
+  absent, and the bump-on-tail set is reproduced elsewhere. `charged_particles.jl` goes: it never
+  loads VlasovMethods and calls an API `GeometricIntegrators` 0.18 lacks. `landau_new.jl` and
+  `landau_newer.jl` go: each meets the positivity guard of K8 at step 0, so no Landau
+  time-stepping run gets past it at any parameters tried, and one solver step lives in
+  `test/integration/landau_solver.jl`. `landau_profile.jl` merges into `profile.jl` as its
+  `--model landau`, `lenard_bernstein_conservative.jl` and
+  `rescaled_lenard_bernstein_conservative.jl` merge into `lenard_bernstein.jl` as two further
+  `--model` values, and `lenard_bernstein_metriplectic_scaling.jl` merges into
+  `lenard_bernstein_metriplectic.jl` as its `--npart` list.
 
 - **Five dead `src/` files are deleted.** `vlasov_poisson.jl`, `electric_field.jl` and
   `visualisation.jl` were included by nothing and had only commented-out `include` and `export`
@@ -328,6 +342,20 @@ first entry is written.
   printed residual can differ in its last digits, from rounding alone.
 
 ### New Features
+
+- **Every `scripts/` driver reads its output directories and its parameters from the command
+  line.** A new `scripts/options.jl` is the directory's only argument parser: it accepts
+  `--runs-dir` and `--results-dir`, defaulting to `runs/` and `results/` beside the repository
+  root, creates both, and rejects an unrecognised flag with an `ArgumentError` rather than
+  ignoring it. Each driver writes its numbers under `--runs-dir` and a figure or a report under
+  `--results-dir`, so a run leaves the working tree untouched and `git status --short --ignored`
+  is the same before and after it; `/runs` and `/results` join `.gitignore`. The surviving
+  drivers draw with CairoMakie, and `scripts/Project.toml` loses `Plots`, `LaTeXStrings`,
+  `GLMakie`, `SciMLBase`, `TerminalLoggers` and `Logging` and gains `CairoMakie`. Their defaults
+  are measured to run: `lenard_bernstein.jl` steps `dt = 1e-2` over `t ∈ [0, 1]` for all three of
+  its models, where the `dt = 0.1` over `t ∈ [0, 10]` it carried fails for every one of them, and
+  `lenard_bernstein_metriplectic.jl` starts from the cell-centred lattice on `[-2, 2]`, which
+  keeps the projection positive where the shifted double Maxwellian on `[-10, 10]` did not.
 
 - **The grid 1D1V Vlasov–Poisson scheme.** `VlasovPoisson(dist::GridDistribution,
   potential::Potential)` is a new method of the exported constructor, and
@@ -697,8 +725,9 @@ first entry is written.
   name `BSplineKit` used to supply; that package is gone from `[deps]`, so the first frame raised
   an `UndefVarError`. `projection` returns a `SimpleSplines.Spline`, so the line becomes
   `derivative(f)` — what the migration table above prescribes. A `SplineDerivative` is callable,
-  so the `df.(xgrid)` plot below it is unchanged. Six further `Derivative(1) * f` lines survive
-  in `scripts/`, all commented out; they need the same edit if those scripts are revived.
+  so the `df.(xgrid)` plot below it is unchanged, and the rewritten driver draws the same curve.
+  Six further `Derivative(1) * f` lines stood in `scripts/`, all commented out; they go with the
+  scripts the rewrite recorded under *Removals* deletes or merges.
 
 - **The package loads again.** `using VlasovMethods` failed outright. The `[compat]` bound
   `GeometricIntegrators = "0.16"` held `RungeKutta` at `0.5`, which still depends on
@@ -755,7 +784,10 @@ first entry is written.
   five sites and `sdist2` at one, neither of which exists; the previous round fixed the same
   class of defect two lines away and stopped short. It also passed `rhs_full[:, :, 2]` — a copy
   — as an output argument, so the write went to a temporary. `scripts/landau_new.jl` had the
-  same copy-as-output bug; `landau_newer.jl` already used a `view`.
+  same copy-as-output bug; `landau_newer.jl` already used a `view`. All three are among the
+  scripts the rewrite recorded under *Removals* deletes or merges, because no Landau run gets
+  past the positivity guard of K8; the profile they carried is
+  `scripts/profile.jl --model landau`.
 
 - **Three docstrings documented nothing.** A comment between a docstring and its definition
   detaches it silently: `(ent::CollisionEntropy)()` produced *no* documentation at all, and the
@@ -845,18 +877,19 @@ first entry is written.
   would change what the tests assert. Its `using Statistics` also had to be declared in
   `[targets] test`.
 
-- **`Cthulhu` is removed from `[deps]`.** Dead — the only occurrences anywhere are two
-  commented-out `using Cthulhu` lines in scripts — with no `[compat]` entry, and it does not
-  precompile against Julia 1.14-DEV (`UndefVarError: ConstPropResult not defined in Compiler`),
-  which was the sole cause of the advisory `nightly` CI job failing. Anyone using it
-  interactively should add it to their own environment rather than to the package's dependencies.
+- **`Cthulhu` is removed from `[deps]`.** Dead — the only occurrences anywhere were two
+  commented-out `using Cthulhu` lines in the two Landau drivers the `scripts/` rewrite recorded
+  under *Removals* deletes — with no `[compat]` entry, and it does not precompile against Julia
+  1.14-DEV (`UndefVarError: ConstPropResult not defined in Compiler`), which was the sole cause of
+  the advisory `nightly` CI job failing. Anyone using it interactively should add it to their own
+  environment rather than to the package's dependencies.
 
 - **Three Landau driver scripts contained invalid Julia and had never been runnable.**
   `const landau_rhs!(v̇, v, params) = …` is a syntax error — `const` takes an assignment, not a
   function definition — in `scripts/landau_new.jl`, `scripts/landau_newer.jl` and
   `scripts/landau_profile.jl`. Found by JuliaFormatter, which could not reparse its own output.
-  The last of the three also called `collisions_rhs!`, which does not exist; it is now
-  `collisional_vectorfield!` like the other two.
+  The last of the three also called `collisions_rhs!`, which does not exist. All three are
+  among the scripts the rewrite recorded under *Removals* deletes or merges.
 
 - **The singular-system guards missed the `±Inf` half of the failure.** Both
   `compute_coefficients` and `compute_coefficients_rclb` tested `isnan(A₁) || isnan(A₂)`, which a
@@ -871,4 +904,6 @@ first entry is written.
 
 - **Four driver scripts still declared `using QuadGK`** after the dependency was dropped from
   `Project.toml`, so each failed at load in the package environment. Every `quadgk` call site in
-  them is commented out, so the import goes rather than the dependency coming back.
+  them is commented out, so the import goes rather than the dependency coming back. The four are
+  among the scripts the rewrite recorded under *Removals* deletes or merges, so nothing under
+  `scripts/` names `QuadGK` at all.
