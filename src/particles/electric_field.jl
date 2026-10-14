@@ -12,9 +12,9 @@ update!(f, X, w, t)     # deposit  Ψₓ X  and solve
 efield!(f, e, X)        # e = Ψₑ E(Ψₚ X)
 ```
 
-A `DEIMElectricField` of a field basis `Ψₑ` is the same path, lifted by `ΠₑᵀΨₓ` and projected by
-`ΨₓᵀΨₑ(ΠₑᵀΨₑ)⁻¹`, which lifts the field evaluation to the interpolation points of the DEIM matrix
-`Πₑ` instead of to every particle.
+A `DEIMElectricField` of a field basis `Ψₑ` with DEIM row indices `p` is the same path, lifted by
+`Ψₓ[p, :]` and projected by `ΨₓᵀΨₑ Ψₑ[p, :]⁻¹`, which evaluates the field at the `kₑ`
+interpolation points `p` instead of at every particle.
 
 For an orthonormal basis `Ψ`, the three-argument form is the full lift and the transpose projection,
 `ReducedElectricField(field, Ψ, X) = ReducedElectricField(field, Ψ, Ψ, Ψ', X)`. At full basis size,
@@ -62,17 +62,12 @@ coefficients(f::ReducedElectricField) = coefficients(f.field)
 
 """
     DEIMElectricField(field, Ψₓ, Ψₑ, p, X)
-    DEIMElectricField(field, Ψₓ, Ψₑ, Πₑ, X)
 
 The hyper-reduced electric field of the full-order `field`: a `ReducedElectricField` lifted by
-`ΠₑᵀΨₓ` and projected by `ΨₓᵀΨₑ(ΠₑᵀΨₑ)⁻¹`, where `Πₑ` is the DEIM interpolation matrix of the
-field basis `Ψₑ`. The first form takes the DEIM row indices `p` of `Ψₑ`, from
-`ReducedBasisMethods.get_DEIM_indices`, and selects the rows `Ψₓ[p, :]` and `Ψₑ[p, :]`, so no
-dense `n × kₑ` matrix is formed. The second form takes `Πₑ` itself, from
-`get_DEIM_interpolation_matrix`, reads the row of the nonzero entry of each column, and calls
-the first; both give the same field. The buffers of the field follow the element type of `Ψₓ`
-and `X`. `X` is the reduced coordinate the buffers of the field are sized from. The lift of the
-field evaluation is
+`Ψₓ[p, :]` and projected by `ΨₓᵀΨₑ Ψₑ[p, :]⁻¹`, where `p` are the DEIM row indices of the field
+basis `Ψₑ`, from `ReducedBasisMethods.get_DEIM_indices`. The buffers of the field follow the
+element type of `Ψₓ` and `X`, and `X` is the reduced coordinate they are sized from. With the
+DEIM interpolation matrix `Πₑ = I[:, p]`, the lift of the field evaluation is
 
 ```math
 E_{\\text{DEIM}} = \\Psi_x^T \\Psi_e (\\Pi_e^T \\Psi_e)^{-1} E(\\Pi_e^T \\Psi_x X),
@@ -86,8 +81,4 @@ non-hyper-reduced one to the DEIM error bound of the paper
 function DEIMElectricField(field, Ψₓ, Ψₑ, p::AbstractVector{<:Integer}, X)
     ΨₓᵀPₑ = (Ψₓ' * Ψₑ) / Ψₑ[p, :]
     ReducedElectricField(field, Ψₓ, Ψₓ[p, :], ΨₓᵀPₑ, X)
-end
-
-function DEIMElectricField(field, Ψₓ, Ψₑ, Πₑ::AbstractMatrix, X)
-    DEIMElectricField(field, Ψₓ, Ψₑ, [findfirst(!iszero, c) for c in eachcol(Πₑ)], X)
 end

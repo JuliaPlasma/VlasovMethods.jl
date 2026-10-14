@@ -577,25 +577,20 @@ first entry is written.
   coordinates `X` by `Ψ`, deposits and solves, evaluates the field at every lifted position, and
   projects back by `Ψ'`. At full basis size, lifted back by `Ψ`, it equals the full-order field to
   `√eps(T)`, the only size at which the two must agree exactly. `DEIMElectricField(field, Ψₓ, Ψₑ,
-  Πₑ, X)` is the DEIM path, ``E = \Psi_x^T \Psi_e (\Pi_e^T \Psi_e)^{-1} E(\Pi_e^T \Psi_x X)``, with
-  `X` the reduced coordinates: the field is evaluated at the `kₑ` interpolation points of `Πₑ`
-  rather than at every particle. It agrees with the reduced path to the DEIM error bound of
+  p, X)` is the DEIM path. `p` holds the DEIM row indices of the field basis `Ψₑ`, from
+  `ReducedBasisMethods.get_DEIM_indices`, and the field is lifted by `Ψₓ[p, :]` and projected by
+  `ΨₓᵀΨₑ Ψₑ[p, :]⁻¹`, so no dense `n × kₑ` matrix `Πₑ` is formed. With `Πₑ = I[:, p]`, the path is
+  ``E = \Psi_x^T \Psi_e (\Pi_e^T \Psi_e)^{-1} E(\Pi_e^T \Psi_x X)``, with `X` the reduced
+  coordinates: the field is evaluated at the `kₑ` interpolation points `p` rather than at every
+  particle. It agrees with the reduced path to the DEIM error bound of
   `ReducedBasisMethods.get_DEIM_interpolation_matrix`, and it is measurably cheaper: `0.86 ms`
   against `2.12 ms` per field evaluation at 5·10⁴ particles and `k = 20` (measured by
   `scripts/electric_field_timing.jl`). Both are type-stable and allocation-free in `Float64` and
   `Float32`, and their buffers follow the element types of the bases and of the coordinates. The
   three-argument constructor accepts a `Matrix` basis. Interpolation points are chosen by the
   `max|r|` selection of `ReducedBasisMethods` 0.2, so `ΠₑᵀΨₑ` stays nonsingular when a column's
-  largest entry is negative.
-
-- **`DEIMElectricField` takes the DEIM row indices in place of the selection matrix.**
-  `DEIMElectricField(field, Ψₓ, Ψₑ, p, X)`, with `p = get_DEIM_indices(Ψₑ)` from
-  `ReducedBasisMethods`, selects the rows `Ψₓ[p, :]` and `Ψₑ[p, :]`, so a caller builds the
-  field without the dense `n × kₑ` matrix `Πₑ` and without the two products with it. The form
-  with `Πₑ` stays: it reads the row of each unit column and calls the index form, and its field
-  evaluation is bit-identical to the index form's in `Float64` and `Float32`. `update!` and
-  `efield!` are unchanged. The `ReducedBasisMethods` compat floor rises to `0.2.1`, the first
-  release that exports `get_DEIM_indices`.
+  largest entry is negative. The `[compat]` floor of `ReducedBasisMethods` is `0.2.1`, the first
+  release that exports `get_DEIM_indices`, the function that produces `p`.
 
 ### Documentation
 
@@ -626,7 +621,7 @@ first entry is written.
   resolves every floor to its oldest admissible version: with `ProgressMeter = "1"` it reports
   `Unsatisfiable requirements detected for package TiffImages` and runs no test.
 
-- **The `MultiIndexArrays` compat floor rises to `0.1.2`.** `ReducedBasisMethods` 0.2.0, which this
+- **The `MultiIndexArrays` compat floor rises to `0.1.2`.** `ReducedBasisMethods` 0.2, which this
   release requires, depends on `MultiIndexArrays` in `0.1.2 - 0.1`, and the Downgrade job resolves
   every floor to its oldest admissible version: with `MultiIndexArrays = "0.1.1"` its forcedeps
   check reports `MultiIndexArrays resolved to 0.1.2 but lower bound is 0.1.1` and fails.

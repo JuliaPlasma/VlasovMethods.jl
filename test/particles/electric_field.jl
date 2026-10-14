@@ -1,7 +1,7 @@
 using LinearAlgebra
 using PoissonSolvers
 using Random
-using ReducedBasisMethods: get_DEIM_indices, get_DEIM_interpolation_matrix
+using ReducedBasisMethods: get_DEIM_indices
 using Test
 # `import` and not `using`: the `CountingField` stub below extends `update!` and `efield!`, which
 # a `using` import does not allow.
@@ -96,7 +96,7 @@ end
 
     @testset "check 3: the DEIM selection" begin
         # the orthonormal input below: column 2 has its largest magnitude at a
-        # negative entry, so a selection by `argmax` picks row 1 again and leaves `ΠₑᵀΨₑ`
+        # negative entry, so a selection by `argmax` picks row 1 again and leaves `Ψₑ[p, :]`
         # singular. The selection by `max|r|` picks row 2.
         field, q, w = poisson_field(T; n = 3)
         Ψₑ = T[1 0; 0 -2/√5; 0 -1/√5]
@@ -185,29 +185,6 @@ end
         test_field_types(dfield, T)
         efield!(dfield, E, X)
         @test counting.counts == [kₑ]
-    end
-
-    @testset "check 6: the index and the matrix forms agree bit for bit" begin
-        # the matrix form reads its row indices from `Πₑ` and calls the index form, so the two
-        # fields are the same: `isequal` compares the bits, including the sign of a zero
-        field, q, w = poisson_field(T; n = 200)
-        n, k, kₑ = 200, 20, 8
-        Ψₓ = orthogonal(T, n, k; seed = 3)
-        Ψₑ = orthogonal(T, n, kₑ; seed = 4)
-        X = Ψₓ' * q
-
-        ifield = DEIMElectricField(field, Ψₓ, Ψₑ, get_DEIM_indices(Ψₑ), X)
-        mfield = DEIMElectricField(field, Ψₓ, Ψₑ, get_DEIM_interpolation_matrix(Ψₑ), X)
-        test_field_types(ifield, T)
-        test_field_types(mfield, T)
-
-        update!(ifield, X, w, zero(T))
-        E_index = efield!(ifield, similar(X), X)
-        update!(mfield, X, w, zero(T))
-        E_matrix = efield!(mfield, similar(X), X)
-
-        @test norm(E_index) > zero(T)
-        @test isequal(E_index, E_matrix)
     end
 
     @testset "the diagnostics are the full-order field's" begin
