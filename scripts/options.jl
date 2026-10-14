@@ -25,7 +25,9 @@ const COMMON_OPTIONS = ("--runs-dir", "--results-dir")
 
 Split `args` into positional names and `--flag value` pairs, accepting `--runs-dir` and
 `--results-dir` everywhere plus whatever `extra` a driver adds, and **rejecting anything else**
-with an `ArgumentError`.
+with an `ArgumentError`. A value that begins with `--` is rejected too, because it is a flag
+rather than a value: `--runs-dir --results-dir` would otherwise set the runs directory to the
+name of the other flag.
 
 Sets `RUNS_DIR` and `RESULTS_DIR` as a side effect and creates both directories, so a driver calls
 this before it touches either.
@@ -42,6 +44,8 @@ function parse_arguments(args, extra = ())
             argument in known || throw(ArgumentError(
                 "unknown option `$(argument)`; this script takes " * join(known, ", ")))
             i < lastindex(args) || throw(ArgumentError("`$(argument)` needs a value"))
+            startswith(args[i + 1], "--") && throw(ArgumentError(
+                "`$(argument)` needs a value, got the flag `$(args[i + 1])`"))
             options[argument] = args[i + 1]
             i += 2
         else
@@ -71,13 +75,6 @@ function no_positional(positional, script)
 
     return nothing
 end
-
-"""
-    option_string(options, name, default) -> String
-
-The `--<name>` value, or `default`.
-"""
-option_string(options, name, default) = get(options, name, default)
 
 """
     option_float(options, name, default) -> Float64
