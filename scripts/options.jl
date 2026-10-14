@@ -6,7 +6,7 @@
 # `Packages/CLAUDE.md`. `RUNS_DIR` and `RESULTS_DIR` are `Ref`s rather than constants so that
 # `--runs-dir` and `--results-dir` can redirect them; a constant derived from `@__DIR__` is what
 # forces a caller to *copy* a script in order to write somewhere else. `parse_arguments` creates
-# both, so a run writes into a directory that did not exist before it.
+# both, so neither has to exist beforehand.
 #
 # The two `Ref`s do execute, so including this twice in one session redefines them and resets a
 # `--runs-dir` already set. Each driver includes it once.

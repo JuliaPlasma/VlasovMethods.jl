@@ -55,7 +55,7 @@ function lattice(npart)
     return [DOMAINV[1] + (i - 0.5) * (DOMAINV[2] - DOMAINV[1]) / npart for i in 1:npart]
 end
 
-"One run of `npart` particles over `trange`; returns the state, the times and the errors."
+"One run of `npart` particles over `trange`; returns the times, the state and the errors."
 function march(npart)
     pdist = ParticleDistribution(1, 1, npart)
     pdist.particles.v[1, :] .= lattice(npart)

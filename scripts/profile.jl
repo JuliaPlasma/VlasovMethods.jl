@@ -39,9 +39,10 @@ const TSTEP = option_float(PARSED, "--tstep", 1e-3)
 const TSPAN = (0.0, option_float(PARSED, "--final-time", 1e-2))
 const DOMAINV = (-10.0, 10.0)
 
-# The two-dimensional Landau step of `test/integration/landau_solver.jl`: 16 cell centres per
-# velocity axis inside `[-2, 2]`, equal weights, and a quadratic `Free` basis on the same
-# interval, so that the projected density is positive everywhere the operator reads it.
+# The particle lattice of `test/integration/landau_solver.jl`'s two-dimensional Landau step: 16
+# cell centres per velocity axis inside `[-2, 2]`, equal weights. The basis is quadratic over 16
+# cells where the test's is cubic over 8, and `Free` on the same interval, so that the projected
+# density is positive everywhere the operator reads it.
 const N1 = 16
 const LANDAU_DOMAIN = (-2.0, 2.0)
 const TOL = 1e-10
