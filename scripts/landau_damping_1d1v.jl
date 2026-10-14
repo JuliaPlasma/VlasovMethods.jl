@@ -129,8 +129,8 @@ function main()
         push!(series, (
             nv = nv, dt = dt, γ = γ, ts = ts, ys = ys, times = times, logE = logE))
 
-        # every fifth sample: the series is 801 and 1601 points, and the peaks are what the fit
-        # reads, so the sampled series is written alongside them
+        # the whole series, with the peaks the fit reads appended under their own header, so the
+        # figure beside it can be redrawn from the file alone
         numbers = runs_path(@sprintf("landau_damping_1d1v_nv%d.txt", nv))
         open(numbers, "w") do io
             @printf(io, "# nv = %d, dt = %.3f, gamma = %.6f, %d peaks\n", nv, dt, γ,

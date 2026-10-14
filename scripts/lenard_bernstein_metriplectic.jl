@@ -18,7 +18,7 @@
 # density positive everywhere the operator reads it, which is the device
 # `test/integration/metriplectic_solve.jl` uses.
 #
-# The mass matrix of the solve is the one the tests pin: `abstol = 3e-16·√N`, `reltol = 1e-50`.
+# The tolerance of the solve is the one the tests pin: `abstol = 3e-16·√N`, `reltol = 1e-50`.
 # A fixed `1e-15` compares against `‖F‖₂` and is below the round-off floor of that norm — one
 # step throws at N = 64 — which is what K37 recorded.
 
