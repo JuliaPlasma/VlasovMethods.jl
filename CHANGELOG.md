@@ -565,8 +565,9 @@ first entry is written.
   the field of a `PoissonSolvers.Potential`.** Both are exported. `ElectricField` is the
   interface a reduced field lifts into: `update!(f, x, w, t)` deposits the positions `x` with the
   weights `w` and solves the potential, `efield!(f, e, x)` writes ``E(x) = -\partial_x\phi(x)``
-  at each position into `e`, and the three call forms `f(e, x, w, t)`, `f(e, x)` and `f(x, w, t)`
-  are those two in sequence. `update!` and `efield!` are not exported: a caller reaches them
+  at each position into `e`. The three call forms are `f(e, x, w, t)`, which is `update!` followed
+  by `efield!`, `f(e, x)`, which is `efield!` alone, and `f(x, w, t)`, which is both, into an
+  `e` that the call allocates. `update!` and `efield!` are not exported: a caller reaches them
   through those three call forms, as `VlasovMethods.update!` and `VlasovMethods.efield!`, or with
   `using VlasovMethods: update!, efield!`. Neither is the `PoissonSolvers.update!` that a
   `PoissonField` calls on its own potential. `PoissonField(potential)` deposits through
