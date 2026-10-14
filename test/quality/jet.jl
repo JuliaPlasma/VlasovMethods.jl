@@ -4,7 +4,7 @@ using PoissonSolvers
 using Random
 using ReducedBasisMethods: get_DEIM_interpolation_matrix
 using VlasovMethods
-using VlasovMethods: DEIMElectricField, PoissonField, ReducedElectricField, SAcceleration,
+using VlasovMethods: DEIMElectricField, ReducedElectricField, SAcceleration,
                      VAcceleration, VlasovHamiltonian, efield!, energy, s_drift!,
                      s_lorentz!,
                      update!
@@ -12,6 +12,7 @@ using ElectromagneticFields
 using Test
 
 include("../helpers/external_fields.jl")
+include("../helpers/poisson_field.jl")
 
 # Static optimisation analysis of the hot paths: every function of `src/` that a test file
 # asserts with `@allocated`, at the concrete argument types those tests pass. A runtime
@@ -97,10 +98,9 @@ if isdefined(JET, :JET_AVAILABLE) ? JET.JET_AVAILABLE : JET.JET_LOADABLE
     # types those files pass. Each field is analysed once per precision, because each test file
     # runs both.
     for T in (Float64, Float32)
+        # `poisson_field` sets the same seed; the `randn` draws below continue its stream
         Random.seed!(1234)
-        q = T(0.2) .+ T(0.6) .* rand(T, 200)
-        w = fill(T(1) / 200, 200)
-        efield = PoissonField(Potential(PeriodicBasisSpline((zero(T), one(T)), 3, 16)))
+        efield, q, w = poisson_field(T; n = 200)
         Ψₓ = Matrix(qr(randn(T, 200, 20)).Q)
         Ψₑ = Matrix(qr(randn(T, 200, 8)).Q)
         Πₑ = get_DEIM_interpolation_matrix(Ψₑ)

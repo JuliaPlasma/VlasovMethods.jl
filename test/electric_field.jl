@@ -1,7 +1,6 @@
 using LinearAlgebra
 using ParticleMethods: ParticleList
 using PoissonSolvers
-using Random
 using SimpleSplines: SplineQuadrature, stiffness_matrix
 using Test
 using VlasovMethods
@@ -11,6 +10,7 @@ using VlasovMethods: ElectricField, PoissonField, coefficients, efield!, energy,
 using VlasovMethods: _electric_field
 
 include("helpers/allocation_barriers.jl")
+include("helpers/poisson_field.jl")
 
 # The particle distribution of `x` and `w`, for the deposit of `projection!`: the same two
 # columns the field's own deposit takes as vectors.
@@ -22,16 +22,6 @@ function particle_distribution(::Type{T}, x::AbstractVector, w::AbstractVector) 
     d.particles.x .= x'
     d.particles.w .= w'
     return d
-end
-
-# The field of `n` seeded positions in `(0, 1)` with equal weights, on `ncells` periodic spline
-# cells of degree `order`.
-function poisson_field(::Type{T}; n = 40, ncells = 16, order = 3) where {T}
-    Random.seed!(1234)
-    q = T(0.2) .+ T(0.6) .* rand(T, n)
-    w = fill(T(1) / n, n)
-    potential = Potential(PeriodicBasisSpline((zero(T), one(T)), order, ncells))
-    return PoissonField(potential), q, w
 end
 
 # The field of the positions that reach the last cell of the domain, on a `DirichletBasisSpline`:

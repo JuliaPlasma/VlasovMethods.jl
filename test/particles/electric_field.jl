@@ -5,22 +5,11 @@ using ReducedBasisMethods: get_DEIM_interpolation_matrix
 using Test
 # `import` and not `using`: the `CountingField` stub below extends `update!` and `efield!`, which
 # a `using` import does not allow.
-import VlasovMethods: DEIMElectricField, PoissonField, ReducedElectricField, efield!,
-                      energy,
-                      update!
+import VlasovMethods: DEIMElectricField, ReducedElectricField, efield!, energy, update!
 using VlasovMethods
 
 include("../helpers/allocation_barriers.jl")
-
-# The full-order field of `n` seeded positions in `(0, 1)` with equal weights, on `ncells`
-# periodic spline cells of degree `order`.
-function poisson_field(::Type{T}; n = 1000, ncells = 16, order = 3) where {T}
-    Random.seed!(1234)
-    q = T(0.2) .+ T(0.6) .* rand(T, n)
-    w = fill(T(1) / n, n)
-    potential = Potential(PeriodicBasisSpline((zero(T), one(T)), order, ncells))
-    return PoissonField(potential), q, w
-end
+include("../helpers/poisson_field.jl")
 
 # A seeded random orthonormal `n × k` basis, from the QR of a Gaussian matrix.
 function orthogonal(::Type{T}, n, k; seed = 42) where {T}
