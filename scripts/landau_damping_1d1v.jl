@@ -149,6 +149,9 @@ function main()
 
     γ₁, γ₂ = rates
     ok = abs(γ₁ - TEXTBOOK) ≤ 1.5e-3 && abs(γ₁ - γ₂) < 1.5e-4
+    ok || error(
+        "the fitted rate γ = $(γ₁) is not within 1.5e-3 of the textbook $(TEXTBOOK), or " *
+        "halving h_v and dt moved it by $(abs(γ₁ - γ₂)) ≥ 1.5e-4 (γ = $(γ₂))")
 
     fig = Figure(size = (1200, 500))
     ax = Axis(fig[1, 1], xlabel = "t", ylabel = "log|E₁|",
@@ -159,20 +162,16 @@ function main()
             label = @sprintf("nv = %d, dt = %.3f: γ = %.6f", s.nv, s.dt, s.γ))
         scatter!(ax, s.ts, s.ys, color = colour, markersize = 8)
     end
-    axislegend(ax; position = :lb)
     # the textbook slope, laid through the first peak of the first run: the fit's own intercept is
     # what the data decides, so the comparison is the slope and not the height
     t₀, y₀ = series[1].ts[1], series[1].ys[1]
     lines!(ax, [8.0, 40.0], y₀ .+ TEXTBOOK .* ([8.0, 40.0] .- t₀), color = :black,
         linestyle = :dash, label = @sprintf("γ = %.4f", TEXTBOOK))
+    axislegend(ax; position = :lb)
 
     figure = results_path("landau_damping_1d1v.png")
     save(figure, fig)
     @printf("  wrote %s\n", figure)
-
-    ok || error(
-        "the fitted rate γ = $(γ₁) is not within 1.5e-3 of the textbook $(TEXTBOOK), or " *
-        "halving h_v and dt moved it by $(abs(γ₁ - γ₂)) ≥ 1.5e-4 (γ = $(γ₂))")
 
     return nothing
 end

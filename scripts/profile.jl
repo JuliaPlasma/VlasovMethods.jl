@@ -15,8 +15,6 @@
 #            Landau driver marches in time — every one of them meets the positivity guard of
 #            `KNOWN_ISSUES.md` K8 — so the solver step is profiled directly, on the cell-centred
 #            lattice of `test/integration/landau_solver.jl`, where the projection stays positive.
-#            The deleted `scripts/landau_profile.jl` was the same target on a periodic basis that
-#            threw at its first projection.
 
 include(joinpath(@__DIR__, "options.jl"))
 
@@ -53,21 +51,20 @@ const DEPTH = 3
 const CHUNKSIZE = 1
 
 """
-    step_clb(h5file) -> nothing
+    step_clb(h5file, tspan = TSPAN)
 
-One `ConservativeLenardBernstein` run, profiled. Returns nothing; the trajectory is at `h5file`.
+One `ConservativeLenardBernstein` run over `tspan`, through the model's `GeometricIntegrator`.
+Returns what `run!(integrator, h5file)` returns; the trajectory is at `h5file`. The caller wraps in
+`Profile.Allocs.@profile` the call whose allocations it wants.
 """
-function step_clb(h5file)
+function step_clb(h5file, tspan = TSPAN)
     dist = initialize!(ParticleDistribution(1, 1, NPART), NormalDistribution())
     sdist = SplineDistribution(1, 1, NKNOT, ORDER, DOMAINV, 0, :Dirichlet)
     entropy = CollisionEntropy(sdist)
     model = ConservativeLenardBernstein(dist, entropy)
-    integrator = GeometricIntegrator(model, TSPAN, TSTEP)
+    integrator = GeometricIntegrator(model, tspan, TSTEP)
 
-    Profile.clear()
-    Profile.clear_malloc_data()
-
-    return Profile.Allocs.@profile VlasovMethods.run!(integrator, h5file)
+    return VlasovMethods.run!(integrator, h5file)
 end
 
 "One Landau Picard step of the two-dimensional setup, warmed by the call in `main`."
@@ -100,13 +97,48 @@ function landau_setup()
     return Landau(pdist, CollisionEntropy(sdist)), copy(pdist.particles.v)
 end
 
+# The innermost Julia frame of an allocation — the runtime and the allocation profiler below and
+# above it are C, so a summary row names the code under profile and not the sampling machinery.
+function allocation_frame(allocation)
+    for frame in allocation.stacktrace
+        frame.from_c && continue
+        return string(frame.func, " at ", basename(string(frame.file)), ":", frame.line)
+    end
+
+    return "unknown"
+end
+
+"""
+    allocation_summary(allocations; top = 15) -> (total, rows)
+
+The `top` frames that own the most sampled bytes, each as a `(frame, count, bytes)` tuple, with the
+sampled bytes over every frame.
+"""
+function allocation_summary(allocations; top = 15)
+    frames = Dict{String, Tuple{Int, Int}}()
+    total = 0
+    for allocation in allocations
+        frame = allocation_frame(allocation)
+        count, bytes = get(frames, frame, (0, 0))
+        frames[frame] = (count + 1, bytes + Int(allocation.size))
+        total += Int(allocation.size)
+    end
+    rows = sort([(frame, count, bytes) for (frame, (count, bytes)) in frames];
+        by = row -> -row[3])
+
+    return total, rows[1:min(top, length(rows))]
+end
+
 function main()
     started = time()
     h5file = MODEL == "clb" ? runs_path("profile_clb.hdf5") : ""
 
     if MODEL == "clb"
+        # a warm one-step run of the same path, so that the profile is of arithmetic and not of
+        # compilation; it writes the trajectory first, and the profiled run overwrites it
+        step_clb(h5file, (TSPAN[1], TSPAN[1] + TSTEP))
         Profile.Allocs.clear()
-        step_clb(h5file)
+        Profile.Allocs.@profile step_clb(h5file)
     else
         landau, v_prev = landau_setup()
         # a warm call of each branch of the solver, so that the profile is of arithmetic and not
@@ -136,7 +168,7 @@ function main()
                 "`GeometricIntegrator`, at --npart ", NPART, ", --nknot ", NKNOT,
                 ", --order ", ORDER, ", --tstep ", TSTEP, ", --final-time ", TSPAN[2],
                 ": ", round(Int, TSPAN[2] / TSTEP), " steps.")
-            println(io, "The trajectory is `", basename(h5file), "`, beside this report's dump.")
+            println(io, "The trajectory is `", basename(h5file), "`, beside the raw dump.")
         else
             println(
                 io, "One `Picard_iterate_Landau_nls!` step of the two-dimensional Landau ",
@@ -148,11 +180,17 @@ function main()
         println(io, "The allocation profiler samples at its default rate of 0.1, so the count")
         println(io, "above is the sample and not the total.")
         println(io)
-        println(io, "The raw dump is `", basename(numbers), "` in the runs directory.")
+        total, rows = allocation_summary(allocations.allocs)
+        @printf(io, "The frames below own %d of the %d sampled bytes:\n",
+            sum(row -> row[3], rows; init = 0), total)
         println(io)
-        println(io, "```")
-        print(io, profile_text)
-        println(io, "```")
+        println(io, "| allocations | bytes | frame |")
+        println(io, "|--:|--:|:--|")
+        for (frame, count, bytes) in rows
+            @printf(io, "| %d | %d | `%s` |\n", count, bytes, frame)
+        end
+        println(io)
+        println(io, "The full dump is `", basename(numbers), "` in the runs directory.")
     end
 
     @printf("profile: model %s, %.1f s, %d sampled allocations\n",

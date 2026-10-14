@@ -7,9 +7,8 @@
 # The HDF5 trajectory goes to `--runs-dir`, the figure to `--results-dir`. The script writes only
 # under those two, so `git status --short --ignored` is unchanged by a run.
 #
-# `BumpOnTail` is the other initialiser this driver once carried. It is not built here: the
-# bump on the tail belongs to the reproduction set for that problem, and this driver is the
-# deposition path and the splitting method.
+# `BumpOnTail` is not built here: the bump on the tail belongs to the reproduction set for that
+# problem, and this driver is the deposition path and the splitting method.
 
 include(joinpath(@__DIR__, "options.jl"))
 
@@ -59,8 +58,11 @@ z = h5read(h5file, "z")
 slice_time(slice) = TSPAN[1] + (slice - 1) * TSTEP
 
 # the figure shows the same cloud at four evenly spaced times, so that the filamentation the
-# scheme is meant to resolve is visible rather than asserted
+# scheme is meant to resolve is visible rather than asserted. The two signs of `v` are drawn
+# apart, split once by each particle's sign at the first slice: the filamentation of either half
+# is easier to read than the sum, and a particle that crosses `v = 0` keeps the half it began in
 slices = unique(round.(Int, range(1, size(z, 3); length = 4)))
+positive = z[2, :, 1] .>= 0
 
 vmax = ceil(maximum(abs.(z[2, :, begin])))
 
@@ -70,9 +72,6 @@ for (panel, slice) in enumerate(slices)
         title = @sprintf("t = %.1f", slice_time(slice)), limits = (
             (0.0, 1.0), (-vmax, vmax)),
         xticks = [0.0, 0.5, 1.0])
-    # the two signs of `v` are drawn apart, as the driver always did: the filamentation of each
-    # half of the cloud is easier to read than the sum
-    positive = z[2, :, slice] .>= 0
     scatter!(ax, mod.(z[1, positive, slice], 1), z[2, positive, slice],
         color = :steelblue, markersize = 2)
     scatter!(ax, mod.(z[1, .!positive, slice], 1), z[2, .!positive, slice],

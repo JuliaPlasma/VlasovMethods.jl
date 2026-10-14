@@ -10,16 +10,14 @@
 #
 # `--model` picks the collision operator: `lb` is `LenardBernstein`, `clb` the conservative
 # variant that solves its two coefficients from the particle momentum and energy, and `rclb` the
-# rescaled conservative variant. `clb` is the default, which is what this driver built before
-# the flag existed.
+# rescaled conservative variant. `clb` is the default.
 #
-# **The defaults are dt = 0.01 over t ∈ [0, 1]**, and not the dt = 0.1 over t ∈ [0, 10] this
-# driver carried: that pair fails for every one of the three models, because the particles drift
-# out of the velocity domain and the projection then throws on the ones that left.
+# **The defaults are dt = 0.01 over t ∈ [0, 1].** A dt = 0.1 over t ∈ [0, 10] fails for every one
+# of the three models, because the particles drift out of the velocity domain and the projection
+# then throws on the ones that left.
 #
-# The animation this driver used to record is a figure of three panels instead. CairoMakie draws
-# no animated GIF without an encoder on the `PATH`, and the two ends of the run are what the
-# animation was read for.
+# The figures are the right-hand side at the initial condition and the distribution at the two
+# ends of the run.
 
 include(joinpath(@__DIR__, "options.jl"))
 
@@ -62,10 +60,9 @@ else
 end
 
 # The right-hand side at the initial condition, saved before the run writes the final state back
-# into `dist.particles.v`. This is the diagnostic the deleted `lenard_bernstein_conservative.jl`
-# carried: one vector-field evaluation against `v`, which shows where the operator pushes hardest
-# and whether the projection is positive. The argument order is the ODE one, which is what the
-# integrator calls.
+# into `dist.particles.v`: one vector-field evaluation against `v`, which shows where the operator
+# pushes hardest and whether the projection is positive. The argument order is the ODE one, which
+# is what the integrator calls.
 const RHS! = MODEL == "lb" ? VlasovMethods.LB_rhs_GI! :
              MODEL == "clb" ? VlasovMethods.CLB_rhs_GI! :
              VlasovMethods.RCLB_rhs_GI!
@@ -82,12 +79,12 @@ run!(integrator, h5file)
 
 @printf("lenard_bernstein: model %s, %d particles, %d knots, order %d, dt = %g, t ∈ %s\n",
     MODEL, NPART, NKNOT, ORDER, TSTEP, TSPAN)
-@printf("  wrote %s (%d time slices)\n", h5file, size(h5read(h5file, "z"), 2))
 
 # `run!(::GeometricIntegrator, h5file)` writes the velocity vector the ODE steps, one slice per
 # time point: `z` is `(npart, ntime + 1)`, not the `(nd, npart, ntime + 1)` of the splitting
 # method's trajectory.
 z = h5read(h5file, "z")
+@printf("  wrote %s (%d time slices)\n", h5file, size(z, 2))
 xgrid = collect(range(DOMAIN[1], DOMAIN[2]; length = 201))
 
 # The particle density of one time slice, by the rectangle rule of the plot's own bins. Written

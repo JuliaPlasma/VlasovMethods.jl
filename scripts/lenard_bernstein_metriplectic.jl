@@ -8,15 +8,13 @@
 #
 # For each particle number the HDF5 diagnostics go to `--runs-dir` (`<name>_N<n>.hdf5`) and the
 # figure to `--results-dir` (`<name>_N<n>.png`), with a convergence figure and a report over the
-# whole list at the end. This is the scaling study of the deleted
-# `lenard_bernstein_metriplectic_scaling.jl`, as a list rather than a second script.
+# whole list at the end. The list is the scaling study: one run per particle number.
 #
-# **The initial condition is the cell-centred lattice on `[-2, 2]`.** The scaling script drew a
-# shifted double Maxwellian on `[-10, 10]`, whose tails reach outside any bounded velocity
-# domain; the projection then finds particles outside its support and throws, which is
-# `KNOWN_ISSUES.md` K36. A lattice whose support *is* the velocity domain keeps the projected
-# density positive everywhere the operator reads it, which is the device
-# `test/integration/metriplectic_solve.jl` uses.
+# **The initial condition is the cell-centred lattice on `[-2, 2]`.** A shifted double Maxwellian
+# on `[-10, 10]` has tails that reach outside any bounded velocity domain; the projection then
+# finds particles outside its support and throws, which is `KNOWN_ISSUES.md` K36. A lattice whose
+# support *is* the velocity domain keeps the projected density positive everywhere the operator
+# reads it, which is the device `test/integration/metriplectic_solve.jl` uses.
 #
 # The tolerance of the solve is the one the tests pin: `abstol = 3e-16·√N`, `reltol = 1e-50`.
 # A fixed `1e-15` compares against `‖F‖₂` and is below the round-off floor of that norm: one step
@@ -73,7 +71,7 @@ function march(npart)
     # the unused `dv` and the extrapolation history, in the argument order of the solve
     dv = zeros(npart)
     dv_history = zeros(npart, 2)
-    abstol = 3.0e-16 * sqrt(npart)     # the example tolerance the scaling script used
+    abstol = 3.0e-16 * sqrt(npart)     # the tolerance test/integration/metriplectic_solve.jl pins
 
     @showprogress desc="N = $npart" for (i, t) in pairs(trange[1:(end - 1)])
         vn_minus_one = i > 1 ? sol[:, i - 1] : sol[:, i]
@@ -110,8 +108,9 @@ function main()
         end
 
         fig = Figure(size = (1200, 450))
-        # an error of exactly zero has no logarithm; it is drawn at the smallest positive
-        # `Float64` rather than dropped from the figure
+        # an error of exactly zero has no logarithm; it is drawn at `eps()`, and a value below
+        # `eps()` is drawn at that floor too. A floor at `floatmin()` would put the axis' lower
+        # limit at the denormal bound, where Makie's log-limit padding underflows
         ax1 = Axis(fig[1, 1], xlabel = "t", ylabel = "error", title = "conservation",
             yscale = log10)
         lines!(ax1, trange, max.(abs.(momentum_error), eps()), color = :steelblue,
@@ -141,6 +140,7 @@ function main()
     fig = Figure(size = (1000, 450))
     ax = Axis(fig[1, 1], xlabel = "N", ylabel = "error at t = $(TSPAN[2])",
         xscale = log10, yscale = log10)
+    # the same `eps()` floor as the conservation figure, for the same reason
     scatterlines!(ax, NPART_LIST, max.(abs.(final_momentum), eps()), color = :steelblue,
         label = "|momentum|")
     scatterlines!(ax, NPART_LIST, max.(abs.(final_energy), eps()), color = :firebrick,
