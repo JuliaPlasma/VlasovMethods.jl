@@ -172,9 +172,9 @@ takes the next `K<n>`.
   package does not use; its one caller is the wrapper `LB_rhs_GI!` at `:44-46`.
   `LB_rhs` (`:49`) and `CLB_rhs` (`src/models/lenard_bernstein_conservative.jl:184`) repeat the
   bodies of their `_GI!` functions, and neither has a caller: `grep -rn -E '\bC?LB_rhs\b' src
-  test scripts` finds them at those two definitions alone, the `LB_rhs!` calls of
-  `src/models/lenard_bernstein.jl:33` and `:45`, and the `LB_rhs!` call of the collision-operator
-  test and of its reference generator.
+  test scripts` finds them at those two definitions alone, the `LB_rhs!` definition of
+  `src/models/lenard_bernstein.jl:33` with its one call at `:45`, and the `LB_rhs!` call of the
+  collision-operator test and of its reference generator.
 - **kind:** dead code
 - **found:** #61
 
