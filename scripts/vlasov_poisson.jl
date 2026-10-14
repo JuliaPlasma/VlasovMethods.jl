@@ -5,9 +5,9 @@
 #       [--tstep 0.1] [--final-time 20.0] [--runs-dir dir] [--results-dir dir]
 #
 # The HDF5 trajectory goes to `--runs-dir`, the figure to `--results-dir`. The script writes only
-# under those two, so a run adds no untracked path and `git status --short` is unchanged by it. The
-# two directories are ignored, so `git status --short --ignored` gains a line for each on the run
-# that creates it.
+# under those two, so a run adds no untracked path and `git status --short` is unchanged by it. At
+# the defaults the two directories are ignored, so `git status --short --ignored` gains a line for
+# each on the run that creates it.
 #
 # `BumpOnTail` is not built here: the bump on the tail belongs to the reproduction set for that
 # problem, and this driver is the deposition path and the splitting method.
