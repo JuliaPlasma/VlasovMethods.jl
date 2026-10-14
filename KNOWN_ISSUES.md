@@ -528,3 +528,34 @@ takes the next `K<n>`.
   guards non-finite input, so a march that produces it stops at the step that deposits it.
 - **kind:** found late
 - **found:** #78, which adds no guard and no test for non-finite coordinates.
+
+### K62 · The CHANGELOG claims a `Free()` reproduction accuracy that `scripts/verify_conservation.jl` does not measure.
+
+- **location:** `CHANGELOG.md:520`
+- **evidence:** The line reads "`Free()` reproduces `1`, `v`, `v²` to `1e-14`". The script's own
+  CLAIM 2 table, through
+  `julia --startup-file=no --project=scripts scripts/verify_conservation.jl | grep -E '^(condition|Free)'`,
+  prints
+  `Free()       3        6.661e-16      1.776e-15      2.842e-14`
+  on Julia 1.13.1: the largest of the three errors is `2.842e-14`, 2.8 times the claimed `1e-14`,
+  so the sentence overstates what the script measures. The line predates this branch, which did not
+  write it (`3e09db8:CHANGELOG.md:491`).
+- **kind:** docs
+- **found:** 2026-10-14
+
+### K63 · The `catch` of the conservation script reports every exception as the positivity finding.
+
+- **location:** `scripts/verify_conservation.jl:135`
+- **evidence:** The `try` at `:130` wraps the whole `residuals` call, and `catch err` at `:135`
+  carries no type test, so every exception reaches `:140`,
+  `msg = err isa ErrorException ? first(split(err.msg, ',')) : string(typeof(err))`: an
+  `ErrorException` is reported as its first comma-separated clause, and any other exception as its
+  type name. The comment at `:136-139` reads the caught exception as the positivity guard, so an
+  unrelated failure is printed in the row as though it were that finding. The clause path alone
+  reproduces the loss of the message:
+  `julia --startup-file=no -e 'try; error("unrelated failure, raised elsewhere"); catch err; println(err isa ErrorException ? first(split(err.msg, ",")) : string(typeof(err))); end'`
+  prints `unrelated failure`, the rest of the message gone at the comma.
+  `grep -n -A 6 'catch err' scripts/verify_conservation.jl` prints the handler at `:135-141`. The
+  base carries the same handler, with the same comment (`3e09db8:scripts/verify_conservation.jl:112-118`).
+- **kind:** defect
+- **found:** 2026-10-14
