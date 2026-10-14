@@ -588,6 +588,15 @@ first entry is written.
   `max|r|` selection of `ReducedBasisMethods` 0.2, so `ΠₑᵀΨₑ` stays nonsingular when a column's
   largest entry is negative.
 
+- **`DEIMElectricField` takes the DEIM row indices in place of the selection matrix.**
+  `DEIMElectricField(field, Ψₓ, Ψₑ, p, X)`, with `p = get_DEIM_indices(Ψₑ)` from
+  `ReducedBasisMethods`, selects the rows `Ψₓ[p, :]` and `Ψₑ[p, :]`, so a caller builds the
+  field without the dense `n × kₑ` matrix `Πₑ` and without the two products with it. The form
+  with `Πₑ` stays: it reads the row of each unit column and calls the index form, and its field
+  evaluation is bit-identical to the index form's in `Float64` and `Float32`. `update!` and
+  `efield!` are unchanged. The `ReducedBasisMethods` compat floor rises to `0.2.1`, the first
+  release that exports `get_DEIM_indices`.
+
 ### Documentation
 
 - **The manual gains a page on projecting between the three representations of the distribution
