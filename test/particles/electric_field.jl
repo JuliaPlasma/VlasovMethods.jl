@@ -31,7 +31,7 @@ end
 # A full-order field that records how many positions each `efield!` is asked for: the
 # hyper-reduction of the DEIM path is that the field is evaluated at the interpolation points
 # rather than at every particle, which is what the timing script measures.
-mutable struct CountingField{FT} <: ElectricField
+struct CountingField{FT} <: ElectricField
     field::FT
     counts::Vector{Int}
 end

@@ -563,5 +563,4 @@ takes the next `K<n>`.
   A `NaN` or an `Inf` position reaches the same error through a `PoissonField`. Neither field
   guards non-finite input, so a march that produces it stops at the step that deposits it.
 - **kind:** found late
-- **found:** 2026-10-14, P36 round-1 `probe_types.jl` reproducer. The P36 scope explicitly
-  excludes a guard or a test for non-finite coordinates.
+- **found:** #78, which adds no guard and no test for non-finite coordinates.

@@ -562,51 +562,31 @@ first entry is written.
   against.
 
 - **`ElectricField`, the electric field of a particle Vlasov–Poisson problem, and `PoissonField`,
-  the field of a `PoissonSolvers.Potential`.** Both are exported. `ElectricField` is the
-  interface a reduced field lifts into: `update!(f, x, w, t)` deposits the positions `x` with the
-  weights `w` and solves the potential, `efield!(f, e, x)` writes ``E(x) = -\partial_x\phi(x)``
-  at each position into `e`. The three call forms are `f(e, x, w, t)`, which is `update!` followed
-  by `efield!`, `f(e, x)`, which is `efield!` alone, and `f(x, w, t)`, which is both, into an
-  `e` that the call allocates. `update!` and `efield!` are not exported: a caller reaches them
-  through those three call forms, as `VlasovMethods.update!` and `VlasovMethods.efield!`, or with
-  `using VlasovMethods: update!, efield!`. Neither is the `PoissonSolvers.update!` that a
-  `PoissonField` calls on its own potential. `PoissonField(potential)` deposits through
-  `_deposit!`, solves through the potential's own `PoissonSolvers.update!`, evaluates through
-  `_electric_field`, and holds the buffer of `local_width(basis)` basis values that both of those
-  fill and the quadrature of the basis that `energy` integrates ``(\partial_x\phi)^2`` with, so
-  that neither `update!` nor `efield!` allocates. `energy` agrees with ``\phi^T S \phi / 2`` on
-  the stiffness matrix of the same basis, and is inferred and allocation-free like the two step
-  functions. Both functions are type-stable and allocation-free in `Float64` and `Float32`,
-  asserted through a fixed-arity barrier behind the coverage guard, and analysed by
-  `test/quality/jet.jl`. The `src/electric_field.jl` that holds them returns here without
-  `ScaledField` and without `ExternalField`, which the reduced march does not need; the deposit
-  it needs for a vector of lifted positions is the row view of the one loop `projection!` runs,
-  not a copy of it.
+  the field of a `PoissonSolvers.Potential`.** Both are exported. `ElectricField` is the interface
+  a reduced field lifts into. `update!(f, x, w, t)` deposits the positions `x` with the weights
+  `w` and re-solves the potential; `efield!(f, e, x)` writes ``E(x) = -\partial_x\phi(x)`` at each
+  position into `e`. The call forms are `f(e, x, w, t)` (both steps), `f(e, x)` (`efield!` alone)
+  and `f(x, w, t)` (both steps, into an `e` the call allocates). `update!` and `efield!` are not
+  exported; reach them as `VlasovMethods.update!` and `VlasovMethods.efield!`. `PoissonField`
+  implements the interface on a B-spline potential, and its `update!` and `efield!` are
+  type-stable and allocation-free in `Float64` and `Float32`. `energy(f)`, the field energy
+  ``\tfrac12\int(\partial_x\phi)^2\,\mathrm{d}x``, is allocation-free too.
 
 - **`ReducedElectricField` and `DEIMElectricField`, the reduced electric field and its hyper-reduced
-  counterpart.** Both are exported. `ReducedElectricField(field, Ψ, X)` is the non-hyper-reduced
-  path — lift the reduced coordinates by `Ψ`, deposit, solve, evaluate the field at every lifted
-  position and project by `Ψ'` — and equals the full-order field to `√eps(T)` at full basis size,
-  which is the only setting where the two must agree exactly. `DEIMElectricField(field, Ψₓ, Ψₑ,
-  Πₑ, X)` is the DEIM path, ``E = \Psi_x^T \Psi_e (\Pi_e^T \Psi_e)^{-1} E(\Pi_e^T \Psi_x x)``: the
-  field is evaluated at the `kₑ` interpolation points of `Πₑ` rather than at every particle. It
-  agrees with the non-hyper-reduced path to the DEIM error bound of the paper
-  `ReducedBasisMethods.get_DEIM_interpolation_matrix` cites, measured against the bound at a
-  rank-one field basis, and is measurably cheaper: `scripts/electric_field_timing.jl` runs each
-  path in a cold process of its own with one `BLAS` thread, takes the median of five runs of the
-  run size of `bump_on_tail_3_testing.jl`, 5·10⁴ particles and `k = 20`, and exits non-zero unless
-  the DEIM median is below the reduced one — measured `0.86 ms` against `2.12 ms` per field
-  evaluation. The tests assert the reduced-path error at `√eps(Float64)` and at the `Float32`
-  accuracy of the Poisson solve, `1e-5`, and both paths type-stable and allocation-free through a
-  fixed-arity barrier behind the coverage guard. The rank-one path is checked against the
-  interpolation formula itself, computed from the field sample rather than read back from the
-  field. `Πₑ` is used as `ReducedBasisMethods.get_DEIM_interpolation_matrix` returns it and
-  converted to nothing, so the buffers and both bases of a `DEIMElectricField` follow the element
-  type of `Ψₑ`; every test that builds one asserts it, in both precisions. The field basis type
-  is now the `ΨₚT` the struct declares, so the three-argument constructor takes a `Matrix` basis,
-  where before it threw a `MethodError` at construction; the DEIM selection that left `ΠₑᵀΨₑ`
-  singular for a field basis whose largest residual entry is negative is fixed by the `max|r|`
-  selection of `ReducedBasisMethods` 0.2.
+  counterpart.** Both are exported. `ReducedElectricField(field, Ψ, X)` lifts the reduced
+  coordinates `X` by `Ψ`, deposits and solves, evaluates the field at every lifted position, and
+  projects back by `Ψ'`. At full basis size, lifted back by `Ψ`, it equals the full-order field to
+  `√eps(T)`, the only size at which the two must agree exactly. `DEIMElectricField(field, Ψₓ, Ψₑ,
+  Πₑ, X)` is the DEIM path, ``E = \Psi_x^T \Psi_e (\Pi_e^T \Psi_e)^{-1} E(\Pi_e^T \Psi_x X)``, with
+  `X` the reduced coordinates: the field is evaluated at the `kₑ` interpolation points of `Πₑ`
+  rather than at every particle. It agrees with the reduced path to the DEIM error bound of
+  `ReducedBasisMethods.get_DEIM_interpolation_matrix`, and it is measurably cheaper: `0.86 ms`
+  against `2.12 ms` per field evaluation at 5·10⁴ particles and `k = 20` (measured by
+  `scripts/electric_field_timing.jl`). Both are type-stable and allocation-free in `Float64` and
+  `Float32`, and their buffers follow the element types of the bases and of the coordinates. The
+  three-argument constructor accepts a `Matrix` basis. Interpolation points are chosen by the
+  `max|r|` selection of `ReducedBasisMethods` 0.2, so `ΠₑᵀΨₑ` stays nonsingular when a column's
+  largest entry is negative.
 
 ### Documentation
 

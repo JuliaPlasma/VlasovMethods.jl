@@ -70,32 +70,19 @@ end
         @test update!(field, q, w, T(3.5)) === nothing
     end
 
-    @testset "the deposit on a recombined basis skips the padding" begin
-        # A recombined basis has no single width: a function near an end spans the union of two
-        # parent supports, so `local_width` is the largest block and a cell with fewer nonzero
-        # functions leaves the tail of the block zero. Those padding entries carry indices past
-        # `nbasis`, so a deposit that added them instead of skipping them raises a `BoundsError`.
-        # The positions of `edge_poisson_field` reach the last cell, which is where that happens.
-        field, q, w = edge_poisson_field(T)
-        @test basis(field.potential) isa RecombinedBSplineBasis
-
-        # the same deposit through the matrix `_deposit!` of `projection!`
+    # A recombined basis has no single width: a function near an end spans the union of two parent
+    # supports, so `local_width` is the largest block and a cell with fewer nonzero functions
+    # leaves the tail of the block zero. Those padding entries carry indices past `nbasis`, so a
+    # deposit that added them instead of skipping them raises a `BoundsError`. The positions of
+    # `edge_poisson_field` reach the last cell, which is where that happens.
+    @testset "the deposit matches projection!, $(nameof(fixture))" for fixture in (
+        poisson_field, edge_poisson_field)
+        field, q, w = fixture(T)
         p = field.potential
-        other = Potential(basis(p))
-        projection!(other, particle_distribution(T, q, w))
-        PoissonSolvers.update!(other)
-
+        fixture === edge_poisson_field && @test basis(p) isa RecombinedBSplineBasis
         @test update!(field, q, w, zero(T)) === nothing
-        @test PoissonSolvers.rhs(p) == PoissonSolvers.rhs(other)
-        @test coefficients(field) == PoissonSolvers.coefficients(other)
-    end
-
-    @testset "the deposit matches projection!" begin
-        field, q, w = poisson_field(T)
-        update!(field, q, w, zero(T))
 
         # the same deposit through the matrix `_deposit!` of `projection!`
-        p = field.potential
         other = Potential(basis(p))
         projection!(other, particle_distribution(T, q, w))
         PoissonSolvers.update!(other)

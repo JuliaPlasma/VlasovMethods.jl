@@ -48,8 +48,7 @@ The full-order electric field of the PoissonSolvers `Potential` `potential`, the
 `VlasovPoisson` model integrates.
 
 The deposit of [`update!`](@ref) is `_deposit!`, the field of [`efield!`](@ref) is
-`_electric_field`, and the solve is the potential's own `PoissonSolvers.update!`, which is not
-the `VlasovMethods.update!` that calls it.
+`_electric_field`, and the solve is the potential's own `PoissonSolvers.update!`.
 
 `potential` is on a B-spline basis, as the potential of a particle model is. The constructor holds
 the buffer of the `local_width(basis)` basis values that the deposit and the field evaluation
@@ -80,9 +79,6 @@ end
 Deposit the positions `x` with the weights `w` into the right-hand side of `f.potential` and
 re-solve it in place. The time `t` is accepted for the `ElectricField` interface and ignored:
 the field has no explicit time dependence.
-
-This method is `VlasovMethods.update!`, the field interface's; the solve it calls is
-`PoissonSolvers.update!` on `f.potential`, a different function of the same name.
 """
 function update!(f::PoissonField, x::AbstractVector, w::AbstractVector, t)
     _deposit!(f.potential, f.work, x, w)
