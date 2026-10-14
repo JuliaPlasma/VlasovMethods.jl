@@ -589,8 +589,10 @@ first entry is written.
   `Float32`, and their buffers follow the element types of the bases and of the coordinates. The
   three-argument constructor accepts a `Matrix` basis. Interpolation points are chosen by the
   `max|r|` selection of `ReducedBasisMethods` 0.2, so `ΠₑᵀΨₑ` stays nonsingular when a column's
-  largest entry is negative. The `[compat]` floor of `ReducedBasisMethods` is `0.2.1`, the first
-  release that exports `get_DEIM_indices`, the function that produces `p`.
+  largest entry is negative. `DEIMElectricField(field, Ψₓ, Ψₑ, Πₑ, X)` takes the matrix of
+  `get_DEIM_interpolation_matrix` instead of `p`, reads the row of each unit column, and calls the
+  index form; the two give bit-identical fields. The `[compat]` floor of `ReducedBasisMethods` is
+  `0.2.1`, the first release that exports `get_DEIM_indices`, the function that produces `p`.
 
 ### Documentation
 

@@ -62,12 +62,15 @@ coefficients(f::ReducedElectricField) = coefficients(f.field)
 
 """
     DEIMElectricField(field, Ψₓ, Ψₑ, p, X)
+    DEIMElectricField(field, Ψₓ, Ψₑ, Πₑ, X)
 
 The hyper-reduced electric field of the full-order `field`: a `ReducedElectricField` lifted by
 `Ψₓ[p, :]` and projected by `ΨₓᵀΨₑ Ψₑ[p, :]⁻¹`, where `p` are the DEIM row indices of the field
-basis `Ψₑ`, from `ReducedBasisMethods.get_DEIM_indices`. The buffers of the field follow the
-element type of `Ψₓ` and `X`, and `X` is the reduced coordinate they are sized from. With the
-DEIM interpolation matrix `Πₑ = I[:, p]`, the lift of the field evaluation is
+basis `Ψₑ`, from `ReducedBasisMethods.get_DEIM_indices`. The second form takes the DEIM
+interpolation matrix `Πₑ` of `get_DEIM_interpolation_matrix`, reads the row of the nonzero entry
+of each column, and calls the first; it does not check that `Πₑ` is a selection matrix. The
+buffers of the field follow the element type of `Ψₓ` and `X`, and `X` is the reduced coordinate
+they are sized from. With `Πₑ = I[:, p]`, the lift of the field evaluation is
 
 ```math
 E_{\\text{DEIM}} = \\Psi_x^T \\Psi_e (\\Pi_e^T \\Psi_e)^{-1} E(\\Pi_e^T \\Psi_x X),
@@ -81,4 +84,8 @@ non-hyper-reduced one to the DEIM error bound of the paper
 function DEIMElectricField(field, Ψₓ, Ψₑ, p::AbstractVector{<:Integer}, X)
     ΨₓᵀPₑ = (Ψₓ' * Ψₑ) / Ψₑ[p, :]
     ReducedElectricField(field, Ψₓ, Ψₓ[p, :], ΨₓᵀPₑ, X)
+end
+
+function DEIMElectricField(field, Ψₓ, Ψₑ, Πₑ::AbstractMatrix, X)
+    DEIMElectricField(field, Ψₓ, Ψₑ, [findfirst(!iszero, c) for c in eachcol(Πₑ)], X)
 end
