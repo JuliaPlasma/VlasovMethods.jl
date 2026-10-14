@@ -283,8 +283,8 @@ first entry is written.
   `GeometricIntegrator` in the same release; the rewrite is recorded under *Removals*.
 
 - **`run` is no longer exported.** Its only method was in the deleted `DiffEqIntegrator`
-  type; removing the export keeps `names(VlasovMethods)` from listing `Base.run`. A call of
-  `VlasovMethods.run` in `scripts/` now resolves to `Base.run`.
+  type; removing the export keeps `names(VlasovMethods)` from listing `Base.run`. The one live
+  call, in `scripts/lenard_bernstein.jl`, is rewritten under *Removals* onto `run!`.
 
 - **The `Vlasov–Poisson` acceleration pair carries its model instead of reading it from the
   parameters.** `v_acceleration!` and `s_acceleration!` are replaced by the callable structs
@@ -304,15 +304,16 @@ first entry is written.
 - **Four `scripts/` drivers are deleted and four merge into a survivor.** The fifteen `.jl` files
   under `scripts/` become eight — seven drivers and one shared parser. `bump_on_tail.jl` goes:
   `using VlasovMethods.BumpOnTail` names a module that does not exist and six further names are
-  absent, and the bump-on-tail set is reproduced elsewhere. `charged_particles.jl` goes: it never
-  loads VlasovMethods and calls an API `GeometricIntegrators` 0.18 lacks. `landau_new.jl` and
-  `landau_newer.jl` go: each meets the positivity guard of K8 at step 0, so no Landau
-  time-stepping run gets past it at any parameters tried, and one solver step lives in
+  absent, and nothing under `scripts/` reproduces the bump-on-tail set. `charged_particles.jl`
+  goes: it never loads VlasovMethods and calls an API `GeometricIntegrators` 0.18 lacks.
+  `landau_new.jl` and `landau_newer.jl` go: each meets the positivity guard of K8 at step 0, so
+  no Landau time-stepping run gets past it at any parameters tried, and one solver step lives in
   `test/integration/landau_solver.jl`. `landau_profile.jl` merges into `profile.jl` as its
   `--model landau`, `lenard_bernstein_conservative.jl` and
   `rescaled_lenard_bernstein_conservative.jl` merge into `lenard_bernstein.jl` as two further
   `--model` values, and `lenard_bernstein_metriplectic_scaling.jl` merges into
-  `lenard_bernstein_metriplectic.jl` as its `--npart` list.
+  `lenard_bernstein_metriplectic.jl` as its `--npart` list. This covers `KNOWN_ISSUES.md` K20,
+  K22 and K37, which leave the file.
 
 - **Five dead `src/` files are deleted.** `vlasov_poisson.jl`, `electric_field.jl` and
   `visualisation.jl` were included by nothing and had only commented-out `include` and `export`
@@ -850,8 +851,10 @@ first entry is written.
 - **`CollisionEntropy` had no working implementation.** It routed a one-dimensional spline
   through a hard-coded two-dimensional quadrature that built `SVector{2}` sample points, took
   `nquad` as a positional default rather than a keyword, and applied `log` unguarded — which is
-  why every entropy computation in `scripts/` is commented out. It now integrates on the basis's
-  own Gauß-Legendre grid in any number of velocity dimensions.
+  why the entropy computations of `scripts/` were commented out. They leave with the rewrite
+  recorded under *Removals*: two in scripts it deletes or merges, the third in
+  `lenard_bernstein_metriplectic.jl`, which survives with the comments dropped. It now integrates
+  on the basis's own Gauß-Legendre grid in any number of velocity dimensions.
 
 - **`Cache`/`CacheType` referred to fields that do not exist** on `Landau`,
   `ConservativeLenardBernstein`, `RescaledConservativeLenardBernstein` and
@@ -904,6 +907,8 @@ first entry is written.
 
 - **Four driver scripts still declared `using QuadGK`** after the dependency was dropped from
   `Project.toml`, so each failed at load in the package environment. Every `quadgk` call site in
-  them is commented out, so the import goes rather than the dependency coming back. The four are
-  among the scripts the rewrite recorded under *Removals* deletes or merges, so nothing under
-  `scripts/` names `QuadGK` at all.
+  them is commented out, so the import goes rather than the dependency coming back. Three of the
+  four — `lenard_bernstein_conservative.jl`, `lenard_bernstein_metriplectic_scaling.jl` and
+  `rescaled_lenard_bernstein_conservative.jl` — are among the scripts the rewrite recorded under
+  *Removals* deletes or merges; the fourth, `lenard_bernstein_metriplectic.jl`, survives, so
+  nothing under `scripts/` names `QuadGK` at all.
