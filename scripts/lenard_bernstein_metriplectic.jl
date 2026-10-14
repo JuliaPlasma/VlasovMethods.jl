@@ -19,8 +19,8 @@
 # `test/integration/metriplectic_solve.jl` uses.
 #
 # The tolerance of the solve is the one the tests pin: `abstol = 3e-16·√N`, `reltol = 1e-50`.
-# A fixed `1e-15` compares against `‖F‖₂` and is below the round-off floor of that norm — one
-# step throws at N = 64 — which is what K37 recorded.
+# A fixed `1e-15` compares against `‖F‖₂` and is below the round-off floor of that norm: one step
+# of the uniform cloud of `test/integration/metriplectic_solve.jl` throws at N = 64 with it.
 
 include(joinpath(@__DIR__, "options.jl"))
 
