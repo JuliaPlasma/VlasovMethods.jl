@@ -552,18 +552,16 @@ takes the next `K<n>`.
 - **kind:** defect
 - **found:** #74
 
-
 ### K61 · A non-finite reduced coordinate or particle position raises `InexactError` instead of returning a value.
 
 - **location:** `src/particles/electric_field.jl`
-- **evidence:** A `NaN` or an `Inf` in the reduced coordinates `X` reaches `evaluate_all!`
-  outside the domain, whose `findcell` index is then not an integer and `basis_index` raises:
-  the round-1 probe `probe_types.jl` of the P36 reproducer evaluates a
-  `ReducedElectricField` with `X[1] = T(NaN)` and with `X[1] = T(Inf)` and prints
+- **evidence:** A `NaN` or an `Inf` in the reduced coordinates `X` reaches `evaluate_all!`,
+  where the cell index is not an integer. Calling a `ReducedElectricField` with
+  `X[1] = T(NaN)` or `X[1] = T(Inf)` raises `InexactError`: the recorded output is
   `Float32 Inf X => InexactError: Int64(NaN32)`, `Float32 NaN X => InexactError: Int64(NaN32)`,
   `Float64 Inf X => InexactError: Int64(NaN)` and `Float64 NaN X => InexactError: Int64(NaN)`.
-  A `NaN` or an `Inf` position reaches the same error through a `PoissonField`. §5V.P36 decides
-  "`NaN` in `X`: no guard, no test", so no method converts the non-finite coordinate into a
-  value; a march that produces one stops at the step that deposits it.
+  A `NaN` or an `Inf` position reaches the same error through a `PoissonField`. Neither field
+  guards non-finite input, so a march that produces it stops at the step that deposits it.
 - **kind:** found late
-- **found:** 2026-10-14
+- **found:** 2026-10-14, P36 round-1 `probe_types.jl` reproducer. The P36 scope explicitly
+  excludes a guard or a test for non-finite coordinates.

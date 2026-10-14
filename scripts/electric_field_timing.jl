@@ -21,7 +21,6 @@ using PoissonSolvers
 using Random
 using ReducedBasisMethods: get_DEIM_interpolation_matrix
 using Statistics: median
-using VlasovMethods
 using VlasovMethods: DEIMElectricField, PoissonField, ReducedElectricField
 
 const N = 50_000      # particles

@@ -5,7 +5,8 @@ using Random
 using ReducedBasisMethods: get_DEIM_interpolation_matrix
 using VlasovMethods
 using VlasovMethods: DEIMElectricField, PoissonField, ReducedElectricField, SAcceleration,
-                     VAcceleration, VlasovHamiltonian, efield!, s_drift!, s_lorentz!,
+                     VAcceleration, VlasovHamiltonian, efield!, energy, s_drift!,
+                     s_lorentz!,
                      update!
 using ElectromagneticFields
 using Test
@@ -111,6 +112,10 @@ if isdefined(JET, :JET_AVAILABLE) ? JET.JET_AVAILABLE : JET.JET_LOADABLE
                 (typeof(f), typeof(X), typeof(w), T); target_modules = (VlasovMethods,))))
             @test isempty(JET.get_reports(JET.report_opt(efield!,
                 (typeof(f), typeof(E), typeof(X)); target_modules = (VlasovMethods,))))
+            @test isempty(JET.get_reports(JET.report_opt(f,
+                (typeof(E), typeof(X), typeof(w), T); target_modules = (VlasovMethods,))))
+            @test isempty(JET.get_reports(JET.report_opt(energy,
+                (typeof(f),); target_modules = (VlasovMethods,))))
         end
     end
 else

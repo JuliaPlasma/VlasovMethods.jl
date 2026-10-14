@@ -78,8 +78,8 @@ end
     update!(f::PoissonField, x, w, t)
 
 Deposit the positions `x` with the weights `w` into the right-hand side of `f.potential` and
-re-solve it in place. The time `t` is accepted for the `ElectricField` interface and ignored: the
-field of a `PoissonField` is time-independent.
+re-solve it in place. The time `t` is accepted for the `ElectricField` interface and ignored:
+the field has no explicit time dependence.
 
 This method is `VlasovMethods.update!`, the field interface's; the solve it calls is
 `PoissonSolvers.update!` on `f.potential`, a different function of the same name.
@@ -107,7 +107,7 @@ end
     energy(f::PoissonField)
 
 The field energy ``\\frac{1}{2}\\int (\\partial_x\\phi)^2 \\,\\mathrm{d}x``, by the quadrature of
-the potential's basis that the constructor tabulated. It is the diagnostic a snapshot march saves
+the potential's basis that the constructor tabulates. It is the diagnostic a snapshot march saves
 at every state, so it is type-stable and allocates nothing.
 """
 function energy(f::PoissonField)

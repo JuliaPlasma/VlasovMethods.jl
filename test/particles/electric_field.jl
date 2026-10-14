@@ -43,7 +43,7 @@ function efield!(f::CountingField, e, x)
 end
 
 # The buffers and the bases of a reduced field follow the element type of its input. `Πₑ` is
-# used unconverted, so a `Float64` `Πₑ` under a `Float32` input shows up in `f.x` first, and a
+# used unconverted, so a `Float64` `Πₑ` under a `Float32` input shows up in `f.y` first, and a
 # `Float64` projection in `f.Ψₑ`: `mul!` rounds either into a `Float32` buffer instead of
 # failing, and every comparison of values would still pass.
 function test_field_types(f, ::Type{T}) where {T}
@@ -57,7 +57,7 @@ end
 
 @testset "ReducedElectricField and DEIMElectricField, $T" for T in (Float64, Float32)
     # the tolerance of the reduced field against the full-order one: the `√eps(T)` of a
-    # `Float64` run, and the `Float32` accuracy of the Poisson solve that T2.4 sets, `1e-5`
+    # `Float64` run, and the `Float32` accuracy of the Poisson solve, `1e-5`
     local tol = T === Float64 ? sqrt(eps(T)) : T(1e-5)
 
     @testset "check 1: the three-argument constructor takes a Matrix basis" begin
@@ -106,7 +106,7 @@ end
     end
 
     @testset "check 3: the DEIM selection" begin
-        # the rank-deficient input of the section: column 2 has its largest magnitude at a
+        # the orthonormal input below: column 2 has its largest magnitude at a
         # negative entry, so a selection by `argmax` picks row 1 again and leaves `ΠₑᵀΨₑ`
         # singular. The selection by `max|r|` picks row 2.
         field, q, w = poisson_field(T; n = 3)

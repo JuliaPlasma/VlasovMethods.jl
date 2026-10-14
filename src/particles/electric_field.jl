@@ -15,10 +15,10 @@ efield!(f, E, X)        # E = Ψₑ E(Ψₚ X)
 A `DEIMElectricField` is the same path with `Ψₚ = ΠₑᵀΨₓ` and `Ψₑ = ΨₓᵀΨₑ(ΠₑᵀΨₑ)⁻¹`, which lifts
 the field evaluation to the interpolation points of the DEIM matrix instead of to every particle.
 
-The three-argument form is the full lift and the transpose projection,
-`ReducedElectricField(field, Ψ, X) = ReducedElectricField(field, Ψ, Ψ, Ψ', X)`, which is exact at
-full basis size: the reduced field then equals the projection of the full-order field onto the
-basis. See [`ElectricField`](@ref) for the interface, and [`DEIMElectricField`](@ref) for the
+For an orthonormal basis `Ψ`, the three-argument form is the full lift and the transpose projection,
+`ReducedElectricField(field, Ψ, X) = ReducedElectricField(field, Ψ, Ψ, Ψ', X)`. At full basis size,
+the reduced field equals the projection of the full-order field onto the basis. See
+[`ElectricField`](@ref) for the interface, and [`DEIMElectricField`](@ref) for the
 hyper-reduced path.
 """
 struct ReducedElectricField{
@@ -72,9 +72,9 @@ E_{\\text{DEIM}} = \\Psi_x^T \\Psi_e (\\Pi_e^T \\Psi_e)^{-1} E(\\Pi_e^T \\Psi_x 
 ```
 
 so the field is evaluated at the ``k_e`` interpolation points of `Πₑ` rather than at every
-particle, and the reduced acceleration agrees with the non-hyper-reduced one to the DEIM error
-bound of the paper `ReducedBasisMethods.get_DEIM_interpolation_matrix` cites. `X` is the reduced
-coordinate the buffers of the field are sized from.
+particle. For orthonormal position and field bases, the reduced acceleration agrees with the
+non-hyper-reduced one to the DEIM error bound of the paper
+`ReducedBasisMethods.get_DEIM_interpolation_matrix` cites.
 """
 function DEIMElectricField(field, Ψₓ, Ψₑ, Πₑ, X)
     ΠₑᵀΨₓ = Πₑ' * Ψₓ
