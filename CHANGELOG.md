@@ -112,8 +112,10 @@ first entry is written.
   `src/` dependencies and are already in `[deps]`, where the test environment picks them up.
   Listing them in both places was redundant. `OffsetArrays` was listed there too; the one file
   that used it, `test/electric_field.jl`, was in the `broken` group of `test/runtests.jl`
-  (issue #56), and the `src/electric_field.jl` it covered was deleted. The `test/electric_field.jl`
-  and `test/particles/electric_field.jl` the reduced field adds use no `OffsetArrays`.
+  (issue #56), and the `src/electric_field.jl` it covered was commented out. The
+  `test/electric_field.jl` and `test/particles/electric_field.jl` the reduced field brings back
+  run in `core` and use no `OffsetArrays`, which stays a test-only dependency of
+  `test/Project.toml`.
 
 - **`scripts/` has its own environment.** Until now the scripts ran against the package's own
   `Project.toml`, which forced every package they use — `GLMakie` among them — to be a dependency
@@ -556,7 +558,7 @@ first entry is written.
   `v`, with the axis limits set to the two domains. Both particle methods throw `ArgumentError` on a
   distribution with no particles. `CairoMakie` is a weak dependency, so the package installs and
   loads with no Makie; without the extension loaded, each name has no methods, and calling it throws
-  against. `[compat] CairoMakie` is `"0.15"`, the only version the extension is tested
+  `MethodError`. `[compat] CairoMakie` is `"0.15"`, the only version the extension is tested
   against.
 
 - **`ElectricField`, the electric field of a particle Vlasov–Poisson problem, and `PoissonField`,
@@ -564,17 +566,21 @@ first entry is written.
   interface a reduced field lifts into: `update!(f, x, w, t)` deposits the positions `x` with the
   weights `w` and solves the potential, `efield!(f, e, x)` writes ``E(x) = -\partial_x\phi(x)``
   at each position into `e`, and the three call forms `f(e, x, w, t)`, `f(e, x)` and `f(x, w, t)`
-  are those two in sequence. `PoissonField(potential)` deposits through `_deposit!`, solves
-  through the potential's own `PoissonSolvers.update!`, evaluates through `_electric_field`, and
-  holds the buffer of `local_width(basis)` basis values that both of those fill and the
-  quadrature of the basis that `energy` integrates ``(\partial_x\phi)^2`` with, so that neither
-  `update!` nor `efield!` allocates. `energy` agrees with ``\phi^T S \phi / 2`` on the
-  stiffness matrix of the same basis. Both functions are type-stable and allocation-free in
-  `Float64` and `Float32`, asserted through a fixed-arity barrier behind the coverage guard, and
-  analysed by `test/quality/jet.jl`. The `src/electric_field.jl` that holds them returns here
-  without `ScaledField` and without `ExternalField`, which the reduced march does not need; it
-  takes a vector of lifted positions, which the `_deposit!` of `projection!` reads from the
-  first row of a state matrix rather than from a vector of its own.
+  are those two in sequence. `update!` and `efield!` are not exported: a caller reaches them
+  through those three call forms, as `VlasovMethods.update!` and `VlasovMethods.efield!`, or with
+  `using VlasovMethods: update!, efield!`. Neither is the `PoissonSolvers.update!` that a
+  `PoissonField` calls on its own potential. `PoissonField(potential)` deposits through
+  `_deposit!`, solves through the potential's own `PoissonSolvers.update!`, evaluates through
+  `_electric_field`, and holds the buffer of `local_width(basis)` basis values that both of those
+  fill and the quadrature of the basis that `energy` integrates ``(\partial_x\phi)^2`` with, so
+  that neither `update!` nor `efield!` allocates. `energy` agrees with ``\phi^T S \phi / 2`` on
+  the stiffness matrix of the same basis, and is inferred and allocation-free like the two step
+  functions. Both functions are type-stable and allocation-free in `Float64` and `Float32`,
+  asserted through a fixed-arity barrier behind the coverage guard, and analysed by
+  `test/quality/jet.jl`. The `src/electric_field.jl` that holds them returns here without
+  `ScaledField` and without `ExternalField`, which the reduced march does not need; the deposit
+  it needs for a vector of lifted positions is the row view of the one loop `projection!` runs,
+  not a copy of it.
 
 - **`ReducedElectricField` and `DEIMElectricField`, the reduced electric field and its hyper-reduced
   counterpart.** Both are exported. `ReducedElectricField(field, Ψ, X)` is the non-hyper-reduced
@@ -591,11 +597,15 @@ first entry is written.
   the DEIM median is below the reduced one — measured `0.86 ms` against `2.12 ms` per field
   evaluation. The tests assert the reduced-path error at `√eps(Float64)` and at the `Float32`
   accuracy of the Poisson solve, `1e-5`, and both paths type-stable and allocation-free through a
-  fixed-arity barrier behind the coverage guard. The field basis type is now the `ΨₚT` the struct
-  declares, so the three-argument constructor takes a `Matrix` basis, where before it threw a
-  `MethodError` at construction; the DEIM selection that left `ΠₑᵀΨₑ` singular for a field basis
-  whose largest residual entry is negative is fixed by the `max|r|` selection of
-  `ReducedBasisMethods` 0.2.
+  fixed-arity barrier behind the coverage guard. The rank-one path is checked against the
+  interpolation formula itself, computed from the field sample rather than read back from the
+  field. `Πₑ` is used as `ReducedBasisMethods.get_DEIM_interpolation_matrix` returns it and
+  converted to nothing, so the buffers and both bases of a `DEIMElectricField` follow the element
+  type of `Ψₑ`; every test that builds one asserts it, in both precisions. The field basis type
+  is now the `ΨₚT` the struct declares, so the three-argument constructor takes a `Matrix` basis,
+  where before it threw a `MethodError` at construction; the DEIM selection that left `ΠₑᵀΨₑ`
+  singular for a field basis whose largest residual entry is negative is fixed by the `max|r|`
+  selection of `ReducedBasisMethods` 0.2.
 
 ### Documentation
 

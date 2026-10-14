@@ -10,14 +10,7 @@ import VlasovMethods: DEIMElectricField, PoissonField, ReducedElectricField, efi
                       update!
 using VlasovMethods
 
-# `@allocated` through a fixed-arity barrier whose arguments have concrete types, so that a Julia
-# 1.11 closure or splat boxing is not counted. Each call runs once before it is measured.
-function _alloc_update(f::F, a::A, b::B, c::C, d::D) where {F, A, B, C, D}
-    (f(a, b, c, d); @allocated f(a, b, c, d))
-end
-function _alloc_efield(f::F, a::A, b::B, c::C) where {F, A, B, C}
-    (f(a, b, c); @allocated f(a, b, c))
-end
+include("../helpers/allocation_barriers.jl")
 
 # The full-order field of `n` seeded positions in `(0, 1)` with equal weights, on `ncells`
 # periodic spline cells of degree `order`.
@@ -49,6 +42,19 @@ function efield!(f::CountingField, e, x)
     return efield!(f.field, e, x)
 end
 
+# The buffers and the bases of a reduced field follow the element type of its input. `Πₑ` is
+# used unconverted, so a `Float64` `Πₑ` under a `Float32` input shows up in `f.x` first, and a
+# `Float64` projection in `f.Ψₑ`: `mul!` rounds either into a `Float32` buffer instead of
+# failing, and every comparison of values would still pass.
+function test_field_types(f, ::Type{T}) where {T}
+    @test eltype(f.x) === T
+    @test eltype(f.y) === T
+    @test eltype(f.e) === T
+    @test eltype(f.Ψₓ) === T
+    @test eltype(f.Ψₚ) === T
+    @test eltype(f.Ψₑ) === T
+end
+
 @testset "ReducedElectricField and DEIMElectricField, $T" for T in (Float64, Float32)
     # the tolerance of the reduced field against the full-order one: the `√eps(T)` of a
     # `Float64` run, and the `Float32` accuracy of the Poisson solve that T2.4 sets, `1e-5`
@@ -56,8 +62,8 @@ end
 
     @testset "check 1: the three-argument constructor takes a Matrix basis" begin
         # the field `Ψₚ` is typed `ΨₚT`, the parameter the struct declares, so a `Matrix` basis
-        # is accepted: before the fix `new` threw `MethodError: Cannot convert … Matrix … to …
-        # Adjoint`, because the field was typed `ΨₑT` and the constructor passes `Ψ` as `Ψₚ`.
+        # is accepted: a field typed `ΨₑT` rejects it, because the constructor passes `Ψ` as
+        # `Ψₚ` and `Ψ'` as `Ψₑ`.
         field, q, _ = poisson_field(T; n = 20)
         Ψ = orthogonal(T, 20, 4)
         X = Ψ' * q
@@ -72,9 +78,7 @@ end
         @test rfield.field === field
 
         # the buffers follow the element type of the input
-        @test eltype(rfield.x) === T
-        @test eltype(rfield.y) === T
-        @test eltype(rfield.e) === T
+        test_field_types(rfield, T)
         @test size(rfield.x) == size(q)
         @test size(rfield.y) == size(q)
         @test size(rfield.e) == size(q)
@@ -116,6 +120,7 @@ end
         Ψₓ = orthogonal(T, 3, 2; seed = 5)
         X = Ψₓ' * q
         dfield = DEIMElectricField(field, Ψₓ, Ψₑ, Πₑ, X)
+        test_field_types(dfield, T)
 
         E = similar(X)
         @test dfield(E, X, w, zero(T)) === E
@@ -139,6 +144,7 @@ end
         Ψₑ = orthogonal(T, 1000, 1000; seed = 7)
         Πₑ = get_DEIM_interpolation_matrix(Ψₑ)
         dfield = DEIMElectricField(field, Ψₓ, Ψₑ, Πₑ, X)
+        test_field_types(dfield, T)
         E_deim = similar(X)
         dfield(E_deim, X, w, zero(T))
         @test norm(E_deim .- E_red) / norm(E_red) ≤ tol
@@ -148,12 +154,23 @@ end
         φ = orthogonal(T, 1000, 1; seed = 11)
         Πₑ = get_DEIM_interpolation_matrix(φ)
         dfield = DEIMElectricField(field, Ψₓ, φ, Πₑ, X)
+        test_field_types(dfield, T)
         dfield(E_deim, X, w, zero(T))
 
         # the field sample: the field at every lifted position, on the deposit both paths made
         x = Ψₓ * X
         e = similar(x)
         efield!(field, e, x)
+
+        # the rank-one path is the interpolation formula itself: the field sample at the lifted
+        # positions, reduced through the one interpolation point of `Πₑ` and lifted back by
+        # `Ψₓ`. The expectation is computed here from the sample, not read back from the field,
+        # so a projection that returns zero fails it. The sample is asserted nonzero first,
+        # because a zero field would make every comparison vacuous.
+        @test norm(e) > zero(T)
+        expected = Ψₓ' * φ * ((Πₑ' * φ) \ (Πₑ' * e))
+        @test norm(expected) > zero(T)
+        @test norm(E_deim .- expected) ≤ 10 * sqrt(eps(T)) * norm(expected)
 
         bound = opnorm(inv(Πₑ' * φ)) * norm(e - φ * (φ' * e)) + 10 * eps(T) * norm(e)
         @test norm(E_deim .- E_red) ≤ bound
@@ -178,6 +195,7 @@ end
 
         empty!(counting.counts)
         dfield = DEIMElectricField(counting, Ψₓ, Ψₑ, Πₑ, X)
+        test_field_types(dfield, T)
         efield!(dfield, E, X)
         @test counting.counts == [kₑ]
     end
@@ -203,6 +221,8 @@ end
 
         rfield = ReducedElectricField(field, Ψₓ, X)
         dfield = DEIMElectricField(field, Ψₓ, Ψₑ, Πₑ, X)
+        test_field_types(rfield, T)
+        test_field_types(dfield, T)
         E = similar(X)
         t = zero(T)
 
@@ -220,8 +240,10 @@ end
                 @test _alloc_efield(efield!, f, E, X) == 0
             end
         end
-        # the controls: the barrier sees an allocation when there is one
-        @test _alloc_update((f, x, w, t) -> copy(x), rfield, X, w, t) > 0
+        # the controls: the barrier sees an allocation when there is one. `similar` rather than
+        # `copy`: on Julia 1.11 a `copy` whose result is dead is elided and reads zero, while
+        # `similar` always allocates.
+        @test _alloc_update((f, x, w, t) -> similar(x), rfield, X, w, t) > 0
         @test _alloc_efield((f, e, x) -> similar(e), rfield, E, X) > 0
     end
 end

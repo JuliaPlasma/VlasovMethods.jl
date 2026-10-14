@@ -19,6 +19,12 @@ f(x, w, t)              # both, into an `e` that call allocates
 buffers it needs and neither function allocates. `energy(f)` and `coefficients(f)` read the field
 energy and the potential coefficients of `f`. A reduced field, such as `ReducedElectricField`,
 holds a full-order field and lifts into it.
+
+`update!` and `efield!` are not exported, so a caller reaches them through the three call forms
+above, as `VlasovMethods.update!` and `VlasovMethods.efield!`, or with
+`using VlasovMethods: update!, efield!`. Neither is the `PoissonSolvers.update!` that a
+[`PoissonField`](@ref) calls on its own potential: that one solves the potential's linear system,
+and it is a different function that happens to carry the same name.
 """
 abstract type ElectricField end
 
@@ -27,26 +33,12 @@ abstract type ElectricField end
 (f::ElectricField)(x, w, t) = (e = zero(x); f(e, x, w, t))
 
 # The deposit of one vector of positions with one vector of weights, which the lifted positions
-# of a reduced field are. The `_deposit!` of `src/projections/potential.jl` reads the positions
-# and the weights from the first row of a state matrix, which a reduced field does not have: it
-# lifts its reduced coordinates into a vector of positions alone. The loop is that one, indexed
-# by the single axis.
+# of a reduced field are. It is the loop of `src/projections/potential.jl`, reached through the
+# row view a `transpose` of a vector is: that view wraps the caller's buffers, so the deposit
+# copies nothing, and one loop serves both a state matrix and a lifted vector.
 function _deposit!(potential::PoissonSolvers.Potential, vals::AbstractVector,
         x::AbstractVector, w::AbstractVector)
-    b = basis(potential)
-    ρ = PoissonSolvers.rhs(potential)
-    ρ .= 0
-
-    for i in eachindex(x, w)
-        j₀ = evaluate_all!(vals, b, x[i])
-        for (t, value) in pairs(vals)
-            # the padding of a recombined basis, as in `projection!`
-            iszero(value) && continue
-            ρ[basis_index(b, j₀ + t - 1)] += w[i] * value
-        end
-    end
-
-    return potential
+    return _deposit!(potential, vals, transpose(x), transpose(w))
 end
 
 """
@@ -56,7 +48,8 @@ The full-order electric field of the PoissonSolvers `Potential` `potential`, the
 `VlasovPoisson` model integrates.
 
 The deposit of [`update!`](@ref) is `_deposit!`, the field of [`efield!`](@ref) is
-`_electric_field`, and the solve is the potential's own `PoissonSolvers.update!`.
+`_electric_field`, and the solve is the potential's own `PoissonSolvers.update!`, which is not
+the `VlasovMethods.update!` that calls it.
 
 `potential` is on a B-spline basis, as the potential of a particle model is. The constructor holds
 the buffer of the `local_width(basis)` basis values that the deposit and the field evaluation
@@ -87,6 +80,9 @@ end
 Deposit the positions `x` with the weights `w` into the right-hand side of `f.potential` and
 re-solve it in place. The time `t` is accepted for the `ElectricField` interface and ignored: the
 field of a `PoissonField` is time-independent.
+
+This method is `VlasovMethods.update!`, the field interface's; the solve it calls is
+`PoissonSolvers.update!` on `f.potential`, a different function of the same name.
 """
 function update!(f::PoissonField, x::AbstractVector, w::AbstractVector, t)
     _deposit!(f.potential, f.work, x, w)
@@ -111,7 +107,8 @@ end
     energy(f::PoissonField)
 
 The field energy ``\\frac{1}{2}\\int (\\partial_x\\phi)^2 \\,\\mathrm{d}x``, by the quadrature of
-the potential's basis that the constructor tabulated.
+the potential's basis that the constructor tabulated. It is the diagnostic a snapshot march saves
+at every state, so it is type-stable and allocates nothing.
 """
 function energy(f::PoissonField)
     e² = zero(eltype(f.weights))

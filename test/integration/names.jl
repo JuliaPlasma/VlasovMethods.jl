@@ -105,6 +105,13 @@ const REMOVED_EXPORTS = Symbol[Symbol("DiffEq", "Integrator"), :run]
     # that leaves without a CHANGELOG line fails here.
     @test setdiff(BASE_EXPORTS, names(VlasovMethods)) == REMOVED_EXPORTS
 
+    # The recorded names missing from the module are exactly the documented removals, so the
+    # check above holds for a name that leaves. A name that *joins* the exports is not caught
+    # there, so the interface the field files add is asserted here: `update!` and `efield!`
+    # belong to the caller's own namespace, and `VlasovMethods` exports the four types a caller
+    # holds instead.
+    @test isdisjoint((:update!, :efield!), names(VlasovMethods))
+
     # `ReducedTensor` belongs to `ReducedBasisMethods`, which this module imports it from by name,
     # so it is not an export here and a caller has to reach it at its own package
     @test !(:ReducedTensor in names(VlasovMethods))

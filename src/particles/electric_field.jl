@@ -63,7 +63,9 @@ VlasovMethods.coefficients(f::ReducedElectricField) = coefficients(f.field)
 
 The hyper-reduced reduced electric field of the full-order `field`: a `ReducedElectricField` with
 `Ψₚ = ΠₑᵀΨₓ` and `Ψₑ = ΨₓᵀΨₑ(ΠₑᵀΨₑ)⁻¹`, where `Πₑ` is the DEIM interpolation matrix of the
-field basis `Ψₑ`. The lift of the field evaluation is
+field basis `Ψₑ`, unconverted: `get_DEIM_interpolation_matrix` returns one of the element type of
+`Ψₑ`, and the buffers of the field follow it. `X` is the reduced coordinate the buffers of the
+field are sized from. The lift of the field evaluation is
 
 ```math
 E_{\\text{DEIM}} = \\Psi_x^T \\Psi_e (\\Pi_e^T \\Psi_e)^{-1} E(\\Pi_e^T \\Psi_x x),
