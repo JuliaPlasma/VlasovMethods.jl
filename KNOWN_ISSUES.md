@@ -528,3 +528,15 @@ takes the next `K<n>`.
   guards non-finite input, so a march that produces it stops at the step that deposits it.
 - **kind:** found late
 - **found:** #78, which adds no guard and no test for non-finite coordinates.
+
+### K62 · A comment says that the clamped cubic basis reproduces 1, v and v² to 1e-14, and v² is measured at 2.8e-14.
+
+- **location:** `src/models/lenard_bernstein_conservative.jl:39`
+- **evidence:** `julia --startup-file=no --project=scripts scripts/verify_conservation.jl` measures
+  the cubic basis on `(-8.0, 8.0)` with 31 knots and prints, under Claim 2,
+  `Free()  3  6.661e-16  1.776e-15  2.842e-14` for `f = 1`, `f = v` and `f = v²`. The other
+  figures of the comment agree with the same table: `Periodic()` gives `1.234e+00` for `v` and
+  `1.164e-01` for `v²`, and `Dirichlet()` gives `4.066e-02` for `1`. The CHANGELOG states the
+  bound as `3e-14`.
+- **kind:** docs
+- **found:** #80
