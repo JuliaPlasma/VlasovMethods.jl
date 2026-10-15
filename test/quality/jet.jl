@@ -125,7 +125,7 @@ if isdefined(JET, :JET_AVAILABLE) ? JET.JET_AVAILABLE : JET.JET_LOADABLE
     # and the save of the reduced march, and the gradient of the analytic Hamiltonian, on the
     # `@allocated` calls of those two files, at their `Float64` and `Float32` argument types.
     for T in (Float64, Float32)
-        field, x, w = poisson_field(T; n = 200)
+        field, x, _ = poisson_field(T; n = 200)
         Ψ = Matrix(qr(randn(T, 200, 20)).Q)
         X = Ψ' * x
         efield = ReducedElectricField(field, Ψ, X)
