@@ -1,19 +1,43 @@
+"""
+    ReducedElectricField(field, Ψₓ, Ψₚ, Ψₑ, X)
+    ReducedElectricField(field, Ψ, X)
 
+The reduced electric field of the full-order `field`: the lift, solve and project path, with no
+hyper-reduction. The reduced coordinates `X` are lifted to the particle positions by `Ψₓ`, the
+field is deposited from them and solved, evaluated at the positions lifted by `Ψₚ`, and projected
+back by `Ψₑ`:
+
+```julia
+update!(f, X, w, t)     # deposit  Ψₓ X  and solve
+efield!(f, e, X)        # e = Ψₑ E(Ψₚ X)
+```
+
+A `DEIMElectricField` of a field basis `Ψₑ` is the same path, lifted by `ΠₑᵀΨₓ` and projected by
+`ΨₓᵀΨₑ(ΠₑᵀΨₑ)⁻¹`, which lifts the field evaluation to the interpolation points of the DEIM matrix
+`Πₑ` instead of to every particle.
+
+For an orthonormal basis `Ψ`, the three-argument form is the full lift and the transpose projection,
+`ReducedElectricField(field, Ψ, X) = ReducedElectricField(field, Ψ, Ψ, Ψ', X)`. At full basis size,
+the reduced field equals the projection of the full-order field onto the basis. See
+[`ElectricField`](@ref) for the interface, and [`DEIMElectricField`](@ref) for the
+hyper-reduced path.
+"""
 struct ReducedElectricField{
     FT <: ElectricField, ΨₓT <: AbstractMatrix, ΨₚT <: AbstractMatrix,
-    ΨₑT <: AbstractMatrix, AT <: AbstractArray} <: ElectricField
+    ΨₑT <: AbstractMatrix, AT <: AbstractVector} <: ElectricField
     field::FT
     Ψₓ::ΨₓT
-    Ψₚ::ΨₑT
+    Ψₚ::ΨₚT
     Ψₑ::ΨₑT
     x::AT
     y::AT
     e::AT
 
-    function ReducedElectricField(field, Ψₓ, Ψₚ, Ψₑ, X)
-        x = zero(Ψₓ * X)
-        y = zero(Ψₚ * X)
-        e = zero(Ψₚ * X)
+    function ReducedElectricField(field, Ψₓ, Ψₚ, Ψₑ, X::AbstractVector)
+        T = promote_type(eltype(Ψₓ), eltype(Ψₚ), eltype(X))
+        x = similar(X, T, size(Ψₓ, 1))
+        y = similar(X, T, size(Ψₚ, 1))
+        e = similar(y)
         new{typeof(field), typeof(Ψₓ), typeof(Ψₚ), typeof(Ψₑ), typeof(x)}(
             field, Ψₓ, Ψₚ, Ψₑ, x, y, e)
     end
@@ -21,24 +45,41 @@ end
 
 ReducedElectricField(field, Ψ, X) = ReducedElectricField(field, Ψ, Ψ, Ψ', X)
 
-function VlasovMethods.update!(f::ReducedElectricField, X::AbstractArray, w::AbstractArray, t)
+function update!(f::ReducedElectricField, X::AbstractVector, w::AbstractVector, t)
     mul!(f.x, f.Ψₓ, X)
     update!(f.field, f.x, w, t)
 end
 
-function VlasovMethods.efield!(f::ReducedElectricField, E::AbstractArray, X::AbstractArray)
+function efield!(f::ReducedElectricField, E::AbstractVector, X::AbstractVector)
     mul!(f.y, f.Ψₚ, X)
     efield!(f.field, f.e, f.y)
     mul!(E, f.Ψₑ, f.e)
 end
 
-VlasovMethods.energy(f::ReducedElectricField) = energy(f.field)
+energy(f::ReducedElectricField) = energy(f.field)
 
-VlasovMethods.coefficients(f::ReducedElectricField) = coefficients(f.field)
+coefficients(f::ReducedElectricField) = coefficients(f.field)
 
-# $ \Psi_x^T \Psi_{DEIM} \nabla \phi ( \Pi_{DEIM} \Psi_x x) $
+"""
+    DEIMElectricField(field, Ψₓ, Ψₑ, Πₑ, X)
+
+The hyper-reduced electric field of the full-order `field`: a `ReducedElectricField` lifted by
+`ΠₑᵀΨₓ` and projected by `ΨₓᵀΨₑ(ΠₑᵀΨₑ)⁻¹`, where `Πₑ` is the DEIM interpolation matrix of the
+field basis `Ψₑ`, unconverted: `get_DEIM_interpolation_matrix` returns one of the element type of
+`Ψₑ`, and the buffers of the field follow it. `X` is the reduced coordinate the buffers of the
+field are sized from. The lift of the field evaluation is
+
+```math
+E_{\\text{DEIM}} = \\Psi_x^T \\Psi_e (\\Pi_e^T \\Psi_e)^{-1} E(\\Pi_e^T \\Psi_x X),
+```
+
+so the field is evaluated at the ``k_e`` interpolation points of `Πₑ` rather than at every
+particle. For orthonormal position and field bases, the reduced acceleration agrees with the
+non-hyper-reduced one to the DEIM error bound of the paper
+`ReducedBasisMethods.get_DEIM_interpolation_matrix` cites.
+"""
 function DEIMElectricField(field, Ψₓ, Ψₑ, Πₑ, X)
     ΠₑᵀΨₓ = Πₑ' * Ψₓ
-    ΨₓᵀPₑ = Ψₓ' * Ψₑ * inv(Πₑ' * Ψₑ)
+    ΨₓᵀPₑ = (Ψₓ' * Ψₑ) / (Πₑ' * Ψₑ)
     ReducedElectricField(field, Ψₓ, ΠₑᵀΨₓ, ΨₓᵀPₑ, X)
 end

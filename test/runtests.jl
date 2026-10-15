@@ -26,4 +26,6 @@ if "core" in GROUPS
     @safetestset "Plotting extension" include("integration/makie_extension.jl")
     @safetestset "Grid 1D1V Vlasov–Poisson" include("gridbased/vlasov_poisson_1d1v.jl")
     @safetestset "Snapshots" include("particles/snapshots.jl")
+    @safetestset "Electric Field" include("electric_field.jl")
+    @safetestset "Reduced Electric Field" include("particles/electric_field.jl")
 end

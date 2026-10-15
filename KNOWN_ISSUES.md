@@ -4,17 +4,16 @@ What is known to be wrong in VlasovMethods and is not fixed. An entry leaves thi
 fix merges, and the CHANGELOG entry of that fix names its ID. IDs are never reused; a new entry
 takes the next `K<n>`.
 
-### K1 · Three files of `src/particles/` are present but not included.
+### K1 · Two files of `src/particles/` are present but not included.
 
 - **location:** `src/particles/`
-- **evidence:** The three files — `electric_field.jl`, `poisson.jl`, `time_marching.jl` — each
-  name an undefined binding, so including any one breaks the load: `poisson.jl` wants
+- **evidence:** The two files — `poisson.jl` and `time_marching.jl` — each name an undefined
+  binding, so including either one breaks the load: `poisson.jl` wants
   `PoissonSolverPBSplines`; `time_marching.jl` imports
   `PBSpline`, `stiffnessmatrix`, `eval_deriv_PBSBasis` and `rhs_particles_PBSBasis` from
-  `PoissonSolvers` (neither 0.5 nor 0.6 has any); `electric_field.jl` wants `ElectricField`, which
-  nothing under `src/` defines. `save_solution` in `time_marching.jl` writes the `(nd, nₚ)` layout
-  of `Snapshots`, but fills the scalar momentum `M` with `dot(w, v)`, which holds for `nd == 1`
-  only and throws a `DimensionMismatch` for `nd > 1`.
+  `PoissonSolvers` (neither 0.5 nor 0.6 has any). `save_solution` in `time_marching.jl` writes the
+  `(nd, nₚ)` layout of `Snapshots`, but fills the scalar momentum `M` with `dot(w, v)`, which
+  holds for `nd == 1` only and throws a `DimensionMismatch` for `nd > 1`.
 - **kind:** dead code
 - **found:** 2026-09-17. Carried over from the audit that accompanied the `SimpleSplines`
   migration. None of these are regressions; each is either a numerical-methods decision or work
@@ -553,3 +552,15 @@ takes the next `K<n>`.
 - **kind:** defect
 - **found:** #74
 
+### K61 · A non-finite reduced coordinate or particle position raises `InexactError` instead of returning a value.
+
+- **location:** `src/particles/electric_field.jl`
+- **evidence:** A `NaN` or an `Inf` in the reduced coordinates `X` reaches `evaluate_all!`,
+  where the cell index is not an integer. Calling a `ReducedElectricField` with
+  `X[1] = T(NaN)` or `X[1] = T(Inf)` raises `InexactError`: the recorded output is
+  `Float32 Inf X => InexactError: Int64(NaN32)`, `Float32 NaN X => InexactError: Int64(NaN32)`,
+  `Float64 Inf X => InexactError: Int64(NaN)` and `Float64 NaN X => InexactError: Int64(NaN)`.
+  A `NaN` or an `Inf` position reaches the same error through a `PoissonField`. Neither field
+  guards non-finite input, so a march that produces it stops at the step that deposits it.
+- **kind:** found late
+- **found:** #78, which adds no guard and no test for non-finite coordinates.

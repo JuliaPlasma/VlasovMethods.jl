@@ -180,14 +180,26 @@ include("gridbased/collisions.jl")
 # `GeometricIntegrator`, so it is included after both.
 include("gridbased/vlasov_poisson_1d1v.jl")
 
-# The particle-based reduction: the snapshots of a sweep, and the reduced bases of the particle
-# and of the field snapshot matrix they hold. The other three files of `src/particles/` are
-# present but not included, because each names a binding that neither the module nor its
-# dependencies define — `PoissonSolverPBSplines`, `PBSpline`, `ElectricField` — so including one
-# breaks the load.
+# The particle-based reduction: the snapshots of a sweep, the reduced bases of the particle and
+# of the field snapshot matrix they hold, and the reduced electric field over the full-order
+# field of `src/electric_field.jl`. The other two files of `src/particles/` are present but not
+# included: `poisson.jl` wants `PoissonSolverPBSplines`, which neither the module nor its
+# dependencies define, and `time_marching.jl` imports four names that `PoissonSolvers` does not
+# have, so including either one breaks the load.
 
 include("particles/snapshots.jl")
 
 export Snapshots, particle_basis, field_basis
+
+# The full-order electric field, after `models/vlasov_poisson.jl` and `projections/potential.jl`,
+# whose `_electric_field` and `_deposit!` it is built on, and before the reduced field of
+# `src/particles/electric_field.jl`, which needs the `ElectricField` it defines.
+include("electric_field.jl")
+
+export ElectricField, PoissonField
+
+include("particles/electric_field.jl")
+
+export ReducedElectricField, DEIMElectricField
 
 end

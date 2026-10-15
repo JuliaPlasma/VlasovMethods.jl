@@ -1,11 +1,18 @@
 using JET
+using LinearAlgebra
 using PoissonSolvers
+using Random
+using ReducedBasisMethods: get_DEIM_interpolation_matrix
 using VlasovMethods
-using VlasovMethods: SAcceleration, VAcceleration, VlasovHamiltonian, s_drift!, s_lorentz!
+using VlasovMethods: DEIMElectricField, ReducedElectricField, SAcceleration,
+                     VAcceleration, VlasovHamiltonian, efield!, energy, s_drift!,
+                     s_lorentz!,
+                     update!
 using ElectromagneticFields
 using Test
 
 include("../helpers/external_fields.jl")
+include("../helpers/poisson_field.jl")
 
 # Static optimisation analysis of the hot paths: every function of `src/` that a test file
 # asserts with `@allocated`, at the concrete argument types those tests pass. A runtime
@@ -85,6 +92,32 @@ if isdefined(JET, :JET_AVAILABLE) ? JET.JET_AVAILABLE : JET.JET_LOADABLE
         (typeof(ct), Int, Int, Int); target_modules = (VlasovMethods,))))
     @test isempty(JET.get_reports(JET.report_opt(getindex,
         (typeof(rt), Int, Int, Int); target_modules = (VlasovMethods,))))
+
+    # test/electric_field.jl and test/particles/electric_field.jl: the full-order field and the
+    # two reduced fields, on their `@allocated` calls, at the `Float64` and `Float32` argument
+    # types those files pass. Each field is analysed once per precision, because each test file
+    # runs both.
+    for T in (Float64, Float32)
+        # `poisson_field` sets the same seed; the `randn` draws below continue its stream
+        Random.seed!(1234)
+        efield, q, w = poisson_field(T; n = 200)
+        Ψₓ = Matrix(qr(randn(T, 200, 20)).Q)
+        Ψₑ = Matrix(qr(randn(T, 200, 8)).Q)
+        Πₑ = get_DEIM_interpolation_matrix(Ψₑ)
+        X = Ψₓ' * q
+        E = similar(X)
+        for f in (efield, ReducedElectricField(efield, Ψₓ, X),
+            DEIMElectricField(efield, Ψₓ, Ψₑ, Πₑ, X))
+            @test isempty(JET.get_reports(JET.report_opt(update!,
+                (typeof(f), typeof(X), typeof(w), T); target_modules = (VlasovMethods,))))
+            @test isempty(JET.get_reports(JET.report_opt(efield!,
+                (typeof(f), typeof(E), typeof(X)); target_modules = (VlasovMethods,))))
+            @test isempty(JET.get_reports(JET.report_opt(f,
+                (typeof(E), typeof(X), typeof(w), T); target_modules = (VlasovMethods,))))
+            @test isempty(JET.get_reports(JET.report_opt(energy,
+                (typeof(f),); target_modules = (VlasovMethods,))))
+        end
+    end
 else
     @test_skip "JET does not work on this Julia version"  # aviatesk/JET.jl#681
 end

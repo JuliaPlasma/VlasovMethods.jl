@@ -12,9 +12,11 @@ const BASE_EXPORTS = Symbol[
     :CollisionEntropy,
     :ConservativeLenardBernstein,
     :Constraint,
+    :DEIMElectricField,
     Symbol("DiffEq", "Integrator"),
     :Dirichlet,
     :DoubleMaxwellian,
+    :ElectricField,
     :Free,
     :FullyReducedTensor,
     :GeneralMesh,
@@ -31,9 +33,11 @@ const BASE_EXPORTS = Symbol[
     :Periodic,
     :PeriodicBSplineBasis,
     :Picard_iterate_over_particles,
+    :PoissonField,
     :PotentialReducedTensor,
     :RandomMesh,
     :RecombinedBSplineBasis,
+    :ReducedElectricField,
     :RescaledConservativeLenardBernstein,
     :Robin,
     :ShiftedNormalV,
@@ -100,6 +104,10 @@ const REMOVED_EXPORTS = Symbol[Symbol("DiffEq", "Integrator"), :run]
     # The recorded names missing from the module are exactly the documented removals. A name
     # that leaves without a CHANGELOG line fails here.
     @test setdiff(BASE_EXPORTS, names(VlasovMethods)) == REMOVED_EXPORTS
+
+    # The field interface exports its four types, but not the step functions: callers reach
+    # `update!` and `efield!` through qualified names or explicit imports.
+    @test isdisjoint((:update!, :efield!), names(VlasovMethods))
 
     # `ReducedTensor` belongs to `ReducedBasisMethods`, which this module imports it from by name,
     # so it is not an export here and a caller has to reach it at its own package
