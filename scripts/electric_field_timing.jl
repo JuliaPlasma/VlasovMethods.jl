@@ -19,7 +19,7 @@
 using LinearAlgebra
 using PoissonSolvers
 using Random
-using ReducedBasisMethods: get_DEIM_interpolation_matrix
+using ReducedBasisMethods: get_DEIM_indices
 using Statistics: median
 using VlasovMethods: DEIMElectricField, PoissonField, ReducedElectricField
 
@@ -44,11 +44,11 @@ function fixtures(::Type{T}) where {T}
     Ψₓ = Matrix(qr(randn(T, N, K)).Q)
     Random.seed!(7)
     Ψₑ = Matrix(qr(randn(T, N, Kₑ)).Q)
-    Πₑ = get_DEIM_interpolation_matrix(Ψₑ)
+    p = get_DEIM_indices(Ψₑ)
 
     X = Ψₓ' * q
     return (reduced = ReducedElectricField(field, Ψₓ, X),
-        deim = DEIMElectricField(field, Ψₓ, Ψₑ, Πₑ, X), X = X, E = similar(X), w = w)
+        deim = DEIMElectricField(field, Ψₓ, Ψₑ, p, X), X = X, E = similar(X), w = w)
 end
 
 # The median of `RUNS` runs of `CALLS` field evaluations, in milliseconds per evaluation.

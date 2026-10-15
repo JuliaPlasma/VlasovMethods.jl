@@ -2,7 +2,7 @@ using JET
 using LinearAlgebra
 using PoissonSolvers
 using Random
-using ReducedBasisMethods: get_DEIM_interpolation_matrix
+using ReducedBasisMethods: get_DEIM_indices
 using VlasovMethods
 using VlasovMethods: DEIMElectricField, ReducedElectricField, SAcceleration,
                      VAcceleration, VlasovHamiltonian, efield!, energy, s_drift!,
@@ -103,11 +103,11 @@ if isdefined(JET, :JET_AVAILABLE) ? JET.JET_AVAILABLE : JET.JET_LOADABLE
         efield, q, w = poisson_field(T; n = 200)
         Ψₓ = Matrix(qr(randn(T, 200, 20)).Q)
         Ψₑ = Matrix(qr(randn(T, 200, 8)).Q)
-        Πₑ = get_DEIM_interpolation_matrix(Ψₑ)
+        p = get_DEIM_indices(Ψₑ)
         X = Ψₓ' * q
         E = similar(X)
         for f in (efield, ReducedElectricField(efield, Ψₓ, X),
-            DEIMElectricField(efield, Ψₓ, Ψₑ, Πₑ, X))
+            DEIMElectricField(efield, Ψₓ, Ψₑ, p, X))
             @test isempty(JET.get_reports(JET.report_opt(update!,
                 (typeof(f), typeof(X), typeof(w), T); target_modules = (VlasovMethods,))))
             @test isempty(JET.get_reports(JET.report_opt(efield!,

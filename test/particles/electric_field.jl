@@ -1,7 +1,7 @@
 using LinearAlgebra
 using PoissonSolvers
 using Random
-using ReducedBasisMethods: get_DEIM_interpolation_matrix
+using ReducedBasisMethods: get_DEIM_indices, get_DEIM_interpolation_matrix
 using Test
 # `import` and not `using`: the `CountingField` stub below extends `update!` and `efield!`, which
 # a `using` import does not allow.
@@ -31,10 +31,10 @@ function efield!(f::CountingField, e, x)
     return efield!(f.field, e, x)
 end
 
-# The buffers and the bases of a reduced field follow the element type of its input. `Πₑ` is
-# used unconverted, so a `Float64` `Πₑ` under a `Float32` input shows up in `f.y` first, and a
-# `Float64` projection in `f.Ψₑ`: `mul!` rounds either into a `Float32` buffer instead of
-# failing, and every comparison of values would still pass.
+# The buffers and the bases of a reduced field follow the element type of its input. A
+# `Float64` lift under a `Float32` input shows up in `f.y` first, and a `Float64` projection in
+# `f.Ψₑ`: `mul!` rounds either into a `Float32` buffer instead of failing, and every comparison
+# of values would still pass.
 function test_field_types(f, ::Type{T}) where {T}
     @test eltype(f.x) === T
     @test eltype(f.y) === T
@@ -96,19 +96,18 @@ end
 
     @testset "check 3: the DEIM selection" begin
         # the orthonormal input below: column 2 has its largest magnitude at a
-        # negative entry, so a selection by `argmax` picks row 1 again and leaves `ΠₑᵀΨₑ`
+        # negative entry, so a selection by `argmax` picks row 1 again and leaves `Ψₑ[p, :]`
         # singular. The selection by `max|r|` picks row 2.
         field, q, w = poisson_field(T; n = 3)
         Ψₑ = T[1 0; 0 -2/√5; 0 -1/√5]
-        Πₑ = get_DEIM_interpolation_matrix(Ψₑ)
+        p = get_DEIM_indices(Ψₑ)
 
         kₑ = size(Ψₑ, 2)
-        rows = [findfirst(!iszero, @view Πₑ[:, i]) for i in 1:kₑ]
-        @test length(unique(rows)) == kₑ
+        @test length(unique(p)) == kₑ
 
         Ψₓ = orthogonal(T, 3, 2; seed = 5)
         X = Ψₓ' * q
-        dfield = DEIMElectricField(field, Ψₓ, Ψₑ, Πₑ, X)
+        dfield = DEIMElectricField(field, Ψₓ, Ψₑ, p, X)
         test_field_types(dfield, T)
 
         E = similar(X)
@@ -131,8 +130,7 @@ end
         # at `m = N` the field basis is square and the DEIM interpolation is a permutation, so
         # the two paths agree to round-off
         Ψₑ = orthogonal(T, 1000, 1000; seed = 7)
-        Πₑ = get_DEIM_interpolation_matrix(Ψₑ)
-        dfield = DEIMElectricField(field, Ψₓ, Ψₑ, Πₑ, X)
+        dfield = DEIMElectricField(field, Ψₓ, Ψₑ, get_DEIM_indices(Ψₑ), X)
         test_field_types(dfield, T)
         E_deim = similar(X)
         dfield(E_deim, X, w, zero(T))
@@ -141,8 +139,8 @@ end
         # at `m = 1` the DEIM approximation is at its coarsest, and the measured error is
         # bounded by the paper's bound
         φ = orthogonal(T, 1000, 1; seed = 11)
-        Πₑ = get_DEIM_interpolation_matrix(φ)
-        dfield = DEIMElectricField(field, Ψₓ, φ, Πₑ, X)
+        p = get_DEIM_indices(φ)
+        dfield = DEIMElectricField(field, Ψₓ, φ, p, X)
         test_field_types(dfield, T)
         dfield(E_deim, X, w, zero(T))
 
@@ -152,16 +150,16 @@ end
         efield!(field, e, x)
 
         # the rank-one path is the interpolation formula itself: the field sample at the lifted
-        # positions, reduced through the one interpolation point of `Πₑ` and lifted back by
-        # `Ψₓ`. The expectation is computed here from the sample, not read back from the field,
-        # so a projection that returns zero fails it. The sample is asserted nonzero first,
-        # because a zero field would make every comparison vacuous.
+        # positions, reduced through the one interpolation point `p` and lifted back by `Ψₓ`.
+        # The expectation is computed here from the sample, not read back from the field, so a
+        # projection that returns zero fails it. The sample is asserted nonzero first, because
+        # a zero field would make every comparison vacuous.
         @test norm(e) > zero(T)
-        expected = Ψₓ' * φ * ((Πₑ' * φ) \ (Πₑ' * e))
+        expected = Ψₓ' * φ * (φ[p, :] \ e[p])
         @test norm(expected) > zero(T)
         @test norm(E_deim .- expected) ≤ 10 * sqrt(eps(T)) * norm(expected)
 
-        bound = opnorm(inv(Πₑ' * φ)) * norm(e - φ * (φ' * e)) + 10 * eps(T) * norm(e)
+        bound = opnorm(inv(φ[p, :])) * norm(e - φ * (φ' * e)) + 10 * eps(T) * norm(e)
         @test norm(E_deim .- E_red) ≤ bound
     end
 
@@ -172,7 +170,7 @@ end
         n, k, kₑ = 60, 4, 4
         Ψₓ = orthogonal(T, n, k; seed = 1)
         Ψₑ = orthogonal(T, n, kₑ; seed = 2)
-        Πₑ = get_DEIM_interpolation_matrix(Ψₑ)
+        p = get_DEIM_indices(Ψₑ)
         X = Ψₓ' * q
 
         counting = CountingField(field, Int[])
@@ -183,10 +181,34 @@ end
         @test counting.counts == [n]
 
         empty!(counting.counts)
-        dfield = DEIMElectricField(counting, Ψₓ, Ψₑ, Πₑ, X)
+        dfield = DEIMElectricField(counting, Ψₓ, Ψₑ, p, X)
         test_field_types(dfield, T)
         efield!(dfield, E, X)
         @test counting.counts == [kₑ]
+    end
+
+    @testset "check 6: the index and the matrix forms agree bit for bit" begin
+        # the index form takes `p` from `get_DEIM_indices`, the matrix form takes `Πₑ` from
+        # `get_DEIM_interpolation_matrix` and reads its rows, so a wrong conversion of `Πₑ`
+        # gives a different field: `isequal` compares the bits, including the sign of a zero
+        field, q, w = poisson_field(T; n = 200)
+        n, k, kₑ = 200, 20, 8
+        Ψₓ = orthogonal(T, n, k; seed = 3)
+        Ψₑ = orthogonal(T, n, kₑ; seed = 4)
+        X = Ψₓ' * q
+
+        ifield = DEIMElectricField(field, Ψₓ, Ψₑ, get_DEIM_indices(Ψₑ), X)
+        mfield = DEIMElectricField(field, Ψₓ, Ψₑ, get_DEIM_interpolation_matrix(Ψₑ), X)
+        test_field_types(ifield, T)
+        test_field_types(mfield, T)
+
+        update!(ifield, X, w, zero(T))
+        E_index = efield!(ifield, similar(X), X)
+        update!(mfield, X, w, zero(T))
+        E_matrix = efield!(mfield, similar(X), X)
+
+        @test norm(E_index) > zero(T)
+        @test isequal(E_index, E_matrix)
     end
 
     @testset "the diagnostics are the full-order field's" begin
@@ -205,11 +227,10 @@ end
         n, k, kₑ = 200, 20, 8
         Ψₓ = orthogonal(T, n, k; seed = 3)
         Ψₑ = orthogonal(T, n, kₑ; seed = 4)
-        Πₑ = get_DEIM_interpolation_matrix(Ψₑ)
         X = Ψₓ' * q
 
         rfield = ReducedElectricField(field, Ψₓ, X)
-        dfield = DEIMElectricField(field, Ψₓ, Ψₑ, Πₑ, X)
+        dfield = DEIMElectricField(field, Ψₓ, Ψₑ, get_DEIM_indices(Ψₑ), X)
         test_field_types(rfield, T)
         test_field_types(dfield, T)
         E = similar(X)
