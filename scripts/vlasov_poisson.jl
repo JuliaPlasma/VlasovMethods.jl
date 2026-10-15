@@ -4,13 +4,7 @@
 #   julia --project=scripts scripts/vlasov_poisson.jl [--npart 10000] [--ncells 16] [--order 3] \
 #       [--tstep 0.1] [--final-time 20.0] [--runs-dir dir] [--results-dir dir]
 #
-# The HDF5 trajectory goes to `--runs-dir`, the figure to `--results-dir`. The script writes only
-# under those two, so a run adds no untracked path and `git status --short` is unchanged by it. At
-# the defaults the two directories are ignored, so `git status --short --ignored` gains a line for
-# each on the run that creates it.
-#
-# `BumpOnTail` is not built here: the bump on the tail belongs to the reproduction set for that
-# problem, and this driver is the deposition path and the splitting method.
+# The HDF5 trajectory goes to `--runs-dir`, the figure to `--results-dir`.
 
 include(joinpath(@__DIR__, "options.jl"))
 
@@ -21,17 +15,13 @@ using HDF5
 using PoissonSolvers
 using VlasovMethods
 
-const PARSED = let (positional, options) = parse_arguments(ARGS,
-        ("--npart", "--ncells", "--order", "--tstep", "--final-time"))
-    no_positional(positional, "vlasov_poisson.jl")
-    options
-end
-
-const NPART = option_int(PARSED, "--npart", 10000)
-const NCELLS = option_int(PARSED, "--ncells", 16)
-const ORDER = option_int(PARSED, "--order", 3)
-const TSTEP = option_float(PARSED, "--tstep", 0.1)
-const TSPAN = (0.0, option_float(PARSED, "--final-time", 20.0))
+const OPT = parse_arguments(ARGS; npart = 10000, ncells = 16, order = 3, tstep = 0.1,
+    final_time = 20.0)
+const NPART = OPT.npart
+const NCELLS = OPT.ncells
+const ORDER = OPT.order
+const TSTEP = OPT.tstep
+const TSPAN = (0.0, OPT.final_time)
 const DOMAIN = (0.0, 1.0)
 
 # create and initialize particle distribution function
@@ -60,24 +50,20 @@ z = h5read(h5file, "z")
 slice_time(slice) = TSPAN[1] + (slice - 1) * TSTEP
 
 # the figure shows the same cloud at four evenly spaced times, so that the filamentation the
-# scheme is meant to resolve is visible rather than asserted. The two signs of `v` are drawn
-# apart, split once by each particle's sign at the first slice: the filamentation of either half
-# is easier to read than the sum, and a particle that crosses `v = 0` keeps the half it began in
+# scheme is meant to resolve is visible rather than asserted. The two signs of `v` are drawn in
+# two colours, split once by each particle's sign at the first slice: the filamentation of either
+# half is easier to read than the sum, and a particle that crosses `v = 0` keeps its colour
 slices = unique(round.(Int, range(1, size(z, 3); length = 4)))
-positive = z[2, :, 1] .>= 0
-
-vmax = ceil(maximum(abs.(z[2, :, begin])))
+colours = ifelse.(z[2, :, 1] .>= 0, :steelblue, :firebrick)
+vmax = ceil(maximum(abs, z[2, :, 1]))
 
 fig = Figure(size = (1500, 400))
 for (panel, slice) in enumerate(slices)
     ax = Axis(fig[1, panel], xlabel = "x", ylabel = panel == 1 ? "v" : "",
-        title = @sprintf("t = %.1f", slice_time(slice)), limits = (
-            (0.0, 1.0), (-vmax, vmax)),
-        xticks = [0.0, 0.5, 1.0])
-    scatter!(ax, mod.(z[1, positive, slice], 1), z[2, positive, slice],
-        color = :steelblue, markersize = 2)
-    scatter!(ax, mod.(z[1, .!positive, slice], 1), z[2, .!positive, slice],
-        color = :firebrick, markersize = 2)
+        title = @sprintf("t = %.1f", slice_time(slice)), limits = (DOMAIN, (-vmax, vmax)))
+    # the positions wrapped into the periodic domain
+    x = DOMAIN[1] .+ mod.(z[1, :, slice] .- DOMAIN[1], DOMAIN[2] - DOMAIN[1])
+    scatter!(ax, x, z[2, :, slice], color = colours, markersize = 2)
 end
 
 figure = results_path("vlasov_poisson.png")

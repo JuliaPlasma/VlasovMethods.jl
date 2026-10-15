@@ -1,138 +1,72 @@
-# The shared layer under every driver in this directory: where output goes and how the command line
-# is parsed. Nothing at top level does simulation work or writes to the filesystem, so a driver can
-# `include` this and pay only the load.
+# The command line and the output directories of the drivers in this directory that write files.
+# `electric_field_timing.jl` writes none and does not include this: its one argument is the name
+# of the path its cold subprocess times.
 #
-# Code in `scripts/`, data in `runs/`, figures in `results/` — the tree-wide rule in
-# `Packages/CLAUDE.md`. `RUNS_DIR` and `RESULTS_DIR` are `Ref`s rather than constants so that
-# `--runs-dir` and `--results-dir` can redirect them; a constant derived from `@__DIR__` is what
-# forces a caller to *copy* a script in order to write somewhere else. `parse_arguments` creates
-# both, so neither has to exist beforehand.
+# Code is in `scripts/`; a driver writes its numbers to `runs/` and its figures and reports to
+# `results/`, both at the repository root and ignored by git. `--runs-dir` and `--results-dir`
+# redirect them, which is why `RUNS_DIR` and `RESULTS_DIR` are `Ref`s and not constants.
 #
-# The two `Ref`s do execute, so including this twice in one session redefines them and resets a
-# `--runs-dir` already set. Each driver includes it once.
-#
-# The parser is shared, and the rejection of an unknown flag is the reason. A driver that parses
-# its own arguments disagrees with the next one about what an unrecognised flag means, and the
-# dangerous shape is the one that renders nothing, prints "done" and exits 0: a regeneration
-# recipe with a mistyped flag then looks like it worked.
+# The parser is shared so that every driver rejects an unknown flag the same way. A driver that
+# ignored one would run at its defaults and exit 0, and a mistyped regeneration command would then
+# look like it worked.
 
 const RUNS_DIR = Ref(joinpath(@__DIR__, "..", "runs"))
 const RESULTS_DIR = Ref(joinpath(@__DIR__, "..", "results"))
 
-const COMMON_OPTIONS = ("--runs-dir", "--results-dir")
+flag(name) = "--" * replace(String(name), "_" => "-")
+
+parse_value(::T, value) where {T <: Number} = parse(T, value)
+parse_value(::AbstractString, value) = String(value)
+parse_value(::Vector{T}, value) where {T} = parse.(T, split(value, ","))
 
 """
-    parse_arguments(args, extra = ()) -> (positional, options)
+    parse_arguments(args; defaults...) -> NamedTuple
 
-Split `args` into positional names and `--flag value` pairs, accepting `--runs-dir` and
-`--results-dir` everywhere plus whatever `extra` a driver adds, and **rejecting anything else**
-with an `ArgumentError`. A value that begins with `--` is rejected too, because it is a flag
-rather than a value: `--runs-dir --results-dir` would otherwise set the runs directory to the
-name of the other flag.
+The options of a driver: one `--flag value` pair for each keyword of `defaults`, the flag spelled
+with `-` for `_` (`final_time` is `--final-time`), plus `--runs-dir` and `--results-dir`. Each
+value is parsed to the type of its default, a `Vector` default from a comma-separated list. An
+unknown flag, a flag given twice, a missing value and a value that begins with `--` each throw an
+`ArgumentError`.
 
-Sets `RUNS_DIR` and `RESULTS_DIR` as a side effect and creates both directories, so a driver calls
-this before it touches either.
+Sets `RUNS_DIR` and `RESULTS_DIR` and creates both directories, so a driver calls this before it
+writes anything.
 """
-function parse_arguments(args, extra = ())
-    known = (COMMON_OPTIONS..., extra...)
-    options = Dict{String, String}()
-    positional = String[]
+function parse_arguments(args; defaults...)
+    defaults = (; runs_dir = RUNS_DIR[], results_dir = RESULTS_DIR[], defaults...)
+    known = Dict(flag(name) => name for name in keys(defaults))
+    given = Dict{Symbol, Any}()
 
-    i = firstindex(args)
-    while i ≤ lastindex(args)
-        argument = args[i]
-        if startswith(argument, "--")
-            argument in known || throw(ArgumentError(
-                "unknown option `$(argument)`; this script takes " * join(known, ", ")))
-            i < lastindex(args) || throw(ArgumentError("`$(argument)` needs a value"))
-            startswith(args[i + 1], "--") && throw(ArgumentError(
-                "`$(argument)` needs a value, got the flag `$(args[i + 1])`"))
-            options[argument] = args[i + 1]
-            i += 2
-        else
-            push!(positional, argument)
-            i += 1
-        end
+    for pair in Iterators.partition(args, 2)
+        argument = first(pair)
+        haskey(known, argument) || throw(ArgumentError(
+            "unknown argument `$(argument)`; this script takes " *
+            join(sort!(collect(keys(known))), ", ")))
+        name = known[argument]
+        haskey(given, name) && throw(ArgumentError("`$(argument)` is given twice"))
+        length(pair) == 2 && !startswith(pair[2], "--") ||
+            throw(ArgumentError("`$(argument)` needs a value"))
+        given[name] = parse_value(defaults[name], pair[2])
     end
 
-    haskey(options, "--runs-dir") && (RUNS_DIR[] = options["--runs-dir"])
-    haskey(options, "--results-dir") && (RESULTS_DIR[] = options["--results-dir"])
+    options = merge(defaults, NamedTuple(given))
+    RUNS_DIR[] = mkpath(options.runs_dir)
+    RESULTS_DIR[] = mkpath(options.results_dir)
 
-    mkpath(RUNS_DIR[])
-    mkpath(RESULTS_DIR[])
-
-    return positional, options
+    return options
 end
 
 """
-    no_positional(positional, script)
+    choose(choices, argument, value)
 
-Throw an `ArgumentError` for a script that takes no positional argument, naming the ones it was
-given.
+The entry of the dictionary `choices` under `value`, the value of `argument`; an `ArgumentError`
+that names the accepted keys when there is none.
 """
-function no_positional(positional, script)
-    isempty(positional) || throw(ArgumentError(
-        "`$(script)` takes no positional argument, got `" * join(positional, "`, `") * "`"))
-
-    return nothing
+function choose(choices, argument, value)
+    return get(choices, value) do
+        throw(ArgumentError("unknown $(argument) `$(value)`; this script takes " *
+                            join(sort!(collect(keys(choices))), ", ")))
+    end
 end
 
-"""
-    option_float(options, name, default) -> Float64
-
-The `--<name>` value, or `default`.
-"""
-function option_float(options, name, default)
-    haskey(options, name) || return default
-
-    return parse(Float64, options[name])
-end
-
-"""
-    option_int(options, name, default) -> Int
-
-The `--<name>` value, or `default`.
-"""
-function option_int(options, name, default)
-    haskey(options, name) || return default
-
-    return parse(Int, options[name])
-end
-
-"""
-    option_choice(options, name, default, allowed) -> String
-
-The `--<name>` value, or `default`, rejecting a value outside `allowed`.
-"""
-function option_choice(options, name, default, allowed)
-    value = get(options, name, default)
-    value in allowed || throw(ArgumentError(
-        "unknown $(name) `$(value)`; this script takes " * join(allowed, ", ")))
-
-    return value
-end
-
-"""
-    option_ints(options, name, default) -> Vector{Int}
-
-The `--<name>` value as a comma-separated list of integers, or `default`.
-"""
-function option_ints(options, name, default)
-    haskey(options, name) || return default
-
-    return [parse(Int, field) for field in split(options[name], ",")]
-end
-
-"""
-    runs_path(name) -> String
-
-`name` under `RUNS_DIR`.
-"""
 runs_path(name) = joinpath(RUNS_DIR[], name)
-
-"""
-    results_path(name) -> String
-
-`name` under `RESULTS_DIR`.
-"""
 results_path(name) = joinpath(RESULTS_DIR[], name)

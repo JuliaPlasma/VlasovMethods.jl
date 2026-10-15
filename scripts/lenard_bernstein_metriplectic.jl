@@ -31,17 +31,13 @@ using VlasovMethods
 
 const NAME = "lenard_bernstein_metriplectic"
 
-const PARSED = let (positional, options) = parse_arguments(ARGS,
-        ("--npart", "--nknot", "--order", "--tstep", "--final-time"))
-    no_positional(positional, "lenard_bernstein_metriplectic.jl")
-    options
-end
-
-const NPART_LIST = option_ints(PARSED, "--npart", collect(1000:2000:10000))
-const NKNOT = option_int(PARSED, "--nknot", 31)
-const ORDER = option_int(PARSED, "--order", 4)
-const TSTEP = option_float(PARSED, "--tstep", 5e-4)
-const TSPAN = (0.0, option_float(PARSED, "--final-time", 2.0))
+const OPT = parse_arguments(ARGS; npart = collect(1000:2000:10000), nknot = 31, order = 4,
+    tstep = 5e-4, final_time = 2.0)
+const NPART_LIST = OPT.npart
+const NKNOT = OPT.nknot
+const ORDER = OPT.order
+const TSTEP = OPT.tstep
+const TSPAN = (0.0, OPT.final_time)
 const DOMAINV = (-2.0, 2.0)
 
 # the Picard iteration: the damping and depth the model's own step ignores, and the two
@@ -55,7 +51,10 @@ function lattice(npart)
     return [DOMAINV[1] + (i - 0.5) * (DOMAINV[2] - DOMAINV[1]) / npart for i in 1:npart]
 end
 
-"One run of `npart` particles over `trange`; returns the times, the state and the errors."
+"""
+One run of `npart` particles over `TSPAN`; returns the times, the initial and the final state,
+and the momentum and energy errors at every time.
+"""
 function march(npart)
     pdist = ParticleDistribution(1, 1, npart)
     pdist.particles.v[1, :] .= lattice(npart)
@@ -65,29 +64,30 @@ function march(npart)
     model = MetriplecticLenardBernstein(pdist, CollisionEntropy(sdist))
 
     trange = TSPAN[1]:TSTEP:TSPAN[2]
-    sol = zeros(npart, length(trange))
-    sol[:, 1] .= pdist.particles.v[1, :]
 
     # the unused `dv` and the extrapolation history, in the argument order of the solve
     dv = zeros(npart)
     dv_history = zeros(npart, 2)
     abstol = 3.0e-16 * sqrt(npart)     # the tolerance test/integration/metriplectic_solve.jl pins
 
+    # Only the moments of each step are kept. The solve returns a new vector, so `v` and `v_old`
+    # are the last two states without a copy.
+    v₀ = pdist.particles.v[1, :]
+    v, v_old = v₀, v₀
+    mom, enr = [sum(v)], [sum(abs2, v)]
     @showprogress desc="N = $npart" for (i, t) in pairs(trange[1:(end - 1)])
-        vn_minus_one = i > 1 ? sol[:, i - 1] : sol[:, i]
-        v = Picard_iterate_over_particles(
-            dv, sol[:, i], vn_minus_one, dv_history, i, t, TSTEP, DEPTH, BETA, abstol,
-            RELTOL, model)
-        sol[:, i + 1] .= v
+        v, v_old = Picard_iterate_over_particles(
+            dv, v, v_old, dv_history, i, t, TSTEP, DEPTH,
+            BETA, abstol, RELTOL, model),
+        v
+        push!(mom, sum(v))
+        push!(enr, sum(abs2, v))
     end
-
-    mom = [sum(sol[:, n]) / npart for n in axes(sol, 2)]
-    enr = [sum(abs2, sol[:, n]) / npart for n in axes(sol, 2)]
 
     # The lattice is symmetric about zero, so its momentum is zero to round-off and a *relative*
     # error in it is 0/0. The momentum error is therefore written as a difference, and the energy
     # error — the energy is not zero — relative.
-    return collect(trange), sol, mom .- mom[1], (enr .- enr[1]) ./ enr[1]
+    return collect(trange), v₀, v, (mom .- mom[1]) ./ npart, (enr .- enr[1]) ./ enr[1]
 end
 
 function main()
@@ -97,14 +97,14 @@ function main()
     report = results_path(NAME * ".md")
 
     for npart in NPART_LIST
-        trange, sol, momentum_error, energy_error = march(npart)
+        trange, v_initial, v_final, momentum_error, energy_error = march(npart)
 
         h5file = runs_path("$(NAME)_N$(npart).hdf5")
         h5open(h5file, "w") do h5
             h5["t"] = trange
             h5["momentum_error"] = momentum_error
             h5["energy_error"] = energy_error
-            h5["v"] = sol[:, end]
+            h5["v"] = v_final
         end
 
         fig = Figure(size = (1200, 450))
@@ -122,9 +122,9 @@ function main()
         edges = collect(range(DOMAINV[1], DOMAINV[2]; length = 81))
         ax2 = Axis(fig[1, 2], xlabel = "v", ylabel = "f",
             title = "initial and final distribution")
-        for (slice, colour) in ((1, :steelblue), (size(sol, 2), :firebrick))
-            hist!(ax2, sol[:, slice], bins = edges, normalization = :pdf, color = colour,
-                label = slice == 1 ? "initial" : "final")
+        for (v, colour, label) in ((v_initial, :steelblue, "initial"),
+            (v_final, :firebrick, "final"))
+            hist!(ax2, v, bins = edges, normalization = :pdf, color = colour, label = label)
         end
         axislegend(ax2; position = :lt)
 

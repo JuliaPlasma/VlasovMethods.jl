@@ -302,7 +302,8 @@ first entry is written.
 ### Removals
 
 - **Four `scripts/` drivers are deleted and four merge into a survivor.** The fifteen `.jl` files
-  under `scripts/` become eight — seven drivers and one shared parser. `bump_on_tail.jl` goes:
+  the rewrite triaged under `scripts/` become eight — seven drivers and one shared parser — beside
+  `electric_field_timing.jl`, which the rewrite does not touch. `bump_on_tail.jl` goes:
   `using VlasovMethods.BumpOnTail` names a module that does not exist and six further names are
   absent, and nothing under `scripts/` reproduces the bump-on-tail set. `charged_particles.jl`
   goes: it never loads VlasovMethods and calls an API `GeometricIntegrators` 0.18 lacks.
@@ -344,20 +345,25 @@ first entry is written.
 
 ### New Features
 
-- **Every `scripts/` driver reads its output directories from the command line, and a driver
-  that takes parameters reads them there too.** A new `scripts/options.jl` is the directory's
-  only argument parser: it accepts `--runs-dir` and `--results-dir`, defaulting to `runs/` and
-  `results/` beside the repository root, creates both, and rejects an unrecognised flag with an
-  `ArgumentError` rather than ignoring it. Each driver writes its numbers under `--runs-dir` and
-  a figure or a report under `--results-dir`, so a run at the defaults adds no untracked path and
-  `git status --short` is unchanged. The first run creates both ignored directories;
-  `/runs` and `/results` join `.gitignore`. The surviving drivers draw with CairoMakie, and
-  `scripts/Project.toml` loses `Plots`, `LaTeXStrings`,
-  `GLMakie`, `SciMLBase`, `TerminalLoggers` and `Logging` and gains `CairoMakie`. Their defaults
-  are measured to run: `lenard_bernstein.jl` steps `dt = 1e-2` over `t ∈ [0, 1]` for all three of
-  its models, where the `dt = 0.1` over `t ∈ [0, 10]` it carried fails for every one of them, and
-  `lenard_bernstein_metriplectic.jl` starts from the cell-centred lattice on `[-2, 2]`, which
-  keeps the projection positive where the shifted double Maxwellian on `[-10, 10]` did not.
+- **Every `scripts/` driver that writes files reads its output directories from the command line.**
+  A new `scripts/options.jl` is the shared argument parser, and `electric_field_timing.jl` does
+  not include it: that driver writes no file and takes one positional argument, the name of the
+  path (`reduced` or `deim`) its cold subprocess times. The parser accepts `--runs-dir` and
+  `--results-dir`, defaulting to `runs/` and `results/` at the repository root, creates both, and
+  rejects an unrecognised flag, or one given twice, with an `ArgumentError` rather than ignoring
+  it. Each such driver writes its numbers under `--runs-dir` and a figure or a report under
+  `--results-dir`, so a run at the defaults adds no untracked path and `git status --short` is
+  unchanged. The first run creates both ignored directories; `/runs` and `/results` join
+  `.gitignore`. The surviving drivers draw with CairoMakie, and `scripts/Project.toml` loses
+  `Plots`, `LaTeXStrings`, `GLMakie`, `ParticleMethods`, `SciMLBase`, `TerminalLoggers` and
+  `Logging` and gains `CairoMakie`. Their defaults are measured to run: `lenard_bernstein.jl`
+  steps `dt = 1e-2` over `t ∈ [0, 1]` for all three of its models, where the `dt = 0.1` over
+  `t ∈ [0, 10]` it carried fails for every one of them, and `lenard_bernstein_metriplectic.jl`
+  starts from the cell-centred lattice on `[-2, 2]`, which keeps the projection positive where
+  the shifted double Maxwellian on `[-10, 10]` did not. `lenard_bernstein.jl` builds all three
+  models on a `Free()` basis, the one condition under which the spline moments equal the
+  particles'; `profile.jl --model clb` uses `Free()` too, and its default is one step
+  (`--final-time 1e-3`, equal to `--tstep`).
 
 - **The grid 1D1V Vlasov–Poisson scheme.** `VlasovPoisson(dist::GridDistribution,
   potential::Potential)` is a new method of the exported constructor, and
@@ -522,7 +528,7 @@ first entry is written.
   The particle sums `Σ w v̇` and `Σ w v v̇` vanish at round-off on **every** boundary condition,
   since `A₁` and `A₂` are solved from exactly those constraints. What the span requirement of
   `main.tex:226` controls is the *other* claim, `∫ vᵏ f_s dv = Σ w v^k`: measured on a cubic
-  basis over `[-8,8]`, `Free()` reproduces `1`, `v`, `v²` to `1e-14`, `Periodic()` gets `v`
+  basis over `[-8,8]`, `Free()` reproduces `1`, `v`, `v²` to `3e-14`, `Periodic()` gets `v`
   wrong by `1.2` and `v²` by `0.12`, and `Dirichlet()` gets even the constant wrong by `4e-2`.
   So the boundary condition decides whether `f_s` has the moments the particles do, and hence
   whether the entropy and the H-theorem refer to the distribution being evolved.

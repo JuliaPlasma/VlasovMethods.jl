@@ -41,25 +41,18 @@ using VlasovMethods
 using LinearAlgebra
 using Random
 
-const PARSED = let (positional, options) = parse_arguments(ARGS)
-    no_positional(positional, "verify_conservation.jl")
-    options
-end
+parse_arguments(ARGS)
 
 const VM = VlasovMethods
 
-# The report is built as one text, written to `--results-dir` and echoed; the numbers of the two
-# measurement loops are collected separately, as rows of a comma-separated file in `--runs-dir`.
+# The report is built as one text, written to `--results-dir` and echoed; the numbers of each claim
+# are collected separately, as the rows of a comma-separated file of its own in `--runs-dir`.
 const REPORT = IOBuffer()
-const ROWS = String[]
+const CLAIM1 = ["weights,condition,poly,momentum,energy"]
+const CLAIM2 = ["condition,poly,f = 1,f = v,f = v²"]
 
 emit(args...) = println(REPORT, args...)
-# `@printf` needs a literal format, and this helper takes one at run time, so it goes through the
-# constructed-format form of the same stdlib.
-function emitf(fmt::AbstractString, args...)
-    print(REPORT, Printf.format(Printf.Format(fmt), args...))
-end
-row(values...) = push!(ROWS, join(values, ","))
+row(rows, values...) = push!(rows, join(values, ","))
 
 # ---------------------------------------------------------------------------------------------
 # The semi-discrete conservative Lenard-Bernstein right-hand side, written out here rather than
@@ -111,13 +104,12 @@ emit("  particles: ", NPART, "   knots: ", NKNOT, "   order: ", ORDER,
 emit("  Expected: round-off on EVERY boundary condition, because A₁ and A₂ are solved")
 emit("  from these two constraints directly.")
 emit()
-row("claim", "weights", "condition", "poly", "momentum", "energy")
 
 for weights in (:uniform, :nonuniform)
     pd = make_particles(NPART, weights)
     v = pd.particles.v[1, :]
 
-    emitf("%-14s %-12s %-8s %-14s %-14s\n",
+    @printf(REPORT, "%-14s %-12s %-8s %-14s %-14s\n",
         "weights", "condition", "poly", "|Σ w v̇|/|v̇|", "|Σ w v v̇|/|v̇|")
     emit("  ", "-"^68)
 
@@ -126,21 +118,10 @@ for weights in (:uniform, :nonuniform)
         m = polynomial_reproduction(sdist.basis)
         projection(v, pd, sdist)
 
-        local mom, ene
-        try
-            mom, ene, _ = residuals(sdist, pd, v)
-            emitf("%-14s %-12s %-8d %-14.3e %-14.3e\n",
-                weights, string(bc), m, mom, ene)
-            row(1, weights, string(bc), m, mom, ene)
-        catch err
-            # A Dirichlet basis forces f_s to zero at the domain ends, so f_s'/f_s is a
-            # division by zero there and the positivity guard fires. That is itself part of
-            # the finding: the condition does not merely lose conservation, it makes the
-            # operator undefined.
-            msg = err isa ErrorException ? first(split(err.msg, ',')) : string(typeof(err))
-            emitf("%-14s %-12s %-8d %s\n", weights, string(bc), m, msg)
-            row(1, weights, string(bc), m, msg)
-        end
+        mom, ene, _ = residuals(sdist, pd, v)
+        @printf(REPORT, "%-14s %-12s %-8d %-14.3e %-14.3e\n", weights, string(bc), m, mom,
+            ene)
+        row(CLAIM1, weights, string(bc), m, mom, ene)
     end
     emit()
 end
@@ -155,9 +136,9 @@ emit("  Polynomial reproduction, measured as max |Πf(v) - f(v)| over the domain
 emit("  projection reproduces ∫ πf exactly iff π is in the span, so these errors are")
 emit("  what separates the boundary conditions.")
 emit()
-emitf("%-12s %-8s %-14s %-14s %-14s\n", "condition", "poly", "f = 1", "f = v", "f = v²")
+@printf(REPORT, "%-12s %-8s %-14s %-14s %-14s\n", "condition", "poly", "f = 1", "f = v",
+    "f = v²")
 emit("  ", "-"^64)
-row("claim", "condition", "poly", "f = 1", "f = v", "f = v²")
 
 pts = collect(range(DOMAIN[1] + 0.5, DOMAIN[2] - 0.5; length = 41))
 
@@ -169,8 +150,8 @@ for bc in (Free(), Periodic(), Dirichlet())
         project_function(f, sd)
         push!(errs, maximum(abs(sd.spline(v) - f(v)) for v in pts))
     end
-    emitf("%-12s %-8d %-14.3e %-14.3e %-14.3e\n", string(bc), m, errs...)
-    row(2, string(bc), m, errs...)
+    @printf(REPORT, "%-12s %-8d %-14.3e %-14.3e %-14.3e\n", string(bc), m, errs...)
+    row(CLAIM2, string(bc), m, errs...)
 end
 
 emit()
@@ -185,15 +166,14 @@ emit("it — refers to the distribution actually being evolved.")
 
 text = String(take!(REPORT))
 
-numbers = runs_path("verify_conservation.csv")
+numbers = [
+    runs_path("verify_conservation_claim1.csv"), runs_path("verify_conservation_claim2.csv")]
 report = results_path("verify_conservation.txt")
 
-open(numbers, "w") do io
-    for line in ROWS
-        println(io, line)
-    end
+for (file, rows) in zip(numbers, (CLAIM1, CLAIM2))
+    write(file, join(rows, "\n"), "\n")
 end
 write(report, text)
 
 print(text)
-@printf("\n  wrote %s and %s\n", numbers, report)
+@printf("\n  wrote %s, %s and %s\n", numbers..., report)

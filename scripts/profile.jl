@@ -1,16 +1,17 @@
 # The allocation profile of one collision-model path.
 #
 #   julia --project=scripts scripts/profile.jl [--model clb|landau] [--npart 1000] [--nknot 41] \
-#       [--order 4] [--tstep 0.001] [--final-time 0.01] [--runs-dir dir] [--results-dir dir]
+#       [--order 4] [--tstep 0.001] [--final-time 0.001] [--runs-dir dir] [--results-dir dir]
 #
 # Run it in a fresh process; allocation profiling needs no `--track-allocation` or
 # `--code-coverage` instrumentation, and either would measure the instrumentation. Read the
 # report it writes to `--results-dir` against the raw dump it writes to `--runs-dir`. Everything
 # the run produces goes under those two directories.
 #
-#   clb      one `ConservativeLenardBernstein` run through `GeometricIntegrator`, so the profile
-#            is the whole collision step: the projection, the two coefficient solves and the
-#            time step. The trajectory goes to `--runs-dir` beside the dump.
+#   clb      a `ConservativeLenardBernstein` run through `GeometricIntegrator`, one step at the
+#            defaults, so the profile is the whole collision step: the projection, the two
+#            coefficient solves and the time step. The trajectory goes to `--runs-dir` beside the
+#            dump.
 #   landau   one `Picard_iterate_Landau_nls!` step of the two-dimensional Landau operator. No
 #            Landau driver marches in time — every one of them meets the positivity guard of
 #            `KNOWN_ISSUES.md` K8 — so the solver step is profiled directly, on the cell-centred
@@ -23,20 +24,10 @@ using Printf
 using Profile
 using VlasovMethods
 
-const MODELS = ("clb", "landau")
-
-const PARSED = let (positional, options) = parse_arguments(ARGS,
-        ("--model", "--npart", "--nknot", "--order", "--tstep", "--final-time"))
-    no_positional(positional, "profile.jl")
-    options
-end
-
-const MODEL = option_choice(PARSED, "--model", "clb", MODELS)
-const NPART = option_int(PARSED, "--npart", 1000)
-const NKNOT = option_int(PARSED, "--nknot", 41)
-const ORDER = option_int(PARSED, "--order", 4)
-const TSTEP = option_float(PARSED, "--tstep", 1e-3)
-const TSPAN = (0.0, option_float(PARSED, "--final-time", 1e-2))
+const OPT = parse_arguments(ARGS; model = "clb", npart = 1000, nknot = 41, order = 4,
+    tstep = 1e-3, final_time = 1e-3)
+const TSTEP = OPT.tstep
+const TSPAN = (0.0, OPT.final_time)
 const DOMAINV = (-10.0, 10.0)
 
 # The particle lattice of `test/integration/landau_solver.jl`'s two-dimensional Landau step: 16
@@ -54,21 +45,19 @@ const CHUNKSIZE = 1
 """
     step_clb(h5file, tspan = TSPAN)
 
-One `ConservativeLenardBernstein` run over `tspan`, through the model's `GeometricIntegrator`.
-Returns what `run!(integrator, h5file)` returns; the trajectory is at `h5file`. The caller wraps in
-`Profile.Allocs.@profile` the call whose allocations it wants.
+One `ConservativeLenardBernstein` run over `tspan`, through the model's `GeometricIntegrator`,
+with the trajectory written to `h5file`.
 """
 function step_clb(h5file, tspan = TSPAN)
-    dist = initialize!(ParticleDistribution(1, 1, NPART), NormalDistribution())
-    sdist = SplineDistribution(1, 1, NKNOT, ORDER, DOMAINV, 0, :Dirichlet)
-    entropy = CollisionEntropy(sdist)
-    model = ConservativeLenardBernstein(dist, entropy)
+    dist = initialize!(ParticleDistribution(1, 1, OPT.npart), NormalDistribution())
+    sdist = SplineDistribution(1, 1, OPT.nknot, OPT.order, DOMAINV, 0, :nothing)
+    model = ConservativeLenardBernstein(dist, CollisionEntropy(sdist))
     integrator = GeometricIntegrator(model, tspan, TSTEP)
 
     return VlasovMethods.run!(integrator, h5file)
 end
 
-"One Landau Picard step of the two-dimensional setup, warmed by the call in `main`."
+"One Landau Picard step of the two-dimensional setup."
 function step_landau(landau, v_prev, ti)
     rhs_prev = zeros(2, size(v_prev, 2), 2)
     # `Picard_iterate_Landau_nls!` prints and reports its own convergence; K43 records that.
@@ -98,15 +87,52 @@ function landau_setup()
     return Landau(pdist, CollisionEntropy(sdist)), copy(pdist.particles.v)
 end
 
-# The innermost Julia frame of an allocation — the runtime and the allocation profiler below and
-# above it are C, so a summary row names the code under profile and not the sampling machinery.
-function allocation_frame(allocation)
-    for frame in allocation.stacktrace
-        frame.from_c && continue
-        return string(frame.func, " at ", basename(string(frame.file)), ":", frame.line)
-    end
+# Each profile warms the path it profiles first, so that the profile is of arithmetic and not of
+# compilation, and returns the line that describes it and the files it wrote.
+function profile_clb()
+    h5file = runs_path("profile_clb.hdf5")
+    # the warm run writes the trajectory first, and the profiled run overwrites it
+    step_clb(h5file, (TSPAN[1], TSPAN[1] + TSTEP))
+    Profile.Allocs.clear()
+    Profile.Allocs.@profile step_clb(h5file)
 
-    return "unknown"
+    return string(
+        "`ConservativeLenardBernstein` through the model's `GeometricIntegrator`, ",
+        "at --npart ", OPT.npart, ", --nknot ", OPT.nknot, ", --order ", OPT.order,
+        ", --tstep ", TSTEP, ", --final-time ", TSPAN[2], ": ",
+        round(Int, TSPAN[2] / TSTEP), " steps. The trajectory is `", basename(h5file),
+        "`, beside the raw dump."),
+    [h5file]
+end
+
+function profile_landau()
+    landau, v_prev = landau_setup()
+    # one warm call of each branch of the solver
+    step_landau(landau, v_prev, 1)
+    step_landau(landau, v_prev, 4)
+    Profile.Allocs.clear()
+    Profile.Allocs.@profile step_landau(landau, v_prev, 4)
+
+    return string("One `Picard_iterate_Landau_nls!` step of the two-dimensional Landau ",
+        "operator, on a ", N1, "^2 cell-centred lattice inside ", LANDAU_DOMAIN,
+        " with a quadratic `Free` basis, `ti = 4`."),
+    String[]
+end
+
+const PROFILES = Dict("clb" => profile_clb, "landau" => profile_landau)
+const PROFILE = choose(PROFILES, "--model", OPT.model)
+
+# The innermost frame in the repository's own source, `src/` or this script, so that a summary row
+# names the code that allocated rather than the `Base` constructor or the runtime below it. An
+# allocation with no such frame on its stack is counted under `outside VlasovMethods`.
+const PACKAGE = pkgdir(VlasovMethods)
+
+function allocation_frame(allocation)
+    i = findfirst(frame -> startswith(string(frame.file), PACKAGE), allocation.stacktrace)
+    i === nothing && return "outside VlasovMethods"
+    frame = allocation.stacktrace[i]
+
+    return string(frame.func, " at ", relpath(string(frame.file), PACKAGE), ":", frame.line)
 end
 
 """
@@ -117,65 +143,35 @@ sampled bytes over every frame.
 """
 function allocation_summary(allocations; top = 15)
     frames = Dict{String, Tuple{Int, Int}}()
-    total = 0
     for allocation in allocations
         frame = allocation_frame(allocation)
         count, bytes = get(frames, frame, (0, 0))
         frames[frame] = (count + 1, bytes + Int(allocation.size))
-        total += Int(allocation.size)
     end
-    rows = sort([(frame, count, bytes) for (frame, (count, bytes)) in frames];
-        by = row -> -row[3])
+    rows = sort!([(frame, count, bytes) for (frame, (count, bytes)) in frames];
+        by = last, rev = true)
 
-    return total, rows[1:min(top, length(rows))]
+    return sum(allocation -> Int(allocation.size), allocations; init = 0), first(rows, top)
 end
 
 function main()
     started = time()
-    h5file = MODEL == "clb" ? runs_path("profile_clb.hdf5") : ""
-
-    if MODEL == "clb"
-        # a warm one-step run of the same path, so that the profile is of arithmetic and not of
-        # compilation; it writes the trajectory first, and the profiled run overwrites it
-        step_clb(h5file, (TSPAN[1], TSPAN[1] + TSTEP))
-        Profile.Allocs.clear()
-        Profile.Allocs.@profile step_clb(h5file)
-    else
-        landau, v_prev = landau_setup()
-        # a warm call of each branch of the solver, so that the profile is of arithmetic and not
-        # of compilation
-        step_landau(landau, v_prev, 1)
-        step_landau(landau, v_prev, 4)
-        Profile.Allocs.clear()
-        Profile.Allocs.@profile step_landau(landau, v_prev, 4)
-    end
-
+    description, written = PROFILE()
     elapsed = time() - started
 
     allocations = Profile.Allocs.fetch()
     dump = IOBuffer()
-    Profile.Allocs.print(dump, allocations)
-    profile_text = String(take!(dump))
+    # a wide display, so that the dump does not cut the file names of its frames
+    Profile.Allocs.print(IOContext(dump, :displaysize => (10^6, 1000)), allocations)
 
-    numbers = runs_path("profile_" * MODEL * "_allocations.txt")
-    report = results_path("profile_" * MODEL * ".md")
-    write(numbers, profile_text)
+    numbers = runs_path("profile_" * OPT.model * "_allocations.txt")
+    report = results_path("profile_" * OPT.model * ".md")
+    write(numbers, take!(dump))
 
     open(report, "w") do io
-        println(io, "# The allocation profile of `scripts/profile.jl --model ", MODEL, "`")
+        println(io, "# The allocation profile of `scripts/profile.jl --model ", OPT.model, "`")
         println(io)
-        if MODEL == "clb"
-            println(io, "`ConservativeLenardBernstein` through the model's ",
-                "`GeometricIntegrator`, at --npart ", NPART, ", --nknot ", NKNOT,
-                ", --order ", ORDER, ", --tstep ", TSTEP, ", --final-time ", TSPAN[2],
-                ": ", round(Int, TSPAN[2] / TSTEP), " steps.")
-            println(io, "The trajectory is `", basename(h5file), "`, beside the raw dump.")
-        else
-            println(
-                io, "One `Picard_iterate_Landau_nls!` step of the two-dimensional Landau ",
-                "operator, on a ", N1, "^2 cell-centred lattice inside ", LANDAU_DOMAIN,
-                " with a quadratic `Free` basis, `ti = 4`.")
-        end
+        println(io, description)
         @printf(io, "\nWall time %.1f s; %d sampled allocations.\n",
             elapsed, length(allocations.allocs))
         println(io, "The allocation profiler samples at its default rate of 0.1, so the count")
@@ -183,7 +179,7 @@ function main()
         println(io)
         total, rows = allocation_summary(allocations.allocs)
         @printf(io, "The frames below own %d of the %d sampled bytes:\n",
-            sum(row -> row[3], rows; init = 0), total)
+            sum(last, rows; init = 0), total)
         println(io)
         println(io, "| allocations | bytes | frame |")
         println(io, "|--:|--:|:--|")
@@ -195,8 +191,8 @@ function main()
     end
 
     @printf("profile: model %s, %.1f s, %d sampled allocations\n",
-        MODEL, elapsed, length(allocations.allocs))
-    @printf("  wrote %s%s and %s\n", h5file == "" ? "" : h5file * ", ", numbers, report)
+        OPT.model, elapsed, length(allocations.allocs))
+    @printf("  wrote %s\n", join([written; numbers; report], ", "))
 end
 
 main()

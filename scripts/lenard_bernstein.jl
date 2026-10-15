@@ -12,12 +12,13 @@
 # variant that solves its two coefficients from the particle momentum and energy, and `rclb` the
 # rescaled conservative variant. `clb` is the default.
 #
+# The basis is unconstrained at the ends (`Free()`), the one condition under which the moments of
+# the spline representation equal the particles'; on a `Dirichlet()` basis the conservative
+# models warn that they do not.
+#
 # **The defaults are dt = 0.01 over t ∈ [0, 1].** A dt = 0.1 over t ∈ [0, 10] fails for every one
 # of the three models, because the particles drift out of the velocity domain and the projection
 # then throws on the ones that left.
-#
-# The figures are the right-hand side at the initial condition and the distribution at the two
-# ends of the run.
 
 include(joinpath(@__DIR__, "options.jl"))
 
@@ -27,99 +28,58 @@ using CairoMakie
 using HDF5
 using VlasovMethods
 
-const MODELS = ("lb", "clb", "rclb")
+const MODELS = Dict("lb" => LenardBernstein, "clb" => ConservativeLenardBernstein,
+    "rclb" => RescaledConservativeLenardBernstein)
 
-const PARSED = let (positional, options) = parse_arguments(ARGS,
-        ("--model", "--npart", "--nknot", "--order", "--tstep", "--final-time"))
-    no_positional(positional, "lenard_bernstein.jl")
-    options
-end
-
-const MODEL = option_choice(PARSED, "--model", "clb", MODELS)
-const NPART = option_int(PARSED, "--npart", 1000)
-const NKNOT = option_int(PARSED, "--nknot", 41)
-const ORDER = option_int(PARSED, "--order", 4)
-const TSTEP = option_float(PARSED, "--tstep", 1e-2)
-const TSPAN = (0.0, option_float(PARSED, "--final-time", 1.0))
+const OPT = parse_arguments(ARGS; model = "clb", npart = 1000, nknot = 41, order = 4,
+    tstep = 1e-2, final_time = 1.0)
+const MODEL = choose(MODELS, "--model", OPT.model)
+const TSPAN = (0.0, OPT.final_time)
 const DOMAIN = (-10.0, 10.0)
 
-# create and initialize particle distribution function
-dist = initialize!(ParticleDistribution(1, 1, NPART), NormalDistribution())
+dist = initialize!(ParticleDistribution(1, 1, OPT.npart), NormalDistribution())
+sdist = SplineDistribution(1, 1, OPT.nknot, OPT.order, DOMAIN, 0, :nothing)
+model = MODEL(dist, CollisionEntropy(sdist))
+integrator = VlasovMethods.GeometricIntegrator(model, TSPAN, OPT.tstep)
 
-# create spline distribution function and entropy
-sdist = SplineDistribution(1, 1, NKNOT, ORDER, DOMAIN, 0, :Dirichlet)
-entropy = CollisionEntropy(sdist)
+# The right-hand side at the initial condition, through the vector field and the parameters the
+# integrator steps, evaluated before the run writes the final state back into `dist.particles.v`.
+prob = integrator.equation
+v₀ = dist.particles.v[1, :]
+v̇₀ = zero(v₀)
+prob.equation.v(v̇₀, TSPAN[1], v₀, prob.parameters)
 
-# create the collision model the flag names
-model = if MODEL == "lb"
-    LenardBernstein(dist, entropy)
-elseif MODEL == "clb"
-    ConservativeLenardBernstein(dist, entropy)
-else
-    RescaledConservativeLenardBernstein(dist, entropy)
-end
-
-# The right-hand side at the initial condition, saved before the run writes the final state back
-# into `dist.particles.v`: one vector-field evaluation against `v`, which shows where the operator
-# pushes hardest and whether the projection is positive. The argument order is the ODE one, which
-# is what the integrator calls.
-const RHS! = MODEL == "lb" ? VlasovMethods.LB_rhs_GI! :
-             MODEL == "clb" ? VlasovMethods.CLB_rhs_GI! :
-             VlasovMethods.RCLB_rhs_GI!
-
-params = (ν = model.ν, idist = model.dist, fdist = model.ent.dist, model = model)
-v₀ = copy(dist.particles.v[1, :])
-v̇₀ = zeros(NPART)
-RHS!(v̇₀, 0.0, v₀, params)
-
-# create integrator and run, writing the trajectory to the runs directory
-integrator = VlasovMethods.GeometricIntegrator(model, TSPAN, TSTEP)
-h5file = runs_path("lenard_bernstein_" * MODEL * ".hdf5")
+h5file = runs_path("lenard_bernstein_" * OPT.model * ".hdf5")
 run!(integrator, h5file)
 
 @printf("lenard_bernstein: model %s, %d particles, %d knots, order %d, dt = %g, t ∈ %s\n",
-    MODEL, NPART, NKNOT, ORDER, TSTEP, TSPAN)
+    OPT.model, OPT.npart, OPT.nknot, OPT.order, OPT.tstep, TSPAN)
 
-# `run!(::GeometricIntegrator, h5file)` writes the velocity vector the ODE steps, one slice per
-# time point: `z` is `(npart, ntime + 1)`, not the `(nd, npart, ntime + 1)` of the splitting
-# method's trajectory.
+# `z` is `(npart, ntime + 1)`: the velocity vector the ODE steps, one column per time in `t`.
 z = h5read(h5file, "z")
-@printf("  wrote %s (%d time slices)\n", h5file, size(z, 2))
-xgrid = collect(range(DOMAIN[1], DOMAIN[2]; length = 201))
+t = h5read(h5file, "t")
+@printf("  wrote %s (%d time slices)\n", h5file, length(t))
 
-# The particle density of one time slice, by the rectangle rule of the plot's own bins. Written
-# out rather than taken from `hist`, so that the two panels are the same measurement and no
-# plotting-package default decides what is drawn.
-function particle_density(velocities, edges)
-    width = edges[2] - edges[1]
-    counts = zeros(length(edges) - 1)
-    for velocity in velocities
-        i = searchsortedlast(edges, velocity)
-        1 ≤ i ≤ length(counts) && (counts[i] += 1)
-    end
-    return counts ./ (length(velocities) * width)
-end
-
-edges = collect(range(DOMAIN[1], DOMAIN[2]; length = 81))
-centres = (edges[1:(end - 1)] .+ edges[2:end]) ./ 2
+xgrid = range(DOMAIN[1], DOMAIN[2]; length = 201)
+edges = range(DOMAIN[1], DOMAIN[2]; length = 81)
 
 fig = Figure(size = (1600, 450))
 
 ax1 = Axis(fig[1, 1], xlabel = "v", ylabel = "v̇", title = "right-hand side at t = 0")
 scatter!(ax1, v₀, v̇₀, markersize = 2)
 
-for (panel, slice) in enumerate((1, size(z, 2)))
+for (panel, slice) in enumerate((1, length(t)))
     f = projection(z[:, slice], dist, sdist)
     df = derivative(f)
     ax = Axis(fig[1, panel + 1], xlabel = "v", ylabel = "f",
-        title = @sprintf("t = %.2f", TSPAN[1] + (slice - 1) * TSTEP))
-    lines!(ax, centres, particle_density(z[:, slice], edges),
-        color = :steelblue, label = "particles")
+        title = @sprintf("t = %.2f", t[slice]))
+    hist!(ax, z[:, slice], bins = edges, normalization = :pdf, color = (:steelblue, 0.5),
+        label = "particles")
     lines!(ax, xgrid, f.(xgrid), color = :firebrick, label = "spline projection")
     lines!(ax, xgrid, df.(xgrid), color = :black, linestyle = :dash, label = "derivative")
     panel == 1 && axislegend(ax; position = :lt)
 end
 
-figure = results_path("lenard_bernstein_" * MODEL * ".png")
+figure = results_path("lenard_bernstein_" * OPT.model * ".png")
 save(figure, fig)
 @printf("  wrote %s\n", figure)

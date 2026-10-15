@@ -16,15 +16,10 @@ using Random
 using VlasovMethods
 using VlasovMethods: SAcceleration, VAcceleration
 
-const PARSED = let (positional, options) = parse_arguments(ARGS, (
-        "--npart", "--ncells", "--order"))
-    no_positional(positional, "vlasov_poisson_allocations.jl")
-    options
-end
-
-const NPART = option_int(PARSED, "--npart", 10000)
-const NCELLS = option_int(PARSED, "--ncells", 16)
-const ORDER = option_int(PARSED, "--order", 3)
+const OPT = parse_arguments(ARGS; npart = 10000, ncells = 16, order = 3)
+const NPART = OPT.npart
+const NCELLS = OPT.ncells
+const ORDER = OPT.order
 
 function measure(::Type{T}; npart = NPART, ncells = NCELLS, order = ORDER) where {T}
     # `ParticleDistribution(1, 1, npart)` always fills `Float64` zeros, so the particles of

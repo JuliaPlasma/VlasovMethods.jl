@@ -19,12 +19,10 @@ using Printf
 using CairoMakie
 using GeometricIntegrators
 using PoissonSolvers
+using Statistics: cov, var
 using VlasovMethods
 
-const PARSED = let (positional, options) = parse_arguments(ARGS)
-    no_positional(positional, "landau_damping_1d1v.jl")
-    options
-end
+parse_arguments(ARGS)
 
 const K = 0.5
 const ALPHA = 0.01
@@ -68,14 +66,7 @@ function peaks(times, y)
 end
 
 # The least-squares slope through the peaks; NaN for fewer than two, which the guard fails closed on.
-function slope(ts, ys)
-    length(ts) ≥ 2 || return NaN
-    t̄ = sum(ts) / length(ts)
-    ȳ = sum(ys) / length(ys)
-
-    return sum((t - t̄) * (y - ȳ) for (t, y) in zip(ts, ys)) /
-           sum(abs2(t - t̄) for t in ts)
-end
+slope(ts, ys) = length(ts) ≥ 2 ? cov(ts, ys) / var(ts) : NaN
 
 # The whole run: the fitted rate, the peaks it was fitted through, and the series behind them, so
 # that the caller can write both out.
@@ -119,15 +110,9 @@ function landau_rate(nv, dt)
 end
 
 function main()
-    rates = Float64[]
-    series = []
-
-    for (nv, dt) in RUNS
+    series = map(RUNS) do (nv, dt)
         γ, ts, ys, times, logE = landau_rate(nv, dt)
         @printf("nv = %d, dt = %.3f: γ = %.6f over %d peaks\n", nv, dt, γ, length(ts))
-        push!(rates, γ)
-        push!(series, (
-            nv = nv, dt = dt, γ = γ, ts = ts, ys = ys, times = times, logE = logE))
 
         # the whole series, with the peaks the fit reads appended under their own header, so the
         # figure beside it can be redrawn from the file alone
@@ -145,9 +130,11 @@ function main()
             end
         end
         @printf("  wrote %s\n", numbers)
+
+        return (nv = nv, dt = dt, γ = γ, ts = ts, ys = ys, times = times, logE = logE)
     end
 
-    γ₁, γ₂ = rates
+    γ₁, γ₂ = series[1].γ, series[2].γ
     ok = abs(γ₁ - TEXTBOOK) ≤ 1.5e-3 && abs(γ₁ - γ₂) < 1.5e-4
     ok || error(
         "the fitted rate γ = $(γ₁) is not within 1.5e-3 of the textbook $(TEXTBOOK), or " *
