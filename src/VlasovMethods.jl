@@ -24,7 +24,7 @@ import SimpleSplines: basis, coefficients, derivative, evaluate, mass_matrix, ma
 # The reduced bases of a snapshot sweep are `ReducedBasisMethods`', and the parameter samples that
 # index the snapshots are `ReducedComplexityModeling`'s. `h5save` and `h5load` are that package's
 # generics, so the methods of `Snapshots` join them rather than the ones of ParticleMethods.
-using ReducedBasisMethods: ReducedBasis, PODSVD, PODEVD
+using ReducedBasisMethods: ReducedBasis, PODSVD, PODEVD, SymplecticAlgorithm, lift
 using ReducedComplexityModeling: ParameterSpace
 import ReducedComplexityModeling: h5save, h5load
 
@@ -182,10 +182,9 @@ include("gridbased/vlasov_poisson_1d1v.jl")
 
 # The particle-based reduction: the snapshots of a sweep, the reduced bases of the particle and
 # of the field snapshot matrix they hold, and the reduced electric field over the full-order
-# field of `src/electric_field.jl`. The other two files of `src/particles/` are present but not
-# included: `poisson.jl` wants `PoissonSolverPBSplines`, which neither the module nor its
-# dependencies define, and `time_marching.jl` imports four names that `PoissonSolvers` does not
-# have, so including either one breaks the load.
+# field of `src/electric_field.jl`. `poisson.jl` stays out of the load: it wants
+# `PoissonSolverPBSplines`, which neither the module nor its dependencies define (K1), where
+# `time_marching.jl` is included below.
 
 include("particles/snapshots.jl")
 
@@ -201,5 +200,18 @@ export ElectricField, PoissonField
 include("particles/electric_field.jl")
 
 export ReducedElectricField, DEIMElectricField
+
+# The reduced march of the analytic quadratic model, after the reduced field above: the leapfrog
+# with the χ-scaled timestep, its integrator parameters and its cache. The save and the step are
+# internal, and `save_solution` decides on the step index.
+include("particles/time_marching.jl")
+
+export IntegratorParameters, ReducedIntegratorCache, reduced_integrate_vp
+
+# The Hamiltonian of the analytic quadratic model, which the reduced ODE and PODE forms of
+# `ReducedBasisMethods` take as `∇H!`, and the lift of one of their solutions back to `(q, p)`.
+include("particles/reduced_equations.jl")
+
+export AnalyticHamiltonian, lift_solution
 
 end

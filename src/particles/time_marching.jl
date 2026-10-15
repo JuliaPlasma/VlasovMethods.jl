@@ -1,8 +1,29 @@
+# The reduced particle march of the analytic quadratic model: the leapfrog over the
+# `ElectricField` interface of `src/electric_field.jl`, with the χ-scaled timestep.
+#
+# `IntegratorParameters` and its HDF5 pair, `ReducedIntegratorCache`, the leapfrog step, the save of
+# one state, and the march. `leapfrog_step!` and `save_solution` are internal;
+# `IntegratorParameters`, `ReducedIntegratorCache` and `reduced_integrate_vp` are not.
 
-using LinearAlgebra: lu, ldiv!, norm
-using PoissonSolvers: PBSpline, stiffnessmatrix, eval_deriv_PBSBasis, rhs_particles_PBSBasis
 using ParticleMethods: ParticleList
 
+"""
+    IntegratorParameters(dt, nₜ, nₛ, nₕ, nₚ, nparam)
+
+The parameters of a reduced sweep: the timestep `dt`, the number of time steps `nₜ`, the number of
+saved times `nₛ` — the initial state included — the number of potential degrees of freedom `nₕ`,
+the number of particles `nₚ` and the number of sampled equation parameters `nparam`. `t` holds
+`nₛ` times, evenly spaced from `0` to `dt·nₜ`.
+
+The two counts `nₕ` and `nₚ` are `Int`, so an `Int32` count is a `MethodError`, as it is on the
+tree that carries the type without a march. The element type `T` of `dt` is the whole march's, and
+every other argument of [`reduced_integrate_vp`](@ref) is bound to it, so mixed input is a
+`MethodError` too.
+
+The HDF5 pair is `h5save(h5, IP; path = …)` and `IntegratorParameters(h5, path)`, whose round trip
+is asserted `==`. `_create_group`, which the file named and which exists nowhere, is HDF5's own
+group creation.
+"""
 struct IntegratorParameters{T}
     dt::T          # time step
     nₜ::Int        # number of time steps
@@ -20,7 +41,7 @@ struct IntegratorParameters{T}
     end
 end
 
-function IntegratorParameters(h5::H5DataStore, path::AbstractString = "/")
+function IntegratorParameters(h5::HDF5.H5DataStore, path::AbstractString = "/")
     group = h5[path]
     IntegratorParameters(
         read(attributes(group)["dt"]),
@@ -50,19 +71,26 @@ function Base.:(==)(ip1::IntegratorParameters{T1}, ip2::IntegratorParameters{T2}
         ip1.t == ip2.t
 end
 
-"""
-save integrator parameters
-"""
-function h5save(h5::H5DataStore, IP::IntegratorParameters; path = "/")
-    g = _create_group(h5, path)
-    attributes(g)["dt"] = IP.dt
-    attributes(g)["nt"] = IP.nₜ
-    attributes(g)["ns"] = IP.nₛ
-    attributes(g)["nh"] = IP.nₕ
-    attributes(g)["np"] = IP.nₚ
-    attributes(g)["nparam"] = IP.nparam
+function h5save(h5::HDF5.H5DataStore, IP::IntegratorParameters; path = "/")
+    group = haskey(h5, path) ? h5[path] : create_group(h5, path)
+    attributes(group)["dt"] = IP.dt
+    attributes(group)["nt"] = IP.nₜ
+    attributes(group)["ns"] = IP.nₛ
+    attributes(group)["nh"] = IP.nₕ
+    attributes(group)["np"] = IP.nₚ
+    attributes(group)["nparam"] = IP.nparam
 end
 
+"""
+    ReducedIntegratorCache(IP::IntegratorParameters, k)
+
+The work buffers of the reduced march of basis size `k`: the reduced positions `zₓ`, velocities
+`zᵥ` and accelerations `zₐ`, each `k` long, and the `nₚ` particle weights `w`. One cache serves a
+whole march, which is why the march takes it as an argument.
+
+The buffers follow the element type of `IP`, and their length is not checked against a basis: the
+march's `k` is the column count of the basis it is handed.
+"""
 mutable struct ReducedIntegratorCache{T}
     zₓ::Vector{T}
     zᵥ::Vector{T}
@@ -78,12 +106,63 @@ function ReducedIntegratorCache(IP::IntegratorParameters{T}, k::Int) where {T}
     )
 end
 
-function save_solution(SS, IC, Ψ, efield, w, p, t, ts, nsave, save = true)
-    if save && ts % nsave == 0
-        # advance time step index
-        ts = ts+1
+# `dot(w, sum(abs2, v; dims = 1)) / 2`, which is the kinetic energy for `nd == 1`: the `dims`
+# reduction allocates its `(1, nₚ)` result, so the sum is a loop.
+@inline function _kinetic_energy(w::AbstractVector{T}, v::AbstractMatrix{T}) where {T}
+    s = zero(T)
+    @inbounds for j in axes(v, 2)
+        s += w[j] * abs2(v[1, j])
+    end
+    return s / 2
+end
 
-        # create views of the `(nd, nₚ)` positions and velocities
+"""
+    leapfrog_step!(IC::ReducedIntegratorCache, efield, Δt, t)
+
+One step of the reduced leapfrog: half an advection at the scaled `Δt`, the acceleration of the
+reduced field at the new position, and the second half advection. The two halves are what makes the
+step second order, and their sum is the phase error `β·T·(βΔt)²/(24√3)` that bounds check 1.
+
+It allocates nothing and is inferred: the cache, the field and both times are concrete. `Δt` is the
+already scaled timestep — `Δt = IP.dt·T(params.χ)` — so half of it is `T(0.5)·Δt`, the scale being
+outside the half.
+"""
+@inline function leapfrog_step!(
+        IC::ReducedIntegratorCache{T}, efield::ReducedElectricField,
+        Δt::T, t) where {T}
+    half = T(0.5) * Δt
+
+    IC.zₓ .+= half .* IC.zᵥ
+    efield(IC.zₐ, IC.zₓ, IC.w, t)
+    IC.zᵥ .+= Δt .* IC.zₐ
+    IC.zₓ .+= half .* IC.zᵥ
+
+    return IC
+end
+
+"""
+    save_solution(SS, IC, Ψ, efield, w, p, t, it, nsave, save = true)
+
+Write the state of the step `it` into the sample `p` of the snapshots `SS` when `it` is a multiple
+of `nsave`: the positions and the velocities lifted by `Ψ`, the potential's coefficients, and the
+three diagnostics. The saved index is `div(it, nsave) + 1`, so step `0` writes the initial state
+and `nₜ/nsave + 1 = nₛ` states are written in all.
+
+**The step index decides the save, and not a counter.** The file it replaces incremented its own
+counter only on a save and tested `ts % nsave` on it, so for `nsave ≥ 2` it wrote the initial state
+and then never advanced the counter past `1`, and every later state stayed zero.
+
+The scalar momentum `M` is `dot(w, v)`, which is the momentum for `nd == 1` alone; the march refuses
+another component count. It allocates nothing.
+"""
+function save_solution(
+        SS::Snapshots{T}, IC::ReducedIntegratorCache{T}, Ψ::AbstractMatrix{T},
+        efield::ReducedElectricField, w::AbstractVector{T}, p, t::T,
+        it::Int, nsave::Int, save = true) where {T}
+    if save && it % nsave == 0
+        ts = div(it, nsave) + 1
+
+        # views of the `(nd, nₚ)` positions and velocities
         x = @view SS.X[:, :, ts, p]
         v = @view SS.V[:, :, ts, p]
 
@@ -95,55 +174,105 @@ function save_solution(SS, IC, Ψ, efield, w, p, t, ts, nsave, save = true)
         update!(efield, IC.zₓ, w, t)
         SS.Φ[:, ts, p] .= coefficients(efield)
 
-        # diagnostics; the scalar momentum `M` is defined for `nd == 1` only
+        # diagnostics
         SS.W[ts, p] = energy(efield)
-        SS.K[ts, p] = dot(w, sum(abs2, v; dims = 1)) / 2
+        SS.K[ts, p] = _kinetic_energy(w, v)
         SS.M[ts, p] = dot(w, v)
     end
 
-    return ts
+    return nothing
 end
 
+# The guards of the march, each raised before the loop. The first three make `nsave` a positive
+# integer that divides `nₜ` and reaches `nₛ`; the fourth keeps the saves inside the snapshots; the
+# fifth is what `M = dot(w, v)` needs; the sixth refuses a zero-width basis, whose reduced state is
+# empty; and the last is written so that `NaN` is refused too.
+function _check_march(SS::Snapshots, Ψ::AbstractMatrix, IP::IntegratorParameters, params)
+    IP.nₜ ≥ 1 || throw(ArgumentError(
+        "the march needs at least one time step, got nₜ = $(IP.nₜ)"))
+    IP.nₛ ≥ 2 || throw(ArgumentError(
+        "the march saves the initial state and at least one more, got nₛ = $(IP.nₛ)"))
+    IP.nₜ % (IP.nₛ - 1) == 0 || throw(ArgumentError(
+        "nₜ = $(IP.nₜ) is not a multiple of nₛ - 1 = $(IP.nₛ - 1), so the saves would either " *
+        "write past nₛ or drop the final state"))
+    size(SS.X, 3) == IP.nₛ || throw(DimensionMismatch(
+        "the snapshots hold $(size(SS.X, 3)) saved times; the parameters ask for $(IP.nₛ)"))
+    size(SS.X, 1) == 1 || throw(ArgumentError(
+        "the scalar momentum is defined for nd == 1; the snapshots hold $(size(SS.X, 1)) " *
+        "components"))
+    k = size(Ψ, 2)
+    1 ≤ k ≤ size(Ψ, 1) || throw(ArgumentError(
+        "the basis is $(size(Ψ, 1)) × $(size(Ψ, 2)); a reduced state is between 1 and " *
+        "$(size(Ψ, 1)) long"))
+    params.χ > 0 || throw(ArgumentError(
+        "the χ scale is a positive timestep scale, got χ = $(params.χ)"))
+    return nothing
+end
+
+"""
+    reduced_integrate_vp(P₀, Ψ, params, efield, SS, IP, IC, p; save = true)
+
+The reduced leapfrog march of the analytic quadratic model: the reduced state of `P₀` — the two
+coordinates `Ψ'·vec(P₀.x)` and `Ψ'·vec(P₀.v)` — advanced `IP.nₜ` steps of `IP.dt` by
+[`leapfrog_step!`](@ref), with the reduced acceleration of `efield` at every half step, and the
+state of every `nsave`-th step written into the sample `p` of the snapshots `SS` by
+[`save_solution`](@ref). `Ψ` is the position basis, and the same basis lifts the velocities: the
+cotangent lift's `Φ`.
+
+`params` is the caller's, and it must hold `χ`. **The χ scale is a timestep scale and nothing
+else:** the step is `Δt = IP.dt·T(params.χ)`, converted to the march's element type before the
+product, and the time handed to the field is `t = it·IP.dt`, unscaled. So a time-independent field
+marched with `(dt, χ = 2)` equals the same field marched with `(2dt, χ = 1)` state for state.
+
+It returns `nothing`; the states are in `SS`, and the integration parameters hold the times.
+
+# Throws
+
+- `ArgumentError` when `nₜ < 1`; when `nₛ < 2`; when `nₛ - 1` does not divide `nₜ`, so that the
+  saves would write past `nₛ` or drop the final state; when the snapshots carry another number of
+  components than one; when the basis has a zero column count or more columns than rows; and when
+  `params.χ` is not `> 0`, which refuses `0`, a negative and `NaN` alike.
+- `DimensionMismatch` when the snapshots do not hold `IP.nₛ` saved times.
+- The `NamedTuple`'s own error when `params` holds no `χ`. There is no default.
+
+# Cost
+
+The setup is not claimed. The loop's two calls — [`leapfrog_step!`](@ref) and
+[`save_solution`](@ref) — are inferred and allocate nothing, which the tests assert through
+fixed-arity barriers.
+"""
 function reduced_integrate_vp(P₀::ParticleList{T},
-        Ψ::Array{T},
+        Ψ::AbstractMatrix{T},
         params::NamedTuple,
         efield::ReducedElectricField,
-        SS, #::Snapshots,
+        SS::Snapshots{T},
         IP::IntegratorParameters{T},
         IC::ReducedIntegratorCache{T},
         p;
         save = true) where {T}
+    _check_march(SS, Ψ, IP, params)
 
-    # K needs to already be augmented for boundary conditions
-    nsave = div(IP.nₜ, IP.nₛ-1)
+    nsave = div(IP.nₜ, IP.nₛ - 1)
 
-    # initial conditions
+    # initial conditions: the reduced coordinates of the particle state
     IC.zₓ .= Ψ' * vec(P₀.x)
     IC.zᵥ .= Ψ' * vec(P₀.v)
     IC.w .= vec(P₀.w)
 
-    # effective timestep
-    Δt = IP.dt * params.χ
+    # effective timestep: the χ scale, converted to `T` before the product
+    Δt = IP.dt * T(params.χ)
 
-    # save initial conditions
-    ts = save_solution(SS, IC, Ψ, efield, IC.w, p, 0.0, 0, nsave, save)
+    # the initial state, at `zero(T)` and not `0.0`
+    save_solution(SS, IC, Ψ, efield, IC.w, p, zero(T), 0, nsave, save)
 
     for it in 1:IP.nₜ
-        # compute time
+        # the time of the field stays unscaled
         t = it * IP.dt
 
-        # half an advection step
-        IC.zₓ .+= 0.5 .* Δt .* IC.zᵥ
+        leapfrog_step!(IC, efield, Δt, t)
 
-        # evaluate electric field
-        efield(IC.zₐ, IC.zₓ, IC.w, t)
-
-        # acceleration step
-        IC.zᵥ .+= Δt .* IC.zₐ
-
-        # half an advection step
-        IC.zₓ .+= 0.5 .* Δt .* IC.zᵥ
-
-        ts = save_solution(SS, IC, Ψ, efield, IC.w, p, t, ts, nsave, save)
+        save_solution(SS, IC, Ψ, efield, IC.w, p, t, it, nsave, save)
     end
+
+    return nothing
 end
