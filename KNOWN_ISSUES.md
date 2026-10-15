@@ -531,7 +531,7 @@ takes the next `K<n>`.
 
 ### K62 · The CHANGELOG claims a `Free()` reproduction accuracy that `scripts/verify_conservation.jl` does not measure.
 
-- **location:** `CHANGELOG.md:520`
+- **location:** `CHANGELOG.md:525`
 - **evidence:** The line reads "`Free()` reproduces `1`, `v`, `v²` to `1e-14`". The script's own
   CLAIM 2 table, through
   `julia --startup-file=no --project=scripts scripts/verify_conservation.jl | grep -E '^(condition|Free)'`,
