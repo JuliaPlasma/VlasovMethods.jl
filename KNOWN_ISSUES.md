@@ -107,10 +107,10 @@ takes the next `K<n>`.
 
 ### K11 · The cumulant-scaling experiment is not implemented.
 
-- **location:** `scripts/lenard_bernstein_conservative.jl`
-- **evidence:** The appendix fixes `A₀ = 0`, `A₁ = 1` by hand; no code does. The cumulant
-  computation is commented out in `scripts/lenard_bernstein_conservative.jl` and the experiment
-  survives as a stale `run_name`.
+- **location:** —
+- **evidence:** The appendix fixes `A₀ = 0`, `A₁ = 1` by hand; no code does. The name occurs once
+  in the package, in the docstring of the rescaled conservative operator, where it says the
+  operator is *not* that experiment; no computation of it exists anywhere.
 - **kind:** missing test
 - **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
   migration. None of these are regressions; each is either a numerical-methods decision or work
@@ -118,10 +118,9 @@ takes the next `K<n>`.
 
 ### K14 · `fatou lint` reports `unused-binding` locals and no `unused-import`.
 
-- **location:** `scripts/bump_on_tail.jl:47`
-- **evidence:** `fatou lint --force-exclude --output concise .` reports six `unused-binding`
-  locals — `scripts/bump_on_tail.jl:47`, `scripts/lenard_bernstein_metriplectic_scaling.jl:38`
-  and `:49`, `src/gridbased/moments.jl:18`, `test/distributions/spline_distribution.jl:74` and
+- **location:** `src/gridbased/moments.jl:18`
+- **evidence:** `fatou lint --force-exclude --output concise .` reports three `unused-binding`
+  locals — `src/gridbased/moments.jl:18`, `test/distributions/spline_distribution.jl:74` and
   `:76` — and no `unused-import`.
   `ExplicitImports` agrees with the imports the module file keeps.
 - **kind:** dead code
@@ -155,26 +154,6 @@ takes the next `K<n>`.
 - **kind:** defect
 - **found:** #60
 
-### K20 · `scripts/lenard_bernstein.jl` calls a constructor the package does not define.
-
-- **location:** `scripts/lenard_bernstein.jl:30`
-- **evidence:** Line `:30` calls `DiffEqIntegrator(model, tspan, tstep)`, a type the package does
-  not define, so the script throws `UndefVarError` when it reaches it. Line `:37` then calls
-  `VlasovMethods.run(integrator)`, which resolves to `Base.run`: the package defines no `run`
-  method. The `scripts/` rewrite repairs or removes both calls.
-- **kind:** defect
-- **found:** 2026-10-03
-
-### K22 · `scripts/bump_on_tail.jl` calls two names the package does not define.
-
-- **location:** `scripts/bump_on_tail.jl:31`
-- **evidence:** `:31` calls `VPIntegratorParameters(dt, nₜ, nₜ+1, nₕ, nₚ)` and `:58` calls
-  `integrate_vp!(P, efield, params, IP, IC)`. Both were defined only in the root
-  `src/vlasov_poisson.jl`, which no `include` reached, so neither name exists in the package.
-  `grep -rn -E 'VPIntegratorParameters|integrate_vp!' src` returns nothing.
-- **kind:** defect
-- **found:** #61
-
 ### K23 · The one-argument `update_potential!(model)` has no caller in `src/`.
 
 - **location:** `src/models/vlasov_poisson.jl:18`
@@ -192,9 +171,10 @@ takes the next `K<n>`.
 - **evidence:** `LB_rhs!(v̇, v, params, t)` keeps the argument order of an ODE solver that the
   package does not use; its one caller is the wrapper `LB_rhs_GI!` at `:44-46`.
   `LB_rhs` (`:49`) and `CLB_rhs` (`src/models/lenard_bernstein_conservative.jl:184`) repeat the
-  bodies of their `_GI!` functions. `grep -rn -E '\bC?LB_rhs\b' src test scripts` finds
-  `LB_rhs` only at `scripts/lenard_bernstein.jl:47` and `:57`, after that script fails at `:30`
-  (K20), and `CLB_rhs` only in commented script lines.
+  bodies of their `_GI!` functions, and neither has a caller: `grep -rn -E '\bC?LB_rhs\b' src
+  test scripts` finds them at those two definitions alone, the `LB_rhs!` definition of
+  `src/models/lenard_bernstein.jl:33` with its one call at `:45`, and the `LB_rhs!` call of the
+  collision-operator test and of its reference generator.
 - **kind:** dead code
 - **found:** #61
 
@@ -306,22 +286,6 @@ takes the next `K<n>`.
   and not the residual-and-count `ErrorException` the author decided for a solve that does not
   converge or meets a `NaN`. The error is loud, so the solve never returns in silence.
 - **kind:** found late
-- **found:** 2026-10-04
-
-### K37 · The two metriplectic scripts read a solve-result object the solve does not return.
-
-- **location:** `scripts/lenard_bernstein_metriplectic.jl:81`
-- **evidence:** `Picard_iterate_over_particles` returns the solved velocity `Vector`, but
-  `scripts/lenard_bernstein_metriplectic.jl` still reads `sol_object.u` (`:81`, `:91`) and calls
-  `SciMLBase.successful_retcode(sol_object)` (`:84`), and
-  `scripts/lenard_bernstein_metriplectic_scaling.jl` reads `sol_object.u` (`:96`, `:107`); each
-  throws once it reaches those lines. `scripts/lenard_bernstein_metriplectic.jl:70` also sets
-  `abstol = 1e-15`, which the solve now compares with `‖F‖₂` and not `maximum(abs, F)`. That is
-  below the round-off floor of `‖F‖₂`: one step of the uniform cloud of
-  `test/integration/metriplectic_solve.jl` with `abstol = 1e-15` throws at `N = 64`, `256` and
-  `1000` (`residual = 1.21e-15`, `1.26e-15`, `1.74e-15` after 49, 29 and 26 iterations), and
-  returns with the scaling script's `3e-16·√N`. The `scripts/` rewrite (P46) repairs both.
-- **kind:** defect
 - **found:** 2026-10-04
 
 ### K40 · Each metriplectic Picard step builds a fresh `SimpleSolvers` solver and its unused Jacobian cache.

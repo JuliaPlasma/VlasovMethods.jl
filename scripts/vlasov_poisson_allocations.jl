@@ -1,18 +1,27 @@
 # Measure the allocation of one evaluation of the Vlasov–Poisson right-hand side.
 #
-# Run it in a fresh process, without code-coverage instrumentation:
+#   julia --project=scripts scripts/vlasov_poisson_allocations.jl \
+#       [--npart 10000] [--ncells 16] [--order 3] [--runs-dir dir] [--results-dir dir]
 #
-#     julia --startup-file=no --project=scripts scripts/vlasov_poisson_allocations.jl
-#
-# Each function is called once to compile it, and the second call is measured. The script exits
-# with status 1 if any evaluation allocates.
+# Run it in a fresh process, without code-coverage instrumentation. Each function is called once
+# to compile it, and the second call is measured. The numbers go to `--runs-dir`, the report with
+# the verdict to `--results-dir`, and the script exits with status 1 if any evaluation allocates.
+
+include(joinpath(@__DIR__, "options.jl"))
+
+using Printf
 
 using PoissonSolvers
 using Random
 using VlasovMethods
 using VlasovMethods: SAcceleration, VAcceleration
 
-function measure(::Type{T}; npart = 10000, ncells = 16, order = 3) where {T}
+const OPT = parse_arguments(ARGS; npart = 10000, ncells = 16, order = 3)
+const NPART = OPT.npart
+const NCELLS = OPT.ncells
+const ORDER = OPT.order
+
+function measure(::Type{T}; npart = NPART, ncells = NCELLS, order = ORDER) where {T}
     # `ParticleDistribution(1, 1, npart)` always fills `Float64` zeros, so the particles of
     # element type `T` are built here.
     z = zeros(T, 3, npart)
@@ -39,9 +48,41 @@ function measure(::Type{T}; npart = 10000, ncells = 16, order = 3) where {T}
 end
 
 results = [T => measure(T) for T in (Float64, Float32)]
-for (T, bytes) in results
-    println(rpad(string(T), 8), " SAcceleration ", bytes.SAcceleration, " bytes, ",
-        "VAcceleration ", bytes.VAcceleration, " bytes")
+
+lines = [@sprintf("%-8s SAcceleration %d bytes, VAcceleration %d bytes",
+             T, bytes.SAcceleration, bytes.VAcceleration) for (T, bytes) in results]
+
+numbers = runs_path("vlasov_poisson_allocations.txt")
+report = results_path("vlasov_poisson_allocations.md")
+clean = all(r -> all(iszero, values(r[2])), results)
+
+open(numbers, "w") do io
+    for line in lines
+        println(io, line)
+    end
 end
 
-exit(all(r -> all(iszero, values(r[2])), results) ? 0 : 1)
+open(report, "w") do io
+    println(io, "# Vlasov–Poisson right-hand-side allocations")
+    println(io)
+    @printf(io,
+        "`--npart %d --ncells %d --order %d`, one warmed call of each acceleration.\n",
+        NPART, NCELLS, ORDER)
+    println(io)
+    for line in lines
+        println(io, "    ", line)
+    end
+    println(io)
+    println(io,
+        clean ?
+        "Both precisions allocate zero bytes on both calls, as the scheme requires." :
+        "**At least one call allocates.** The right-hand side is on the hot path of " *
+        "every step and must allocate nothing.")
+end
+
+for line in lines
+    println(line)
+end
+@printf("  wrote %s and %s\n", numbers, report)
+
+exit(clean ? 0 : 1)

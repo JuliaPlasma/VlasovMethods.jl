@@ -38,3 +38,9 @@ Manifest.toml
 *.png
 *.hdf5
 *.h5
+
+# Script output. `scripts/` holds the code and is committed; these two hold what it produces and
+# are not. Root-anchored, so they cover whatever a run drops there and not a directory of the
+# same name inside `src/` or `test/` — `--runs-dir` and `--results-dir` default to them.
+/runs
+/results
