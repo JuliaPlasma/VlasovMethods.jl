@@ -6,12 +6,14 @@ This package is pre-1.0, so *every* minor release is potentially breaking in the
 [SemVer](https://semver.org) for `0.x` versions. The sections below name what actually
 changed, so that a compat-only bump can be told apart from a rename or a change in results.
 
-This file was started on 2026-08-31 and deliberately holds no entries. 5 versions were
-released before it, the most recent `v0.2.1`, and none of them are written up here: the
-record of that history is `git log` and the tags. It is named as a gap rather than
+This file was started on 2026-08-31 and holds the releases from `0.3.0` on. 5 versions were
+released before it, the most recent `v0.2.1` (2023-12-04), and none of them are written up here:
+the record of that history is `git log` and the tags. It is named as a gap rather than
 reconstructed, because a changelog assembled after the fact loses exactly the reasoning that
-makes it worth keeping. The `[Unreleased]` target below is provisional — confirm it when the
-first entry is written.
+makes it worth keeping. The 69 commits from `v0.2.1` to this file's first commit (`f26be8b`,
+"Add shared git hooks and seed CHANGELOG", 2026-08-31) ship in `0.3.0` without a write-up of
+their own, except for what they removed and narrowed, which is listed in full below against
+`v0.2.1`: four exports leave `names(VlasovMethods)` and eight `[compat]` entries lost versions.
 
 ## [Unreleased] — targeting 0.3.0
 
@@ -138,7 +140,242 @@ first entry is written.
   of the solution, the loop takes the steps `GeometricIntegrators.integrate` takes, and the HDF5
   chunk of a run with no particles no longer has a zero extent.
 
+- **Charge deposition works, and its test is enabled.** `projection!` onto a
+  `PoissonSolvers.Potential` could never run: it was written against `BSplineKit`, dispatching on
+  `Potential{<:PeriodicBSplineBasis}` where that name resolves to the `SimpleSplines` type, so no
+  method matched and `update_potential!` raised a `MethodError`. Its body then called
+  `Splines.PeriodicVector`, which this package imports nowhere. It is rewritten on
+  `evaluate_all!` and `basis_index`, and `test/projections/projections.jl` — commented out in
+  `runtests.jl` — now runs, reconstructing a sampled density from a million particles to
+  `2.5e-2`.
+
+  It deposits onto a **`DirichletBasisSpline` as well as a periodic one**, which are the two
+  bases a `Potential` can hold. A recombined basis has no single block width, so `evaluate_all!`
+  pads the tail of its buffer with zeros whose indices run past `nbasis`; depositing those
+  entries raised a `BoundsError` on every Dirichlet potential. They are skipped, and a nonzero
+  value at an out-of-range index still raises rather than being folded onto another basis
+  function.
+
+  The test now also checks the deposited load vector **against a direct sum over every basis
+  function**, on both bases. The density reconstruction alone does not: it still passes when the
+  periodic contributions are dropped instead of wrapped, which is the property the rewrite
+  turns on. The sampler is seeded, so the tolerance is asserted against the same draw each run.
+
+- **`scripts/vlasov_poisson.jl` runs again.** It called `PeriodicBasisBSplineKit`, which
+  `PoissonSolvers` 0.4 removed, so the only driver of the deposition path above was an
+  `UndefVarError`. It calls `PeriodicBasisSpline` instead. The argument is unchanged in meaning:
+  the old `nknots` built `nknots + 1` breakpoints, so it already counted cells.
+
+- **`scripts/lenard_bernstein.jl` runs again.** Its animation loop called `Derivative(1) * f`, a
+  name `BSplineKit` used to supply; that package is gone from `[deps]`, so the first frame raised
+  an `UndefVarError`. `projection` returns a `SimpleSplines.Spline`, so the line becomes
+  `derivative(f)` — what the migration table above prescribes. A `SplineDerivative` is callable,
+  so the `df.(xgrid)` plot below it is unchanged, and the rewritten driver draws the same curve.
+  Six further `Derivative(1) * f` lines stood in `scripts/`, all commented out; they go with the
+  scripts the rewrite recorded under *Removals* deletes or merges.
+
+- **The package loads again.** `using VlasovMethods` failed outright. The `[compat]` bound
+  `GeometricIntegrators = "0.16"` held `RungeKutta` at `0.5`, which still depends on
+  `GenericLinearAlgebra`; that package guards a `LinearAlgebra.eigencopy_oftype` definition with
+  `VERSION < v"1.14"`, and Julia 1.13's `LinearAlgebra` now defines the same method itself, so
+  precompilation aborted with `Method overwriting is not permitted`. Raising the bound to
+  `"0.18"` drops `GenericLinearAlgebra` from the manifest entirely. `QuadratureRules` had to move
+  from `"0.1.6"` to `"0.2"` in the same step, because `GeometricIntegrators 0.18` requires it;
+  the accessors this package uses (`nnodes`, and the `nodes`/`weights` fields of a
+  `QuadratureRule`) are unchanged across that bump.
+
+- **`GeometricIntegrators` was never imported under its own name.** `import A.B` binds only `B`,
+  so the four call sites qualifying `GeometricIntegrators.integrate!`,
+  `GeometricIntegrators.GeometricIntegrator`, `RK438` and `Strang` threw `UndefVarError` at run
+  time — and had done so under `0.16` as well. `src/methods/splitting.jl`,
+  `src/models/lenard_bernstein.jl` and `src/models/vlasov_poisson.jl` were affected.
+
+- **The `Extrapolators` submodule no longer exists.** It was flattened in
+  `GeometricIntegrators 0.18`; `extrapolate!`, `HermiteExtrapolation` and `MidpointExtrapolation`
+  now live in `GeometricIntegratorsBase` and are re-exported at the top level. `import
+  GeometricIntegrators.Extrapolators` only *warns* rather than failing, leaving the binding
+  undefined, so the eight call sites in `src/methods/Landau_solver.jl` and
+  `src/models/lenard_bernstein_metriplectic.jl` threw when reached. The three names are now
+  imported directly and the call sites de-qualified, rather than a `const Extrapolators = …`
+  shim standing in for a module that is gone.
+
+- **The rescaled conservative operator ran the unrescaled one.** Its `GeometricIntegrator`
+  wired `CLB_rhs_GI!` instead of `RCLB_rhs_GI!`, so every run built as a
+  `RescaledConservativeLenardBernstein` integrated the conservative operator and
+  `RCLB_rhs_GI!` was dead code. Separately, `compute_coefficients_rclb` — which solves the
+  correct system for the rescaled parametrisation — was **never called**: both consumers called
+  the conservative `compute_coefficients`, feeding `A₁ = -u/σ²` in as the multiplier of
+  `f_s'/f_s` and `A₂ = 1/σ²` as the constant drift. Fixing the wiring is what first exposed the
+  second bug.
+
+- **The two-dimensional deposition allocated once per particle.** The `ntuple(D) do k … end`
+  closure in `_deposit!` assigned to two captured variables, which boxes them, and `_deposit!`
+  is the innermost loop of every step. Measured on a cubic 11-knot tensor basis with 2000
+  particles: **4 611 136 B → 3 136 B** per `projection`, i.e. 2305.6 B per particle down to a
+  fixed cost, with `Core.Box` gone from `code_typed`. The one-dimensional method never had it.
+  At five Picard iterations per step this was ~23 MB of garbage per time step, in the operator
+  whose headline is the `O(M²n⁴n_q⁴) → O(Q²)` speedup.
+
+- **`compute_L!` evaluated the collision kernel five times per node pair.** `A^{cd}` swept the
+  `Q²` pairs once, and the chunked second term then swept them again for each of the four
+  `(c,d)` components, discarding three of the four returned components every time. The kernel is
+  symmetric in `(c,d)`, so one sweep per block now fills all three independent components and
+  the four contractions are read off them. The chained triple product also allocated a fresh
+  `M×Q` and `M×M` per pass and now goes through scratch. Measured at `M = 169`, `Q = 2500`:
+  **0.89 s → 0.49 s** and **49.1 MB → 36.4 MB** per call, agreeing with the previous result to
+  `7.8e-16` relative.
+
+- **`scripts/landau_profile.jl` still did not run.** It bound `pdist` and then read `dist` at
+  five sites and `sdist2` at one, neither of which exists; the previous round fixed the same
+  class of defect two lines away and stopped short. It also passed `rhs_full[:, :, 2]` — a copy
+  — as an output argument, so the write went to a temporary. `scripts/landau_new.jl` had the
+  same copy-as-output bug; `landau_newer.jl` already used a `view`. All three are among the
+  scripts the rewrite recorded under *Removals* deletes or merges, because no Landau run gets
+  past the positivity guard of K8; the profile they carried is
+  `scripts/profile.jl --model landau`.
+
+- **Three docstrings documented nothing.** A comment between a docstring and its definition
+  detaches it silently: `(ent::CollisionEntropy)()` produced *no* documentation at all, and the
+  file-header blocks in `projections/density.jl` and `projections/distribution.jl` were inert.
+  The comment now precedes the docstring, and the two header blocks — which are file prose, not
+  API documentation — are `#` comments. The formatter, the linters, the load test and
+  `Pkg.test()` all pass either way; only a docs build sees it.
+
+- **The metriplectic bracket docstring sat on the wrong function.** It states `L_αβ` with the
+  `ε_h - u_h²` denominator, which is what `rhs_downstairs_factor!` computes and is the live
+  right-hand side; it was attached to `rhs!`, which computes `(ε-u²)·L·dS`. The two now carry
+  their own. `compute_dS!`'s signature line was also missing the `pdist` argument it takes.
+
+- **`evaluate` is exported again.** It was dropped from the export list while two
+  `evaluate(::SplineDistribution, …)` methods remained and the `DistributionFunction` call
+  operators dispatched through it, so `using VlasovMethods` could not reach it and the tests
+  worked around it with `VM.evaluate`.
+
+- **`similar(AT, ::SplineDistribution)` no longer collides with five dependencies.** `AT` is an
+  element type, but the argument was untyped, so the method read as
+  `similar(::Any, ::SplineDistribution)` and was ambiguous against the `similar` of
+  `Polynomials` (three), `RecursiveArrayTools` and `GeometricEquations`. Annotating it `::Type`
+  takes `detect_ambiguities` from **7 to 1**; the remaining pair is the pre-existing
+  `DistributionFunction{T,XD,0}` / `{T,0,VD}` call operators.
+
+- **`compute_K!` left stale entries in `K1` and `K2`.** They are cache arrays written only at
+  the entries the current particle positions overlap, and were never cleared, so as particles
+  moved between cells `K` accumulated nonzeros from earlier Picard iterations and earlier time
+  steps — making `K⁺` the pseudo-inverse of something that was not `w_α ∇φ_k(v_α)`.
+
+- **Out-of-support contributions were aliased rather than discarded.** `compute_K!` bounded only
+  the flattened index: with `i = 0`, `j = 3`, `M = 10` the flat index `(j-1)M + i = 20` passes a
+  `1 ≤ k ≤ M²` test and decodes to `(10, 2)`, an unrelated basis function. Every index is now
+  bounded per component. Relatedly, the gradient evaluators applied no periodic wrap while the
+  spline evaluator did, so `∇φ` and the `f_s` it differentiates disagreed on a periodic basis;
+  both now go through `basis_index`.
+
+- **The particle weights were missing from the conservative coefficient system** — from all five
+  sums. Both the matrix and the right-hand side are linear in `w`, so uniform weights cancel and
+  no published result changes; what the old code annihilated was `Σ_α v̇_α` rather than
+  `Σ_α w_α v̇_α`, so with the non-uniform weights `examples/bumpontail.jl` produces, momentum and
+  energy conservation were lost. The same `w[1]`-for-every-particle substitution was in both
+  metriplectic right-hand sides and in its entropy derivative, where `1/length(dS)` stood in for
+  `w_α`.
+
+- **The collision frequency `ν` was ignored** by both `Landau` and
+  `MetriplecticLenardBernstein`: declared, stored, and never read, so any value other than the
+  default `1.0` was silently discarded.
+
+- **The plain Lenard-Bernstein operator was missing its `1/f_s`.** It computed
+  `-ν (f_s' + v f_s)`, the collisional *flux*, where the advection coefficient is
+  `-ν (f_s'/f_s + v)`. The equilibrium condition is the same either way, so the fixed point was
+  right, but particles in the tails were barely advected.
+
+- **Several names used in live code were never imported**, so the lines threw when reached:
+  `Spline` in `projections/density.jl` (the derivative branch), `Splines.PeriodicVector` in
+  `projections/potential.jl`, and `Integrals` / `HCubatureJL` in `project_Maxwellian`. The first
+  and third are gone with the rewrite.
+
+- **`CollisionEntropy` had no working implementation.** It routed a one-dimensional spline
+  through a hard-coded two-dimensional quadrature that built `SVector{2}` sample points, took
+  `nquad` as a positional default rather than a keyword, and applied `log` unguarded — which is
+  why the entropy computations of `scripts/` were commented out. They leave with the rewrite
+  recorded under *Removals*: two in scripts it deletes or merges, the third in
+  `lenard_bernstein_metriplectic.jl`, which survives with the comments dropped. It now integrates
+  on the basis's own Gauß-Legendre grid in any number of velocity dimensions.
+
+- **`Cache`/`CacheType` referred to fields that do not exist** on `Landau`,
+  `ConservativeLenardBernstein`, `RescaledConservativeLenardBernstein` and
+  `MetriplecticLenardBernstein` (`pdist`/`sdist`, or a stale `clb` binding). Unreachable, since
+  `CacheDict`'s parent is a `*Cache` and the `*Cache` methods are the ones that fire, but wrong
+  as written. `eltype` is now defined for `LandauCache`, which was making the seeded cache entry
+  key on `Any` and never be retrieved.
+
+- **`MLBCache`'s midpoint buffer was hard-coded `Float64`** (`zeros(N)` rather than
+  `zeros(T, N)`), truncating the midpoint under any wider element type.
+
+- **Two unused `where {DT}` type parameters** are removed from `GeometricIntegrator` methods,
+  and `lenard_bernstein.jl` no longer qualifies names as `GeometricIntegrators.` where
+  `Integrators.` is meant.
+
+- **`test/distributions/particle_distribution.jl` was flaky at roughly one run in four**, and had
+  never run at all: `runtests.jl` included only the two spline test files. It asserts
+  `mean(v) ≈ centre atol = 3.5/sqrt(np)`, which for a uniform distribution of width `w` — whose
+  standard error of the mean is `w/sqrt(12 np)` — is about 3.0 standard errors, so each of the
+  120 such assertions fails about 0.27 % of the time. Adding the file to the suite also made it
+  sensitive to whatever RNG state the preceding testset left behind. Now seeded, so the outcome
+  is deterministic and a failure is reproducible. The 3σ tolerance is left as it was; widening it
+  would change what the tests assert. Its `using Statistics` also had to be declared in
+  `[targets] test`.
+
+- **`Cthulhu` is removed from `[deps]`.** Dead — the only occurrences anywhere were two
+  commented-out `using Cthulhu` lines in the two Landau drivers the `scripts/` rewrite recorded
+  under *Removals* deletes — with no `[compat]` entry, and it does not precompile against Julia
+  1.14-DEV (`UndefVarError: ConstPropResult not defined in Compiler`), which was the sole cause of
+  the advisory `nightly` CI job failing. Anyone using it interactively should add it to their own
+  environment rather than to the package's dependencies.
+
+- **Three Landau driver scripts contained invalid Julia and had never been runnable.**
+  `const landau_rhs!(v̇, v, params) = …` is a syntax error — `const` takes an assignment, not a
+  function definition — in `scripts/landau_new.jl`, `scripts/landau_newer.jl` and
+  `scripts/landau_profile.jl`. Found by JuliaFormatter, which could not reparse its own output.
+  The last of the three also called `collisions_rhs!`, which does not exist. All three are
+  among the scripts the rewrite recorded under *Removals* deletes or merges.
+
+- **The singular-system guards missed the `±Inf` half of the failure.** Both
+  `compute_coefficients` and `compute_coefficients_rclb` tested `isnan(A₁) || isnan(A₂)`, which a
+  vanishing determinant produces only when the numerator vanishes with it. With a nonzero
+  numerator the division gives `±Inf`, the guard passed, and non-finite coefficients reached the
+  right-hand side. Both now test `isfinite`; the message is unchanged.
+
+- **The Landau vector field did the `O(Q²)` kernel sum before checking that `f_s > 0`.**
+  `compute_L!` and `compute_J!` are independent, but the positivity check on the quadrature grid
+  lives in `compute_J!`, which ran second — so a non-positive projection threw only after the
+  expensive work. They are simply swapped. No results change.
+
+- **Four driver scripts still declared `using QuadGK`** after the dependency was dropped from
+  `Project.toml`, so each failed at load in the package environment. Every `quadgk` call site in
+  them is commented out, so the import goes rather than the dependency coming back. Three of the
+  four — `lenard_bernstein_conservative.jl`, `lenard_bernstein_metriplectic_scaling.jl` and
+  `rescaled_lenard_bernstein_conservative.jl` — are among the scripts the rewrite recorded under
+  *Removals* deletes or merges; the fourth, `lenard_bernstein_metriplectic.jl`, survives, so
+  nothing under `scripts/` names `QuadGK` at all.
+
 ### Breaking Changes
+
+- **`[compat]` bounds narrowed since 0.2.1.** Eight entries lost versions between `v0.2.1` and
+  this release, so a manifest that resolved against one of the dropped versions has to move with
+  them:
+
+  | entry | `v0.2.1` | `0.3.0` |
+  |:--|:--|:--|
+  | `julia` | `1.8` | `1.11` |
+  | `GeometricEquations` | `0.14` | `0.21.5` |
+  | `GeometricIntegrators` | `0.13` | `0.18.6` |
+  | `HDF5` | `0.15, 0.16, 0.17` | `0.17` |
+  | `ParticleMethods` | `0.1` | `0.1.2` |
+  | `PoissonSolvers` | `0.3` | `0.6` |
+  | `ProgressMeter` | `1` | `1.3.3` |
+  | `StaticArrays` | `1` | `1.9.13` |
+
+  The dependencies that left or joined `[deps]` in the same interval are not listed: nothing here
+  is re-exported, so a caller's own code never names them.
 
 - **The metriplectic Lenard–Bernstein solve uses `SimpleSolvers`.** The one live
   `NonlinearSolve.NLsolveJL` call, in `Picard_iterate_over_particles`, is replaced by an
@@ -268,10 +505,8 @@ first entry is written.
   basis type.
 
 - **`SimpleSplines` is resolved from the registry.** Its 0.1.0 is registered, so the `[sources]`
-  table and the `julia = "1.11"` floor that existed only to support it are both gone, and the
-  floor returns to the tree's LTS of 1.10. This removes the `[sources]` table that RegistryCI
-  rejects outright; the five dependencies still carrying no `[compat]` bound are what remains
-  before the package can be registered, and they are recorded under *Open Issues*.
+  table that existed to support it is gone. This removes the `[sources]` table that RegistryCI
+  rejects outright.
 
 - **`DiffEqIntegrator` and the `DifferentialEquations` paths it ran are gone.**
   `DifferentialEquations` was never imported — `src/VlasovMethods.jl` carried its `import` only as
@@ -285,6 +520,13 @@ first entry is written.
 - **`run` is no longer exported.** Its only method was in the deleted `DiffEqIntegrator`
   type; removing the export keeps `names(VlasovMethods)` from listing `Base.run`. The one live
   call, in `scripts/lenard_bernstein.jl`, is rewritten under *Removals* onto `run!`.
+
+- **`LB_rhs` is no longer exported.** It is still defined, so a caller that reached it through
+  `using VlasovMethods` writes `VlasovMethods.LB_rhs`. The collision operators are built with
+  `LB_rhs_GI!`, which the `GeometricIntegrator` constructors name, so no run changes.
+
+- **`CLB_rhs` is no longer exported.** The same, under the conservative model:
+  `VlasovMethods.CLB_rhs`, and `CLB_rhs_GI!` is what the constructors name.
 
 - **The `Vlasov–Poisson` acceleration pair carries its model instead of reading it from the
   parameters.** `v_acceleration!` and `s_acceleration!` are replaced by the callable structs
@@ -745,222 +987,3 @@ first entry is written.
   in that file re-types the cache of each of the four models the macro covers to `Float32`, and
   asserts the new spline's element type and that the particle distribution is shared. This covers
   `KNOWN_ISSUES.md` K46, which leaves the file.
-
-### Bug Fixes
-
-- **Charge deposition works, and its test is enabled.** `projection!` onto a
-  `PoissonSolvers.Potential` could never run: it was written against `BSplineKit`, dispatching on
-  `Potential{<:PeriodicBSplineBasis}` where that name resolves to the `SimpleSplines` type, so no
-  method matched and `update_potential!` raised a `MethodError`. Its body then called
-  `Splines.PeriodicVector`, which this package imports nowhere. It is rewritten on
-  `evaluate_all!` and `basis_index`, and `test/projections/projections.jl` — commented out in
-  `runtests.jl` — now runs, reconstructing a sampled density from a million particles to
-  `2.5e-2`.
-
-  It deposits onto a **`DirichletBasisSpline` as well as a periodic one**, which are the two
-  bases a `Potential` can hold. A recombined basis has no single block width, so `evaluate_all!`
-  pads the tail of its buffer with zeros whose indices run past `nbasis`; depositing those
-  entries raised a `BoundsError` on every Dirichlet potential. They are skipped, and a nonzero
-  value at an out-of-range index still raises rather than being folded onto another basis
-  function.
-
-  The test now also checks the deposited load vector **against a direct sum over every basis
-  function**, on both bases. The density reconstruction alone does not: it still passes when the
-  periodic contributions are dropped instead of wrapped, which is the property the rewrite
-  turns on. The sampler is seeded, so the tolerance is asserted against the same draw each run.
-
-- **`scripts/vlasov_poisson.jl` runs again.** It called `PeriodicBasisBSplineKit`, which
-  `PoissonSolvers` 0.4 removed, so the only driver of the deposition path above was an
-  `UndefVarError`. It calls `PeriodicBasisSpline` instead. The argument is unchanged in meaning:
-  the old `nknots` built `nknots + 1` breakpoints, so it already counted cells.
-
-- **`scripts/lenard_bernstein.jl` runs again.** Its animation loop called `Derivative(1) * f`, a
-  name `BSplineKit` used to supply; that package is gone from `[deps]`, so the first frame raised
-  an `UndefVarError`. `projection` returns a `SimpleSplines.Spline`, so the line becomes
-  `derivative(f)` — what the migration table above prescribes. A `SplineDerivative` is callable,
-  so the `df.(xgrid)` plot below it is unchanged, and the rewritten driver draws the same curve.
-  Six further `Derivative(1) * f` lines stood in `scripts/`, all commented out; they go with the
-  scripts the rewrite recorded under *Removals* deletes or merges.
-
-- **The package loads again.** `using VlasovMethods` failed outright. The `[compat]` bound
-  `GeometricIntegrators = "0.16"` held `RungeKutta` at `0.5`, which still depends on
-  `GenericLinearAlgebra`; that package guards a `LinearAlgebra.eigencopy_oftype` definition with
-  `VERSION < v"1.14"`, and Julia 1.13's `LinearAlgebra` now defines the same method itself, so
-  precompilation aborted with `Method overwriting is not permitted`. Raising the bound to
-  `"0.18"` drops `GenericLinearAlgebra` from the manifest entirely. `QuadratureRules` had to move
-  from `"0.1.6"` to `"0.2"` in the same step, because `GeometricIntegrators 0.18` requires it;
-  the accessors this package uses (`nnodes`, and the `nodes`/`weights` fields of a
-  `QuadratureRule`) are unchanged across that bump.
-
-- **`GeometricIntegrators` was never imported under its own name.** `import A.B` binds only `B`,
-  so the four call sites qualifying `GeometricIntegrators.integrate!`,
-  `GeometricIntegrators.GeometricIntegrator`, `RK438` and `Strang` threw `UndefVarError` at run
-  time — and had done so under `0.16` as well. `src/methods/splitting.jl`,
-  `src/models/lenard_bernstein.jl` and `src/models/vlasov_poisson.jl` were affected.
-
-- **The `Extrapolators` submodule no longer exists.** It was flattened in
-  `GeometricIntegrators 0.18`; `extrapolate!`, `HermiteExtrapolation` and `MidpointExtrapolation`
-  now live in `GeometricIntegratorsBase` and are re-exported at the top level. `import
-  GeometricIntegrators.Extrapolators` only *warns* rather than failing, leaving the binding
-  undefined, so the eight call sites in `src/methods/Landau_solver.jl` and
-  `src/models/lenard_bernstein_metriplectic.jl` threw when reached. The three names are now
-  imported directly and the call sites de-qualified, rather than a `const Extrapolators = …`
-  shim standing in for a module that is gone.
-
-- **The rescaled conservative operator ran the unrescaled one.** Its `GeometricIntegrator`
-  wired `CLB_rhs_GI!` instead of `RCLB_rhs_GI!`, so every run built as a
-  `RescaledConservativeLenardBernstein` integrated the conservative operator and
-  `RCLB_rhs_GI!` was dead code. Separately, `compute_coefficients_rclb` — which solves the
-  correct system for the rescaled parametrisation — was **never called**: both consumers called
-  the conservative `compute_coefficients`, feeding `A₁ = -u/σ²` in as the multiplier of
-  `f_s'/f_s` and `A₂ = 1/σ²` as the constant drift. Fixing the wiring is what first exposed the
-  second bug.
-
-- **The two-dimensional deposition allocated once per particle.** The `ntuple(D) do k … end`
-  closure in `_deposit!` assigned to two captured variables, which boxes them, and `_deposit!`
-  is the innermost loop of every step. Measured on a cubic 11-knot tensor basis with 2000
-  particles: **4 611 136 B → 3 136 B** per `projection`, i.e. 2305.6 B per particle down to a
-  fixed cost, with `Core.Box` gone from `code_typed`. The one-dimensional method never had it.
-  At five Picard iterations per step this was ~23 MB of garbage per time step, in the operator
-  whose headline is the `O(M²n⁴n_q⁴) → O(Q²)` speedup.
-
-- **`compute_L!` evaluated the collision kernel five times per node pair.** `A^{cd}` swept the
-  `Q²` pairs once, and the chunked second term then swept them again for each of the four
-  `(c,d)` components, discarding three of the four returned components every time. The kernel is
-  symmetric in `(c,d)`, so one sweep per block now fills all three independent components and
-  the four contractions are read off them. The chained triple product also allocated a fresh
-  `M×Q` and `M×M` per pass and now goes through scratch. Measured at `M = 169`, `Q = 2500`:
-  **0.89 s → 0.49 s** and **49.1 MB → 36.4 MB** per call, agreeing with the previous result to
-  `7.8e-16` relative.
-
-- **`scripts/landau_profile.jl` still did not run.** It bound `pdist` and then read `dist` at
-  five sites and `sdist2` at one, neither of which exists; the previous round fixed the same
-  class of defect two lines away and stopped short. It also passed `rhs_full[:, :, 2]` — a copy
-  — as an output argument, so the write went to a temporary. `scripts/landau_new.jl` had the
-  same copy-as-output bug; `landau_newer.jl` already used a `view`. All three are among the
-  scripts the rewrite recorded under *Removals* deletes or merges, because no Landau run gets
-  past the positivity guard of K8; the profile they carried is
-  `scripts/profile.jl --model landau`.
-
-- **Three docstrings documented nothing.** A comment between a docstring and its definition
-  detaches it silently: `(ent::CollisionEntropy)()` produced *no* documentation at all, and the
-  file-header blocks in `projections/density.jl` and `projections/distribution.jl` were inert.
-  The comment now precedes the docstring, and the two header blocks — which are file prose, not
-  API documentation — are `#` comments. The formatter, the linters, the load test and
-  `Pkg.test()` all pass either way; only a docs build sees it.
-
-- **The metriplectic bracket docstring sat on the wrong function.** It states `L_αβ` with the
-  `ε_h - u_h²` denominator, which is what `rhs_downstairs_factor!` computes and is the live
-  right-hand side; it was attached to `rhs!`, which computes `(ε-u²)·L·dS`. The two now carry
-  their own. `compute_dS!`'s signature line was also missing the `pdist` argument it takes.
-
-- **`evaluate` is exported again.** It was dropped from the export list while two
-  `evaluate(::SplineDistribution, …)` methods remained and the `DistributionFunction` call
-  operators dispatched through it, so `using VlasovMethods` could not reach it and the tests
-  worked around it with `VM.evaluate`.
-
-- **`similar(AT, ::SplineDistribution)` no longer collides with five dependencies.** `AT` is an
-  element type, but the argument was untyped, so the method read as
-  `similar(::Any, ::SplineDistribution)` and was ambiguous against the `similar` of
-  `Polynomials` (three), `RecursiveArrayTools` and `GeometricEquations`. Annotating it `::Type`
-  takes `detect_ambiguities` from **7 to 1**; the remaining pair is the pre-existing
-  `DistributionFunction{T,XD,0}` / `{T,0,VD}` call operators.
-
-- **`compute_K!` left stale entries in `K1` and `K2`.** They are cache arrays written only at
-  the entries the current particle positions overlap, and were never cleared, so as particles
-  moved between cells `K` accumulated nonzeros from earlier Picard iterations and earlier time
-  steps — making `K⁺` the pseudo-inverse of something that was not `w_α ∇φ_k(v_α)`.
-
-- **Out-of-support contributions were aliased rather than discarded.** `compute_K!` bounded only
-  the flattened index: with `i = 0`, `j = 3`, `M = 10` the flat index `(j-1)M + i = 20` passes a
-  `1 ≤ k ≤ M²` test and decodes to `(10, 2)`, an unrelated basis function. Every index is now
-  bounded per component. Relatedly, the gradient evaluators applied no periodic wrap while the
-  spline evaluator did, so `∇φ` and the `f_s` it differentiates disagreed on a periodic basis;
-  both now go through `basis_index`.
-
-- **The particle weights were missing from the conservative coefficient system** — from all five
-  sums. Both the matrix and the right-hand side are linear in `w`, so uniform weights cancel and
-  no published result changes; what the old code annihilated was `Σ_α v̇_α` rather than
-  `Σ_α w_α v̇_α`, so with the non-uniform weights `examples/bumpontail.jl` produces, momentum and
-  energy conservation were lost. The same `w[1]`-for-every-particle substitution was in both
-  metriplectic right-hand sides and in its entropy derivative, where `1/length(dS)` stood in for
-  `w_α`.
-
-- **The collision frequency `ν` was ignored** by both `Landau` and
-  `MetriplecticLenardBernstein`: declared, stored, and never read, so any value other than the
-  default `1.0` was silently discarded.
-
-- **The plain Lenard-Bernstein operator was missing its `1/f_s`.** It computed
-  `-ν (f_s' + v f_s)`, the collisional *flux*, where the advection coefficient is
-  `-ν (f_s'/f_s + v)`. The equilibrium condition is the same either way, so the fixed point was
-  right, but particles in the tails were barely advected.
-
-- **Several names used in live code were never imported**, so the lines threw when reached:
-  `Spline` in `projections/density.jl` (the derivative branch), `Splines.PeriodicVector` in
-  `projections/potential.jl`, and `Integrals` / `HCubatureJL` in `project_Maxwellian`. The first
-  and third are gone with the rewrite.
-
-- **`CollisionEntropy` had no working implementation.** It routed a one-dimensional spline
-  through a hard-coded two-dimensional quadrature that built `SVector{2}` sample points, took
-  `nquad` as a positional default rather than a keyword, and applied `log` unguarded — which is
-  why the entropy computations of `scripts/` were commented out. They leave with the rewrite
-  recorded under *Removals*: two in scripts it deletes or merges, the third in
-  `lenard_bernstein_metriplectic.jl`, which survives with the comments dropped. It now integrates
-  on the basis's own Gauß-Legendre grid in any number of velocity dimensions.
-
-- **`Cache`/`CacheType` referred to fields that do not exist** on `Landau`,
-  `ConservativeLenardBernstein`, `RescaledConservativeLenardBernstein` and
-  `MetriplecticLenardBernstein` (`pdist`/`sdist`, or a stale `clb` binding). Unreachable, since
-  `CacheDict`'s parent is a `*Cache` and the `*Cache` methods are the ones that fire, but wrong
-  as written. `eltype` is now defined for `LandauCache`, which was making the seeded cache entry
-  key on `Any` and never be retrieved.
-
-- **`MLBCache`'s midpoint buffer was hard-coded `Float64`** (`zeros(N)` rather than
-  `zeros(T, N)`), truncating the midpoint under any wider element type.
-
-- **Two unused `where {DT}` type parameters** are removed from `GeometricIntegrator` methods,
-  and `lenard_bernstein.jl` no longer qualifies names as `GeometricIntegrators.` where
-  `Integrators.` is meant.
-
-- **`test/distributions/particle_distribution.jl` was flaky at roughly one run in four**, and had
-  never run at all: `runtests.jl` included only the two spline test files. It asserts
-  `mean(v) ≈ centre atol = 3.5/sqrt(np)`, which for a uniform distribution of width `w` — whose
-  standard error of the mean is `w/sqrt(12 np)` — is about 3.0 standard errors, so each of the
-  120 such assertions fails about 0.27 % of the time. Adding the file to the suite also made it
-  sensitive to whatever RNG state the preceding testset left behind. Now seeded, so the outcome
-  is deterministic and a failure is reproducible. The 3σ tolerance is left as it was; widening it
-  would change what the tests assert. Its `using Statistics` also had to be declared in
-  `[targets] test`.
-
-- **`Cthulhu` is removed from `[deps]`.** Dead — the only occurrences anywhere were two
-  commented-out `using Cthulhu` lines in the two Landau drivers the `scripts/` rewrite recorded
-  under *Removals* deletes — with no `[compat]` entry, and it does not precompile against Julia
-  1.14-DEV (`UndefVarError: ConstPropResult not defined in Compiler`), which was the sole cause of
-  the advisory `nightly` CI job failing. Anyone using it interactively should add it to their own
-  environment rather than to the package's dependencies.
-
-- **Three Landau driver scripts contained invalid Julia and had never been runnable.**
-  `const landau_rhs!(v̇, v, params) = …` is a syntax error — `const` takes an assignment, not a
-  function definition — in `scripts/landau_new.jl`, `scripts/landau_newer.jl` and
-  `scripts/landau_profile.jl`. Found by JuliaFormatter, which could not reparse its own output.
-  The last of the three also called `collisions_rhs!`, which does not exist. All three are
-  among the scripts the rewrite recorded under *Removals* deletes or merges.
-
-- **The singular-system guards missed the `±Inf` half of the failure.** Both
-  `compute_coefficients` and `compute_coefficients_rclb` tested `isnan(A₁) || isnan(A₂)`, which a
-  vanishing determinant produces only when the numerator vanishes with it. With a nonzero
-  numerator the division gives `±Inf`, the guard passed, and non-finite coefficients reached the
-  right-hand side. Both now test `isfinite`; the message is unchanged.
-
-- **The Landau vector field did the `O(Q²)` kernel sum before checking that `f_s > 0`.**
-  `compute_L!` and `compute_J!` are independent, but the positivity check on the quadrature grid
-  lives in `compute_J!`, which ran second — so a non-positive projection threw only after the
-  expensive work. They are simply swapped. No results change.
-
-- **Four driver scripts still declared `using QuadGK`** after the dependency was dropped from
-  `Project.toml`, so each failed at load in the package environment. Every `quadgk` call site in
-  them is commented out, so the import goes rather than the dependency coming back. Three of the
-  four — `lenard_bernstein_conservative.jl`, `lenard_bernstein_metriplectic_scaling.jl` and
-  `rescaled_lenard_bernstein_conservative.jl` — are among the scripts the rewrite recorded under
-  *Removals* deletes or merges; the fourth, `lenard_bernstein_metriplectic.jl`, survives, so
-  nothing under `scripts/` names `QuadGK` at all.

@@ -1,15 +1,18 @@
 using Test
 using VlasovMethods
 
-# A recorded list of the exported names of `VlasovMethods`, so that no export can leave the
-# module without a `CHANGELOG.md` line that names it. A removed name is written as two joined
-# fragments, so that its literal form occurs nowhere under `test/`.
+# A recorded list of the exported names of `VlasovMethods`, from `v0.2.1` on: the names that tag
+# exported, plus every name exported since. No export can leave the module without a `CHANGELOG.md`
+# line that names it, and `REMOVED_EXPORTS` carries those names. A removed name that occurs
+# nowhere under `test/` is written as two joined fragments, so that its literal form does not
+# appear here either.
 const BASE_EXPORTS = Symbol[
     :..,
     :AnalyticHamiltonian,
     :BSplineBasis,
     :Bump,
     :BumpOnTail,
+    :CLB_rhs,
     :CollisionEntropy,
     :ConservativeLenardBernstein,
     :Constraint,
@@ -25,6 +28,7 @@ const BASE_EXPORTS = Symbol[
     :GradedMesh,
     :GridDistribution,
     :IntegratorParameters,
+    :LB_rhs,
     :Landau,
     :LenardBernstein,
     :MetriplecticLenardBernstein,
@@ -103,7 +107,7 @@ const BASE_EXPORTS = Symbol[
 
 # The recorded names that the module does not export. Each is the bold lead of its
 # `CHANGELOG.md` bullet.
-const REMOVED_EXPORTS = Symbol[Symbol("DiffEq", "Integrator"), :run]
+const REMOVED_EXPORTS = Symbol[:CLB_rhs, Symbol("DiffEq", "Integrator"), :LB_rhs, :run]
 
 @testset "Exported names" begin
     # The recorded names missing from the module are exactly the documented removals. A name
