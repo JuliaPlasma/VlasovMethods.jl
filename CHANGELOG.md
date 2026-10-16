@@ -169,8 +169,9 @@ their own, except for what they removed and narrowed, which is listed in full be
 - **`scripts/lenard_bernstein.jl` runs again.** Its animation loop called `Derivative(1) * f`, a
   name `BSplineKit` used to supply; that package is gone from `[deps]`, so the first frame raised
   an `UndefVarError`. `projection` returns a `SimpleSplines.Spline`, so the line becomes
-  `derivative(f)` — what the migration table above prescribes. A `SplineDerivative` is callable,
-  so the `df.(xgrid)` plot below it is unchanged, and the rewritten driver draws the same curve.
+  `derivative(f)` — what the `BSplineKit` migration table under *Breaking Changes* prescribes. A
+  `SplineDerivative` is callable, so the `df.(xgrid)` plot below it is unchanged, and the
+  rewritten driver draws the same curve.
   Six further `Derivative(1) * f` lines stood in `scripts/`, all commented out; they go with the
   scripts the rewrite recorded under *Removals* deletes or merges.
 
@@ -374,8 +375,11 @@ their own, except for what they removed and narrowed, which is listed in full be
   | `ProgressMeter` | `1` | `1.3.3` |
   | `StaticArrays` | `1` | `1.9.13` |
 
-  The dependencies that left or joined `[deps]` in the same interval are not listed: nothing here
-  is re-exported, so a caller's own code never names them.
+  The dependencies that left or joined `[deps]` in the same interval have no row. Every name
+  `v0.2.1` exported was its own or `Base`'s, so a dependency that left takes no name from a
+  caller, and one that joined had no `v0.2.1` range to narrow. The names this release
+  re-exports from its dependencies, such as `Spline` and `derivative`, are new exports; the
+  `SimpleSplines` bullet of this section maps the `BSplineKit` calls they replace.
 
 - **The metriplectic Lenard–Bernstein solve uses `SimpleSolvers`.** The one live
   `NonlinearSolve.NLsolveJL` call, in `Picard_iterate_over_particles`, is replaced by an
@@ -416,7 +420,7 @@ their own, except for what they removed and narrowed, which is listed in full be
   | `BSplineKit.galerkin_projection` + `ldiv!` | `l2_projection!` |
   | `BSplineKit.evaluate_all` + hand-written `mod1` | `evaluate_all!` + `basis_index` |
 
-  `SimpleSplines` is bounded by `[compat] SimpleSplines = "0.1"` and resolves from the registry.
+  `SimpleSplines` is bounded by `[compat] SimpleSplines = "0.3.1"` and resolves from the registry.
   `FastGaussQuadrature` and `QuadGK` are dropped, having no remaining caller.
 
 - **`SplineDistribution`'s boundary-condition argument takes a type, and its default changed
@@ -506,7 +510,9 @@ their own, except for what they removed and narrowed, which is listed in full be
 
 - **`SimpleSplines` is resolved from the registry.** Its 0.1.0 is registered, so the `[sources]`
   table that existed to support it is gone. This removes the `[sources]` table that RegistryCI
-  rejects outright.
+  rejects outright. This covers the `CHANGELOG.md` half of `KNOWN_ISSUES.md` K33: the sentence
+  that told a reader the dependencies without a `[compat]` bound were recorded in a section this
+  file does not have is gone.
 
 - **`DiffEqIntegrator` and the `DifferentialEquations` paths it ran are gone.**
   `DifferentialEquations` was never imported — `src/VlasovMethods.jl` carried its `import` only as

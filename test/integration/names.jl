@@ -127,3 +127,20 @@ const REMOVED_EXPORTS = Symbol[:CLB_rhs, Symbol("DiffEq", "Integrator"), :LB_rhs
         @test occursin("- **`" * string(name) * "`", changelog)
     end
 end
+
+@testset "The release notes' dependency claims" begin
+    changelog = read(joinpath(pkgdir(VlasovMethods), "CHANGELOG.md"), String)
+    flat = replace(changelog, r"\s+" => " ")  # a sentence is matched across its line wrap
+
+    # The compat bullet gives the reason a dependency that left or joined `[deps]` since `v0.2.1`
+    # has no row there: `v0.2.1` exported no dependency's name, so a departure takes none from a
+    # caller and an arrival narrowed no range. The reason may not be that nothing is re-exported —
+    # `SimpleSplines` and `GeometricBase` joined in that interval, and this release re-exports
+    # their names, `Spline` and `derivative` among them.
+    @test !occursin(r"nothing (here )?is re-exported", flat)
+    @test occursin("The dependencies that left or joined `[deps]` in the same interval have no row.", flat)
+
+    # An *Open Issues* heading exists in neither file, so neither file may cite one.
+    known_issues = read(joinpath(pkgdir(VlasovMethods), "KNOWN_ISSUES.md"), String)
+    @test !occursin("Open Issues", changelog * known_issues)
+end
