@@ -663,8 +663,10 @@ first entry is written.
 
   The march and the reduced forms are tested at `T = 1000` in the new `slow` group: the leapfrog at
   `k = 20` on the analytic model against its closed form, and the PODE form — PSD cotangent, `k =
-  20`, Lobatto IIIA–IIIB(2) — which holds the Hamiltonian to `3.6e-7` over the horizon where the
-  ODE form — POD, `k = 5`, RK4 — leaves the bound. `src/particles/time_marching.jl`, which had
+  20`, Lobatto IIIA–IIIB(2) — which holds the Hamiltonian to `3.6e-7` over the horizon. The ODE
+  form — POD, `k = 5`, RK4 — runs beside it, and its separation from the bound is logged, not
+  asserted: its drift is round-off, so whether and when it leaves the bound depends on the
+  platform. `src/particles/time_marching.jl`, which had
   never loaded, now does: its dead `PoissonSolvers` import and its two unused `LinearAlgebra` names
   go, it is included after `particles/electric_field.jl`, and the march decides its saves on the
   step index, where the file it replaces tested a counter it advanced only on a save, which wrote
