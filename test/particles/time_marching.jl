@@ -194,7 +194,7 @@ end
             @test IntegratorParameters(h5, "integrator") == IP
         end
 
-        # an `Int32` count is not an `Int`: the two counts of the parameters are `Int`, so the
+        # an `Int32` count is not an `Int`: every count of the parameters is `Int`, so the
         # conversion is refused rather than silently widened
         @test_throws MethodError IntegratorParameters(
             T(1e-4), Int32(10^4), 1001, 16, 1000, 6)

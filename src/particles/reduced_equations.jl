@@ -65,9 +65,9 @@ per stored time.
 
 The solution's own halves `sol.q` and `sol.p` are the reduced coordinates, and
 `ReducedBasisMethods.lift(b, [q; p])` is `[Φq; Φp]` for a cotangent lift and
-`[Φa - Ψb; Ψa + Φb]` for a complex SVD, so the pair is `Φ*sol.q` and `Φ*sol.p` of the reference
-`reference/Reduced_Vlasov_PODE_CotangentLift.jl:106-107`. A POD basis has no PODE solution and no
-`q` and `p` halves to split, so it is a `MethodError`.
+`[Φa - Ψb; Ψa + Φb]` for a complex SVD, so for a cotangent lift the pair is `Φ*sol.q` and
+`Φ*sol.p` of the reference `reference/Reduced_Vlasov_PODE_CotangentLift.jl:106-107`. A POD basis
+has no PODE solution and no `q` and `p` halves to split, so it is a `MethodError`.
 """
 function lift_solution(b::ReducedBasis{<:Any, <:SymplecticAlgorithm},
         sol::GeometricIntegrators.AbstractSolution)
