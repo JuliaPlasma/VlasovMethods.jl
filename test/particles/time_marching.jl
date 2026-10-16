@@ -110,19 +110,6 @@ end
         @test_throws ArgumentError march!(f, (χ = χ,))
     end
 
-    # `nₜ = 0` has no step to take. `nₛ = 2` keeps the `nₛ` guard out of the way, so that this one is
-    # the guard that raises
-    @test_throws ArgumentError march!(march_fixture(T; nt = 0, ns = 2), (χ = 1,))
-
-    # `nₛ = 1` has no save after the initial state. The guard is reached only at `dt = 0`: a nonzero
-    # `dt` with `nₛ = 1` throws from `IntegratorParameters` first, whose `range(0, stop = dt·nₜ,
-    # length = 1)` has unequal endpoints. At `dt = 0` the parameters build and the march's own guard
-    # is the one that raises
-    @test_throws ArgumentError march!(march_fixture(T; ns = 1, dt = zero(T)), (χ = 1,))
-
-    # `nₜ = 10` is not a multiple of `nₛ - 1 = 4`, so the saves would not reach `nₛ`
-    @test_throws ArgumentError march!(march_fixture(T; nt = 10, ns = 5), (χ = 1,))
-
     # the snapshots hold the `nₛ` saved times the parameters ask for
     @test_throws DimensionMismatch march!(
         march_fixture(T; nt = 4, ns = 5, nssnap = 4), (χ = 1,))
@@ -187,7 +174,36 @@ end
         # conversion is refused rather than silently widened
         @test_throws MethodError IntegratorParameters(
             T(1e-4), Int32(10^4), 1001, 16, 1000, 6)
+
+        # the HDF5 constructor checks the stored counts: `nₜ = 10` is not a multiple of `nₛ - 1 = 4`
+        h5open(fpath, "r+") do h5
+            g = create_group(h5, "bad")
+            for (key, value) in (("dt", T(1e-4)), ("nt", 10), ("ns", 5), ("nh", 16),
+                ("np", 1000), ("nparam", 6))
+                attributes(g)[key] = value
+            end
+        end
+        h5open(fpath, "r") do h5
+            @test_throws ArgumentError IntegratorParameters(h5, "bad")
+        end
     end
+end
+
+@testset "the counts of the integrator parameters, $T" for T in (Float64, Float32)
+    # the smallest accepted sweep: one step, the initial state and the final one
+    @test IntegratorParameters(T(1e-4), 1, 2, 16, 1000, 6).t == [zero(T), T(1e-4)]
+
+    # `nₜ < 1` has no step to take; `nₛ = 2` keeps the `nₛ` check out of the way
+    @test_throws ArgumentError IntegratorParameters(T(1e-4), 0, 2, 16, 1000, 6)
+    @test_throws ArgumentError IntegratorParameters(T(1e-4), -10, 2, 16, 1000, 6)
+
+    # `nₛ < 2` has no save after the initial state. At `dt = 0` the `range` of the times builds for
+    # any length, so the count check is what raises
+    @test_throws ArgumentError IntegratorParameters(zero(T), 10, 1, 16, 1000, 6)
+    @test_throws ArgumentError IntegratorParameters(zero(T), 10, 0, 16, 1000, 6)
+
+    # `nₜ = 10` is not a multiple of `nₛ - 1 = 4`, so the saves would not reach `nₛ`
+    @test_throws ArgumentError IntegratorParameters(T(1e-4), 10, 5, 16, 1000, 6)
 end
 
 @testset "the step and the save allocate nothing, $T" for T in (Float64, Float32)

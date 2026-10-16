@@ -15,6 +15,10 @@ saved times `nₛ` — the initial state included — the number of potential de
 the number of particles `nₚ` and the number of sampled equation parameters `nparam`. `t` holds
 `nₛ` times, evenly spaced from `0` to `dt·nₜ`.
 
+The constructor throws an `ArgumentError` when `nₜ < 1`, when `nₛ < 2`, and when `nₛ - 1` does not
+divide `nₜ`, so that the saves of the march would write past `nₛ` or drop the final state. The
+HDF5 constructor applies the same checks to the stored counts.
+
 Every count is `Int`, so an `Int32` count is a `MethodError`. The element type `T` of `dt` is
 shared by `P₀`, `Ψ`, `SS` and `IC` in [`reduced_integrate_vp`](@ref), so mixed storage types are
 a `MethodError`. The timestep scale `params.χ` is converted to `T` by the march.
@@ -34,6 +38,12 @@ struct IntegratorParameters{T}
 
     function IntegratorParameters(
             dt::T, nₜ::Int, nₛ::Int, nₕ::Int, nₚ::Int, nparam::Int) where {T}
+        nₜ ≥ 1 || throw(ArgumentError("a sweep takes at least one time step, got nₜ = $nₜ"))
+        nₛ ≥ 2 || throw(ArgumentError(
+            "a sweep saves the initial state and at least one more, got nₛ = $nₛ"))
+        nₜ % (nₛ - 1) == 0 || throw(ArgumentError(
+            "nₜ = $nₜ is not a multiple of nₛ - 1 = $(nₛ - 1), so the saves would either " *
+            "write past nₛ or drop the final state"))
         t = collect(range(0, stop = dt*nₜ, length = nₛ))
         new{T}(dt, nₜ, nₛ, nₕ, nₚ, nparam, t)
     end
@@ -156,18 +166,11 @@ function save_solution(
     return nothing
 end
 
-# The guards of the march, each raised before the loop. The first three make `nsave` a positive
-# integer that divides `nₜ` and reaches `nₛ`; the fourth keeps the saves inside the snapshots; the
-# fifth is what `M = dot(w, v)` needs; the sixth refuses a zero-width basis, whose reduced state is
-# empty; and the last is written so that `NaN` is refused too.
+# The guards of the march, each raised before the loop; the counts of `IP` are checked by its
+# constructor. The first keeps the saves inside the snapshots; the second is what `M = dot(w, v)`
+# needs; the third refuses a zero-width basis, whose reduced state is empty; and the last is written
+# so that `NaN` is refused too.
 function _check_march(SS::Snapshots, Ψ::AbstractMatrix, IP::IntegratorParameters, params)
-    IP.nₜ ≥ 1 || throw(ArgumentError(
-        "the march needs at least one time step, got nₜ = $(IP.nₜ)"))
-    IP.nₛ ≥ 2 || throw(ArgumentError(
-        "the march saves the initial state and at least one more, got nₛ = $(IP.nₛ)"))
-    IP.nₜ % (IP.nₛ - 1) == 0 || throw(ArgumentError(
-        "nₜ = $(IP.nₜ) is not a multiple of nₛ - 1 = $(IP.nₛ - 1), so the saves would either " *
-        "write past nₛ or drop the final state"))
     size(SS.X, 3) == IP.nₛ || throw(DimensionMismatch(
         "the snapshots hold $(size(SS.X, 3)) saved times; the parameters ask for $(IP.nₛ)"))
     size(SS.X, 1) == 1 || throw(ArgumentError(
@@ -203,10 +206,10 @@ It returns `nothing`; the states are in `SS`, and the integration parameters hol
 
 # Throws
 
-- `ArgumentError` when `nₜ < 1`; when `nₛ < 2`; when `nₛ - 1` does not divide `nₜ`, so that the
-  saves would write past `nₛ` or drop the final state; when the snapshots carry another number of
-  components than one; when the basis has a zero column count or more columns than rows; and when
-  `params.χ` is not `> 0`, which refuses `0`, a negative and `NaN` alike.
+- `ArgumentError` when the snapshots carry another number of components than one; when the basis
+  has a zero column count or more columns than rows; and when `params.χ` is not `> 0`, which
+  refuses `0`, a negative and `NaN` alike. The counts of `IP` are checked by
+  [`IntegratorParameters`](@ref) itself.
 - `DimensionMismatch` when the snapshots do not hold `IP.nₛ` saved times.
 - The `NamedTuple`'s own error when `params` holds no `χ`. There is no default.
 
