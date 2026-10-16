@@ -71,10 +71,10 @@ every `step` over `[0, 1000]` — `m = div(1000, step) + 1` times each, whose `t
 same for all six. The paper's spacing of `0.01` would be `9.6` GB (§5V.P29); §5V.P37's edge fixes
 `step = 1`, which is 1001 times and 6006 columns.
 
-`step` is a keyword because the basis of the core checks is a fixture: the cotangent-lift EVD route
-builds the `2m × 2m` Gram matrix, which at `step = 1` is `12012²` entries — measured at `6 min 49 s`
-— where `step = 10` is `1212²` and two seconds. The `T = 1000` runs of the `slow` group use the
-default.
+`step` is a keyword because a core check's basis is a fixture: check 4's POD basis is built from the
+training set of §4's `n = 200` at `step = 10`, which is `606` columns, where the `T = 1000` runs and
+check 5's basis — the cotangent-lift SVD at §4's `n = 1000` — use the default `step = 1` and its
+`6006` columns.
 """
 function training_snapshots(::Type{T}, q0, p0; step = 1) where {T}
     n = length(q0)

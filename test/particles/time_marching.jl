@@ -25,11 +25,13 @@ space(::Type{T}) where {T} = ParameterSpace(Parameter(:β, T(6), T(6), 1))
 """
 The parts of one march, so that one of them can be made wrong: the particle list `plt`, the basis
 `Ψ`, the reduced field `efield`, the snapshots `SS`, the parameters `ip`, the cache `ic` and the
-caller's `params`, which holds `χ`. `ns` defaults to `nₜ + 1`, which saves every step.
+caller's `params`, which holds `χ`. `ns` defaults to `nₜ + 1`, which saves every step, and `nssnap`
+defaults to `ns`, so that the saved times of the snapshots and the count the parameters ask for can
+be made to disagree.
 """
 function march_fixture(
         ::Type{T}; n = 40, k = 4, nt = 1000, ns = nt + 1, nd = 1, dt = T(1e-4),
-        χ = 1, seed = 5) where {T}
+        χ = 1, seed = 5, nssnap = ns) where {T}
     field, x, w = poisson_field(T; n = n)
     Ψ = orthogonal(T, n, k; seed = seed)
     X = Ψ' * x
@@ -37,7 +39,7 @@ function march_fixture(
     plt = ParticleList(reshape(x, 1, n), reshape(T(0.5) .* x, 1, n), reshape(w, 1, n))
     # `nh` is the degree count of the field's potential, which `save_solution` copies the solved
     # coefficients into
-    SS = Snapshots(T, nd, n, length(coefficients(efield)), ns, space(T))
+    SS = Snapshots(T, nd, n, length(coefficients(efield)), nssnap, space(T))
     ip = IntegratorParameters(dt, nt, ns, length(coefficients(efield)), n, 1)
     ic = ReducedIntegratorCache(ip, k)
     return (; plt, Ψ, efield, SS, ip, ic, params = (χ = χ,))
@@ -55,7 +57,15 @@ function march(::Type{T}, plt, Ψ, efield, k, nt; dt = T(1e-4), χ = 1) where {T
 end
 
 @testset "check 2: the χ scale is a timestep scale, $T" for T in (Float64, Float32)
-    n, k, nt = 40, 4, 1000
+    # The fixture is large enough to resolve the χ mutants at the ulp level: `Δt = T(IP.dt·params.χ)`
+    # rounds the product after the conversion and differs from the shipped `IP.dt·T(params.χ)` by one
+    # ulp of `Δt` at `χ = 0.3` (`3.0e-5` against `3.0000001e-5`), which is `Float32` round-off about
+    # a `Float64` χ and so is invisible in `Float64`, where the two products are the same float. At
+    # `n = 40` and `k = 4` the two marches agree in all 80080 saved entries and the mutant survives;
+    # at `n = 1000` and `k = 20` — check 3's particle count and basis size — they first differ at
+    # save 177 (`ReducedElectricField`) and 55 (`DEIMElectricField`), in 160229 and 99864 of the
+    # 2002000 entries, and by up to `1.4e-1` and `3.2e-2` relative.
+    n, k, nt = 1000, 20, 1000
     field, x, w = poisson_field(T; n = n)
     Ψ = orthogonal(T, n, k; seed = 3)
     X = Ψ' * x
@@ -70,9 +80,9 @@ end
         @test march(T, plt, Ψ, efield, k, nt; dt = T(1e-4), χ = 2) ==
               march(T, plt, Ψ, efield, k, nt; dt = T(2e-4), χ = 1)
 
-        # `χ` is converted to `T` before the product. In `Float32` with a `Float64` `χ = 0.3` the
-        # two sides differ unless `T(params.χ)` is taken first: the state then steps in `Float64`
-        # and rounds on assignment, where the scaled product rounds once.
+        # `χ` is converted to `T` before the product, so both sides step by the same float. In
+        # `Float32` a `Float64` `χ = 0.3` tells the two apart: the product rounded after the
+        # conversion is a different float, and the two marches of this fixture diverge.
         @test march(T, plt, Ψ, efield, k, nt; dt = T(1e-4), χ = 0.3) ==
               march(T, plt, Ψ, efield, k, nt; dt = T(1e-4) * T(0.3), χ = 1)
     end
@@ -83,8 +93,16 @@ end
     march!(f, params) = reduced_integrate_vp(
         f.plt, f.Ψ, params, f.efield, f.SS, f.ip, f.ic, 1)
 
-    # the accepted call: this is the reference the guards are read against
+    # the accepted call: this is the reference the guards are read against, and the diagnostics it
+    # saves are the ones of the state it wrote: the kinetic energy `½∑ⱼwⱼvⱼ²` and the momentum
+    # `∑ⱼwⱼvⱼ` of the lifted step 0, from the weights the march was handed. `K` is a `dims`-free
+    # reduction in the march, so the two agree to the rounding of a sum rather than bitwise.
     @test march!(f, f.params) === nothing
+    v0 = vec(f.SS.V[:, :, 1, 1])
+    @test isapprox(f.SS.K[1, 1], sum(f.ic.w .* abs2.(v0)) / 2; rtol = sqrt(eps(T)))
+    @test f.SS.K[1, 1] > zero(T)
+    @test f.SS.M[1, 1] == dot(f.ic.w, v0)
+    @test f.SS.M[1, 1] != zero(T)
 
     # `χ` is a positive timestep scale, and the comparison is written `> 0` so that `NaN` is
     # refused with the same exception
@@ -92,25 +110,53 @@ end
         @test_throws ArgumentError march!(f, (χ = χ,))
     end
 
-    # `nₛ = 1` has no save after the initial state
-    @test_throws ArgumentError march!(march_fixture(T; ns = 1), (χ = 1,))
+    # `nₜ = 0` has no step to take. `nₛ = 2` keeps the `nₛ` guard out of the way, so that this one is
+    # the guard that raises
+    @test_throws ArgumentError march!(march_fixture(T; nt = 0, ns = 2), (χ = 1,))
+
+    # `nₛ = 1` has no save after the initial state. The guard is reached only at `dt = 0`: a nonzero
+    # `dt` with `nₛ = 1` throws from `IntegratorParameters` first, whose `range(0, stop = dt·nₜ,
+    # length = 1)` has unequal endpoints. At `dt = 0` the parameters build and the march's own guard
+    # is the one that raises
+    @test_throws ArgumentError march!(march_fixture(T; ns = 1, dt = zero(T)), (χ = 1,))
 
     # `nₜ = 10` is not a multiple of `nₛ - 1 = 4`, so the saves would not reach `nₛ`
     @test_throws ArgumentError march!(march_fixture(T; nt = 10, ns = 5), (χ = 1,))
 
+    # the snapshots hold the `nₛ` saved times the parameters ask for
+    @test_throws DimensionMismatch march!(
+        march_fixture(T; nt = 4, ns = 5, nssnap = 4), (χ = 1,))
+
     # the scalar momentum needs one component
     @test_throws ArgumentError march!(march_fixture(T; nd = 2), (χ = 1,))
 
-    # a zero-width basis has an empty reduced state
+    # a basis of the wrong width has no reduced state of the length the cache holds: neither a
+    # zero-width basis nor one with more columns than rows
     n = 40
     @test_throws ArgumentError reduced_integrate_vp(
         f.plt, zeros(T, n, 0), f.params, f.efield,
+        f.SS, f.ip, f.ic, 1)
+    @test_throws ArgumentError reduced_integrate_vp(
+        f.plt, zeros(T, n, n + 1), f.params, f.efield,
         f.SS, f.ip, f.ic, 1)
 
     # the accepted side of the last two: `k = 1` with `nₚ = 1` runs
     g = march_fixture(T; n = 1, k = 1)
     @test reduced_integrate_vp(g.plt, g.Ψ, g.params, g.efield, g.SS, g.ip, g.ic, 1) ===
           nothing
+
+    # the save is decided on the step index, so a march of a stride `nsave = 2` writes the same
+    # states an every-step march writes at steps `0, 2, 4`: `nₜ = 4` with `nₛ = 3` saves `1:3`
+    strided = march_fixture(T; nt = 4, ns = 3)
+    @test reduced_integrate_vp(
+        strided.plt, strided.Ψ, strided.params, strided.efield, strided.SS,
+        strided.ip, strided.ic, 1) === nothing
+    every = march_fixture(T; nt = 4, ns = 5)
+    reduced_integrate_vp(
+        every.plt, every.Ψ, every.params, every.efield, every.SS, every.ip, every.ic, 1)
+    @test strided.SS.V[:, :, 1, 1] == every.SS.V[:, :, 1, 1]
+    @test strided.SS.V[:, :, 2, 1] == every.SS.V[:, :, 3, 1]
+    @test strided.SS.V[:, :, 3, 1] == every.SS.V[:, :, 5, 1]
 end
 
 @testset "the integrator-parameters round trip, $T" for T in (Float64, Float32)
@@ -128,8 +174,7 @@ end
         end
         @test IntegratorParameters(fpath) == IP
 
-        # a group that does not exist yet, which HDF5's own group creation must make — the file
-        # named a `_create_group` that exists nowhere, and this call is what would throw on it
+        # a path that no group holds yet, which `h5save` makes with HDF5's own group creation
         h5open(fpath, "r+") do h5
             h5save(h5, IP; path = "integrator")
         end

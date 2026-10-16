@@ -15,14 +15,12 @@ saved times `nₛ` — the initial state included — the number of potential de
 the number of particles `nₚ` and the number of sampled equation parameters `nparam`. `t` holds
 `nₛ` times, evenly spaced from `0` to `dt·nₜ`.
 
-The two counts `nₕ` and `nₚ` are `Int`, so an `Int32` count is a `MethodError`, as it is on the
-tree that carries the type without a march. The element type `T` of `dt` is the whole march's, and
-every other argument of [`reduced_integrate_vp`](@ref) is bound to it, so mixed input is a
-`MethodError` too.
+The two counts `nₕ` and `nₚ` are `Int`, so an `Int32` count is a `MethodError`. The element type
+`T` of `dt` is the whole march's, and every other argument of
+[`reduced_integrate_vp`](@ref) is bound to it, so mixed input is a `MethodError` too.
 
-The HDF5 pair is `h5save(h5, IP; path = …)` and `IntegratorParameters(h5, path)`, whose round trip
-is asserted `==`. `_create_group`, which the file named and which exists nowhere, is HDF5's own
-group creation.
+The HDF5 pair is `h5save(h5, IP; path = …)` and `IntegratorParameters(h5, path)`, whose round trip is
+asserted `==`. `h5save` makes a group that no path holds yet with HDF5's own `create_group`.
 """
 struct IntegratorParameters{T}
     dt::T          # time step
@@ -148,9 +146,8 @@ of `nsave`: the positions and the velocities lifted by `Ψ`, the potential's coe
 three diagnostics. The saved index is `div(it, nsave) + 1`, so step `0` writes the initial state
 and `nₜ/nsave + 1 = nₛ` states are written in all.
 
-**The step index decides the save, and not a counter.** The file it replaces incremented its own
-counter only on a save and tested `ts % nsave` on it, so for `nsave ≥ 2` it wrote the initial state
-and then never advanced the counter past `1`, and every later state stayed zero.
+**The step index decides the save.** Step `it` is written when `nsave` divides `it`, so the save
+index `div(it, nsave) + 1` runs over `1:nₛ` exactly once and no saved state is passed over.
 
 The scalar momentum `M` is `dot(w, v)`, which is the momentum for `nd == 1` alone; the march refuses
 another component count. It allocates nothing.

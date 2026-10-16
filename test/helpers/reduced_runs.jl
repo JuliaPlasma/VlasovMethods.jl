@@ -1,40 +1,34 @@
-# The helpers of the `T = 1000` runs: the timespan of a chunk and the step-count contract that the
-# emitted problems of P37 assert, and the comparator that finds the first save at which a drift
-# exceeds its bound. It is included by `test/particles/reduced_equations.jl` — the check-4 file,
-# whose problem spans one chunk — and by `test/verification/reduced_equations.jl`, which is check 3's
-# run. It is listed in no `runtests.jl` and exports nothing.
+# The helpers of the `T = 1000` runs: the timespan of a chunk, the number of steps the integrator
+# takes over it, and the comparator that finds the first save at which a drift exceeds its bound. It
+# is included by `test/particles/reduced_equations.jl` — the check-4 and check-5 file, whose problems
+# span one chunk — and by `test/verification/reduced_equations.jl`, which is check 3's run. It is
+# listed in no `runtests.jl` and exports nothing.
 
 """
     chunk_span(::Type{T}, nsave, dt)
 
-The timespan of one chunk of `nsave` steps of `dt`, taken **from zero** and rounded **down** by one
-`eps`: the largest double below `nsave·dt`.
+The timespan of one chunk of `nsave` steps of `dt`, taken **from zero**: `T(nsave)·dt`, with no
+`prevfloat` and no precision branch.
 
-GeometricEquations counts `div(tend - tbegin, tstep, RoundUp)` steps (`equation_problem.jl:125`),
-and `RoundUp` is what makes a chunk of this length need care. The double nearest `nsave·dt` sits
-**above** `nsave·dt` — measured: the true `1000·1e-4` is `0.100000000000000004792` and the double
-`0.1` is `0.100000000000000005551` — so the naive span counts `nsave + 1` steps in `Float64`, while
-in `Float32` the nearest double sits below and it counts `nsave`. A chunk built from the run's own
-clock, the float span `(t_{j-1}, t_j)`, is worse still: the difference of two consecutive times is
-not exactly `nsave·dt`, and the count then comes out `nsave` at some `j` and `nsave + 1` at others.
-One span, one count, for every `j` and both precisions, is what the run's save grid needs: a chunk
-that overshoots by one step puts every later save at the wrong time.
+The count of a problem and the count of its solution are not the same number, and the solution's is
+the steps taken. GeometricEquations counts `div(tend - tbegin, tstep, RoundUp)` for a problem
+(`problems/equation_problem.jl:138-144`), while the integrator steps over the solution's
+`TimeSeries`, `tbegin:Δt:tend`, whose step count is `length - 1` (GeometricSolutions
+`geometric_solution.jl:77`, `timeseries.jl:5-13,48-49`). Measured with a real `integrate`: the span
+`(zero(T), T(1000)·T(1e-4))` takes **1000** steps in `Float64` and in `Float32`, ending at the span's
+end, against an `ntime(prob)` of `1001` in `Float64`, and `nsave` steps for each of
+`nsave ∈ {10, 100, 999, 1000, 1001, 5000}` in both; `prevfloat` of that span reports
+`ntime(prob) = 1000` and takes **999** in both. So every problem this part integrates asserts
+`ntime(sol)`, and `ntime(prob)` is asserted nowhere.
 
 Taken from zero, the span is the same value every chunk, and the analytic model's equation is
-autonomous — neither the PODE nor the ODE form reads `t` — so restarting the clock loses nothing.
-
-See [`chunk_steps`](@ref) for the count this span has.
+autonomous — neither the PODE nor the ODE form reads `t` — so restarting the clock loses nothing. A
+chunk built from the run's own clock, the float span `(t_{j-1}, t_j)`, is worse than either: the
+difference of two consecutive times is not exactly `nsave·dt`, so its solution takes `nsave` steps at
+some `j` and `nsave - 1` at others, and a chunk that falls one step short puts every later save at
+the wrong time.
 """
-chunk_span(::Type{T}, nsave, dt::T) where {T} = prevfloat(T(nsave) * dt)
-
-"""
-    chunk_steps(::Type{T}, nsave, dt)
-
-The number of steps GeometricEquations counts for [`chunk_span`](@ref): `div(span, dt, RoundUp)`,
-which is exactly `nsave` in `Float64` and in `Float32` for `nsave = 1000` and `dt = 1e-4` — the
-intended count of a chunk, and the count the emitted problems assert.
-"""
-chunk_steps(::Type{T}, nsave, dt::T) where {T} = div(chunk_span(T, nsave, dt), dt, RoundUp)
+chunk_span(::Type{T}, nsave, dt::T) where {T} = T(nsave) * dt
 
 """
     first_exceedance(r, bound)

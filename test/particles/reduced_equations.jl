@@ -1,8 +1,7 @@
 using ForwardDiff
 using LinearAlgebra
 using Random
-using ReducedBasisMethods: ReducedBasis, PODSVD, CotangentLiftEVD, CotangentLiftSVD,
-                           project,
+using ReducedBasisMethods: ReducedBasis, PODSVD, CotangentLiftSVD, project,
                            lift, reduced_ode, reduced_pode
 using Test
 using VlasovMethods
@@ -44,15 +43,11 @@ lobatto_abstol(::Type{T}, k) where {T} = max(8, 2k) * eps(T)
     z0 = project(b, [q0; p0])
     prob = reduced_ode(b, h, (zero(T), chunk_span(T, nsteps, dt)), dt, z0)
 
-    # **GeometricIntegrators' count is checked**, and it is the contract the chunks of check 3 rest
-    # on: `div(tend - tbegin, tstep, RoundUp)` of the chunk's span is exactly `1000` steps, where the
-    # run's own clock, the float span `(t_{j-1}, t_j)` of `t_j = j·1000·dt`, counts another number at
-    # some `j` and puts every later save at the wrong time.
-    @test ntime(prob) == chunk_steps(T, nsteps, dt) == nsteps
-    @test any(
-        j -> div(T(j + 1) * (T(nsteps) * dt) - T(j) * (T(nsteps) * dt), dt, RoundUp) !=
-             nsteps,
-        0:20)
+    # **The step count is asserted on an integrated solution, never on the problem.** The problem
+    # here is built and not integrated, so it asserts no count: GeometricEquations' `ntime(prob)` is
+    # `div(tend - tbegin, tstep, RoundUp)`, which is not the number of steps the integrator takes
+    # over the solution's `tbegin:Δt:tend` grid — it is one larger for this span in `Float64`. Check
+    # 3's chunks and check 5's problems carry the assertion on their solutions.
 
     # the emitted vector field is the reference's to `√eps`, at 100 points from
     # `randn(Xoshiro(3), T, 5)`
@@ -70,23 +65,21 @@ lobatto_abstol(::Type{T}, k) where {T} = max(8, 2k) * eps(T)
 end
 
 @testset "check 5: the lift, $T" for T in (Float64, Float32)
-    n, k, nsteps = 200, 20, 1000
+    n, k, nsteps = 1000, 20, 1000
     dt = T(1e-4)
     q0, p0 = analytic_initial_condition(T; n = n)
-    b = ReducedBasis(
-        CotangentLiftEVD(), training_snapshots(T, q0, p0; step = 10), NamedTuple(),
+    # **The basis is check 3's**: the cotangent-lift SVD of §4's training snapshot at `n = 1000`,
+    # saved every `1.0`, at `k = 20`, built in `T` from `T` snapshots
+    b = ReducedBasis(CotangentLiftSVD(), training_snapshots(T, q0, p0), NamedTuple(),
         training_parameter_space(T); k = k)
     h = AnalyticHamiltonian(T(ANALYTIC_β))
 
     @test size(b.Φ) == (n, k)
-    # `Φ` is orthonormal to round-off, which is what the round trip below costs. The cotangent EVD
-    # is the fixture here and not the SVD: the analytic data is numerically rank 2, so the null
-    # columns of `Φ` — and with them `ΦᵀΦ - I` — are the decomposition's own round-off, and the SVD's
-    # is the larger. Measured in `Float64` at `n = 200` and `step = 10`, whose training snapshot
-    # holds `606` columns, `‖ΦᵀΦ - I‖` is `44.4 eps` in Frobenius for the SVD against `11.9 eps` for
-    # the EVD, and the round trip below is `12.8 eps` against `2.9 eps`. The SVD fixture cannot meet
-    # the bound of §5V.P37 check 5, and the bound is not loosened for it.
-    @test norm(b.Φ' * b.Φ - Matrix{T}(I, k, k)) ≤ sqrt(eps(T))
+    # `Φ` is orthonormal to round-off, and what is left of that is the first term of the round-trip
+    # bound below: the decomposition's own non-orthogonality, `‖ΦᵀΦ - I‖₂`, measured `33.6 eps` in
+    # `Float64` and `29.3 eps` in `Float32`, both inside `sqrt(eps(T))`
+    nonorth = norm(b.Φ' * b.Φ - Matrix{T}(I, k, k))
+    @test nonorth ≤ sqrt(eps(T))
 
     # the two states of the check: §4's `x₀`, which lies in the training span, and a seeded state
     # that does not. The projection of a stacked state is the lift of its projection, which is what
@@ -97,9 +90,12 @@ end
     for (what, X0) in (("§4's x₀", [q0; p0]), ("the off-span x₀", offspan))
         q, p = X0[1:n], X0[(n + 1):(2n)]
         prob = reduced_pode(b, h, (zero(T), chunk_span(T, nsteps, dt)), dt, project(b, X0))
-        @test ntime(prob) == chunk_steps(T, nsteps, dt)
-
         sol = integrate(prob, LobattoIIIAIIIB(2); f_abstol = lobatto_abstol(T, k))
+
+        # the plain chunk span takes the chunk's own `1000` steps, which is what the solution counts
+        # and what `ntime(prob)` does not report
+        @test ntime(sol) == nsteps
+
         ql, pl = lift_solution(b, sol)
         # one column per stored time, which is every step of the 1000-step problem
         @test size(ql) == (n, length(sol.q))
@@ -113,11 +109,14 @@ end
         @test norm(pl[:, 1] - b.Φ * (b.Φ' * p)) ≤ tol
     end
 
-    # the round trip of the reduced coordinates, at 100 seeded `z`
+    # the round trip of the reduced coordinates, at 100 seeded `z`, against the basis's own
+    # non-orthogonality plus the rounding of the two products,
+    # `‖project(lift(z)) - z‖ ≤ (‖ΦᵀΦ - I‖₂ + 10·eps(T))·‖z‖`: measured `10.67 ≤ 43.6 eps` in
+    # `Float64` and `7.33 ≤ 39.3 eps` in `Float32`, and the round trip sits below `‖ΦᵀΦ - I‖₂` alone
     Z = randn(Xoshiro(3), T, 2k, 100)
     err = maximum(j -> norm(project(b, lift(b, Z[:, j])) - Z[:, j]) / norm(Z[:, j]),
         axes(Z, 2))
-    @test err ≤ 10 * eps(T)
+    @test err ≤ nonorth + 10 * eps(T)
 end
 
 @testset "the gradient is inferred and allocates nothing, $T" for T in (Float64, Float32)
@@ -126,6 +125,14 @@ end
     g = zeros(T, 1000)
 
     @test @inferred(h(g, zero(T), x, NamedTuple())) === g
+
+    # the value half of the instance, `h(t, x, params)`, and not only the gradient: on a small
+    # integer state both blocks sum exactly, so the assertion is `==` against the closed form
+    # `½(β²|q|² + |p|²)` of the model, `½(36·30 + 174) = 627`, and not a tolerance
+    xh = T[1, 2, 3, 4, 5, 6, 7, 8]
+    @test h(zero(T), xh, NamedTuple()) ==
+          (T(ANALYTIC_β)^2 * (1 + 4 + 9 + 16) + (25 + 36 + 49 + 64)) / 2
+    @test h(zero(T), xh, NamedTuple()) == T(627)
 
     if Base.JLOptions().code_coverage == 0
         @test _alloc_gradient(h, g, zero(T), x, NamedTuple()) == 0

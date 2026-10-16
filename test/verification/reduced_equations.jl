@@ -7,11 +7,13 @@
 #
 # The run advances in chunks of `1000` steps and keeps one state per chunk — the `0.1` grid of the
 # saves, `10001` of them, where every step would hold `10^7` states (3.2 GB for the `k = 20` PODE).
-# Each chunk is one emitted problem over the timespan of `chunk_span`, so that
-# GeometricEquations counts exactly `1000` steps of it: a chunk of the run's own clock counts `1000`
-# at some `j` and `1001` at others, and a chunk that overshoots by one step puts every later save at
-# the wrong time. The chunk's equation is autonomous — neither form reads `t` — so the clock starts
-# at zero each time and the test tracks the physical time as `0.1·j` itself.
+# Each chunk is one emitted problem over the timespan `chunk_span`, and **what is asserted is the
+# number of steps its solution takes, never the problem's own count**: the plain span
+# `(0, T(1000)·dt)` takes exactly `1000` steps, while `ntime(prob)` counts `1001` and the span
+# rounded down by one `eps` takes `999`. A chunk built from the run's own clock — the float span
+# `(t_{j-1}, t_j)` — takes `1000` at some `j` and `999` at others, which puts every later save at the
+# wrong time. The chunk's equation is autonomous — neither form reads `t` — so the clock starts at
+# zero each time and the test tracks the physical time as `0.1·j` itself.
 
 using LinearAlgebra
 using ReducedBasisMethods: ReducedBasis, PODSVD, CotangentLiftSVD, project, lift,
@@ -38,10 +40,9 @@ lobatto_abstol(::Type{T}, k) where {T} = max(8, 2k) * eps(T)
     n, kp, ko = 1000, 20, 5
     nchunks = nₛ - 1
 
-    # the chunk is `1000` steps of `dt`, and the emitted problems count exactly that many: the
-    # `10^4` chunks then total the `10^7` steps of the horizon
-    @test chunk_steps(T, nsave, dt) == nsave
-    @test nchunks * chunk_steps(T, nsave, dt) == nₜ
+    # the chunk is `1000` steps of `dt`, and the `10^4` chunks of the horizon are the `10^7` steps
+    # the run takes
+    @test nchunks * nsave == nₜ
 
     # the leading Verlet error for frequency `β`: `(β·dt)² = 3.6e-7`
     bound = (β * dt)^2
@@ -64,18 +65,22 @@ lobatto_abstol(::Type{T}, k) where {T} = max(8, 2k) * eps(T)
     drift, counts = Float64[], Int[]
     for j in 1:nchunks
         prob = reduced_pode(bc, h, (zero(T), chunk_span(T, nsave, dt)), dt, zc)
-        push!(counts, ntime(prob))
 
         sol = integrate(prob, LobattoIIIAIIIB(2); f_abstol = lobatto_abstol(T, kp))
+        push!(counts, ntime(sol))
         zc = vcat(sol.q[end], sol.p[end])
         push!(drift, abs((H0(zc, bc) - reference) / reference))
     end
 
-    # every emitted problem counts the chunk's `1000` steps, and the run is the `10^4` chunks of the
-    # horizon: a chunk built from the float span `(t_{j-1}, t_j)` counts `1000` at some `j` and
-    # `1001` at others, so it fails here and puts every later save at the wrong time
+    # the steps taken: every chunk of the plain span takes exactly the `1000` steps it means, and the
+    # `10^4` chunks are the `10^7` steps of the horizon. `ntime(prob)` is not this count — it is
+    # `div(tend - tbegin, tstep, RoundUp)`, which is `1001` here — and the span rounded down by one
+    # `eps` takes `999`, as the float span `(t_{j-1}, t_j)` takes at some `j`, so this is where a
+    # chunk that falls a step short is caught and the saves after it are known to be at the right
+    # time
     @test all(==(nsave), counts)
     @test length(counts) == nchunks
+    @test sum(counts) == nₜ
     @test all(isfinite, drift)
     @test maximum(drift) ≤ bound
 
@@ -88,15 +93,18 @@ lobatto_abstol(::Type{T}, k) where {T} = max(8, 2k) * eps(T)
 
     # `j_sep` is the first `j` with `!(|ΔH/H| ≤ bound)`, so that a `NaN` counts as an exceedance. It
     # is recorded as an integer and `t = 0.1·j_sep`, and the assertion is only that one exists within
-    # the `10^4` saves — never `==` on it. The drift comes from POD vectors 4 and 5, which are
-    # round-off: §5V.P37 measured `t_sep` moving from `61.0` to `53.1` when only the spacing of the
-    # training set changed, so it moves between platforms. The run also carries the value in its log.
+    # the `10^4` saves — never `==` on it. **Measured with the plain chunk span and this training
+    # set: `j_sep = 568`, `t_sep = 0.1·568 = 56.8`, with a drift of `4.11e-7` against the bound
+    # `3.6e-7`** (Julia 1.13.1, `Float64`, the run below stopped there). The drift comes from POD
+    # vectors 4 and 5, which are round-off: §5V.P37 measured `t_sep` moving from `61.0` to `53.1`
+    # when only the spacing of the training set changed, so it moves between platforms and this
+    # figure is the one platform's. The run also carries the value in its log.
     drift_ode, counts_ode = Float64[], Int[]
     for j in 1:nchunks
         prob = reduced_ode(bp, h, (zero(T), chunk_span(T, nsave, dt)), dt, zp)
-        push!(counts_ode, ntime(prob))
 
         sol = integrate(prob, RK4())
+        push!(counts_ode, ntime(sol))
         zp = sol.q[end]
         push!(drift_ode, abs((H0(zp, bp) - reference_ode) / reference_ode))
         # the run stops at the chunk where the bound is first exceeded, which is what keeps it off
@@ -104,6 +112,7 @@ lobatto_abstol(::Type{T}, k) where {T} = max(8, 2k) * eps(T)
         (isfinite(drift_ode[end]) && drift_ode[end] ≤ bound) || break
     end
 
+    # the chunks the run did take, each of them the plain span's `1000` steps
     @test all(==(nsave), counts_ode)
     j_sep = first_exceedance(drift_ode, bound)
     @test j_sep !== nothing
