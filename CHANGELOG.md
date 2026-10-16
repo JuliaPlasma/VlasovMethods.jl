@@ -645,12 +645,14 @@ first entry is written.
   march's element type before the product, so a `Float32` march with a `Float64` `χ` steps in
   `Float32`. For a time-independent field, `(dt, χ = 2)` equals `(2dt, χ = 1)` state for state.
   The initial state is saved at `zero(T)` and then every `nsave = nₜ/(nₛ - 1)`-th step, which is
-  10001 states for `nₜ = 10^7` and `nₛ = 10001`. The march refuses, before the loop, `nₜ < 1`;
-  `nₛ < 2`; an `nₛ - 1` that does not divide `nₜ`; snapshots that do not hold `nₛ` saved times; a
-  component count other than one, which the scalar momentum `M = dot(w, v)` needs; a basis with a
-  zero column count or more columns than rows; and a `χ` that is not `> 0`, which refuses `NaN`
-  too. `params` without a `χ` raises the `NamedTuple`'s own error: there is no default. The step
-  and the save are internal, type-stable and allocation-free.
+  10001 states for `nₜ = 10^7` and `nₛ = 10001`. The constructor of `IntegratorParameters`
+  refuses, with an `ArgumentError`, `nₜ < 1`; `nₛ < 2`; and an `nₛ - 1` that does not divide
+  `nₜ`. The HDF5 constructor applies the same checks to the stored counts. The march refuses,
+  before the loop, snapshots that do not hold `nₛ` saved times; a component count other than one,
+  which the scalar momentum `M = dot(w, v)` needs; a basis with a zero column count or more columns
+  than rows; and a `χ` that is not `> 0`, which refuses `NaN` too. `params` without a `χ`
+  raises the `NamedTuple`'s own error: there is no default. The step and the save are internal,
+  type-stable and allocation-free.
 
   `AnalyticHamiltonian(β)` is `½|p|² + ½β²|q|²` for `x = [q; p]`. Called as `∇H!(g, t, x, params)`
   it writes the gradient whose first block is `β²q` and second `p` — in the argument order
