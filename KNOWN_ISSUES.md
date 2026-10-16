@@ -9,14 +9,11 @@ takes the next `K<n>`.
 - **location:** `src/particles/poisson.jl`
 - **evidence:** The file names an undefined binding, so including it breaks the load:
   `poisson.jl` wants `PoissonSolverPBSplines`, which neither the module nor its dependencies
-  define. `time_marching.jl`, the other file of the directory that was not included, is included
-  now and loads.
+  define.
 - **kind:** dead code
 - **found:** 2026-09-17. Carried over from the audit that accompanied the `SimpleSplines`
-  migration. The entry covered both files of `src/particles/` until the reduced particle march
-  (`time_marching.jl`) was fixed and included, which left `poisson.jl` alone. None of this is a
-  regression; it is either a numerical-methods decision or work the migration deliberately did not
-  take on.
+  migration. None of this is a regression; it is either a numerical-methods decision or work the
+  migration deliberately did not take on.
 
 ### K4 · The implemented Landau scheme is not the one the main text derives.
 

@@ -15,7 +15,7 @@ saved times `nₛ` — the initial state included — the number of potential de
 the number of particles `nₚ` and the number of sampled equation parameters `nparam`. `t` holds
 `nₛ` times, evenly spaced from `0` to `dt·nₜ`.
 
-The two counts `nₕ` and `nₚ` are `Int`, so an `Int32` count is a `MethodError`. The element type
+Every count is `Int`, so an `Int32` count is a `MethodError`. The element type
 `T` of `dt` is the whole march's, and every other argument of
 [`reduced_integrate_vp`](@ref) is bound to it, so mixed input is a `MethodError` too.
 

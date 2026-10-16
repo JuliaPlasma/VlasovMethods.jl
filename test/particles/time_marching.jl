@@ -168,6 +168,7 @@ end
     @test strided.SS.V[:, :, 1, 1] == every.SS.V[:, :, 1, 1]
     @test strided.SS.V[:, :, 2, 1] == every.SS.V[:, :, 3, 1]
     @test strided.SS.V[:, :, 3, 1] == every.SS.V[:, :, 5, 1]
+    @test any(!iszero, strided.SS.V[:, :, 3, 1])
 end
 
 @testset "the integrator-parameters round trip, $T" for T in (Float64, Float32)

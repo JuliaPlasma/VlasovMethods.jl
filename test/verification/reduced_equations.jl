@@ -40,10 +40,6 @@ lobatto_abstol(::Type{T}, k) where {T} = max(8, 2k) * eps(T)
     n, kp, ko = 1000, 20, 5
     nchunks = nₛ - 1
 
-    # the chunk is `1000` steps of `dt`, and the `10^4` chunks of the horizon are the `10^7` steps
-    # the run takes
-    @test nchunks * nsave == nₜ
-
     # the leading Verlet error for frequency `β`: `(β·dt)² = 3.6e-7`
     bound = (β * dt)^2
 

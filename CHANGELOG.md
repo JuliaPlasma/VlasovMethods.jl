@@ -656,8 +656,9 @@ first entry is written.
   `reduced_ode` and `reduced_pode` call, and under a name that is not RBM's `hamiltonian_gradient!`
   — and called as `h(t, x, params)` it returns the value. It accepts any element type, which the
   Lobatto IIIA–IIIB(2) run of the PODE form needs: Newton's `JacobianAutodiff` passes it
-  `ForwardDiff.Dual` states. `lift_solution(b, sol)` returns the two blocks of the lifted PODE
-  trajectory, `Φ*sol.q` and `Φ*sol.p`, each of `N` rows and one column per stored time.
+  `ForwardDiff.Dual` states. `lift_solution(b, sol)` returns the two blocks of
+  `lift(b, [sol.q; sol.p])`, each of `N` rows and one column per stored time; for a cotangent lift
+  those blocks are `Φ*sol.q` and `Φ*sol.p`, and a complex SVD mixes the two solution halves.
 
   The march and the reduced forms are tested at `T = 1000` in the new `slow` group: the leapfrog at
   `k = 20` on the analytic model against its closed form, and the PODE form — PSD cotangent, `k =

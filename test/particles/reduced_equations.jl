@@ -76,9 +76,9 @@ end
 
     @test size(b.Φ) == (n, k)
     # `Φ` is orthonormal to round-off, and what is left of that is the first term of the round-trip
-    # bound below: the decomposition's own non-orthogonality, `‖ΦᵀΦ - I‖₂`, measured `33.6 eps` in
-    # `Float64` and `29.3 eps` in `Float32`, both inside `sqrt(eps(T))`
-    nonorth = norm(b.Φ' * b.Φ - Matrix{T}(I, k, k))
+    # bound below: the decomposition's own non-orthogonality, `‖ΦᵀΦ - I‖₂`, measured `16.4 eps` in
+    # `Float64` and `14.1 eps` in `Float32`, both inside `sqrt(eps(T))`
+    nonorth = opnorm(b.Φ' * b.Φ - Matrix{T}(I, k, k))
     @test nonorth ≤ sqrt(eps(T))
 
     # the two states of the check: §4's `x₀`, which lies in the training span, and a seeded state
@@ -111,8 +111,8 @@ end
 
     # the round trip of the reduced coordinates, at 100 seeded `z`, against the basis's own
     # non-orthogonality plus the rounding of the two products,
-    # `‖project(lift(z)) - z‖ ≤ (‖ΦᵀΦ - I‖₂ + 10·eps(T))·‖z‖`: measured `10.67 ≤ 43.6 eps` in
-    # `Float64` and `7.33 ≤ 39.3 eps` in `Float32`, and the round trip sits below `‖ΦᵀΦ - I‖₂` alone
+    # `‖project(lift(z)) - z‖ ≤ (‖ΦᵀΦ - I‖₂ + 10·eps(T))·‖z‖`: measured `10.67 ≤ 26.4 eps` in
+    # `Float64` and `7.33 ≤ 24.1 eps` in `Float32`, and the round trip sits below `‖ΦᵀΦ - I‖₂` alone
     Z = randn(Xoshiro(3), T, 2k, 100)
     err = maximum(j -> norm(project(b, lift(b, Z[:, j])) - Z[:, j]) / norm(Z[:, j]),
         axes(Z, 2))
@@ -132,7 +132,6 @@ end
     xh = T[1, 2, 3, 4, 5, 6, 7, 8]
     @test h(zero(T), xh, NamedTuple()) ==
           (T(ANALYTIC_β)^2 * (1 + 4 + 9 + 16) + (25 + 36 + 49 + 64)) / 2
-    @test h(zero(T), xh, NamedTuple()) == T(627)
 
     if Base.JLOptions().code_coverage == 0
         @test _alloc_gradient(h, g, zero(T), x, NamedTuple()) == 0
