@@ -85,6 +85,17 @@ end
         # conversion is a different float, and the two marches of this fixture diverge.
         @test march(T, plt, Ψ, efield, k, nt; dt = T(1e-4), χ = 0.3) ==
               march(T, plt, Ψ, efield, k, nt; dt = T(1e-4) * T(0.3), χ = 1)
+
+        # The same pair from a **zero** position, where `zₓ` holds the step's own half-drifts and
+        # nothing else. The half-drift is `~1e-5` against the `~0.5` position of the fixture above, so
+        # a difference of its last ulp is rounded away by every sum into `zₓ`: with the fixture's own
+        # positions the form `T(0.5) .* (χ .* (dt .* v))`, the scale re-associated around the vector in
+        # place of `T(0.5)·Δt .* v`, leaves all 2002000 saved entries equal in both precisions. From
+        # zero it differs in 703076 (`Float32`) and 182282 (`Float64`) of them, or 900200 and 475625
+        # for the `DEIMElectricField`.
+        zplt = ParticleList(zeros(T, 1, n), reshape(T(0.5) .* x, 1, n), reshape(w, 1, n))
+        @test march(T, zplt, Ψ, efield, k, nt; dt = T(1e-4), χ = 0.3) ==
+              march(T, zplt, Ψ, efield, k, nt; dt = T(1e-4) * T(0.3), χ = 1)
     end
 end
 
