@@ -638,18 +638,19 @@ first entry is written.
 
   `reduced_integrate_vp(P₀, Ψ, params, efield, SS, IP, IC, p)` advances the reduced state of a
   `ParticleList` — `Ψ'·vec(P₀.x)` and `Ψ'·vec(P₀.v)` — `IP.nₜ` steps of `IP.dt` by a leapfrog: half
-  an advection, the reduced acceleration of an `ElectricField` at the new position, and the second
-  half advection. The step is `Δt = IP.dt·T(params.χ)` and the time handed to the field is
-  `t = it·IP.dt`: `χ` scales the timestep and nothing else, and it is converted to the march's
-  element type before the product, so a `Float32` march with a `Float64` `χ` steps in `Float32`. For
-  a time-independent field, `(dt, χ = 2)` equals `(2dt, χ = 1)` state for state. The initial state
-  is saved at `zero(T)` and then every `nsave = nₜ/(nₛ - 1)`-th step, which is 10001 states for
-  `nₜ = 10^7` and `nₛ = 10001`. The march refuses, before the loop, `nₜ < 1`; `nₛ < 2`; an `nₛ - 1`
-  that does not divide `nₜ`; snapshots that do not hold `nₛ` saved times; a component count other
-  than one, which the scalar momentum `M = dot(w, v)` needs; a basis with a zero column count or
-  more columns than rows; and a `χ` that is not `> 0`, which refuses `NaN` too. `params` without a
-  `χ` raises the `NamedTuple`'s own error: there is no default. `save_solution` and the leapfrog
-  step are internal, type-stable and allocation-free, with the assertions of §L.
+  an advection, the reduced acceleration of a `ReducedElectricField` at the new position, and
+  the second half advection. The step is `Δt = IP.dt·T(params.χ)`, and the times handed to the
+  field are unscaled: the kick of step `it` is at its midpoint `(it - ½)·IP.dt`, and a save of
+  step `it` is at `it·IP.dt`. `χ` scales the timestep and nothing else; it is converted to the
+  march's element type before the product, so a `Float32` march with a `Float64` `χ` steps in
+  `Float32`. For a time-independent field, `(dt, χ = 2)` equals `(2dt, χ = 1)` state for state.
+  The initial state is saved at `zero(T)` and then every `nsave = nₜ/(nₛ - 1)`-th step, which is
+  10001 states for `nₜ = 10^7` and `nₛ = 10001`. The march refuses, before the loop, `nₜ < 1`;
+  `nₛ < 2`; an `nₛ - 1` that does not divide `nₜ`; snapshots that do not hold `nₛ` saved times; a
+  component count other than one, which the scalar momentum `M = dot(w, v)` needs; a basis with a
+  zero column count or more columns than rows; and a `χ` that is not `> 0`, which refuses `NaN`
+  too. `params` without a `χ` raises the `NamedTuple`'s own error: there is no default. The step
+  and the save are internal, type-stable and allocation-free.
 
   `AnalyticHamiltonian(β)` is `½|p|² + ½β²|q|²` for `x = [q; p]`. Called as `∇H!(g, t, x, params)`
   it writes the gradient whose first block is `β²q` and second `p` — in the argument order
@@ -665,8 +666,8 @@ first entry is written.
   20`, Lobatto IIIA–IIIB(2) — which holds the Hamiltonian to `3.6e-7` over the horizon where the
   ODE form — POD, `k = 5`, RK4 — leaves the bound. `src/particles/time_marching.jl`, which had
   never loaded, now does: its dead `PoissonSolvers` import and its two unused `LinearAlgebra` names
-  go, it is included after `particles/electric_field.jl`, and `save_solution` decides its saves on
-  the step index where the file it replaces tested a counter it advanced only on a save, which wrote
+  go, it is included after `particles/electric_field.jl`, and the march decides its saves on the
+  step index, where the file it replaces tested a counter it advanced only on a save, which wrote
   state 0 and nothing after it for `nsave ≥ 2`. `KNOWN_ISSUES.md` K1 then covers
   `src/particles/poisson.jl` alone.
 
