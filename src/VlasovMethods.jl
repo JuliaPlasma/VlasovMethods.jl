@@ -24,7 +24,8 @@ import SimpleSplines: basis, coefficients, derivative, evaluate, mass_matrix, ma
 # The reduced bases of a snapshot sweep are `ReducedBasisMethods`', and the parameter samples that
 # index the snapshots are `ReducedComplexityModeling`'s. `h5save` and `h5load` are that package's
 # generics, so the methods of `Snapshots` join them rather than the ones of ParticleMethods.
-using ReducedBasisMethods: ReducedBasis, PODSVD, PODEVD, SymplecticAlgorithm, lift
+using ReducedBasisMethods: ReducedBasis, PODSVD, PODEVD, CotangentLiftSVD, CotangentLiftEVD,
+                           ComplexSVD, lift
 using ReducedComplexityModeling: ParameterSpace
 import ReducedComplexityModeling: h5save, h5load
 

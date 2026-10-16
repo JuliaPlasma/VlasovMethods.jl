@@ -1,6 +1,6 @@
-# The reference of check 4: the Galerkin form of the POD reduced equation, transcribed from
-# `reference/Reduced_Vlasov_ODE.jl:64-84` (the plan-wide rule of 2026-10-10 puts a reference
-# generator in `test/helpers/`). It is listed in no `runtests.jl`.
+# The reference of check 4: the Galerkin form of the POD reduced equation from
+# `reference/Reduced_Vlasov_ODE.jl:64-84`. This reference generator lives in `test/helpers/`
+# and is listed in no `runtests.jl`.
 #
 # The reference writes the RHS as the reference does: `x = U*z`, the second block of `x` is `ẋ`, and
 # the first is negated by `E(x, β) = β²x`, so that `ż = UᵀJ_N∇H(Uz)`.

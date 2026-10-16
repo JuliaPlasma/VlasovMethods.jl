@@ -15,9 +15,9 @@ saved times `nₛ` — the initial state included — the number of potential de
 the number of particles `nₚ` and the number of sampled equation parameters `nparam`. `t` holds
 `nₛ` times, evenly spaced from `0` to `dt·nₜ`.
 
-Every count is `Int`, so an `Int32` count is a `MethodError`. The element type
-`T` of `dt` is the whole march's, and every other argument of
-[`reduced_integrate_vp`](@ref) is bound to it, so mixed input is a `MethodError` too.
+Every count is `Int`, so an `Int32` count is a `MethodError`. The element type `T` of `dt` is
+shared by `P₀`, `Ψ`, `SS` and `IC` in [`reduced_integrate_vp`](@ref), so mixed storage types are
+a `MethodError`. The timestep scale `params.χ` is converted to `T` by the march.
 
 The HDF5 pair is `h5save(h5, IP; path = …)` and `IntegratorParameters(h5, path)`, whose round trip is
 asserted `==`. `h5save` makes a group that no path holds yet with HDF5's own `create_group`.
@@ -118,8 +118,9 @@ end
     leapfrog_step!(IC::ReducedIntegratorCache, efield, Δt, t)
 
 One step of the reduced leapfrog: half an advection at the scaled `Δt`, the acceleration of the
-reduced field at the new position, and the second half advection. The two halves are what makes the
-step second order, and their sum is the phase error `β·T·(βΔt)²/(24√3)` that bounds check 1.
+reduced field at the new position, and the second half advection. The symmetric composition is
+second order; its leading phase-error contribution to check 1's relative `L²` error over the
+horizon `T` is `β·T·(βΔt)²/(24√3)`.
 
 It allocates nothing and is inferred: the cache, the field and both times are concrete. `Δt` is the
 already scaled timestep — `Δt = IP.dt·T(params.χ)` — so half of it is `T(0.5)·Δt`, the scale being

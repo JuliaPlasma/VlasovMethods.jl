@@ -69,7 +69,8 @@ The solution's own halves `sol.q` and `sol.p` are the reduced coordinates, and
 `Φ*sol.p` of the reference `reference/Reduced_Vlasov_PODE_CotangentLift.jl:106-107`. A POD basis
 has no PODE solution and no `q` and `p` halves to split, so it is a `MethodError`.
 """
-function lift_solution(b::ReducedBasis{<:Any, <:SymplecticAlgorithm},
+function lift_solution(
+        b::ReducedBasis{<:Any, <:Union{CotangentLiftSVD, CotangentLiftEVD, ComplexSVD}},
         sol::GeometricIntegrators.AbstractSolution)
     X = lift(b, vcat(Array(sol.q), Array(sol.p)))
     N = size(b.Φ, 1)

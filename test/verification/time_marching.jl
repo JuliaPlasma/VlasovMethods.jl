@@ -87,9 +87,8 @@ include("../helpers/analytic_vlasov.jl")
     @test truncation < err20
 
     # the error at `k = 20` is below the error at `k = 1`, where the basis is below the data's rank
-    # and the truncation error `σ₂/σ₁ ≈ 3.46e-2` is what is measured. The original `k = 5`
-    # comparison is dropped: `k = 5` measures the same `5.196e-5` as `k = 20`, so round-off would
-    # decide it.
+    # and the truncation error `σ₂/σ₁ ≈ 3.46e-2` dominates. A `k = 5` comparison is not discriminating:
+    # both `k = 5` and `k = 20` resolve the rank-2 data, so round-off decides their error ordering.
     fill!(SS.X, zero(T))
     fill!(SS.V, zero(T))
     b1 = ReducedBasis(

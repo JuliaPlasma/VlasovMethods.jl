@@ -28,6 +28,10 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 VlasovMethods = "4a954452-39e6-424b-ae51-38fc4bbc42ef"
 
 [compat]
+# Test-only: `src/` does not call it. The bound carries both the 0.10 line and `1`, as
+# `GeometricProblems` and `NeuralNetworkParameters` do. It supplies the `Dual` numbers that check
+# 3's gradient assertions and the inference probe use.
+ForwardDiff = "0.10, 1"
 # Test-only: `src/` does not call it. 0.6.6 is the first GeometricSolutions with the HDF5
 # extension that defines the `EnsembleSolution` methods of `h5save` and `h5load`.
 GeometricSolutions = "0.6.6"
