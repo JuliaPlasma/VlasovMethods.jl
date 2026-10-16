@@ -1,9 +1,9 @@
 using Test
 using VlasovMethods
 
-# A recorded list of the exported names of `VlasovMethods`, from `v0.2.1` on: the names that tag
-# exported, plus every name exported since. No export can leave the module without a `CHANGELOG.md`
-# line that names it, and `REMOVED_EXPORTS` carries those names. A removed name that occurs
+# The export baseline covers the names `v0.2.1` exports and every name exported since that tag.
+# No export can leave the module without a `CHANGELOG.md` line that names it, and
+# `REMOVED_EXPORTS` carries those names. A removed name that occurs
 # nowhere under `test/` is written as two joined fragments, so that its literal form does not
 # appear here either.
 const BASE_EXPORTS = Symbol[
@@ -132,15 +132,12 @@ end
     changelog = read(joinpath(pkgdir(VlasovMethods), "CHANGELOG.md"), String)
     flat = replace(changelog, r"\s+" => " ")  # a sentence is matched across its line wrap
 
-    # The compat bullet gives the reason a dependency that left or joined `[deps]` since `v0.2.1`
-    # has no row there: `v0.2.1` exported no dependency's name, so a departure takes none from a
-    # caller and an arrival narrowed no range. The reason may not be that nothing is re-exported —
-    # `SimpleSplines` and `GeometricBase` joined in that interval, and this release re-exports
-    # their names, `Spline` and `derivative` among them.
+    # The compat bullet explains omitted dependency rows without denying re-exports.
+    # `Spline` and `derivative` are re-exported, so a claim that nothing is re-exported is false.
     @test !occursin(r"nothing (here )?is re-exported", flat)
     @test occursin("The dependencies that left or joined `[deps]` in the same interval have no row.", flat)
 
     # An *Open Issues* heading exists in neither file, so neither file may cite one.
     known_issues = read(joinpath(pkgdir(VlasovMethods), "KNOWN_ISSUES.md"), String)
-    @test !occursin("Open Issues", changelog * known_issues)
+    @test !occursin("Open Issues", changelog) && !occursin("Open Issues", known_issues)
 end
