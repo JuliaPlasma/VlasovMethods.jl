@@ -1,6 +1,6 @@
 # The Poisson-field fixture the electric-field test files share. It is included by
-# `test/electric_field.jl`, `test/particles/electric_field.jl` and `test/quality/jet.jl`, and is
-# listed in no `runtests.jl`.
+# `test/electric_field.jl`, `test/particles/electric_field.jl`, `test/particles/time_marching.jl`
+# and `test/quality/jet.jl`, and is listed in no `runtests.jl`.
 
 using PoissonSolvers
 using Random

@@ -137,9 +137,8 @@ if isdefined(JET, :JET_AVAILABLE) ? JET.JET_AVAILABLE : JET.JET_LOADABLE
         @test isempty(JET.get_reports(JET.report_opt(leapfrog_step!,
             (typeof(ic), typeof(efield), T, T); target_modules = (VlasovMethods,))))
         @test isempty(JET.get_reports(JET.report_opt(save_solution,
-            (typeof(SS), typeof(ic), typeof(Ψ),
-                typeof(efield), typeof(ic.w), Int, T, Int,
-                Int, Bool); target_modules = (VlasovMethods,))))
+            (typeof(SS), typeof(ic), typeof(Ψ), typeof(efield), Int, T, Int);
+            target_modules = (VlasovMethods,))))
 
         h = AnalyticHamiltonian(T(6))
         xg = randn(Xoshiro(5), T, 1000)

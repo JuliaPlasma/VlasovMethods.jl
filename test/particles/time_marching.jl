@@ -5,10 +5,8 @@ using Random
 using ReducedBasisMethods: get_DEIM_indices
 using ReducedComplexityModeling: ParameterSpace, Parameter
 using Test
-# `import` and not `using`: the field interface and the march's internals are extended below.
-import VlasovMethods: update!, efield!, energy, coefficients
 using VlasovMethods
-using VlasovMethods: h5save, leapfrog_step!, save_solution
+using VlasovMethods: coefficients, h5save, leapfrog_step!, save_solution
 
 include("../helpers/allocation_barriers.jl")
 include("../helpers/poisson_field.jl")
@@ -57,14 +55,9 @@ function march(::Type{T}, plt, Ψ, efield, k, nt; dt = T(1e-4), χ = 1) where {T
 end
 
 @testset "check 2: the χ scale is a timestep scale, $T" for T in (Float64, Float32)
-    # The fixture is large enough to resolve the χ mutants at the ulp level: `Δt = T(IP.dt·params.χ)`
-    # rounds the product after the conversion and differs from the shipped `IP.dt·T(params.χ)` by one
-    # ulp of `Δt` at `χ = 0.3` (`3.0e-5` against `3.0000001e-5`), which is `Float32` round-off about
-    # a `Float64` χ and so is invisible in `Float64`, where the two products are the same float. At
-    # `n = 40` and `k = 4` the two marches agree in all 80080 saved entries and the mutant survives;
-    # at `n = 1000` and `k = 20` — check 3's particle count and basis size — they first differ at
-    # save 177 (`ReducedElectricField`) and 55 (`DEIMElectricField`), in 160229 and 99864 of the
-    # 2002000 entries, and by up to `1.4e-1` and `3.2e-2` relative.
+    # The fixture is large enough that a one-ulp difference of `Δt` in `Float32` — `T(dt·χ)` against
+    # `dt·T(χ)` at `χ = 0.3` — grows into saved states that differ; at `n = 40` and `k = 4` it does
+    # not.
     n, k, nt = 1000, 20, 1000
     field, x, w = poisson_field(T; n = n)
     Ψ = orthogonal(T, n, k; seed = 3)
@@ -86,13 +79,9 @@ end
         @test march(T, plt, Ψ, efield, k, nt; dt = T(1e-4), χ = 0.3) ==
               march(T, plt, Ψ, efield, k, nt; dt = T(1e-4) * T(0.3), χ = 1)
 
-        # The same pair from a **zero** position, where `zₓ` holds the step's own half-drifts and
-        # nothing else. The half-drift is `~1e-5` against the `~0.5` position of the fixture above, so
-        # a difference of its last ulp is rounded away by every sum into `zₓ`: with the fixture's own
-        # positions the form `T(0.5) .* (χ .* (dt .* v))`, the scale re-associated around the vector in
-        # place of `T(0.5)·Δt .* v`, leaves all 2002000 saved entries equal in both precisions. From
-        # zero it differs in 703076 (`Float32`) and 182282 (`Float64`) of them, or 900200 and 475625
-        # for the `DEIMElectricField`.
+        # The same pair from a zero position, where `zₓ` holds the step's own half-drifts and
+        # nothing else, so that a last-ulp difference of the half-drift is not rounded away by the
+        # sum into a `~0.5` position.
         zplt = ParticleList(zeros(T, 1, n), reshape(T(0.5) .* x, 1, n), reshape(w, 1, n))
         @test march(T, zplt, Ψ, efield, k, nt; dt = T(1e-4), χ = 0.3) ==
               march(T, zplt, Ψ, efield, k, nt; dt = T(1e-4) * T(0.3), χ = 1)
@@ -106,8 +95,8 @@ end
 
     # the accepted call: this is the reference the guards are read against, and the diagnostics it
     # saves are the ones of the state it wrote: the kinetic energy `½∑ⱼwⱼvⱼ²` and the momentum
-    # `∑ⱼwⱼvⱼ` of the lifted step 0, from the weights the march was handed. `K` is a `dims`-free
-    # reduction in the march, so the two agree to the rounding of a sum rather than bitwise.
+    # `∑ⱼwⱼvⱼ` of the lifted step 0, from the weights the march was handed. `K` is summed in another
+    # order in the march, so the two agree to the rounding of a sum rather than bitwise.
     @test march!(f, f.params) === nothing
     v0 = vec(f.SS.V[:, :, 1, 1])
     @test isapprox(f.SS.K[1, 1], sum(f.ic.w .* abs2.(v0)) / 2; rtol = sqrt(eps(T)))
@@ -204,25 +193,22 @@ end
 @testset "the step and the save allocate nothing, $T" for T in (Float64, Float32)
     n, k = 200, 20
     f = march_fixture(T; n = n, k = k, nt = 10)
-    Δt, t, it, nsave, save = T(1e-4), zero(T), 0, 1, true
+    Δt, t, ts = T(1e-4), zero(T), 1
 
     @test @inferred(leapfrog_step!(f.ic, f.efield, Δt, t)) === f.ic
-    @test @inferred(save_solution(f.SS, f.ic, f.Ψ, f.efield, f.ic.w, 1, t, it, nsave,
-        save)) === nothing
+    @test @inferred(save_solution(f.SS, f.ic, f.Ψ, f.efield, 1, t, ts)) === nothing
 
     # coverage instrumentation allocates on every counted line, so under it the assertion does not
     # run rather than being weakened
     if Base.JLOptions().code_coverage == 0
-        @test _alloc_step(leapfrog_step!, f.ic, f.efield, Δt, t) == 0
-        @test _alloc_save(
-            save_solution, f.SS, f.ic, f.Ψ, f.efield, f.ic.w, 1, t, it, nsave,
-            save) == 0
+        @test _alloc4(leapfrog_step!, f.ic, f.efield, Δt, t) == 0
+        @test _alloc_save(save_solution, f.SS, f.ic, f.Ψ, f.efield, 1, t, ts) == 0
     end
 
     # the controls: the barrier sees an allocation when there is one. `similar` rather than
     # `copy`: on Julia 1.11 a `copy` whose result is dead is elided and reads zero, while
     # `similar` always allocates.
-    @test _alloc_step((a, b, c, d) -> similar(a.zₓ), f.ic, f.efield, Δt, t) > 0
-    @test _alloc_save((a, b, c, d, e, g, h, i, j, k) -> similar(a.X), f.SS, f.ic, f.Ψ,
-        f.efield, f.ic.w, 1, t, it, nsave, save) > 0
+    @test _alloc4((a, b, c, d) -> similar(a.zₓ), f.ic, f.efield, Δt, t) > 0
+    @test _alloc_save((a, b, c, d, e, g, h) -> similar(a.X), f.SS, f.ic, f.Ψ,
+        f.efield, 1, t, ts) > 0
 end

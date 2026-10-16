@@ -39,11 +39,7 @@ end
 
 function (h::AnalyticHamiltonian)(t, x, params)
     N = length(x) ÷ 2
-    e = zero(eltype(x))
-    @inbounds for i in 1:N
-        e += abs2(x[N + i]) + h.β^2 * abs2(x[i])
-    end
-    return e / 2
+    return @views (h.β^2 * sum(abs2, x[1:N]) + sum(abs2, x[(N + 1):(2N)])) / 2
 end
 
 function (h::AnalyticHamiltonian)(g, t, x, params)
@@ -65,14 +61,13 @@ per stored time.
 
 The solution's own halves `sol.q` and `sol.p` are the reduced coordinates, and
 `ReducedBasisMethods.lift(b, [q; p])` is `[Φq; Φp]` for a cotangent lift and
-`[Φa - Ψb; Ψa + Φb]` for a complex SVD, so for a cotangent lift the pair is `Φ*sol.q` and
-`Φ*sol.p` of the reference `reference/Reduced_Vlasov_PODE_CotangentLift.jl:106-107`. A POD basis
-has no PODE solution and no `q` and `p` halves to split, so it is a `MethodError`.
+`[Φa - Ψb; Ψa + Φb]` for a complex SVD. The two blocks are views of that one lifted array. A POD
+basis has no PODE solution and no `q` and `p` halves to split, so it is a `MethodError`.
 """
 function lift_solution(
         b::ReducedBasis{<:Any, <:Union{CotangentLiftSVD, CotangentLiftEVD, ComplexSVD}},
         sol::GeometricIntegrators.AbstractSolution)
     X = lift(b, vcat(Array(sol.q), Array(sol.p)))
-    N = size(b.Φ, 1)
-    return X[1:N, :], X[(N + 1):(2N), :]
+    N = size(X, 1) ÷ 2
+    return @views X[1:N, :], X[(N + 1):end, :]
 end

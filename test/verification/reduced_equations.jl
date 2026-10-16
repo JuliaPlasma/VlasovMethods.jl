@@ -28,11 +28,6 @@ using GeometricIntegrators: LobattoIIIAIIIB, RK4, integrate, ntime
 include("../helpers/analytic_vlasov.jl")
 include("../helpers/reduced_runs.jl")
 
-# The solver tolerance of the Lobatto IIIA–IIIB(2) run, as §5V.P32 sets it: `1e-14` in `Float64` and
-# `max(8, 2k)·eps(T)` in `Float32`.
-lobatto_abstol(::Type{Float64}, k) = 1e-14
-lobatto_abstol(::Type{T}, k) where {T} = max(8, 2k) * eps(T)
-
 @testset "check 3: the PODE form conserves H where the ODE form drifts" begin
     T = Float64
     β, dt = T(ANALYTIC_β), T(1e-4)

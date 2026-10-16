@@ -14,17 +14,14 @@ function _alloc_energy(f::F, a::A) where {F, A}
     (f(a); @allocated f(a))
 end
 
-# The leapfrog step `leapfrog_step!(IC, efield, Δt, t)` and the gradient `∇H!(g, t, x, params)`.
-function _alloc_step(f::F, a::A, b::B, c::C, d::D) where {F, A, B, C, D}
-    (f(a, b, c, d); @allocated f(a, b, c, d))
-end
-function _alloc_gradient(f::F, a::A, b::B, c::C, d::D) where {F, A, B, C, D}
+# A call of four arguments: the leapfrog step `leapfrog_step!(IC, efield, Δt, t)` and the gradient
+# `∇H!(g, t, x, params)`.
+function _alloc4(f::F, a::A, b::B, c::C, d::D) where {F, A, B, C, D}
     (f(a, b, c, d); @allocated f(a, b, c, d))
 end
 
-# The save `save_solution(SS, IC, Ψ, efield, w, p, t, it, nsave, save)`, whose ten arguments are all
-# concrete at the call site.
-function _alloc_save(f::F, a::A, b::B, c::C, d::D, e::E, g::G, h::H, i::I, j::J,
-        k::K) where {F, A, B, C, D, E, G, H, I, J, K}
-    (f(a, b, c, d, e, g, h, i, j, k); @allocated f(a, b, c, d, e, g, h, i, j, k))
+# The save `save_solution(SS, IC, Ψ, efield, p, t, ts)`.
+function _alloc_save(f::F, a::A, b::B, c::C, d::D, e::E, g::G,
+        h::H) where {F, A, B, C, D, E, G, H}
+    (f(a, b, c, d, e, g, h); @allocated f(a, b, c, d, e, g, h))
 end

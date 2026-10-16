@@ -204,7 +204,7 @@ export ReducedElectricField, DEIMElectricField
 
 # The reduced march of the analytic quadratic model, after the reduced field above: the leapfrog
 # with the χ-scaled timestep, its integrator parameters and its cache. The save and the step are
-# internal, and `save_solution` decides on the step index.
+# internal.
 include("particles/time_marching.jl")
 
 export IntegratorParameters, ReducedIntegratorCache, reduced_integrate_vp

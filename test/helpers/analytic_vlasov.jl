@@ -2,10 +2,9 @@
 # `reference/Vlasov_Analytic.jl:61-62`. The check-1 file of the reduced march and the check-3–5
 # file of the reduced forms both include it; it is listed in no `runtests.jl`.
 #
-# The draws are `Xoshiro`, as §5V.P37 states: `Xoshiro(seed)` and `Random.seed!(seed)` followed by
-# `randn(n)` produce the same values, which is asserted in the check-1 file.
+# The draws are `Xoshiro`: `Xoshiro(seed)` and `Random.seed!(seed)` followed by `randn(n)` produce
+# the same values, which is asserted in the check-1 file.
 
-using LinearAlgebra: hcat, vcat
 using Random
 using ReducedComplexityModeling: ParameterSpace, Parameter
 
@@ -58,8 +57,8 @@ p(t) = p_0 \\cos(βt) - β q_0 \\sin(βt).
 It has no discretisation error, which is what makes it the reference of check 1.
 """
 function analytic_solution(::Type{T}, β, q0, p0, ts) where {T}
-    Q = hcat([(p0 ./ β) .* sin(β * t) .+ q0 .* cos(β * t) for t in ts]...)
-    P = hcat([p0 .* cos(β * t) .- (β .* q0) .* sin(β * t) for t in ts]...)
+    Q = reduce(hcat, [(p0 ./ β) .* sin(β * t) .+ q0 .* cos(β * t) for t in ts])
+    P = reduce(hcat, [p0 .* cos(β * t) .- (β .* q0) .* sin(β * t) for t in ts])
     return Q, P
 end
 
@@ -68,8 +67,8 @@ end
 
 The stacked `2n × 6·m` training snapshot `[Q; P]` of the six training `β`, each trajectory saved
 every `step` over `[0, 1000]` — `m = div(1000, step) + 1` times each, whose `t = 0` column is the
-same for all six. The paper's spacing of `0.01` would be `9.6` GB (§5V.P29); §5V.P37's edge fixes
-`step = 1`, which is 1001 times and 6006 columns.
+same for all six. The paper's spacing of `0.01` would be `9.6` GB; the default `step = 1` is 1001
+times and 6006 columns.
 
 `step` is a keyword because a core check's basis is a fixture: check 4's POD basis is built from the
 training set of §4's `n = 200` at `step = 10`, which is `606` columns, where the `T = 1000` runs and

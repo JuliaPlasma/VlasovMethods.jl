@@ -14,18 +14,11 @@ include("../helpers/reduced_runs.jl")
 include("../helpers/vlasov_ode_reference.jl")
 
 @testset "the t_sep comparator counts a NaN as an exceedance" begin
-    # `!(value ≤ bound)`, in the order the helper writes it: `NaN` is neither `≤` nor `>`, so the
-    # mutant that tests `value > bound` drops it and returns 3
+    # `NaN` is neither `≤` nor `>` a bound, and it counts as an exceedance
     @test first_exceedance([0.0, NaN, 1.0], 0.5) == 2
     @test first_exceedance([0.0, 0.25], 0.5) === nothing
     @test first_exceedance([0.0, 0.5, 0.75], 0.5) == 3
 end
-
-# The solver tolerance of the Lobatto IIIA–IIIB(2) runs, as §5V.P32 sets it: `1e-14` in `Float64`
-# and `max(8, 2k)·eps(T)` in `Float32`, so neither run depends on the default of whichever
-# GeometricIntegratorsBase resolves.
-lobatto_abstol(::Type{Float64}, k) = 1e-14
-lobatto_abstol(::Type{T}, k) where {T} = max(8, 2k) * eps(T)
 
 @testset "check 4: the POD form is the reference's Galerkin form, $T" for T in (Float64, Float32)
     n, k, nsteps = 200, 5, 1000
@@ -134,9 +127,9 @@ end
           (T(ANALYTIC_β)^2 * (1 + 4 + 9 + 16) + (25 + 36 + 49 + 64)) / 2
 
     if Base.JLOptions().code_coverage == 0
-        @test _alloc_gradient(h, g, zero(T), x, NamedTuple()) == 0
+        @test _alloc4(h, g, zero(T), x, NamedTuple()) == 0
     end
-    @test _alloc_gradient((g, t, x, params) -> similar(g), g, zero(T), x, NamedTuple()) > 0
+    @test _alloc4((g, t, x, params) -> similar(g), g, zero(T), x, NamedTuple()) > 0
 
     # the `Dual` states of Newton's `JacobianAutodiff`, which the Lobatto run above passes
     xd = ForwardDiff.Dual.(x, one(T))
@@ -144,8 +137,7 @@ end
     @test @inferred(h(gd, zero(T), xd, NamedTuple())) === gd
 
     if Base.JLOptions().code_coverage == 0
-        @test _alloc_gradient(h, gd, zero(T), xd, NamedTuple()) == 0
+        @test _alloc4(h, gd, zero(T), xd, NamedTuple()) == 0
     end
-    @test _alloc_gradient((g, t, x, params) -> similar(g), gd, zero(T), xd, NamedTuple()) >
-          0
+    @test _alloc4((g, t, x, params) -> similar(g), gd, zero(T), xd, NamedTuple()) > 0
 end
