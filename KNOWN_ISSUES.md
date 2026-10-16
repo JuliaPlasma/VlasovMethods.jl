@@ -4,20 +4,16 @@ What is known to be wrong in VlasovMethods and is not fixed. An entry leaves thi
 fix merges, and the CHANGELOG entry of that fix names its ID. IDs are never reused; a new entry
 takes the next `K<n>`.
 
-### K1 · Two files of `src/particles/` are present but not included.
+### K1 · `src/particles/poisson.jl` is present but not included.
 
-- **location:** `src/particles/`
-- **evidence:** The two files — `poisson.jl` and `time_marching.jl` — each name an undefined
-  binding, so including either one breaks the load: `poisson.jl` wants
-  `PoissonSolverPBSplines`; `time_marching.jl` imports
-  `PBSpline`, `stiffnessmatrix`, `eval_deriv_PBSBasis` and `rhs_particles_PBSBasis` from
-  `PoissonSolvers` (neither 0.5 nor 0.6 has any). `save_solution` in `time_marching.jl` writes the
-  `(nd, nₚ)` layout of `Snapshots`, but fills the scalar momentum `M` with `dot(w, v)`, which
-  holds for `nd == 1` only and throws a `DimensionMismatch` for `nd > 1`.
+- **location:** `src/particles/poisson.jl`
+- **evidence:** The file names an undefined binding, so including it breaks the load:
+  `poisson.jl` wants `PoissonSolverPBSplines`, which neither the module nor its dependencies
+  define.
 - **kind:** dead code
 - **found:** 2026-09-17. Carried over from the audit that accompanied the `SimpleSplines`
-  migration. None of these are regressions; each is either a numerical-methods decision or work
-  the migration deliberately did not take on.
+  migration. None of this is a regression; it is either a numerical-methods decision or work the
+  migration deliberately did not take on.
 
 ### K4 · The implemented Landau scheme is not the one the main text derives.
 

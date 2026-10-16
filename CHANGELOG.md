@@ -630,6 +630,51 @@ first entry is written.
   index form; the two give bit-identical fields. The `[compat]` floor of `ReducedBasisMethods` is
   `0.2.1`, the first release that exports `get_DEIM_indices`, the function that produces `p`.
 
+- **`reduced_integrate_vp`, the reduced particle march of the analytic quadratic model, with the
+  χ-scaled timestep; `AnalyticHamiltonian`, its Hamiltonian in the forms of
+  `ReducedBasisMethods.reduced_ode` and `reduced_pode`; and `lift_solution`, which lifts one of
+  their solutions back to `(q, p)`.** All five of `reduced_integrate_vp`, `IntegratorParameters`,
+  `ReducedIntegratorCache`, `AnalyticHamiltonian` and `lift_solution` are exported.
+
+  `reduced_integrate_vp(P₀, Ψ, params, efield, SS, IP, IC, p)` advances the reduced state of a
+  `ParticleList` — `Ψ'·vec(P₀.x)` and `Ψ'·vec(P₀.v)` — `IP.nₜ` steps of `IP.dt` by a leapfrog: half
+  an advection, the reduced acceleration of a `ReducedElectricField` at the new position, and
+  the second half advection. The step is `Δt = IP.dt·T(params.χ)`, and the times handed to the
+  field are unscaled: the kick of step `it` is at its midpoint `(it - ½)·IP.dt`, and a save of
+  step `it` is at `it·IP.dt`. `χ` scales the timestep and nothing else; it is converted to the
+  march's element type before the product, so a `Float32` march with a `Float64` `χ` steps in
+  `Float32`. For a time-independent field, `(dt, χ = 2)` equals `(2dt, χ = 1)` state for state.
+  The initial state is saved at `zero(T)` and then every `nsave = nₜ/(nₛ - 1)`-th step, which is
+  10001 states for `nₜ = 10^7` and `nₛ = 10001`. The constructor of `IntegratorParameters`
+  refuses, with an `ArgumentError`, `nₜ < 1`; `nₛ < 2`; and an `nₛ - 1` that does not divide
+  `nₜ`. The HDF5 constructor applies the same checks to the stored counts. The march refuses,
+  before the loop, snapshots that do not hold `nₛ` saved times; a component count other than one,
+  which the scalar momentum `M = dot(w, v)` needs; a basis with a zero column count or more columns
+  than rows; and a `χ` that is not `> 0`, which refuses `NaN` too. `params` without a `χ`
+  raises the `NamedTuple`'s own error: there is no default. The step and the save are internal,
+  type-stable and allocation-free.
+
+  `AnalyticHamiltonian(β)` is `½|p|² + ½β²|q|²` for `x = [q; p]`. Called as `∇H!(g, t, x, params)`
+  it writes the gradient whose first block is `β²q` and second `p` — in the argument order
+  `reduced_ode` and `reduced_pode` call, and under a name that is not RBM's `hamiltonian_gradient!`
+  — and called as `h(t, x, params)` it returns the value. It accepts any element type, which the
+  Lobatto IIIA–IIIB(2) run of the PODE form needs: Newton's `JacobianAutodiff` passes it
+  `ForwardDiff.Dual` states. `lift_solution(b, sol)` returns the two blocks of
+  `lift(b, [sol.q; sol.p])`, each of `N` rows and one column per stored time; for a cotangent lift
+  those blocks are `Φ*sol.q` and `Φ*sol.p`, and a complex SVD mixes the two solution halves.
+
+  The march and the reduced forms are tested at `T = 1000` in the new `slow` group: the leapfrog at
+  `k = 20` on the analytic model against its closed form, and the PODE form — PSD cotangent, `k =
+  20`, Lobatto IIIA–IIIB(2) — which holds the Hamiltonian to `3.6e-7` over the horizon. The ODE
+  form — POD, `k = 5`, RK4 — runs beside it, and its separation from the bound is logged, not
+  asserted: its drift is round-off, so whether and when it leaves the bound depends on the
+  platform. `src/particles/time_marching.jl`, which had
+  never loaded, now does: its dead `PoissonSolvers` import and its two unused `LinearAlgebra` names
+  go, it is included after `particles/electric_field.jl`, and the march decides its saves on the
+  step index, where the file it replaces tested a counter it advanced only on a save, which wrote
+  state 0 and nothing after it for `nsave ≥ 2`. `KNOWN_ISSUES.md` K1 then covers
+  `src/particles/poisson.jl` alone.
+
 ### Documentation
 
 - **The manual gains a page on projecting between the three representations of the distribution

@@ -28,4 +28,11 @@ if "core" in GROUPS
     @safetestset "Snapshots" include("particles/snapshots.jl")
     @safetestset "Electric Field" include("electric_field.jl")
     @safetestset "Reduced Electric Field" include("particles/electric_field.jl")
+    @safetestset "Reduced March" include("particles/time_marching.jl")
+    @safetestset "Reduced Equations" include("particles/reduced_equations.jl")
+end
+
+if "slow" in GROUPS
+    @safetestset "Reduced March at T = 1000" include("verification/time_marching.jl")
+    @safetestset "Reduced Equations at T = 1000" include("verification/reduced_equations.jl")
 end
