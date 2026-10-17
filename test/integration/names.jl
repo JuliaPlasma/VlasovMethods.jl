@@ -1,15 +1,18 @@
 using Test
 using VlasovMethods
 
-# A recorded list of the exported names of `VlasovMethods`, so that no export can leave the
-# module without a `CHANGELOG.md` line that names it. A removed name is written as two joined
-# fragments, so that its literal form occurs nowhere under `test/`.
+# The export baseline covers the names `v0.2.1` exports and every name exported since that tag.
+# No export can leave the module without a `CHANGELOG.md` line that names it, and
+# `REMOVED_EXPORTS` carries those names. A removed name that occurs
+# nowhere under `test/` is written as two joined fragments, so that its literal form does not
+# appear here either.
 const BASE_EXPORTS = Symbol[
     :..,
     :AnalyticHamiltonian,
     :BSplineBasis,
     :Bump,
     :BumpOnTail,
+    :CLB_rhs,
     :CollisionEntropy,
     :ConservativeLenardBernstein,
     :Constraint,
@@ -25,6 +28,7 @@ const BASE_EXPORTS = Symbol[
     :GradedMesh,
     :GridDistribution,
     :IntegratorParameters,
+    :LB_rhs,
     :Landau,
     :LenardBernstein,
     :MetriplecticLenardBernstein,
@@ -103,7 +107,7 @@ const BASE_EXPORTS = Symbol[
 
 # The recorded names that the module does not export. Each is the bold lead of its
 # `CHANGELOG.md` bullet.
-const REMOVED_EXPORTS = Symbol[Symbol("DiffEq", "Integrator"), :run]
+const REMOVED_EXPORTS = Symbol[:CLB_rhs, Symbol("DiffEq", "Integrator"), :LB_rhs, :run]
 
 @testset "Exported names" begin
     # The recorded names missing from the module are exactly the documented removals. A name
@@ -122,4 +126,18 @@ const REMOVED_EXPORTS = Symbol[Symbol("DiffEq", "Integrator"), :run]
     for name in REMOVED_EXPORTS
         @test occursin("- **`" * string(name) * "`", changelog)
     end
+end
+
+@testset "The release notes' dependency claims" begin
+    changelog = read(joinpath(pkgdir(VlasovMethods), "CHANGELOG.md"), String)
+    flat = replace(changelog, r"\s+" => " ")  # a sentence is matched across its line wrap
+
+    # The compat bullet explains omitted dependency rows without denying re-exports.
+    # `Spline` and `derivative` are re-exported, so a claim that nothing is re-exported is false.
+    @test !occursin(r"nothing (here )?is re-exported", flat)
+    @test occursin("The dependencies that left or joined `[deps]` in the same interval have no row.", flat)
+
+    # An *Open Issues* heading exists in neither file, so neither file may cite one.
+    known_issues = read(joinpath(pkgdir(VlasovMethods), "KNOWN_ISSUES.md"), String)
+    @test !occursin("Open Issues", changelog) && !occursin("Open Issues", known_issues)
 end

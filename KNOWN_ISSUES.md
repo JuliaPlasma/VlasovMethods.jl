@@ -254,12 +254,10 @@ takes the next `K<n>`.
 - **kind:** not verified
 - **found:** #62
 
-### K33 · Two comments and the CHANGELOG name something a reader cannot find.
+### K33 · A comment names something a reader cannot find.
 
 - **location:** `src/gridbased/collisions.jl:2`
 - **evidence:** The comment at `:2` says "A N × N × N × tensor" and does not name `N`.
-  `CHANGELOG.md:226` says the open items "are recorded under *Open Issues*", and the CHANGELOG
-  has no such heading: they are in `KNOWN_ISSUES.md`.
 - **kind:** docs
 - **found:** #62
 
