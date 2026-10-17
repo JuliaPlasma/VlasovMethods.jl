@@ -165,7 +165,9 @@ end
 
 The growth rate ``γ`` of the field energy history `W` at the times `t`: half the least-squares
 slope of ``\\log W`` over the selected local maxima, because ``W ∝ |E|² ∝ e^{2γt}``. The times
-are physical time, so this is the physical growth rate.
+are physical time, so this is the physical growth rate. The notebook this package's reduced-order
+work follows plotted that slope itself under the name ``γ``, so the rates here are half the figures
+it drew.
 
 A maximum is a point no lower than the `window` points on each side, and a flat maximum counts
 once, at its first index. `maxima` selects which of them the fit uses, by their order along `t`,
