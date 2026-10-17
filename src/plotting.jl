@@ -1,4 +1,4 @@
-# Plotting is a package extension. This file declares the two functions and documents them;
+# Plotting is a package extension. This file declares the three functions and documents them;
 # `ext/VlasovMethodsMakieExt.jl` holds every method, so the package loads with no Makie
 # installed, and each name is a function with no methods until `CairoMakie` is loaded.
 
@@ -72,75 +72,35 @@ a title, a size or an axis label.
 function plot_particles end
 
 @doc raw"""
-    plot_errors(t, series) -> Figure
+    plot_series(t, series; labels = nothing, xlabel = "t", ylabel = "") -> Figure
 
-The error norms of a sweep against its saved times `t`: one line per element of `series`.
-
-Defined in a package extension: load `CairoMakie` to make it available.
-
-```julia
-using VlasovMethods, CairoMakie
-fig = plot_errors(t, (x2, xmax))
-```
-
-`series` is any collection of vectors of `length(t)` values — the entries of the `NamedTuple` of
-[`trajectory_errors`](@ref) for one parameter, `(nₚ, nₛ)` input, or a column of each entry for
-`(nₚ, nₛ, nparam)` input, the `potential_error` of each parameter, or the two together. Each
-element is one line, and the axis is labelled `t` and `error`; the axis is linear, so set a log
-scale on the returned `Figure`'s axis to read a decaying error.
-
-# Throws
-
-- `ArgumentError` when `series` holds no line, or a line holds no value.
-- `DimensionMismatch` when a series is not as long as the times.
-"""
-function plot_errors end
-
-@doc raw"""
-    plot_energy(t, series) -> Figure
-
-The field energy of a sweep against its saved times `t`: one line per element of `series`.
+One line per element of `series` against the abscissae `t`, on one axis.
 
 Defined in a package extension: load `CairoMakie` to make it available.
 
 ```julia
 using VlasovMethods, CairoMakie
-fig = plot_energy(t, (W_hfm, W_rom))
+fig = plot_series(ts, (x2, xmax); labels = ["x2", "xmax"], ylabel = "error")
+fig = plot_series(ts, (W_hfm, W_rom); labels = ["HFM", "ROM"], ylabel = "field energy")
+fig = plot_series(μ, (γ_hfm, γ_rom); labels = ["HFM", "ROM"], xlabel = "parameter", ylabel = "γ")
 ```
 
-`series` is any collection of series of `length(t)` values: the field energies `W` of a full-order
-and a reduced march, the energy `H` of a conservative one, or its drift `ΔH/H`. Each element is
-one line, and the axis is labelled `t` and `energy`, so a caller plots the two quantities of one
-item on one figure. The axis is linear, and the caller sets a log scale on the returned `Figure`
-where the values span orders of magnitude.
+`series` is any collection of vectors of `length(t)` values: the entries of the `NamedTuple` of
+[`trajectory_errors`](@ref) for one parameter, or a column of each entry for `(nₚ, nₛ, nparam)`
+input; the `potential_error` of each parameter; the field energies `W` of a full-order and a
+reduced march, the energy `H` of a conservative one, or its drift `ΔH/H`, against the saved times;
+or the [`growth_rate`](@ref) values of a sweep against the equation parameter. `t` holds the
+abscissa of each value, so one figure holds the quantities that share it.
+
+`labels` names the lines. It is `nothing`, which draws no legend, or a collection with one label
+per element of `series`, in the same order, which is drawn as a legend of the axis. `xlabel` and
+`ylabel` label the axes. The axis is linear, so set a log scale on the axis of the returned
+`Figure` to read a decaying error, or values that span orders of magnitude.
 
 # Throws
 
 - `ArgumentError` when `series` holds no line, or a line holds no value.
-- `DimensionMismatch` when a series is not as long as the times.
+- `DimensionMismatch` when a series is not as long as `t`, and when `labels` does not hold one
+  label per series.
 """
-function plot_energy end
-
-@doc raw"""
-    plot_growth_rate(t, series) -> Figure
-
-The growth rates of a sweep against the equation parameter `t`: one line per element of `series`.
-
-Defined in a package extension: load `CairoMakie` to make it available.
-
-```julia
-using VlasovMethods, CairoMakie
-fig = plot_growth_rate(μ, (γ_rom, γ_hfm))
-```
-
-`t` holds the parameter of each sample of the sweep and `series` any collection of
-`length(t)`-long series of [`growth_rate`](@ref) values. Each element is one line, and the axis is
-labelled `parameter` and `γ`, so the full-order rates of a sweep against the reduced ones show the
-model's error across the parameter range.
-
-# Throws
-
-- `ArgumentError` when `series` holds no line, or a line holds no value.
-- `DimensionMismatch` when a series is not as long as the parameter values.
-"""
-function plot_growth_rate end
+function plot_series end

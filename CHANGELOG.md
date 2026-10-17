@@ -23,7 +23,11 @@ their own, except for what they removed and narrowed, which is listed in full be
   `efield!` and the value of `energy` by `χ²`, while `update!` and `coefficients` forward to
   `field` unchanged, because the deposit and the solve carry no amplitude. It is an
   `ElectricField`, so a reduced march wraps it as `ReducedElectricField(ScaledField(f, χ), Ψ, X₀)`
-  and marches in the scaled time. A `χ` that is not finite and positive throws an
+  and marches in the scaled time. `integrate_vp` and `reduced_integrate_vp` take the scale of a
+  `ScaledField` from `params.χ`, the one source of `χ`: they march a `ScaledField`, or a reduced
+  field over one, at the `χ` of the parameters and not at the `χ` it was built with. The energy
+  divides by `χ²` and not by `χ⁴`, because `wᵢ·E(xᵢ)/χ²` is the force of the energy `W/χ²`.
+  A `χ` that is not finite and positive throws an
   `ArgumentError`, and each division converts `χ` to the element type of the value it divides, so
   a `Float32` field with a `Float64` `χ` stays `Float32`.
 
@@ -60,8 +64,11 @@ their own, except for what they removed and narrowed, which is listed in full be
 
 - **`growth_rate`.** `growth_rate(t, W; window = 2, maxima = 2:5)` is the field's growth rate `γ`,
   **half** the least-squares slope of `log W` over the selected local maxima, because
-  `W ∝ |E|² ∝ e^{2γt}`. The notebook this package's reduced-order work follows plotted that slope
-  itself under the name `γ`, so the rates here are half the figures it drew. The fit runs in
+  `W ∝ |E|² ∝ e^{2γt}`. A maximum is a point no lower than the `window` points on each side whose
+  first differing sample on its right is lower, so a flat maximum counts once, at its first index,
+  and a rising shoulder is no maximum. The notebook this package's reduced-order work follows
+  plotted the slope itself under the name `γ`, so the rates here are half the figures it drew.
+  The fit runs in
   `eltype(W)` in closed form, so the package takes no `Statistics` dependency. A `t` and a `W` of
   different lengths throw a `DimensionMismatch`. A `window` below `1`, a `maxima` that repeats an
   index, selects fewer than two maxima, reaches past the maxima found or reaches an index below
@@ -72,22 +79,13 @@ their own, except for what they removed and narrowed, which is listed in full be
 - **`best_and_worst`.** The indices of the smallest and of the largest of `abs.(γr .- γh)`: the
   parameters of a sweep whose growth rates agree and disagree most. A tie takes its first index.
 
-- **`plot_errors`.** One line per element of `series` against the saved times, with the axis
-  labelled `t` and `error`. `series` takes the entries of `trajectory_errors` for one parameter,
-  or a column of each entry for `(nₚ, nₛ, nparam)` input, the potential error of each parameter, or
-  the two together. The axis is linear, so set a log scale on the returned
-  `Figure` to read a decaying error. It is defined in the package extension, so `CairoMakie` must
-  be loaded.
-
-- **`plot_energy`.** The field energy of a sweep against its saved times, with the axis labelled
-  `t` and `energy`, so the two energies of one item share a figure. A series is not restricted to a
-  field energy: the total energy of a conservative model, or its drift, plots the same way. It is
-  defined in the package extension, so `CairoMakie` must be loaded.
-
-- **`plot_growth_rate`.** The growth rates of a sweep against the equation parameter, with the axis
-  labelled `parameter` and `γ`, so the full-order rates against the reduced ones show the model's
-  error across the parameter range. It is defined in the package extension, so `CairoMakie` must be
-  loaded.
+- **`plot_series`.** `plot_series(t, series; labels = nothing, xlabel = "t", ylabel = "")` draws
+  one line per element of `series` against `t`, so one function plots the error norms of
+  `trajectory_errors` and `potential_error`, the field energies and the energy drift of a march
+  against the saved times, and the growth rates of a sweep against the equation parameter.
+  `labels` names the lines in a legend, one label per series; a count that differs throws a
+  `DimensionMismatch`. The axis is linear, so set a log scale on the returned `Figure` to read a
+  decaying error. It is defined in the package extension, so `CairoMakie` must be loaded.
 
 - The `plot_particles` method on a `Snapshots` draws one saved state,
   `SS.X[1, :, ts, p]` against `SS.V[1, :, ts, p]`, so one frame of a march is one call.

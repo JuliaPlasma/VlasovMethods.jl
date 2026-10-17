@@ -161,6 +161,26 @@ end
     # the fixture of the decided edge, whose three maxima the refusals below name
     @test VlasovMethods._find_maxima(T[1, 2, 1, 3, 1, 4, 1], 1) == [2, 4, 6]
 
+    # a rising shoulder is no maximum: the first sample that differs from it on its right is
+    # higher, so the history is still climbing. The shoulder of `1` before the peak of `2` is
+    # no maximum of a window of one, and neither is the longer shoulder of a window of two, whose
+    # equal neighbours alone do not rule it out
+    @test VlasovMethods._find_maxima(T[0, 1, 1, 2, 0], 1) == [4]
+    @test VlasovMethods._find_maxima(T[0, 0, 1, 1, 1, 2, 0, 0], 2) == [6]
+    # a plateau that runs to the end of the history never falls, so it is no maximum either
+    @test isempty(VlasovMethods._find_maxima(T[0, 1, 2, 2, 2], 1))
+
+    # a plateau that falls after several equal samples is one maximum at its first index, and the
+    # fall may come after more equal samples than the window holds
+    @test VlasovMethods._find_maxima(T[0, 2, 2, 2, 2, 1, 0], 1) == [2]
+    @test VlasovMethods._find_maxima(T[0, 0, 2, 2, 2, 2, 1, 0, 0], 2) == [3]
+
+    # a shoulder before a peak does not enter the fit: the rate of the history with the shoulder
+    # is that of the same history without it
+    ts = collect(T, 0:7)
+    @test growth_rate(ts, T[1, 5, 1, 2, 2, 8, 1, 1]; window = 1, maxima = 1:2) ==
+          growth_rate(ts, T[1, 5, 1, 2, 3, 8, 1, 1]; window = 1, maxima = 1:2)
+
     # one maximum per plateau: a plateau and its first sample alone give the same rate, so the
     # repeated sample of the plateau does not enter the fit twice
     tp = collect(T, 0:5)
@@ -257,11 +277,10 @@ end
     @test best != worst
 end
 
-@testset "check 8: the growth_rate docstring names the notebook convention" begin
-    # The rate here is half the slope of `log W`, and the notebook this package's reduced-order
-    # work follows plotted that slope itself under the name `γ`. The docstring has to say so, or a
-    # reader takes these rates for the figures the notebook drew.
+@testset "check 8: the growth_rate docstring states the rate it returns" begin
+    # The rate is half the slope of `log W`, and the docstring says so without naming a source
+    # outside the package
     doc = lowercase(string(@doc growth_rate))
-    @test occursin("notebook", doc)
-    @test occursin("half the figures", doc)
+    @test occursin("half the least-squares", doc)
+    @test !occursin("notebook", doc)
 end

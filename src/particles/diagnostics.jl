@@ -116,16 +116,29 @@ function saved_indices(nₛ::Integer)
     return (nₛ, div(3 * (nₛ - 1), 4) + 1, div(nₛ - 1, 2) + 1)
 end
 
-# The indices of the local maxima of `w`: a point no lower than the `window` points on each side.
-# A point equal to the sample on its left is no maximum of its own, so a flat plateau counts once,
-# at its first index, and the fit does not weight the plateau twice. An equal height elsewhere in
-# the window does not drop a peak, so two equal peaks that are apart are two maxima.
+# Whether the first sample to the right of `w[i]` that differs from it is lower. A history that
+# is equal to `w[i]` up to its end never falls, so it does not.
+function _falls_after(w::AbstractVector, i::Int)
+    j = i + 1
+    while j ≤ lastindex(w) && w[j] == w[i]
+        j += 1
+    end
+    return j ≤ lastindex(w) && w[j] < w[i]
+end
+
+# The indices of the local maxima of `w`: a point no lower than the `window` points on each side,
+# whose first differing sample on its right is lower. A point equal to the sample on its left is
+# no maximum of its own, so a flat plateau counts once, at its first index, and the fit does not
+# weight the plateau twice; a rising shoulder, whose plateau ends in a higher sample, is no
+# maximum. An equal height elsewhere in the window does not drop a peak, so two equal peaks that
+# are apart are two maxima.
 function _find_maxima(w::AbstractVector, window::Int)
     inds = Int[]
     for i in (1 + window):(length(w) - window)
         left = @view w[(i - window):(i - 1)]
         right = @view w[(i + 1):(i + window)]
-        if w[i] ≥ maximum(left) && w[i] ≥ maximum(right) && w[i - 1] != w[i]
+        if w[i] ≥ maximum(left) && w[i] ≥ maximum(right) && w[i - 1] != w[i] &&
+           _falls_after(w, i)
             push!(inds, i)
         end
     end
@@ -147,12 +160,11 @@ end
 
 The growth rate ``γ`` of the field energy history `W` at the times `t`: half the least-squares
 slope of ``\\log W`` over the selected local maxima, because ``W ∝ |E|² ∝ e^{2γt}``. The times
-are physical time, so this is the physical growth rate. The notebook this package's reduced-order
-work follows plotted that slope itself under the name ``γ``, so the rates here are half the figures
-it drew.
+are physical time, so this is the physical growth rate.
 
-A maximum is a point no lower than the `window` points on each side, and a flat maximum counts
-once, at its first index. `maxima` selects which of them the fit uses, by their order along `t`,
+A maximum is a point no lower than the `window` points on each side, whose first differing sample
+on its right is lower. A flat maximum counts once, at its first index, and a rising shoulder, a
+plateau that ends in a higher sample, is no maximum. `maxima` selects which of them the fit uses, by their order along `t`,
 which drops the first few maxima; the fit runs in `eltype(W)`, so it takes no dependency on
 `Statistics`.
 

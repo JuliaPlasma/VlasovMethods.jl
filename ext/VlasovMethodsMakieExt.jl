@@ -95,41 +95,38 @@ function VlasovMethods.plot_particles(SS::Snapshots, ts::Integer, p::Integer;
     return fig
 end
 
-# A series plot's pair of arguments, checked before anything is drawn: an empty collection has no
-# line to draw, an empty line holds no value, and a line of another length would pair its values
-# with the wrong abscissae.
-function _check_series(t, series)
+# The arguments of `plot_series`, checked before anything is drawn: an empty collection has no
+# line to draw, an empty line holds no value, a line of another length would pair its values with
+# the wrong abscissae, and a label count that differs from the series count would name the wrong
+# lines.
+function _check_series(t, series, labels)
     isempty(series) && throw(ArgumentError("no series to plot"))
     for y in series
         isempty(y) && throw(ArgumentError("a line holds no value"))
         length(y) == length(t) || throw(DimensionMismatch(
             "a series holds $(length(y)) values; the abscissae hold $(length(t))"))
     end
+    isnothing(labels) || length(labels) == length(series) ||
+        throw(DimensionMismatch(
+            "the labels hold $(length(labels)) names; the series hold $(length(series)) lines"))
     return nothing
 end
 
-# The one-axis figure of a series plot: one line per series, against the common abscissae.
-function _series_figure(t, series; xlabel, ylabel)
-    _check_series(t, series)
+function VlasovMethods.plot_series(t::AbstractVector, series;
+        labels = nothing, xlabel = "t", ylabel = "")
+    _check_series(t, series, labels)
 
     fig = Figure()
     ax = Axis(fig[1, 1]; xlabel = xlabel, ylabel = ylabel)
-    for y in series
-        lines!(ax, t, y)
+    for (i, y) in enumerate(series)
+        if isnothing(labels)
+            lines!(ax, t, y)
+        else
+            lines!(ax, t, y; label = labels[i])
+        end
     end
+    isnothing(labels) || axislegend(ax)
     return fig
-end
-
-function VlasovMethods.plot_errors(t::AbstractVector, series)
-    return _series_figure(t, series; xlabel = "t", ylabel = "error")
-end
-
-function VlasovMethods.plot_energy(t::AbstractVector, series)
-    return _series_figure(t, series; xlabel = "t", ylabel = "energy")
-end
-
-function VlasovMethods.plot_growth_rate(t::AbstractVector, series)
-    return _series_figure(t, series; xlabel = "parameter", ylabel = "γ")
 end
 
 end

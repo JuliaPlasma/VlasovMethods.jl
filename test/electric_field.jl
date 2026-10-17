@@ -242,3 +242,36 @@ end
         @test _alloc_update((f, x, w, t) -> similar(x), sc, q, w, t) > 0
     end
 end
+
+@testset "the energy of a ScaledField carries χ², the potential of its field" begin
+    # The scaled field's acceleration `E/χ²` is the force of the energy `W/χ²` per unit weight:
+    # `wᵢ aᵢ = -∂W_χ/∂xᵢ`. That identity, not the square of the divided field, fixes the divisor,
+    # so the energy divides by `χ²` and not by `χ⁴`. Here `χ = 3`, which no power of two hides.
+    field, q, w = poisson_field(Float64)
+    χ = 3.0
+    sc = ScaledField(field, χ)
+
+    function energy_at(x)
+        update!(sc, x, w, 0.0)
+        return energy(sc)
+    end
+
+    update!(sc, q, w, 0.0)
+    force = w .* efield!(sc, similar(q), q)
+
+    h = 1e-6
+    gradient = map(eachindex(q)) do i
+        qp, qm = copy(q), copy(q)
+        qp[i] += h
+        qm[i] -= h
+        (energy_at(qp) - energy_at(qm)) / 2h
+    end
+    scale = maximum(abs, force)
+    @test scale > 0
+    @test maximum(abs, force .+ gradient) ≤ 1e-8 * scale
+
+    # the controls: the energy of the divided field, `W/χ⁴`, and the unscaled energy are not the
+    # potential of that force
+    @test maximum(abs, force .+ gradient ./ χ^2) > 0.1 * scale
+    @test maximum(abs, force .+ gradient .* χ^2) > 0.1 * scale
+end

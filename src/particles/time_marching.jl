@@ -203,6 +203,10 @@ product, and the times handed to the field are unscaled: the kick of step `it` i
 `(it - ½)·IP.dt`, and the save of step `it` at `it·IP.dt`. So a time-independent field marched
 with `(dt, χ = 2)` equals the same field marched with `(2dt, χ = 1)` state for state.
 
+**`params.χ` is the one source of the scale.** When `efield` is a [`ScaledField`](@ref) or a
+`ReducedElectricField` over one, the march rebuilds it over the same field with `params.χ`, so the
+`χ` it was built with is not used. Any other field is marched as it is.
+
 It returns `nothing`; the states are in `SS`, and the integration parameters hold the times.
 
 # Throws
@@ -232,6 +236,9 @@ function reduced_integrate_vp(P₀::ParticleList{T},
 
     nsave = div(IP.nₜ, IP.nₛ - 1)
 
+    # the field at the scale of the parameters
+    field = _with_scale(efield, params.χ)
+
     # initial conditions: the reduced coordinates of the particle state
     mul!(IC.zₓ, Ψ', vec(P₀.x))
     mul!(IC.zᵥ, Ψ', vec(P₀.v))
@@ -240,14 +247,14 @@ function reduced_integrate_vp(P₀::ParticleList{T},
     # effective timestep: the χ scale, converted to `T` before the product
     Δt = IP.dt * T(params.χ)
 
-    save && save_solution(SS, IC, Ψ, efield, p, zero(T), 1)
+    save && save_solution(SS, IC, Ψ, field, p, zero(T), 1)
 
     for it in 1:IP.nₜ
         # the times of the field are unscaled
-        leapfrog_step!(IC, efield, Δt, (it - T(0.5)) * IP.dt)
+        leapfrog_step!(IC, field, Δt, (it - T(0.5)) * IP.dt)
 
         if save && it % nsave == 0
-            save_solution(SS, IC, Ψ, efield, p, it * IP.dt, div(it, nsave) + 1)
+            save_solution(SS, IC, Ψ, field, p, it * IP.dt, div(it, nsave) + 1)
         end
     end
 
@@ -328,8 +335,8 @@ end
 The full-order leapfrog march of an [`ElectricField`](@ref), the same march as
 [`reduced_integrate_vp`](@ref) without a basis: the state of `P₀` advanced `IP.nₜ` steps of
 `IP.dt` by [`full_leapfrog_step!`](@ref), with one kick of the full field of `efield` per step. A
-reduced model marches the [`ScaledField`](@ref) `ScaledField(f, χ)` of the same field, so the two
-marches of one comparison take the same field and the same `χ`.
+reduced model marches the [`ScaledField`](@ref) of the same field, so the two marches of one
+comparison take the same field and the same `χ`, which is `params.χ`.
 With `nsave = nₜ/(nₛ - 1)`, the state of every `nsave`-th step `it`, the initial state included,
 is written into the save `div(it, nsave) + 1` of the sample `p` of the snapshots `SS` by
 [`save_full_solution`](@ref).
@@ -342,6 +349,10 @@ else:** the step is `Δt = IP.dt·T(params.χ)`, converted to the march's elemen
 product, and the times handed to the field are unscaled: the kick of step `it` is at its midpoint
 `(it - ½)·IP.dt`, and the save of step `it` at `it·IP.dt`. So a time-independent field marched
 with `(dt, χ = 2)` equals the same field marched with `(2dt, χ = 1)` state for state.
+
+**`params.χ` is the one source of the scale.** When `efield` is a [`ScaledField`](@ref), the march
+rebuilds it over the same field with `params.χ`, so the `χ` it was built with is not used, and
+the field and its energy are divided by the `χ²` of the step. Any other field is marched as it is.
 
 It returns `nothing`; the states are in `SS`, and the integration parameters hold the times.
 
@@ -381,13 +392,16 @@ function integrate_vp(P₀::ParticleList{T},
     # field are unscaled, so a step of `IP.dt` in `IP.t` is one step of the march.
     Δt = IP.dt * T(params.χ)
 
-    save && save_full_solution(SS, x, v, w, efield, p, zero(T), 1)
+    # the field at the scale of the parameters
+    field = _with_scale(efield, params.χ)
+
+    save && save_full_solution(SS, x, v, w, field, p, zero(T), 1)
 
     for it in 1:IP.nₜ
-        full_leapfrog_step!(x, v, a, w, efield, Δt, (it - T(0.5)) * IP.dt)
+        full_leapfrog_step!(x, v, a, w, field, Δt, (it - T(0.5)) * IP.dt)
 
         if save && it % nsave == 0
-            save_full_solution(SS, x, v, w, efield, p, it * IP.dt, div(it, nsave) + 1)
+            save_full_solution(SS, x, v, w, field, p, it * IP.dt, div(it, nsave) + 1)
         end
     end
 

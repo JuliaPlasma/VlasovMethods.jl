@@ -99,7 +99,7 @@ export check_conservation_basis, project_function, project_Maxwellian
 
 include("plotting.jl")
 
-export plot_distribution, plot_energy, plot_errors, plot_growth_rate, plot_particles
+export plot_distribution, plot_particles, plot_series
 
 # entropy models
 

@@ -6,8 +6,8 @@ using ReducedBasisMethods: get_DEIM_indices
 using ReducedComplexityModeling: ParameterSpace, Parameter
 using Test
 using VlasovMethods
-using VlasovMethods: PoissonField, coefficients, full_leapfrog_step!, h5save,
-                     leapfrog_step!, save_full_solution, save_solution
+using VlasovMethods: PoissonField, coefficients, efield!, energy, full_leapfrog_step!,
+                     h5save, leapfrog_step!, save_full_solution, save_solution, update!
 
 include("../helpers/allocation_barriers.jl")
 include("../helpers/poisson_field.jl")
@@ -341,6 +341,56 @@ end
         Δt, t) > 0
     @test _alloc_full_save((SS, x, v, w, e, p, t, ts) -> similar(SS.X), f.SS, x, v, w,
         f.field, 1, t, ts) > 0
+end
+
+@testset "the marches take the scale of a ScaledField from params.χ, $T" for T in (Float64, Float32)
+    n, nt, dt, χ = 64, 20, T(1e-3), 2
+    plt, field = bump_on_tail(T; n = n)
+    _, plain = bump_on_tail(T; n = n)
+    nh = length(coefficients(field))
+
+    # The reference holds no `ScaledField`: the leapfrog of the plain field at the step `dt·χ`, with
+    # the acceleration `E/χ²` and the energy `W/χ²` written out.
+    x, v, w = copy(vec(plt.x)), copy(vec(plt.v)), copy(vec(plt.w))
+    a = zeros(T, n)
+    Δt = dt * T(χ)
+    for it in 1:nt
+        x .+= (Δt / 2) .* v
+        update!(plain, x, w, zero(T))
+        efield!(plain, a, x)
+        a ./= T(χ)^2
+        v .+= Δt .* a
+        x .+= (Δt / 2) .* v
+    end
+    update!(plain, x, w, zero(T))
+    W = energy(plain) / T(χ)^2
+
+    # a field built with another `χ` than the parameters hold marches at the parameters' `χ`
+    for stored in (2, 5, T(0.25))
+        scaled = ScaledField(field, stored)
+        SS = Snapshots(T, 1, n, nh, 2, space(T))
+        ip = IntegratorParameters(dt, nt, 2, nh, n, 1)
+        integrate_vp(plt, (χ = χ,), scaled, SS, ip, 1)
+        @test SS.X[1, :, 2, 1] == x
+        @test SS.V[1, :, 2, 1] == v
+        @test SS.W[2, 1] == W
+    end
+
+    # the scale reaches the field: the march of the plain field at the same `χ` differs
+    SSp = full_march(T, plt, field, nt, 2; dt = dt, χ = χ)
+    @test SSp.V[1, :, 2, 1] != v
+
+    # the reduced march of the identity basis agrees with it bit for bit, whatever `χ` the
+    # reduced field carries
+    Ψ = Matrix{T}(I, n, n)
+    ef = ReducedElectricField(ScaledField(field, 7), Ψ, Ψ' * vec(plt.x))
+    SSr = Snapshots(T, 1, n, nh, 2, space(T))
+    IPr = IntegratorParameters(dt, nt, 2, nh, n, 1)
+    reduced_integrate_vp(
+        plt, Ψ, (χ = χ,), ef, SSr, IPr, ReducedIntegratorCache(IPr, n), 1)
+    @test SSr.X[1, :, 2, 1] == x
+    @test SSr.V[1, :, 2, 1] == v
+    @test SSr.W[2, 1] == W
 end
 
 @testset "the guards of the full-order march, $T" for T in (Float64, Float32)

@@ -260,8 +260,8 @@ end
     end
 end
 
-# The three series plots hold the `(x, y)` pairs a `lines!` was handed, so the axis carries one
-# plot per series and the read-back of plot `i` is the `Point`s of that series against its times.
+# `plot_series` holds the `(x, y)` pairs a `lines!` was handed, so the axis carries one plot per
+# series and the read-back of plot `i` is the `Point`s of that series against its times.
 function series_axis(fig, nplots)
     @test fig isa Figure
     @test length(fig.content) == 1
@@ -276,48 +276,64 @@ function series_points(fig, i)
     return plot[1][]
 end
 
-@testset "the series plots draw each series against the times, $T" for T in (Float64, Float32)
+@testset "plot_series draws each series against the times, $T" for T in (Float64, Float32)
     t = collect(T, 0:0.25:2)
     s1, s2 = sin.(t), cos.(t)
 
-    for (f, xlabel, ylabel) in ((plot_errors, "t", "error"),
-        (plot_energy, "t", "energy"),
-        (plot_growth_rate, "parameter", "γ"))
-        fig = f(t, (s1, s2))
-        ax = series_axis(fig, 2)
+    # the axis labels default to `t` and nothing, and the keywords set them
+    fig = plot_series(t, (s1, s2))
+    ax = series_axis(fig, 2)
+    @test ax.xlabel[] == "t"
+    @test ax.ylabel[] == ""
+    @test ax.title[] == ""
+    p1, p2 = series_points(fig, 1), series_points(fig, 2)
+    @test first.(p1) == t && last.(p1) == s1
+    @test first.(p2) == t && last.(p2) == s2
 
-        @test ax.xlabel[] == xlabel
-        @test ax.ylabel[] == ylabel
-        @test ax.title[] == ""
-        p1, p2 = series_points(fig, 1), series_points(fig, 2)
-        @test first.(p1) == t && last.(p1) == s1
-        @test first.(p2) == t && last.(p2) == s2
+    labelled = plot_series(t, (s1, s2); xlabel = "parameter", ylabel = "γ")
+    @test series_axis(labelled, 2).xlabel[] == "parameter"
+    @test series_axis(labelled, 2).ylabel[] == "γ"
 
-        file = tempname() * ".png"
-        save(file, fig)
-        @test filesize(file) > 0
-    end
+    file = tempname() * ".png"
+    save(file, fig)
+    @test filesize(file) > 0
 
-    # a single series is one plot
-    @test length(series_axis(plot_errors(t, (s1,)), 1).scene.plots) == 1
+    # a single series is one plot, and a vector of series is as good as a tuple
+    @test length(series_axis(plot_series(t, (s1,)), 1).scene.plots) == 1
+    @test length(series_axis(plot_series(t, [s1, s2]), 2).scene.plots) == 2
+
+    # the labels name the lines in a legend, in the order of the series
+    named = plot_series(t, (s1, s2); labels = ["sin", "cos"])
+    @test length(named.content) == 2
+    ax, legend = named.content
+    @test ax isa Axis
+    @test legend isa Legend
+    @test [p.label[] for p in ax.scene.plots] == ["sin", "cos"]
+    @test [e.label[] for e in only(legend.entrygroups[])[2]] == ["sin", "cos"]
+    save(file, named)
+    @test filesize(file) > 0
+
+    # no labels, no legend
+    @test length(fig.content) == 1
+
+    # a label count that differs from the series count would name the wrong lines
+    @test_throws DimensionMismatch plot_series(t, (s1, s2); labels = ["sin"])
+    @test_throws DimensionMismatch plot_series(t, (s1,); labels = ["sin", "cos"])
 
     # an empty collection holds no line, and a time vector of the wrong length would pair the
     # values with the wrong abscissae
-    @test_throws ArgumentError plot_errors(t, ())
-    @test_throws DimensionMismatch plot_errors(t, (s1, s2[1:(end - 1)]))
-    @test_throws ArgumentError plot_energy(t, ())
-    @test_throws DimensionMismatch plot_growth_rate(t, (vcat(s1, s1),))
+    @test_throws ArgumentError plot_series(t, ())
+    @test_throws DimensionMismatch plot_series(t, (s1, s2[1:(end - 1)]))
+    @test_throws DimensionMismatch plot_series(t, (vcat(s1, s1),))
 
-    # the guards of each of the three plots: an empty line holds no value and is refused before its
-    # length is compared with `t`, so an empty line under an empty `t` is refused too, while a
-    # non-empty line under an empty `t` is the length mismatch. The phrases tell the two
-    # `ArgumentError`s apart, which the type alone does not.
-    for f in (plot_errors, plot_energy, plot_growth_rate)
-        @test occursin("no series to plot", message_of(() -> f(t, ())))
-        @test occursin("a line holds no value", message_of(() -> f(T[], (T[],))))
-        @test occursin("a line holds no value", message_of(() -> f(t, (T[],))))
-        @test_throws DimensionMismatch f(T[], ([one(T)],))
-    end
+    # an empty line holds no value and is refused before its length is compared with `t`, so an
+    # empty line under an empty `t` is refused too, while a non-empty line under an empty `t` is
+    # the length mismatch. The phrases tell the two `ArgumentError`s apart, which the type alone
+    # does not.
+    @test occursin("no series to plot", message_of(() -> plot_series(t, ())))
+    @test occursin("a line holds no value", message_of(() -> plot_series(T[], (T[],))))
+    @test occursin("a line holds no value", message_of(() -> plot_series(t, (T[],))))
+    @test_throws DimensionMismatch plot_series(T[], ([one(T)],))
 end
 
 @testset "plot_particles draws a saved state of the snapshots, $T" for T in (Float64, Float32)

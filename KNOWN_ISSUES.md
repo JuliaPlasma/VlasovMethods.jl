@@ -391,8 +391,8 @@ takes the next `K<n>`.
   `ϕ ≡ 0`, and no error occurs. The author decided that `VlasovPoisson` warns in that case, and
   the inner constructor at `:11-15` has no `@warn`. Three questions are open: the text of the message;
   whether `sodeensemble` also warns for an empty member; and whether `VlasovWithExternalFields`
-  warns too. It does not: `src/models/vlasov_with_external_fields.jl:67` and `CHANGELOG.md:333`
-  say that its constructor does not warn.
+  warns too. It does not: `src/models/vlasov_with_external_fields.jl:67` and the "vacuum run"
+  bullet of `CHANGELOG.md` say that its constructor does not warn.
 - **kind:** defect
 - **found:** #71
 
@@ -537,7 +537,7 @@ takes the next `K<n>`.
 
 ### K65 · `best_and_worst` names one parameter as both the best and the worst when a reduced growth rate is `NaN`.
 
-- **location:** `src/particles/diagnostics.jl:208`
+- **location:** `src/particles/diagnostics.jl:220`
 - **evidence:** `best_and_worst([1.0, 2, 3], [1.0, NaN, 3.5])` returns `(2, 2)`. A `NaN` in
   `abs.(γr .- γh)` leaves `argmin` and `argmax` at the same index. `NaN` and `Inf` propagate by
   design, with no guard, so the pair of indices is the caller's to read.
