@@ -32,13 +32,19 @@ using VlasovMethods
         @assert Base.get_extension(VlasovMethods, :VlasovMethodsMakieExt) === nothing
         @assert isempty(methods(VlasovMethods.plot_distribution))
         @assert isempty(methods(VlasovMethods.plot_particles))
+        @assert isempty(methods(VlasovMethods.plot_errors))
+        @assert isempty(methods(VlasovMethods.plot_energy))
+        @assert isempty(methods(VlasovMethods.plot_growth_rate))
 
         grid = VlasovMethods.GridDistribution(4, 3, (0.0, 1.0), (-1.0, 1.0))
         particles = VlasovMethods.ParticleDistribution(1, 1, 1)
         for call in (
             () -> VlasovMethods.plot_distribution(grid),
             () -> VlasovMethods.plot_distribution(particles; xdomain = (0.0, 1.0), vdomain = (-1.0, 1.0)),
-            () -> VlasovMethods.plot_particles(particles; xdomain = (0.0, 1.0), vdomain = (-1.0, 1.0)))
+            () -> VlasovMethods.plot_particles(particles; xdomain = (0.0, 1.0), vdomain = (-1.0, 1.0)),
+            () -> VlasovMethods.plot_errors([0.0, 1.0], ([0.5, 0.5],)),
+            () -> VlasovMethods.plot_energy([0.0, 1.0], ([0.5, 0.5],)),
+            () -> VlasovMethods.plot_growth_rate([0.0, 1.0], ([0.5, 0.5],)))
             exception = try
                 call()
                 nothing
@@ -69,6 +75,16 @@ end
     @test occursin("load `CairoMakie`", string(@doc VlasovMethods.plot_distribution))
     @test occursin("package extension", string(@doc VlasovMethods.plot_particles))
     @test occursin("load `CairoMakie`", string(@doc VlasovMethods.plot_particles))
+end
+
+@testset "the three series plots name the extension and CairoMakie" begin
+    # `@doc` reads the name literally, so each of the three is spelled out
+    for doc in (string(@doc VlasovMethods.plot_errors),
+        string(@doc VlasovMethods.plot_energy),
+        string(@doc VlasovMethods.plot_growth_rate))
+        @test occursin("package extension", doc)
+        @test occursin("load `CairoMakie`", doc)
+    end
 end
 
 @testset "CairoMakie is a weak dependency" begin

@@ -6,7 +6,8 @@ using ReducedBasisMethods: get_DEIM_indices
 using ReducedComplexityModeling: ParameterSpace, Parameter
 using Test
 using VlasovMethods
-using VlasovMethods: coefficients, h5save, leapfrog_step!, save_solution
+using VlasovMethods: PoissonField, coefficients, full_leapfrog_step!, h5save,
+                     leapfrog_step!, save_full_solution, save_solution
 
 include("../helpers/allocation_barriers.jl")
 include("../helpers/poisson_field.jl")
@@ -227,4 +228,148 @@ end
     @test _alloc4((a, b, c, d) -> similar(a.zₓ), f.ic, f.efield, Δt, t) > 0
     @test _alloc_save((a, b, c, d, e, g, h) -> similar(a.X), f.SS, f.ic, f.Ψ,
         f.efield, 1, t, ts) > 0
+end
+
+# The full-order march's own two barriers. `test/helpers/allocation_barriers.jl` carries the
+# reduced march's `_alloc4` and `_alloc_save`, whose argument lists are those of
+# `leapfrog_step!` and `save_solution`; the full march's buffers are separate arguments, so its
+# step and its save take their own fixed-arity barrier.
+function _alloc_full_step(f::F, x::X, v::V, a::A, w::W, e::E, Δt::D,
+        t::TT) where {F, X, V, A, W, E, D, TT}
+    (f(x, v, a, w, e, Δt, t); @allocated f(x, v, a, w, e, Δt, t))
+end
+function _alloc_full_save(f::F, SS::S, x::X, v::V, w::W, e::E, p::P, t::TT,
+        ts::I) where {F, S, X, V, W, E, P, TT, I}
+    (f(SS, x, v, w, e, p, t, ts); @allocated f(SS, x, v, w, e, p, t, ts))
+end
+
+"""
+A seeded bump-on-tail list of `n` particles: the positions uniform on `(0, 2π/κ)` and the
+velocities the two-population mix of `src/examples/bumpontail.jl`, with equal weights. The
+potential is a periodic spline on the same domain, so the deposit covers it.
+"""
+function bump_on_tail(::Type{T}; n = 64, κ = T(0.3), α = T(0.1), σ = T(0.5), v₀ = T(4.5),
+        seed = 7, ncells = 16) where {T}
+    rng = Xoshiro(seed)
+    x = (T(2π) / κ) .* rand(rng, T, n)
+    v = sqrt(T(2)) .* randn(rng, T, n)
+    for i in 1:n
+        rand(rng) < α && (v[i] = σ * v[i] + v₀)
+    end
+    w = fill(T(1) / n, n)
+    plt = ParticleList(reshape(x, 1, n), reshape(v, 1, n), reshape(w, 1, n))
+    field = PoissonField(Potential(PeriodicBasisSpline((zero(T), T(2π) / κ), 3, ncells)))
+    return plt, field
+end
+
+"""
+The parts of one full-order march, so that one of them can be made wrong: the bump-on-tail list
+`plt`, its `field`, the snapshots `SS`, the parameters `ip` and the caller's `params`, which
+holds `χ`. `ns` defaults to `nₜ + 1`, which saves every step, and `nssnap` defaults to `ns`, so
+that the saved times of the snapshots and the count the parameters ask for can disagree.
+"""
+function full_fixture(::Type{T}; n = 64, nt = 20, ns = nt + 1, nd = 1, dt = T(1e-3),
+        χ = 1, seed = 7, nssnap = ns) where {T}
+    plt, field = bump_on_tail(T; n = n, seed = seed)
+    nh = length(coefficients(field))
+    SS = Snapshots(T, nd, n, nh, nssnap, space(T))
+    ip = IntegratorParameters(dt, nt, ns, nh, n, 1)
+    return (; plt, field, SS, ip, params = (χ = χ,))
+end
+
+"The snapshots of one full-order march of `plt` on `field`, over `nt` steps saved as `ns`."
+function full_march(::Type{T}, plt, field, nt, ns; dt = T(1e-3), χ = 1) where {T}
+    n, nh = size(plt.x, 2), length(coefficients(field))
+    SS = Snapshots(T, 1, n, nh, ns, space(T))
+    ip = IntegratorParameters(dt, nt, ns, nh, n, 1)
+    integrate_vp(plt, (χ = χ,), field, SS, ip, 1)
+    return SS
+end
+
+@testset "check 2: the full-order march, $T" for T in (Float64, Float32)
+    n, χ = 64, 2
+    plt, field = bump_on_tail(T; n = n)
+    x0, v0 = copy(plt.x), copy(plt.v)
+
+    # (a) `χ` is the timestep scale: `(dt, χ = 2)` is `(2dt, χ = 1)` state for state
+    @test full_march(T, plt, field, 20, 21; dt = T(1e-3), χ = χ) ==
+          full_march(T, plt, field, 20, 21; dt = T(2e-3), χ = 1)
+
+    # (b) the full march is the reduced march of the identity basis, bit for bit: a product with
+    # the identity is exact in IEEE arithmetic
+    Ψ = Matrix{T}(I, n, n)
+    nh = length(coefficients(field))
+    SSr = Snapshots(T, 1, n, nh, 21, space(T))
+    IPr = IntegratorParameters(T(1e-3), 20, 21, nh, n, 1)
+    ef = ReducedElectricField(field, Ψ, Ψ' * vec(plt.x))
+    reduced_integrate_vp(
+        plt, Ψ, (χ = χ,), ef, SSr, IPr, ReducedIntegratorCache(IPr, n), 1)
+    full = full_march(T, plt, field, 20, 21; dt = T(1e-3), χ = χ)
+    @test full.X == SSr.X
+    @test full.V == SSr.V
+    @test full.Φ == SSr.Φ
+    @test full.W == SSr.W
+    @test full.K == SSr.K
+    @test full.M == SSr.M
+    @test full == SSr
+
+    # (c) slot 1 holds the initial state and slot `nₛ` the state after `IP.nₜ` steps: a march of
+    # four steps saved as three holds the initial state, the state after two and that after four
+    long = full_march(T, plt, field, 4, 3; dt = T(1e-3), χ = χ)
+    @test long.X[:, :, 1, 1] == reshape(vec(x0), 1, n)
+    @test long.V[:, :, 1, 1] == reshape(vec(v0), 1, n)
+    short = full_march(T, plt, field, 2, 2; dt = T(1e-3), χ = χ)
+    @test short.X[:, :, 2, 1] == long.X[:, :, 2, 1]
+    @test short.V[:, :, 2, 1] == long.V[:, :, 2, 1]
+    @test long.X[:, :, 3, 1] != long.X[:, :, 1, 1]
+
+    # the march leaves the caller's particle list alone
+    @test plt.x == x0 && plt.v == v0
+
+    # (d) one step of the inner loop allocates nothing
+    f = full_fixture(T)
+    x, v, a, w = collect(vec(f.plt.x)), collect(vec(f.plt.v)), zeros(T, n),
+    collect(vec(f.plt.w))
+    Δt, t, ts = T(1e-3), zero(T), 1
+    @test @inferred(full_leapfrog_step!(x, v, a, w, f.field, Δt, t)) === nothing
+    @test @inferred(save_full_solution(f.SS, x, v, w, f.field, 1, t, ts)) === nothing
+    if Base.JLOptions().code_coverage == 0
+        @test _alloc_full_step(full_leapfrog_step!, x, v, a, w, f.field, Δt, t) == 0
+        @test _alloc_full_save(save_full_solution, f.SS, x, v, w, f.field, 1, t, ts) == 0
+    end
+    @test _alloc_full_step((x, v, a, w, e, Δt, t) -> similar(x), x, v, a, w, f.field,
+        Δt, t) > 0
+    @test _alloc_full_save((SS, x, v, w, e, p, t, ts) -> similar(SS.X), f.SS, x, v, w,
+        f.field, 1, t, ts) > 0
+end
+
+@testset "the guards of the full-order march, $T" for T in (Float64, Float32)
+    f = full_fixture(T)
+    march!(f, params) = integrate_vp(f.plt, params, f.field, f.SS, f.ip, 1)
+
+    @test march!(f, f.params) === nothing
+
+    # `χ` is a positive timestep scale, and the comparison is written `> 0` so that `NaN` is
+    # refused with the same exception
+    for χ in (0, 0.0, -1, -1.0, NaN)
+        @test_throws ArgumentError march!(f, (χ = χ,))
+    end
+
+    # the snapshots hold the `nₛ` saved times the parameters ask for
+    @test_throws DimensionMismatch march!(
+        full_fixture(T; nt = 4, ns = 5, nssnap = 4), (χ = 1,))
+
+    # the scalar momentum needs one component
+    @test_throws ArgumentError march!(full_fixture(T; nd = 2), (χ = 1,))
+
+    # the particle count of the list is the particle extent of the snapshots, which the reduced
+    # march has no guard for
+    g = full_fixture(T)
+    bad = Snapshots(T, 1, 63, length(coefficients(g.field)), g.ip.nₛ, space(T))
+    @test_throws DimensionMismatch integrate_vp(g.plt, g.params, g.field, bad, g.ip, 1)
+
+    # the accepted sides: the smallest march, and a march of one particle
+    small = full_fixture(T; n = 1)
+    @test integrate_vp(
+        small.plt, small.params, small.field, small.SS, small.ip, 1) === nothing
 end

@@ -71,4 +71,65 @@ function VlasovMethods.plot_particles(dist::ParticleDistribution{DT, 1, 1};
     return fig
 end
 
+function VlasovMethods.plot_particles(SS::Snapshots, ts::Integer, p::Integer;
+        xdomain, vdomain)
+    1 ≤ ts ≤ size(SS.X, 3) || throw(ArgumentError(
+        "the saved times are 1:$(size(SS.X, 3)); got ts = $ts"))
+    1 ≤ p ≤ size(SS.X, 4) || throw(ArgumentError(
+        "the parameters are 1:$(size(SS.X, 4)); got p = $p"))
+
+    xa, xb = first(xdomain), last(xdomain)
+
+    # the wrap of the particle method above: the two ends of a periodic domain are one point, so a
+    # position that wraps exactly to `xb` is plotted at `xa`
+    x = map(SS.X[1, :, ts, p]) do x₀
+        x̃ = _wrap(x₀, xdomain)
+        x̃ == xb ? xa : x̃
+    end
+
+    fig = Figure()
+    ax = Axis(fig[1, 1];
+        xlabel = "x", ylabel = "v",
+        limits = (xa, xb, first(vdomain), last(vdomain)))
+    scatter!(ax, x, SS.V[1, :, ts, p])
+    return fig
+end
+
+# A series plot's pair of arguments, checked before anything is drawn: an empty collection has no
+# line to draw, an empty line holds no value, and a line of another length would pair its values
+# with the wrong abscissae.
+function _check_series(t, series)
+    isempty(series) && throw(ArgumentError("no series to plot"))
+    for y in series
+        isempty(y) && throw(ArgumentError("a line holds no value"))
+        length(y) == length(t) || throw(DimensionMismatch(
+            "a series holds $(length(y)) values; the abscissae hold $(length(t))"))
+    end
+    return nothing
+end
+
+# The one-axis figure of a series plot: one line per series, against the common abscissae.
+function _series_figure(t, series; xlabel, ylabel)
+    _check_series(t, series)
+
+    fig = Figure()
+    ax = Axis(fig[1, 1]; xlabel = xlabel, ylabel = ylabel)
+    for y in series
+        lines!(ax, t, y)
+    end
+    return fig
+end
+
+function VlasovMethods.plot_errors(t::AbstractVector, series)
+    return _series_figure(t, series; xlabel = "t", ylabel = "error")
+end
+
+function VlasovMethods.plot_energy(t::AbstractVector, series)
+    return _series_figure(t, series; xlabel = "t", ylabel = "energy")
+end
+
+function VlasovMethods.plot_growth_rate(t::AbstractVector, series)
+    return _series_figure(t, series; xlabel = "parameter", ylabel = "γ")
+end
+
 end

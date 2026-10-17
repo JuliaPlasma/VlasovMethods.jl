@@ -99,7 +99,7 @@ export check_conservation_basis, project_function, project_Maxwellian
 
 include("plotting.jl")
 
-export plot_distribution, plot_particles
+export plot_distribution, plot_energy, plot_errors, plot_growth_rate, plot_particles
 
 # entropy models
 
@@ -196,7 +196,7 @@ export Snapshots, particle_basis, field_basis
 # `src/particles/electric_field.jl`, which needs the `ElectricField` it defines.
 include("electric_field.jl")
 
-export ElectricField, PoissonField
+export ElectricField, PoissonField, ScaledField
 
 include("particles/electric_field.jl")
 
@@ -207,7 +207,14 @@ export ReducedElectricField, DEIMElectricField
 # internal.
 include("particles/time_marching.jl")
 
-export IntegratorParameters, ReducedIntegratorCache, reduced_integrate_vp
+export IntegratorParameters, ReducedIntegratorCache, integrate_vp, reduced_integrate_vp
+
+# The diagnostics of a sweep. Each takes arrays rather than the `Snapshots` a march writes, so a
+# caller whose data is no `Snapshots` uses the same functions.
+include("particles/diagnostics.jl")
+
+export best_and_worst, energy_drift, field_energy_error, growth_rate, potential_error,
+       saved_indices, trajectory_errors
 
 # The Hamiltonian of the analytic quadratic model, which the reduced ODE and PODE forms of
 # `ReducedBasisMethods` take as `∇H!`, and the lift of one of their solutions back to `(q, p)`.

@@ -47,6 +47,7 @@ const BASE_EXPORTS = Symbol[
     :ReducedIntegratorCache,
     :RescaledConservativeLenardBernstein,
     :Robin,
+    :ScaledField,
     :ShiftedNormalV,
     :ShiftedUniformDistribution,
     :Snapshots,
@@ -65,6 +66,7 @@ const BASE_EXPORTS = Symbol[
     :_apply_∫dv!,
     :basis_index,
     :basis_values,
+    :best_and_worst,
     :bracket_tensor,
     :breakpoints,
     :check_conservation_basis,
@@ -72,11 +74,15 @@ const BASE_EXPORTS = Symbol[
     :derivative,
     :domain,
     :electric_field,
+    :energy_drift,
     :evaluate,
     :evaluate_all,
     :evaluate_all!,
     :field_basis,
+    :field_energy_error,
+    :growth_rate,
     :initialize!,
+    :integrate_vp,
     :l2_projection,
     :l2_projection!,
     :lift_solution,
@@ -91,8 +97,12 @@ const BASE_EXPORTS = Symbol[
     :order,
     :particle_basis,
     :plot_distribution,
+    :plot_energy,
+    :plot_errors,
+    :plot_growth_rate,
     :plot_particles,
     :polynomial_reproduction,
+    :potential_error,
     :project_Maxwellian,
     :project_function,
     :projection,
@@ -101,13 +111,32 @@ const BASE_EXPORTS = Symbol[
     :reduced_integrate_vp,
     :run,
     :run!,
+    :saved_indices,
     :sodeensemble,
+    :trajectory_errors,
     :velocity_moments
 ]
 
 # The recorded names that the module does not export. Each is the bold lead of its
 # `CHANGELOG.md` bullet.
 const REMOVED_EXPORTS = Symbol[:CLB_rhs, Symbol("DiffEq", "Integrator"), :LB_rhs, :run]
+
+# The names the unreleased section records. Each is the bold lead of its `[Unreleased]`
+# bullet, so a name that ships without a line in the record fails here.
+const NEW_EXPORTS = Symbol[
+    :ScaledField,
+    :best_and_worst,
+    :energy_drift,
+    :field_energy_error,
+    :growth_rate,
+    :integrate_vp,
+    :plot_energy,
+    :plot_errors,
+    :plot_growth_rate,
+    :potential_error,
+    :saved_indices,
+    :trajectory_errors
+]
 
 @testset "Exported names" begin
     # The recorded names missing from the module are exactly the documented removals. A name
@@ -125,6 +154,18 @@ const REMOVED_EXPORTS = Symbol[:CLB_rhs, Symbol("DiffEq", "Integrator"), :LB_rhs
     changelog = read(joinpath(pkgdir(VlasovMethods), "CHANGELOG.md"), String)
     for name in REMOVED_EXPORTS
         @test occursin("- **`" * string(name) * "`", changelog)
+    end
+end
+
+@testset "The unreleased section" begin
+    changelog = read(joinpath(pkgdir(VlasovMethods), "CHANGELOG.md"), String)
+
+    # The section stands above every release heading, so a reader meets it first.
+    @test occursin("## [Unreleased] — targeting 0.4.0", changelog)
+    @test first(eachmatch(r"^## \[([^\]]+)\]"m, changelog)).captures[1] == "Unreleased"
+    for name in NEW_EXPORTS
+        @test occursin("- **`" * string(name) * "`", changelog)
+        @test name in names(VlasovMethods)
     end
 end
 
