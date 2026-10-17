@@ -15,6 +15,82 @@ makes it worth keeping. The 69 commits from `v0.2.1` to this file's first commit
 their own, except for what they removed and narrowed, which is listed in full below against
 `v0.2.1`: four exports leave `names(VlasovMethods)` and eight `[compat]` entries lost versions.
 
+## [Unreleased] — targeting 0.4.0
+
+### New Features
+
+- **`ScaledField`.** `ScaledField(field, χ)` wraps any `ElectricField` and divides the field of
+  `efield!` and the value of `energy` by `χ²`, while `update!` and `coefficients` forward to
+  `field` unchanged, because the deposit and the solve carry no amplitude. It is an
+  `ElectricField`, so a reduced march wraps it as `ReducedElectricField(ScaledField(f, χ), Ψ, X₀)`
+  and marches in the scaled time. `integrate_vp` and `reduced_integrate_vp` take the scale of a
+  `ScaledField` from `params.χ`, the one source of `χ`: they march a `ScaledField`, or a reduced
+  field over one, at the `χ` of the parameters and not at the `χ` it was built with. The energy
+  divides by `χ²` and not by `χ⁴`, because `wᵢ·E(xᵢ)/χ²` is the force of the energy `W/χ²`.
+  A `χ` that is not finite and positive throws an
+  `ArgumentError`, and each division converts `χ` to the element type of the value it divides, so
+  a `Float32` field with a `Float64` `χ` stays `Float32`.
+
+- **`integrate_vp`.** The full-order leapfrog march, `reduced_integrate_vp` with no reduced basis
+  and no cache: the same `Δt = IP.dt·χ`, the same save slots, and the same `X`, `V`, `Φ`, `W`, `K`
+  and `M` written into the `Snapshots`. No function in `src/` filled a `Snapshots` from a
+  full-order march before, so the full-order side of every ROM-against-HFM diagnostic had no
+  producer. The march copies `P₀` and holds its own buffers, so it writes none of the caller's
+  state, and on an identity basis it agrees with `reduced_integrate_vp` bit for bit.
+
+- **`trajectory_errors`.** `trajectory_errors(Xh, Vh, Xr, Vr)` is the error of a full-order state
+  against a reduced one, as the `NamedTuple` `(x2, xmax, v2, vmax)`: `x2` and `v2` the root mean
+  square over the particle axis, the root sum of squares divided by `√nₚ`, so they do not change
+  when the particles are duplicated, `xmax` and `vmax` the largest
+  absolute difference, the `L∞` error. Each argument takes one saved state per `(ts, p)` as a
+  `(nₚ, nₛ, nparam)` array or a `(nₚ, nₛ)` matrix, and each result has the trailing shape of its
+  argument.
+
+- **`potential_error`.** The error of a reduced potential against a full-order one: the root sum of
+  squares of `Φh - Φr` over the coefficient axis, per saved time and parameter. It is an absolute
+  error, with no divisor.
+
+- **`field_energy_error`.** `abs.(Wh .- Wr) ./ Wh`, the relative error of a reduced field energy
+  per saved time and parameter. A field energy is `½ϕᵀKϕ ≥ 0` by construction, so no guard is
+  needed: a `Wh` of `0` gives `Inf`, or `NaN` where `Wr` is also `0`, and both propagate.
+
+- **`energy_drift`.** `(H .- H[1]) ./ H[1]`, the energy at each saved time against the initial one.
+  The energies of a conservative model are constant, so the drift is its discretisation error. An
+  empty `H`, and an `H[1]` of `0`, throw an `ArgumentError`, because a relative drift needs a
+  non-zero reference.
+
+- **`saved_indices`.** The three saved states that a plot of one trend uses: the final one, the one
+  nearest three quarters of the way and the one nearest halfway. `saved_indices(10001)` is
+  `(10001, 7501, 5001)`. A `nₛ` below `2` throws an `ArgumentError`.
+
+- **`growth_rate`.** `growth_rate(t, W; window = 2, maxima = 2:5)` is the field's growth rate `γ`,
+  **half** the least-squares slope of `log W` over the selected local maxima, because
+  `W ∝ |E|² ∝ e^{2γt}`. A maximum is a point no lower than the `window` points on each side whose
+  first differing sample on its right is lower, so a flat maximum counts once, at its first index,
+  and a rising shoulder is no maximum. The notebook this package's reduced-order work follows
+  plotted the slope itself under the name `γ`, so the rates here are half the figures it drew.
+  The fit runs in
+  `eltype(W)` in closed form, so the package takes no `Statistics` dependency. A `t` and a `W` of
+  different lengths throw a `DimensionMismatch`. A `window` below `1`, a `maxima` that repeats an
+  index, selects fewer than two maxima, reaches past the maxima found or reaches an index below
+  `1`, and a `W` that is not positive at a selected maximum, where `log` is not defined, each throw
+  an `ArgumentError`. This closes K63 and K64 in `KNOWN_ISSUES.md`, which recorded a `BoundsError`
+  at these inputs.
+
+- **`best_and_worst`.** The indices of the smallest and of the largest of `abs.(γr .- γh)`: the
+  parameters of a sweep whose growth rates agree and disagree most. A tie takes its first index.
+
+- **`plot_series`.** `plot_series(t, series; labels = nothing, xlabel = "t", ylabel = "")` draws
+  one line per element of `series` against `t`, so one function plots the error norms of
+  `trajectory_errors` and `potential_error`, the field energies and the energy drift of a march
+  against the saved times, and the growth rates of a sweep against the equation parameter.
+  `labels` names the lines in a legend, one label per series; a count that differs throws a
+  `DimensionMismatch`. The axis is linear, so set a log scale on the returned `Figure` to read a
+  decaying error. It is defined in the package extension, so `CairoMakie` must be loaded.
+
+- The `plot_particles` method on a `Snapshots` draws one saved state,
+  `SS.X[1, :, ts, p]` against `SS.V[1, :, ts, p]`, so one frame of a march is one call.
+
 ## [0.3.0] — 2026-10-16
 
 ### Bug Fixes

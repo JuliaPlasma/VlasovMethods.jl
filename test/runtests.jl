@@ -29,6 +29,7 @@ if "core" in GROUPS
     @safetestset "Electric Field" include("electric_field.jl")
     @safetestset "Reduced Electric Field" include("particles/electric_field.jl")
     @safetestset "Reduced March" include("particles/time_marching.jl")
+    @safetestset "Diagnostics" include("particles/diagnostics.jl")
     @safetestset "Reduced Equations" include("particles/reduced_equations.jl")
 end
 

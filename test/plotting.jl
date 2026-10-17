@@ -32,13 +32,15 @@ using VlasovMethods
         @assert Base.get_extension(VlasovMethods, :VlasovMethodsMakieExt) === nothing
         @assert isempty(methods(VlasovMethods.plot_distribution))
         @assert isempty(methods(VlasovMethods.plot_particles))
+        @assert isempty(methods(VlasovMethods.plot_series))
 
         grid = VlasovMethods.GridDistribution(4, 3, (0.0, 1.0), (-1.0, 1.0))
         particles = VlasovMethods.ParticleDistribution(1, 1, 1)
         for call in (
             () -> VlasovMethods.plot_distribution(grid),
             () -> VlasovMethods.plot_distribution(particles; xdomain = (0.0, 1.0), vdomain = (-1.0, 1.0)),
-            () -> VlasovMethods.plot_particles(particles; xdomain = (0.0, 1.0), vdomain = (-1.0, 1.0)))
+            () -> VlasovMethods.plot_particles(particles; xdomain = (0.0, 1.0), vdomain = (-1.0, 1.0)),
+            () -> VlasovMethods.plot_series([0.0, 1.0], ([0.5, 0.5],)))
             exception = try
                 call()
                 nothing
@@ -69,6 +71,8 @@ end
     @test occursin("load `CairoMakie`", string(@doc VlasovMethods.plot_distribution))
     @test occursin("package extension", string(@doc VlasovMethods.plot_particles))
     @test occursin("load `CairoMakie`", string(@doc VlasovMethods.plot_particles))
+    @test occursin("package extension", string(@doc VlasovMethods.plot_series))
+    @test occursin("load `CairoMakie`", string(@doc VlasovMethods.plot_series))
 end
 
 @testset "CairoMakie is a weak dependency" begin

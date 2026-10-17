@@ -7,9 +7,11 @@ using ReducedBasisMethods: get_DEIM_indices
 using ReducedComplexityModeling: ParameterSpace, Parameter
 using VlasovMethods
 using VlasovMethods: AnalyticHamiltonian, DEIMElectricField, IntegratorParameters,
-                     ReducedElectricField, ReducedIntegratorCache, SAcceleration, Snapshots,
-                     VAcceleration, VlasovHamiltonian, coefficients, efield!, energy,
-                     leapfrog_step!, s_drift!, s_lorentz!, save_solution, update!
+                     ReducedElectricField, ReducedIntegratorCache, SAcceleration,
+                     ScaledField,
+                     Snapshots, VAcceleration, VlasovHamiltonian, coefficients, efield!,
+                     energy, full_leapfrog_step!, leapfrog_step!, s_drift!, s_lorentz!,
+                     save_full_solution, save_solution, update!
 using ElectromagneticFields
 using Test
 
@@ -152,6 +154,39 @@ if isdefined(JET, :JET_AVAILABLE) ? JET.JET_AVAILABLE : JET.JET_LOADABLE
         gd = similar(xd)
         @test isempty(JET.get_reports(JET.report_opt(h,
             (typeof(gd), T, typeof(xd), typeof(NamedTuple()));
+            target_modules = (VlasovMethods,))))
+    end
+
+    # test/electric_field.jl: the χ-scaled field, on its `@allocated` calls, at the `Float64` and
+    # `Float32` argument types that file passes.
+    for T in (Float64, Float32)
+        Random.seed!(1234)
+        field, q, w = poisson_field(T; n = 200)
+        sc = ScaledField(field, T(2))
+        E = similar(q)
+        @test isempty(JET.get_reports(JET.report_opt(update!,
+            (typeof(sc), typeof(q), typeof(w), T); target_modules = (VlasovMethods,))))
+        @test isempty(JET.get_reports(JET.report_opt(efield!,
+            (typeof(sc), typeof(E), typeof(q)); target_modules = (VlasovMethods,))))
+        @test isempty(JET.get_reports(JET.report_opt(energy,
+            (typeof(sc),); target_modules = (VlasovMethods,))))
+        @test isempty(JET.get_reports(JET.report_opt(coefficients,
+            (typeof(sc),); target_modules = (VlasovMethods,))))
+    end
+
+    # test/particles/time_marching.jl: the step and the save of the full-order march, on their
+    # `@allocated` calls, at their `Float64` and `Float32` argument types.
+    for T in (Float64, Float32)
+        Random.seed!(1234)
+        field, q, w = poisson_field(T; n = 200)
+        x, v, a = copy(q), copy(q), similar(q)
+        SS = Snapshots(T, 1, length(q), length(coefficients(field)), 11,
+            ParameterSpace(Parameter(:β, T(6), T(6), 1)))
+        @test isempty(JET.get_reports(JET.report_opt(full_leapfrog_step!,
+            (typeof(x), typeof(v), typeof(a), typeof(w), typeof(field), T, T);
+            target_modules = (VlasovMethods,))))
+        @test isempty(JET.get_reports(JET.report_opt(save_full_solution,
+            (typeof(SS), typeof(x), typeof(v), typeof(w), typeof(field), Int, T, Int);
             target_modules = (VlasovMethods,))))
     end
 else

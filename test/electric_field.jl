@@ -152,3 +152,126 @@ end
         @test _alloc_energy(f -> similar(f.nodes), field) > 0
     end
 end
+
+# The phrase of the exception a call raises, or a fixed word when it raises nothing: the guard
+# of `ScaledField` is the only check on a `χ` of the wrong sign, so its phrase is the evidence.
+function refusal(f)
+    try
+        f()
+        return "no exception"
+    catch thrown
+        return sprint(showerror, thrown)
+    end
+end
+
+@testset "check 1: ScaledField, $T" for T in (Float64, Float32)
+    field, q, w = poisson_field(T)
+    t = zero(T)
+
+    # `χ = 1` is the inner field exactly
+    one_ = ScaledField(field, one(T))
+    @test one_ isa ElectricField
+    @test one_.field === field
+    e = similar(q)
+    e′ = similar(q)
+    update!(field, q, w, t)
+    efield!(field, e′, q)
+    update!(one_, q, w, t)
+    @test efield!(one_, e, q) === e
+    @test e == e′
+    @test energy(one_) == energy(field)
+    @test coefficients(one_) == coefficients(field)
+
+    # `χ = 2` divides the field and the energy by four, exactly, and an integer `χ` is accepted
+    two = ScaledField(field, 2)
+    update!(two, q, w, t)
+    e2 = similar(q)
+    @test efield!(two, e2, q) === e2
+    @test e2 == e′ ./ 4
+    @test energy(two) == energy(field) / 4
+    @test eltype(e2) === T
+
+    # a `Float64` `χ` on a `Float32` field stays `Float32`
+    if T === Float32
+        half = ScaledField(field, 0.5)
+        update!(half, q, w, t)
+        @test eltype(efield!(half, similar(q), q)) === Float32
+        @test eltype(energy(half)) === Float32
+    end
+
+    # `update!` forwards: the scaled field's coefficients are those of the same deposit into a
+    # plain field of the same basis, and a drop of the forward leaves them at zero
+    a = ScaledField(
+        PoissonField(Potential(PeriodicBasisSpline((zero(T), one(T)), 3, 16))), 2)
+    b = PoissonField(Potential(PeriodicBasisSpline((zero(T), one(T)), 3, 16)))
+    update!(a, q, w, t)
+    update!(b, q, w, t)
+    @test coefficients(a) == coefficients(b)
+    @test any(!iszero, coefficients(a))
+    @test coefficients(ScaledField(field, 2)) == coefficients(field)
+
+    # a `χ` that is neither finite nor positive is refused, and its phrase says which value
+    for χ in (0, 0.0, -1, -1.0, T(NaN), T(Inf), T(-Inf))
+        @test_throws ArgumentError ScaledField(field, χ)
+        @test occursin("χ must be finite and positive",
+            refusal(() -> ScaledField(field, χ)))
+    end
+
+    @testset "the field and the energy allocate nothing" begin
+        sc = ScaledField(field, T(2))
+        es = similar(q)
+        @test @inferred(efield!(sc, es, q)) === es
+        @test @inferred(energy(sc)) isa T
+
+        # `update!` runs once per step of a march and `coefficients` once per save, so both are
+        # inferred and allocate nothing on the scaled field as well
+        @test @inferred(update!(sc, q, w, t)) === nothing
+        @test @inferred(coefficients(sc)) isa typeof(coefficients(field))
+
+        # coverage instrumentation allocates on every counted line, so under it the assertion
+        # does not run rather than being weakened
+        if Base.JLOptions().code_coverage == 0
+            @test _alloc_efield(efield!, sc, es, q) == 0
+            @test _alloc_energy(energy, sc) == 0
+            # `_alloc_energy` is the one-argument barrier, which measures any one-argument read
+            @test _alloc_update(update!, sc, q, w, t) == 0
+            @test _alloc_energy(coefficients, sc) == 0
+        end
+        @test _alloc_efield((f, e, x) -> similar(e), sc, es, q) > 0
+        @test _alloc_energy(f -> similar(f.field.nodes), sc) > 0
+        @test _alloc_update((f, x, w, t) -> similar(x), sc, q, w, t) > 0
+    end
+end
+
+@testset "the energy of a ScaledField carries χ², the potential of its field" begin
+    # The scaled field's acceleration `E/χ²` is the force of the energy `W/χ²` per unit weight:
+    # `wᵢ aᵢ = -∂W_χ/∂xᵢ`. That identity, not the square of the divided field, fixes the divisor,
+    # so the energy divides by `χ²` and not by `χ⁴`. Here `χ = 3`, which no power of two hides.
+    field, q, w = poisson_field(Float64)
+    χ = 3.0
+    sc = ScaledField(field, χ)
+
+    function energy_at(x)
+        update!(sc, x, w, 0.0)
+        return energy(sc)
+    end
+
+    update!(sc, q, w, 0.0)
+    force = w .* efield!(sc, similar(q), q)
+
+    h = 1e-6
+    gradient = map(eachindex(q)) do i
+        qp, qm = copy(q), copy(q)
+        qp[i] += h
+        qm[i] -= h
+        (energy_at(qp) - energy_at(qm)) / 2h
+    end
+    scale = maximum(abs, force)
+    @test scale > 0
+    @test maximum(abs, force .+ gradient) ≤ 1e-8 * scale
+
+    # the controls: the energy of the divided field, `W/χ⁴`, and the unscaled energy are not the
+    # potential of that force
+    @test maximum(abs, force .+ gradient ./ χ^2) > 0.1 * scale
+    @test maximum(abs, force .+ gradient .* χ^2) > 0.1 * scale
+end

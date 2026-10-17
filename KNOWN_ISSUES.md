@@ -391,8 +391,8 @@ takes the next `K<n>`.
   `ϕ ≡ 0`, and no error occurs. The author decided that `VlasovPoisson` warns in that case, and
   the inner constructor at `:11-15` has no `@warn`. Three questions are open: the text of the message;
   whether `sodeensemble` also warns for an empty member; and whether `VlasovWithExternalFields`
-  warns too. It does not: `src/models/vlasov_with_external_fields.jl:67` and `CHANGELOG.md:333`
-  say that its constructor does not warn.
+  warns too. It does not: `src/models/vlasov_with_external_fields.jl:67` and the "vacuum run"
+  bullet of `CHANGELOG.md` say that its constructor does not warn.
 - **kind:** defect
 - **found:** #71
 
@@ -534,3 +534,21 @@ takes the next `K<n>`.
   bound as `3e-14`.
 - **kind:** docs
 - **found:** #80
+
+### K65 · `best_and_worst` names one parameter as both the best and the worst when a reduced growth rate is `NaN`.
+
+- **location:** `src/particles/diagnostics.jl:220`
+- **evidence:** `best_and_worst([1.0, 2, 3], [1.0, NaN, 3.5])` returns `(2, 2)`. A `NaN` in
+  `abs.(γr .- γh)` leaves `argmin` and `argmax` at the same index. `NaN` and `Inf` propagate by
+  design, with no guard, so the pair of indices is the caller's to read.
+- **kind:** found late
+- **found:** 2026-10-17
+
+### K66 · `saved_indices` returns a wrapped three-quarter index for a very large `nₛ`.
+
+- **location:** `src/particles/diagnostics.jl:116`
+- **evidence:** `saved_indices(4611686018427387903)` returns
+  `(4611686018427387903, -1152921504606846976, 2305843009213693952)`: `3 * (nₛ - 1)` overflows
+  `Int` above about `2^62`. The docstring states this closed form, so no wider arithmetic is added.
+- **kind:** found late
+- **found:** 2026-10-17
