@@ -1,9 +1,10 @@
-# The reduced particle march of the analytic quadratic model: the leapfrog over the
-# `ElectricField` interface of `src/electric_field.jl`, with the χ-scaled timestep.
+# The particle marches over the `ElectricField` interface of `src/electric_field.jl`: the
+# full-order march of `integrate_vp`, on any field, and the reduced march of the analytic quadratic
+# model, `reduced_integrate_vp`, both with the χ-scaled timestep.
 #
-# `IntegratorParameters` and its HDF5 pair, `ReducedIntegratorCache`, the leapfrog step, the save of
-# one state, and the march. `leapfrog_step!` and `save_solution` are internal;
-# `IntegratorParameters`, `ReducedIntegratorCache` and `reduced_integrate_vp` are not.
+# `IntegratorParameters` and its HDF5 pair, `ReducedIntegratorCache`, the leapfrog steps, the saves
+# of one state, and the marches. The steps and the saves are internal; `IntegratorParameters`,
+# `ReducedIntegratorCache`, `integrate_vp` and `reduced_integrate_vp` are not.
 
 using ParticleMethods: ParticleList
 
@@ -323,9 +324,11 @@ end
 """
     integrate_vp(P₀, params, efield, SS, IP, p; save = true)
 
-The full-order leapfrog march of the analytic quadratic model, the same march as
+The full-order leapfrog march of an [`ElectricField`](@ref), the same march as
 [`reduced_integrate_vp`](@ref) without a basis: the state of `P₀` advanced `IP.nₜ` steps of
-`IP.dt` by [`full_leapfrog_step!`](@ref), with one kick of the full field of `efield` per step.
+`IP.dt` by [`full_leapfrog_step!`](@ref), with one kick of the full field of `efield` per step. A
+reduced model marches the [`ScaledField`](@ref) `ScaledField(f, χ)` of the same field, so the two
+marches of one comparison take the same field and the same `χ`.
 With `nsave = nₜ/(nₛ - 1)`, the state of every `nsave`-th step `it`, the initial state included,
 is written into the save `div(it, nsave) + 1` of the sample `p` of the snapshots `SS` by
 [`save_full_solution`](@ref).

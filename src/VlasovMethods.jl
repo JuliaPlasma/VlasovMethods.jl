@@ -209,8 +209,8 @@ include("particles/time_marching.jl")
 
 export IntegratorParameters, ReducedIntegratorCache, integrate_vp, reduced_integrate_vp
 
-# The diagnostics of a sweep, which the scripts of the reduced and the full-order marches use on
-# the arrays rather than on the `Snapshots` they hold.
+# The diagnostics of a sweep. Each takes arrays rather than the `Snapshots` a march writes, so a
+# caller whose data is no `Snapshots` uses the same functions.
 include("particles/diagnostics.jl")
 
 export best_and_worst, energy_drift, field_energy_error, growth_rate, potential_error,

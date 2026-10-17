@@ -170,6 +170,8 @@ if isdefined(JET, :JET_AVAILABLE) ? JET.JET_AVAILABLE : JET.JET_LOADABLE
             (typeof(sc), typeof(E), typeof(q)); target_modules = (VlasovMethods,))))
         @test isempty(JET.get_reports(JET.report_opt(energy,
             (typeof(sc),); target_modules = (VlasovMethods,))))
+        @test isempty(JET.get_reports(JET.report_opt(coefficients,
+            (typeof(sc),); target_modules = (VlasovMethods,))))
     end
 
     # test/particles/time_marching.jl: the step and the save of the full-order march, on their

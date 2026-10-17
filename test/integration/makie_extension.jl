@@ -301,15 +301,26 @@ end
     # a single series is one plot
     @test length(series_axis(plot_errors(t, (s1,)), 1).scene.plots) == 1
 
-    # an empty series and a time vector of the wrong length are refused
+    # an empty collection holds no line, and a time vector of the wrong length would pair the
+    # values with the wrong abscissae
     @test_throws ArgumentError plot_errors(t, ())
     @test_throws DimensionMismatch plot_errors(t, (s1, s2[1:(end - 1)]))
     @test_throws ArgumentError plot_energy(t, ())
     @test_throws DimensionMismatch plot_growth_rate(t, (vcat(s1, s1),))
+
+    # the guards of each of the three plots: an empty line holds no value and is refused before its
+    # length is compared with `t`, so an empty line under an empty `t` is refused too, while a
+    # non-empty line under an empty `t` is the length mismatch. The phrases tell the two
+    # `ArgumentError`s apart, which the type alone does not.
+    for f in (plot_errors, plot_energy, plot_growth_rate)
+        @test occursin("no series to plot", message_of(() -> f(t, ())))
+        @test occursin("a line holds no value", message_of(() -> f(T[], (T[],))))
+        @test occursin("a line holds no value", message_of(() -> f(t, (T[],))))
+        @test_throws DimensionMismatch f(T[], ([one(T)],))
+    end
 end
 
-@testset "plot_particles draws a saved state of the snapshots" begin
-    T = Float64
+@testset "plot_particles draws a saved state of the snapshots, $T" for T in (Float64, Float32)
     n, nₛ, nh = 5, 3, 2
     space = ParameterSpace(Parameter(:β, T(6), T(7), 2))
     SS = Snapshots(T, 1, n, nh, nₛ, space)
@@ -328,6 +339,14 @@ end
     @test first.(points) == SS.X[1, :, 2, 1]
     @test last.(points) == SS.V[1, :, 2, 1]
     @test ax.limits[] == (first(XDOMAIN), last(XDOMAIN), first(VDOMAIN), last(VDOMAIN))
+
+    # the plotted state is that of the parameter `p` the caller asked for, not of the first one
+    SS.X[1, :, 2, 2] .= T[0.5, 0.4, 0.3, 0.2, 0.1]
+    SS.V[1, :, 2, 2] .= T[1, 2, 3, 4, 5]
+    other = only_plot(plot_particles(SS, 2, 2; xdomain = XDOMAIN, vdomain = VDOMAIN))
+    @test first.(other[1][]) == SS.X[1, :, 2, 2]
+    @test last.(other[1][]) == SS.V[1, :, 2, 2]
+    @test first.(other[1][]) != first.(points)
 
     file = tempname() * ".png"
     save(file, fig)

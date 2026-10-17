@@ -148,6 +148,29 @@ end
     @test occursin("the initial energy is zero", refusal(() -> energy_drift(T[0, 1])))
 end
 
+@testset "check 8: the maxima of a history, $T" for T in (Float64, Float32)
+    # a maximum is a point no lower than the `window` points on each side
+    @test VlasovMethods._find_maxima(T[0, 1, 2, 2, 1, 0], 1) == [3]
+    # a flat maximum counts once, at its first index: a second equal sample is no maximum of its
+    # own, and a fit that counts both weights the plateau twice
+    @test VlasovMethods._find_maxima(T[0, 2, 2, 2, 0], 1) == [2]
+    # two equal peaks that are apart are two maxima: only a point equal to the sample on its own
+    # left is a repeat, so an equal value elsewhere in the window does not drop a peak
+    @test VlasovMethods._find_maxima(T[0, 0, 3, 0, 3, 0, 0, 0], 2) == [3, 5]
+    # the fixture of the decided edge, whose three maxima the refusals below name
+    @test VlasovMethods._find_maxima(T[1, 2, 1, 3, 1, 4, 1], 1) == [2, 4, 6]
+
+    # one maximum per plateau: a plateau and its first sample alone give the same rate, so the
+    # repeated sample of the plateau does not enter the fit twice
+    tp = collect(T, 0:5)
+    @test growth_rate(tp, T[1, 5, 5, 1, 3, 1]; window = 1, maxima = 1:2) ==
+          growth_rate(tp, T[1, 5, 1, 1, 3, 1]; window = 1, maxima = 1:2)
+
+    # two equal peaks that are apart carry the same height, so the fit through them is flat
+    @test growth_rate(collect(T, 0:6), T[0, 0, 2, 0, 2, 0, 0];
+        window = 2, maxima = 1:2) == zero(T)
+end
+
 @testset "check 8: the growth rate, $T" for T in (Float64, Float32)
     γ = T(0.05)
     t = collect(T, T(0):T(1e-3):T(100))
@@ -157,26 +180,56 @@ end
     @test g isa T
     @test isapprox(g, γ; rtol = 1e-4)
 
-    # a matrix gives one rate per column, of the element type of `W`
-    gm = growth_rate(t, hcat(W, W))
+    # a matrix gives one rate per column, of the element type of `W`; the two columns hold
+    # different rates, so a method that fits the first column for every column fails
+    γ2 = T(0.03)
+    W2 = exp.(2γ2 .* t) .* cos.(t) .^ 2
+    gm = growth_rate(t, hcat(W, W2))
     @test gm isa Vector{T}
-    @test gm == [g, g]
+    @test length(gm) == 2
+    @test isapprox(gm[1], γ; rtol = 1e-4)
+    @test isapprox(gm[2], γ2; rtol = 1e-4)
 
     # `window = 1` finds the maxima of the sampled `cos²`: without it the flat maximum `Float32`
     # reaches at `h = 1e-3` is near enough to the true one for the fit to stay in its bound
     w1 = growth_rate(t, W; window = 1)
     @test isapprox(w1, γ; rtol = 1e-4)
 
-    # the range of the maxima
-    @test occursin("not positive",
-        refusal(() -> growth_rate(
-            T[0, 1, 2, 3, 4, 5, 6], T[-3, -2, -3, -1, 5, -1, 5]; window = 1, maxima = 1:2)))
+    # `maxima` selects the maxima by their order along `t`, so it drops the first few: the
+    # height of a dropped maximum does not enter the fit
+    tm = collect(T, 0:11)
+    Wm = T[1, 3, 1, 5, 1, 2, 1, 4, 1, 6, 1, 2]
+    higher = copy(Wm)
+    higher[2] = T(7)
+    @test growth_rate(tm, Wm; window = 1, maxima = 2:5) ==
+          growth_rate(tm, higher; window = 1, maxima = 2:5)
+
+    # a `W` of zero or below at a selected maximum is refused, where `log` is not defined;
+    # `window = 1` puts maxima at 2 and 5, and `W[2]` is the first of them
+    for bad in (T(-2), zero(T))
+        @test occursin("not positive",
+            refusal(() -> growth_rate(
+                T[0, 1, 2, 3, 4, 5, 6], T[-3, bad, -3, -1, 5, -1, 5]; window = 1,
+                maxima = 1:2)))
+    end
     @test occursin("needs two",
         refusal(() -> growth_rate(
             T[0, 1, 2, 3, 4, 5, 6], T[-3, -2, -3, -1, 5, -1, 5]; window = 1, maxima = 1:1)))
     @test occursin("beyond the 2 maxima found",
         refusal(() -> growth_rate(
             T[0, 1, 2, 3, 4, 5, 6], T[-3, -2, -3, -1, 5, -1, 5]; window = 1)))
+
+    # the refusals of the decided edge, on its own fixture: `window = 1` finds three maxima at
+    # 2, 4 and 6, an index may not enter the fit twice, and both count refusals name the count
+    # found rather than the count selected
+    a = collect(T, 0:6)
+    Wa = T[1, 2, 1, 3, 1, 4, 1]
+    for repeated in ([1, 2, 2], [2, 2])
+        @test occursin("repeats the index 2",
+            refusal(() -> growth_rate(a, Wa; window = 1, maxima = repeated)))
+    end
+    @test occursin("3 maxima found",
+        refusal(() -> growth_rate(a, Wa; window = 1, maxima = 2:2)))
 end
 
 @testset "check 8: the best and worst parameters, $T" for T in (Float64, Float32)

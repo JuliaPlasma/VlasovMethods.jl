@@ -90,7 +90,7 @@ scale on the returned `Figure`'s axis to read a decaying error.
 
 # Throws
 
-- `ArgumentError` when `series` holds no line.
+- `ArgumentError` when `series` holds no line, or a line holds no value.
 - `DimensionMismatch` when a series is not as long as the times.
 """
 function plot_errors end
@@ -115,7 +115,7 @@ where the values span orders of magnitude.
 
 # Throws
 
-- `ArgumentError` when `series` holds no line.
+- `ArgumentError` when `series` holds no line, or a line holds no value.
 - `DimensionMismatch` when a series is not as long as the times.
 """
 function plot_energy end
@@ -139,7 +139,7 @@ model's error across the parameter range.
 
 # Throws
 
-- `ArgumentError` when `series` holds no line.
+- `ArgumentError` when `series` holds no line, or a line holds no value.
 - `DimensionMismatch` when a series is not as long as the parameter values.
 """
 function plot_growth_rate end

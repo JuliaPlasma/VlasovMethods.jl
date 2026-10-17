@@ -96,10 +96,12 @@ function VlasovMethods.plot_particles(SS::Snapshots, ts::Integer, p::Integer;
 end
 
 # A series plot's pair of arguments, checked before anything is drawn: an empty collection has no
-# line to draw, and a series of another length would pair its values with the wrong abscissae.
+# line to draw, an empty line holds no value, and a line of another length would pair its values
+# with the wrong abscissae.
 function _check_series(t, series)
     isempty(series) && throw(ArgumentError("no series to plot"))
     for y in series
+        isempty(y) && throw(ArgumentError("a line holds no value"))
         length(y) == length(t) || throw(DimensionMismatch(
             "a series holds $(length(y)) values; the abscissae hold $(length(t))"))
     end

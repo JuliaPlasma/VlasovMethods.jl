@@ -125,16 +125,16 @@ function saved_indices(nₛ::Integer)
     return (nₛ, div(3 * (nₛ - 1), 4) + 1, div(nₛ - 1, 2) + 1)
 end
 
-# The indices of the local maxima of `w`: a point that is above the `window` points on its left
-# and no lower than the `window` points on its right. Only a point with a full window on both
-# sides can be one, and a flat maximum counts once, at its first index, so that the fit does not
-# weight it twice.
+# The indices of the local maxima of `w`: a point no lower than the `window` points on each side.
+# A point equal to the sample on its left is no maximum of its own, so a flat plateau counts once,
+# at its first index, and the fit does not weight the plateau twice. An equal height elsewhere in
+# the window does not drop a peak, so two equal peaks that are apart are two maxima.
 function _find_maxima(w::AbstractVector, window::Int)
     inds = Int[]
     for i in (1 + window):(length(w) - window)
         left = @view w[(i - window):(i - 1)]
         right = @view w[(i + 1):(i + window)]
-        if w[i] > maximum(left) && w[i] ≥ maximum(right)
+        if w[i] ≥ maximum(left) && w[i] ≥ maximum(right) && w[i - 1] != w[i]
             push!(inds, i)
         end
     end
@@ -176,16 +176,22 @@ A matrix `W` gives one `γ` per column, as a `Vector` of the element type of `W`
 
 # Throws
 
-- `ArgumentError` when `maxima` selects fewer than two maxima, when it reaches past the maxima
-  found, naming that count, and when `W` is not positive at a selected maximum, where ``\\log W``
-  is not defined.
+- `ArgumentError` when `maxima` names an index twice, naming it, because one maximum may not enter
+  the fit twice; when it selects fewer than two maxima, or reaches past the maxima found, each
+  naming the number found; and when `W` is not positive at a selected maximum, where ``\\log W`` is
+  not defined.
 """
 function growth_rate(t::AbstractVector, W::AbstractVector;
         window::Int = 2, maxima = 2:5)
     inds = _find_maxima(W, window)
 
+    if !allunique(maxima)
+        repeated = first(m for m in maxima if count(==(m), maxima) > 1)
+        throw(ArgumentError("the maxima range repeats the index $repeated"))
+    end
     length(maxima) ≥ 2 || throw(ArgumentError(
-        "a regression needs two maxima, got $(length(maxima))"))
+        "a regression needs two maxima, got $(length(maxima)) of the " *
+        "$(length(inds)) maxima found"))
     maximum(maxima) ≤ length(inds) || throw(ArgumentError(
         "the maxima range selects index $(maximum(maxima)), beyond the " *
         "$(length(inds)) maxima found"))

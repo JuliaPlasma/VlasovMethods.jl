@@ -223,13 +223,22 @@ end
         @test @inferred(efield!(sc, es, q)) === es
         @test @inferred(energy(sc)) isa T
 
+        # `update!` runs once per step of a march and `coefficients` once per save, so both are
+        # inferred and allocate nothing on the scaled field as well
+        @test @inferred(update!(sc, q, w, t)) === nothing
+        @test @inferred(coefficients(sc)) isa typeof(coefficients(field))
+
         # coverage instrumentation allocates on every counted line, so under it the assertion
         # does not run rather than being weakened
         if Base.JLOptions().code_coverage == 0
             @test _alloc_efield(efield!, sc, es, q) == 0
             @test _alloc_energy(energy, sc) == 0
+            # `_alloc_energy` is the one-argument barrier, which measures any one-argument read
+            @test _alloc_update(update!, sc, q, w, t) == 0
+            @test _alloc_energy(coefficients, sc) == 0
         end
         @test _alloc_efield((f, e, x) -> similar(e), sc, es, q) > 0
         @test _alloc_energy(f -> similar(f.field.nodes), sc) > 0
+        @test _alloc_update((f, x, w, t) -> similar(x), sc, q, w, t) > 0
     end
 end

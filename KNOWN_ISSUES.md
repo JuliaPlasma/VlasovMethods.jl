@@ -534,3 +534,42 @@ takes the next `K<n>`.
   bound as `3e-14`.
 - **kind:** docs
 - **found:** #80
+
+### K63 · `growth_rate` raises `BoundsError` for a `maxima` index below 1 rather than an `ArgumentError`.
+
+- **location:** `src/particles/diagnostics.jl:199`
+- **evidence:** `growth_rate([0.0, 1, 2, 3, 4, 5, 6], [0.0, 2, 0, 3, 0, 4, 0]; window = 1,
+  maxima = 0:2)` throws `BoundsError: attempt to access 3-element Vector{Int64} at index [0:2]`.
+  The guards cover a repeated index and a `maxima` past the number found; no guard covers a value
+  below `1`, so it reaches `inds[maxima]`.
+- **kind:** found late
+- **found:** 2026-10-17
+
+### K64 · `growth_rate` takes a `t` whose length differs from that of `W`.
+
+- **location:** `src/particles/diagnostics.jl:199`
+- **evidence:** The times are read at the selected maxima alone, so `t` is never compared with `W`:
+  `growth_rate(collect(0.0:49.0), W; window = 2, maxima = 1:3)` for a 100-element `W` returns
+  `0.03616475182141676`, and a selection that reaches past `length(t)` throws
+  `BoundsError: attempt to access 20-element Vector{Float64} at index [21]` instead of naming the
+  two lengths, as `trajectory_errors` does.
+- **kind:** found late
+- **found:** 2026-10-17
+
+### K65 · `best_and_worst` names one parameter as both the best and the worst when a reduced growth rate is `NaN`.
+
+- **location:** `src/particles/diagnostics.jl:221`
+- **evidence:** `best_and_worst([1.0, 2, 3], [1.0, NaN, 3.5])` returns `(2, 2)`. A `NaN` in
+  `abs.(γr .- γh)` leaves `argmin` and `argmax` at the same index. `NaN` and `Inf` propagate by
+  design, with no guard, so the pair of indices is the caller's to read.
+- **kind:** found late
+- **found:** 2026-10-17
+
+### K66 · `saved_indices` returns a wrapped three-quarter index for a very large `nₛ`.
+
+- **location:** `src/particles/diagnostics.jl:125`
+- **evidence:** `saved_indices(4611686018427387903)` returns
+  `(4611686018427387903, -1152921504606846976, 2305843009213693952)`: `3 * (nₛ - 1)` overflows
+  `Int` above about `2^62`. The plan pins this closed form, so no wider arithmetic is added.
+- **kind:** found late
+- **found:** 2026-10-17
