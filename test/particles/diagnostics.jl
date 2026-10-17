@@ -245,9 +245,9 @@ end
 end
 
 @testset "check 8: the growth_rate docstring names the notebook convention" begin
-    # Q-P38a-3: the rate here is half the slope of `log W`, and the notebook this package's
-    # reduced-order work follows plotted that slope itself under the name `γ`. The docstring has
-    # to say so, or a reader takes these rates for the figures the notebook drew.
+    # The rate here is half the slope of `log W`, and the notebook this package's reduced-order
+    # work follows plotted that slope itself under the name `γ`. The docstring has to say so, or a
+    # reader takes these rates for the figures the notebook drew.
     doc = lowercase(string(@doc growth_rate))
     @test occursin("notebook", doc)
     @test occursin("half the figures", doc)
