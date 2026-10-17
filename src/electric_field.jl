@@ -120,10 +120,10 @@ coefficients(f::PoissonField) = PoissonSolvers.coefficients(f.potential)
 """
     ScaledField(field::ElectricField, χ::Real)
 
-The full-order `field` with its amplitude divided by `χ²`, the field of the rescaled state of a
-march: `efield!` divides the field of `field` by `χ²` and [`energy`](@ref) divides its energy by
-`χ²`, while [`update!`](@ref) and [`coefficients`](@ref) forward to `field` unchanged, because the
-deposit and the solve carry no amplitude.
+The full-order `field` as the rescaled state of a march sees it: `efield!` divides the field of
+`field` by `χ²`, and [`energy`](@ref) divides its energy by the same `χ²`. That is not the energy
+of the divided field, which is quadratic in the field and would carry `χ⁴`. [`update!`](@ref) and
+`coefficients` forward to `field` unchanged, because the deposit and the solve carry no amplitude.
 
 It is an `ElectricField`, so a reduced march wraps it as
 `ReducedElectricField(ScaledField(field, χ), Ψ, X)`.

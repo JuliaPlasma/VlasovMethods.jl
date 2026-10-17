@@ -83,8 +83,9 @@ using VlasovMethods, CairoMakie
 fig = plot_errors(t, (x2, xmax))
 ```
 
-`series` is any collection of series of `length(t)` values — the entries of the `NamedTuple` of
-[`trajectory_errors`](@ref), the `potential_error` of each parameter, or the two together. Each
+`series` is any collection of vectors of `length(t)` values — the entries of the `NamedTuple` of
+[`trajectory_errors`](@ref) for one parameter, `(nₚ, nₛ)` input, or a column of each entry for
+`(nₚ, nₛ, nparam)` input, the `potential_error` of each parameter, or the two together. Each
 element is one line, and the axis is labelled `t` and `error`; the axis is linear, so set a log
 scale on the returned `Figure`'s axis to read a decaying error.
 

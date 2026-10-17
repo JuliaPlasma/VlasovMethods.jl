@@ -80,7 +80,8 @@ end
     @test saved_indices(10001) == (10001, 7501, 5001)
     @test saved_indices(4) == (4, 3, 2)
     @test saved_indices(5) == (5, 4, 3)   # `div(12, 4) + 1` and `div(4, 2) + 1`
-    @test saved_indices(3) isa NTuple{3, Int}
+    @test saved_indices(3) == (3, 2, 2)   # below four saved times two of the states coincide
+    @test saved_indices(2) == (2, 1, 1)
     @test_throws ArgumentError saved_indices(1)
     @test_throws ArgumentError saved_indices(0)
 end
@@ -230,6 +231,18 @@ end
     end
     @test occursin("3 maxima found",
         refusal(() -> growth_rate(a, Wa; window = 1, maxima = 2:2)))
+
+    # an index below 1, a window below 1 and times of another length are refused by name, not
+    # by a `BoundsError` from inside the fit
+    @test occursin("counted from 1",
+        refusal(() -> growth_rate(a, Wa; window = 1, maxima = 0:2)))
+    for window in (0, -1)
+        @test occursin("window of 1 or more",
+            refusal(() -> growth_rate(a, Wa; window = window, maxima = 1:2)))
+    end
+    @test_throws DimensionMismatch growth_rate(a[1:6], Wa; window = 1, maxima = 1:2)
+    @test occursin("hold 6 values",
+        refusal(() -> growth_rate(a[1:6], Wa; window = 1, maxima = 1:2)))
 end
 
 @testset "check 8: the best and worst parameters, $T" for T in (Float64, Float32)

@@ -305,8 +305,9 @@ function save_full_solution(
     return nothing
 end
 
-# The guards of the full-order march: the three of `_check_march` that name no basis, and the
-# particle count of the list, which the snapshots must hold room for.
+# The guards of the full-order march: the three of `_check_march` that name no basis, with `χ` also
+# required to be finite, as `ScaledField` requires, and the particle count of the list, which the
+# snapshots must hold room for.
 function _check_full_march(SS::Snapshots, P₀, IP::IntegratorParameters, params)
     size(SS.X, 3) == IP.nₛ || throw(DimensionMismatch(
         "the snapshots hold $(size(SS.X, 3)) saved times; the parameters ask for $(IP.nₛ)"))
@@ -316,8 +317,8 @@ function _check_full_march(SS::Snapshots, P₀, IP::IntegratorParameters, params
     length(P₀) == size(SS.X, 2) || throw(DimensionMismatch(
         "the particle list holds $(length(P₀)) particles; the snapshots hold " *
         "$(size(SS.X, 2))"))
-    params.χ > 0 || throw(ArgumentError(
-        "the χ scale is a positive timestep scale, got χ = $(params.χ)"))
+    isfinite(params.χ) && params.χ > 0 || throw(ArgumentError(
+        "the χ scale is a finite, positive timestep scale, got χ = $(params.χ)"))
     return nothing
 end
 
@@ -347,8 +348,9 @@ It returns `nothing`; the states are in `SS`, and the integration parameters hol
 # Throws
 
 - `ArgumentError` when the snapshots carry another number of components than one, and when
-  `params.χ` is not `> 0`, which refuses `0`, a negative and `NaN` alike. The counts of `IP` are
-  checked by [`IntegratorParameters`](@ref) itself.
+  `params.χ` is not finite and `> 0`, which refuses `0`, a negative, `Inf` and `NaN` alike, as
+  [`ScaledField`](@ref) does. The counts of `IP` are checked by [`IntegratorParameters`](@ref)
+  itself.
 - `DimensionMismatch` when the snapshots do not hold `IP.nₛ` saved times, and when the particle
   list holds another number of particles than the snapshots do.
 - The `NamedTuple`'s own error when `params` holds no `χ`. There is no default.

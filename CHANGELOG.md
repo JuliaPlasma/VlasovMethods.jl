@@ -62,15 +62,20 @@ their own, except for what they removed and narrowed, which is listed in full be
   **half** the least-squares slope of `log W` over the selected local maxima, because
   `W ∝ |E|² ∝ e^{2γt}`. The notebook this package's reduced-order work follows plotted that slope
   itself under the name `γ`, so the rates here are half the figures it drew. The fit runs in
-  `eltype(W)` in closed form, so the package takes no `Statistics` dependency, and a `W` that is
-  not positive at a selected maximum throws an `ArgumentError`, because `log` is not defined there.
+  `eltype(W)` in closed form, so the package takes no `Statistics` dependency. A `t` and a `W` of
+  different lengths throw a `DimensionMismatch`. A `window` below `1`, a `maxima` that repeats an
+  index, selects fewer than two maxima, reaches past the maxima found or reaches an index below
+  `1`, and a `W` that is not positive at a selected maximum, where `log` is not defined, each throw
+  an `ArgumentError`. This closes K63 and K64 in `KNOWN_ISSUES.md`, which recorded a `BoundsError`
+  at these inputs.
 
 - **`best_and_worst`.** The indices of the smallest and of the largest of `abs.(γr .- γh)`: the
   parameters of a sweep whose growth rates agree and disagree most. A tie takes its first index.
 
 - **`plot_errors`.** One line per element of `series` against the saved times, with the axis
-  labelled `t` and `error`. `series` takes the entries of `trajectory_errors`, the potential error
-  of each parameter, or the two together. The axis is linear, so set a log scale on the returned
+  labelled `t` and `error`. `series` takes the entries of `trajectory_errors` for one parameter,
+  or a column of each entry for `(nₚ, nₛ, nparam)` input, the potential error of each parameter, or
+  the two together. The axis is linear, so set a log scale on the returned
   `Figure` to read a decaying error. It is defined in the package extension, so `CairoMakie` must
   be loaded.
 

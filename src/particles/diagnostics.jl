@@ -3,21 +3,12 @@
 # field-energy history. Each takes the arrays themselves rather than a `Snapshots`, so a model
 # whose data is no snapshots uses the same functions.
 
-"The root sum of squares of each column of `D`, whose first axis is the reduced one, with the
-trailing axes kept."
-function _norm_reduce(D::AbstractArray)
-    n = size(D, 1)
-    A = reshape(D, n, :)
-    return reshape([norm(@view A[:, j]) for j in axes(A, 2)], size(D)[2:end])
-end
+"The root sum of squares of `D` along its first axis, with the trailing axes kept. Unlike `norm`,
+it does not rescale, so a difference above about `sqrt(floatmax(T))` overflows to `Inf`."
+_norm_reduce(D::AbstractArray) = dropdims(sqrt.(sum(abs2, D; dims = 1)); dims = 1)
 
-"The largest absolute value of each column of `D` along its first axis, with the trailing axes
-kept."
-function _maxabs_reduce(D::AbstractArray)
-    n = size(D, 1)
-    A = reshape(D, n, :)
-    return reshape([maximum(abs, @view A[:, j]) for j in axes(A, 2)], size(D)[2:end])
-end
+"The largest absolute value of `D` along its first axis, with the trailing axes kept."
+_maxabs_reduce(D::AbstractArray) = dropdims(maximum(abs, D; dims = 1); dims = 1)
 
 """
     trajectory_errors(Xh, Vh, Xr, Vr)
@@ -71,7 +62,7 @@ end
 """
     field_energy_error(Wh, Wr)
 
-The relative error of a reduced field energy against a full-order one, `abs.(W - Wr) ./ W`, per
+The relative error of a reduced field energy against a full-order one, `abs.(Wh - Wr) ./ Wh`, per
 saved time and parameter.
 
 A field energy is `½ϕᵀKϕ ≥ 0` by construction, so the division is by a non-negative number and no
@@ -112,7 +103,7 @@ end
 The three saved states of a sweep of `nₛ` saved times that a plot of one trend uses: the final one
 `nₛ`, the one nearest three quarters of the way, `div(3(nₛ - 1), 4) + 1`, and the one nearest
 halfway, `div(nₛ - 1, 2) + 1`. The remainders take the floor, so the index never reaches past
-`nₛ`.
+`nₛ`. For `nₛ ≤ 3` the last two indices are the same state: `saved_indices(3) == (3, 2, 2)`.
 
 # Throws
 
@@ -145,19 +136,10 @@ end
 # `Σ(t - t̄)(y - ȳ) / Σ(t - t̄)²`. The arithmetic is in `eltype(w)`, so a `Float32` history gives a
 # `Float32` slope.
 function _log_slope(t::AbstractVector, w::AbstractVector{T}, inds) where {T}
-    τ = T[t[i] for i in inds]
-    y = T[log(w[i]) for i in inds]
-    τ̄ = sum(τ) / length(τ)
-    ȳ = sum(y) / length(y)
-
-    num = zero(T)
-    den = zero(T)
-    for j in eachindex(τ)
-        d = τ[j] - τ̄
-        num += d * (y[j] - ȳ)
-        den += d^2
-    end
-    return num / den
+    τ = T.(t[inds])
+    d = τ .- sum(τ) / length(τ)
+    y = log.(w[inds])
+    return dot(d, y .- sum(y) / length(y)) / dot(d, d)
 end
 
 """
@@ -178,13 +160,17 @@ A matrix `W` gives one `γ` per column, as a `Vector` of the element type of `W`
 
 # Throws
 
-- `ArgumentError` when `maxima` names an index twice, naming it, because one maximum may not enter
-  the fit twice; when it selects fewer than two maxima, or reaches past the maxima found, each
-  naming the number found; and when `W` is not positive at a selected maximum, where ``\\log W`` is
-  not defined.
+- `ArgumentError` when `window < 1`; when `maxima` names an index twice, naming it, because one
+  maximum may not enter the fit twice; when it selects fewer than two maxima, or reaches past the
+  maxima found, each naming the number found; when it selects an index below `1`; and when `W` is
+  not positive at a selected maximum, where ``\\log W`` is not defined.
+- `DimensionMismatch` when `t` and `W` differ in length, naming both.
 """
 function growth_rate(t::AbstractVector, W::AbstractVector;
         window::Int = 2, maxima = 2:5)
+    length(t) == length(W) || throw(DimensionMismatch(
+        "the times hold $(length(t)) values; the field energies hold $(length(W))"))
+    window ≥ 1 || throw(ArgumentError("a maximum needs a window of 1 or more, got $window"))
     inds = _find_maxima(W, window)
 
     if !allunique(maxima)
@@ -197,6 +183,8 @@ function growth_rate(t::AbstractVector, W::AbstractVector;
     maximum(maxima) ≤ length(inds) || throw(ArgumentError(
         "the maxima range selects index $(maximum(maxima)), beyond the " *
         "$(length(inds)) maxima found"))
+    minimum(maxima) ≥ 1 || throw(ArgumentError(
+        "the maxima range selects index $(minimum(maxima)); the maxima are counted from 1"))
 
     sel = inds[maxima]
     any(≤(0), @view W[sel]) && throw(ArgumentError(
@@ -205,10 +193,8 @@ function growth_rate(t::AbstractVector, W::AbstractVector;
     return _log_slope(t, W, sel) / 2
 end
 
-function growth_rate(t::AbstractVector, W::AbstractMatrix;
-        window::Int = 2, maxima = 2:5)
-    return [growth_rate(t, @view W[:, j]; window = window, maxima = maxima)
-            for j in axes(W, 2)]
+function growth_rate(t::AbstractVector, W::AbstractMatrix; kwargs...)
+    return [growth_rate(t, w; kwargs...) for w in eachcol(W)]
 end
 
 """

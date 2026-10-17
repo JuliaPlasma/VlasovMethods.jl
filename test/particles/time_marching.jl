@@ -349,9 +349,9 @@ end
 
     @test march!(f, f.params) === nothing
 
-    # `χ` is a positive timestep scale, and the comparison is written `> 0` so that `NaN` is
-    # refused with the same exception
-    for χ in (0, 0.0, -1, -1.0, NaN)
+    # `χ` is a finite, positive timestep scale, and the comparison is written `> 0` so that `NaN`
+    # is refused with the same exception
+    for χ in (0, 0.0, -1, -1.0, NaN, Inf)
         @test_throws ArgumentError march!(f, (χ = χ,))
     end
 
