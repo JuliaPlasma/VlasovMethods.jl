@@ -27,7 +27,7 @@ end
     nₚ, nₛ, nparam = 7, 5, 3
     δ = T(2)
 
-    # one particle differs, so `x2` is `abs(δ)/nₚ` and `xmax` is `abs(δ)` there and zero elsewhere
+    # one particle differs, so `x2` is `abs(δ)/√nₚ` and `xmax` is `abs(δ)` there and zero elsewhere
     X = zeros(T, nₚ, nₛ, nparam)
     Xh = moved(X, CartesianIndex(3, 2, 2), δ)
     Vh = moved(X, CartesianIndex(5, 1, 3), δ)
@@ -37,9 +37,9 @@ end
     @test size(err.xmax) == (nₛ, nparam)
     @test eltype(err.x2) === T && eltype(err.xmax) === T
     @test eltype(err.v2) === T && eltype(err.vmax) === T
-    @test err.x2[2, 2] == abs(δ) / nₚ
+    @test err.x2[2, 2] == abs(δ) / sqrt(T(nₚ))
     @test err.xmax[2, 2] == abs(δ)
-    @test err.v2[1, 3] == abs(δ) / nₚ
+    @test err.v2[1, 3] == abs(δ) / sqrt(T(nₚ))
     @test err.vmax[1, 3] == abs(δ)
     @test count(!iszero, err.x2) == 1
     @test count(!iszero, err.xmax) == 1
@@ -53,14 +53,14 @@ end
     Y[2, 1, 1] = one(T)
     both = trajectory_errors(Y, Y, zeros(T, nₚ, 1, 1), zeros(T, nₚ, 1, 1))
     @test both.xmax[1, 1] == one(T)
-    @test both.x2[1, 1] == sqrt(T(2)) / nₚ
+    @test both.x2[1, 1] == sqrt(T(2)) / sqrt(T(nₚ))
 
     # a `(nₚ, nₛ)` matrix gives a vector of length `nₛ`
     M = zeros(T, nₚ, nₛ)
     flat = trajectory_errors(moved(M, CartesianIndex(2, 4), δ), M, M, M)
     @test flat.x2 isa Vector{T}
     @test length(flat.x2) == nₛ
-    @test flat.x2[4] == abs(δ) / nₚ
+    @test flat.x2[4] == abs(δ) / sqrt(T(nₚ))
     @test flat.xmax[4] == abs(δ)
 
     # the two sizes are named when the HFM and the ROM arrays disagree
@@ -74,6 +74,30 @@ end
     velocities = refusal(() -> trajectory_errors(
         Xh, Vh, X, zeros(T, nₚ, nₛ, nparam + 1)))
     @test occursin("(7, 5, 3)", velocities) && occursin("(7, 5, 4)", velocities)
+end
+
+@testset "check 3b: x2 and v2 are root mean squares, independent of nₚ, $T" for T in (Float64, Float32)
+    # `m` copies of one particle set, each particle with the same error: the root mean square is
+    # unchanged, where the root sum of squares grows with `√m`
+    Xh = T[1, 2, 3, 4]
+    Xr = T[1.5, 2, 2, 4.5]
+    Vh = T[0, 1, 0, 1]
+    Vr = T[1, 1, -1, 1]
+    base = trajectory_errors(reshape(Xh, :, 1), reshape(Vh, :, 1),
+        reshape(Xr, :, 1), reshape(Vr, :, 1))
+    # the squared errors are 1/4, 0, 1, 1/4 and 1, 0, 1, 0, with means 3/8 and 1/2
+    @test base.x2[1] ≈ sqrt(T(3) / 8)
+    @test base.v2[1] ≈ sqrt(T(1) / 2)
+
+    for m in (2, 5)
+        copies = trajectory_errors(
+            reshape(repeat(Xh, m), :, 1), reshape(repeat(Vh, m), :, 1),
+            reshape(repeat(Xr, m), :, 1), reshape(repeat(Vr, m), :, 1))
+        @test copies.x2[1] ≈ base.x2[1]
+        @test copies.v2[1] ≈ base.v2[1]
+        @test copies.xmax[1] == base.xmax[1]
+        @test copies.vmax[1] == base.vmax[1]
+    end
 end
 
 @testset "check 4: the saved indices" begin

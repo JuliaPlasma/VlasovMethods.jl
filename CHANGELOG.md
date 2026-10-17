@@ -39,8 +39,9 @@ their own, except for what they removed and narrowed, which is listed in full be
   state, and on an identity basis it agrees with `reduced_integrate_vp` bit for bit.
 
 - **`trajectory_errors`.** `trajectory_errors(Xh, Vh, Xr, Vr)` is the error of a full-order state
-  against a reduced one, as the `NamedTuple` `(x2, xmax, v2, vmax)`: `x2` and `v2` the root sum of
-  squares over the particle axis divided by the particle count, `xmax` and `vmax` the largest
+  against a reduced one, as the `NamedTuple` `(x2, xmax, v2, vmax)`: `x2` and `v2` the root mean
+  square over the particle axis, the root sum of squares divided by `√nₚ`, so they do not change
+  when the particles are duplicated, `xmax` and `vmax` the largest
   absolute difference, the `L∞` error. Each argument takes one saved state per `(ts, p)` as a
   `(nₚ, nₛ, nparam)` array or a `(nₚ, nₛ)` matrix, and each result has the trailing shape of its
   argument.

@@ -7,6 +7,10 @@
 it does not rescale, so a difference above about `sqrt(floatmax(T))` overflows to `Inf`."
 _norm_reduce(D::AbstractArray) = dropdims(sqrt.(sum(abs2, D; dims = 1)); dims = 1)
 
+"The root mean square of `D` along its first axis, with the trailing axes kept: the root sum of
+squares divided by the square root of the length of that axis."
+_rms_reduce(D::AbstractArray) = _norm_reduce(D) ./ sqrt(eltype(D)(size(D, 1)))
+
 "The largest absolute value of `D` along its first axis, with the trailing axes kept."
 _maxabs_reduce(D::AbstractArray) = dropdims(maximum(abs, D; dims = 1); dims = 1)
 
@@ -14,10 +18,10 @@ _maxabs_reduce(D::AbstractArray) = dropdims(maximum(abs, D; dims = 1); dims = 1)
     trajectory_errors(Xh, Vh, Xr, Vr)
 
 The errors of a full-order state `(Xh, Vh)` against a reduced state `(Xr, Vr)`: the `NamedTuple`
-`(x2, xmax, v2, vmax)` of the position and the velocity errors. `x2` is the root sum of squares of
-the position difference over the particle axis, divided by the particle count, and `xmax` is the
-largest absolute position difference, the ``L^\\infty`` error; `v2` and `vmax` are the same for
-the velocities.
+`(x2, xmax, v2, vmax)` of the position and the velocity errors. `x2` is the root mean square of
+the position difference over the particle axis, the root sum of squares divided by `√nₚ`, so it
+does not change when the particles are duplicated; `xmax` is the largest absolute position
+difference, the ``L^\\infty`` error. `v2` and `vmax` are the same for the velocities.
 
 Each argument holds one saved state per `(ts, p)`, as a `(nₚ, nₛ, nparam)` array or as a
 `(nₚ, nₛ)` matrix, and each result has the trailing shape, `(nₛ, nparam)` or `(nₛ,)`, of the
@@ -33,11 +37,10 @@ function trajectory_errors(Xh::AbstractArray, Vh::AbstractArray,
     size(Vh) == size(Vr) || throw(DimensionMismatch(
         "the velocities hold $(size(Vh)) and $(size(Vr))"))
 
-    nₚ = size(Xh, 1)
     Dx = Xh .- Xr
     Dv = Vh .- Vr
-    return (x2 = _norm_reduce(Dx) ./ nₚ, xmax = _maxabs_reduce(Dx),
-        v2 = _norm_reduce(Dv) ./ nₚ, vmax = _maxabs_reduce(Dv))
+    return (x2 = _rms_reduce(Dx), xmax = _maxabs_reduce(Dx),
+        v2 = _rms_reduce(Dv), vmax = _maxabs_reduce(Dv))
 end
 
 """
