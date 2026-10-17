@@ -1,5 +1,6 @@
 using CairoMakie
 using ParticleMethods: ParticleList
+using ReducedComplexityModeling: ParameterSpace, Parameter
 using Test
 using VlasovMethods
 
@@ -37,6 +38,16 @@ function plotted_matrix(fig)
     plot = only_plot(fig)
     @test plot isa Heatmap
     return plot[3][]
+end
+
+# the phrase of the exception a call raises, so that two guards of the same kind are told apart
+function message_of(f)
+    try
+        f()
+        return "no exception"
+    catch thrown
+        return sprint(showerror, thrown)
+    end
 end
 
 @testset "CairoMakie activates the extension" begin
@@ -247,4 +258,98 @@ end
         @test ax.ylabel[] == "v"
         @test ax.title[] == ""
     end
+end
+
+# The three series plots hold the `(x, y)` pairs a `lines!` was handed, so the axis carries one
+# plot per series and the read-back of plot `i` is the `Point`s of that series against its times.
+function series_axis(fig, nplots)
+    @test fig isa Figure
+    @test length(fig.content) == 1
+    ax = fig.content[1]
+    @test ax isa Axis
+    @test length(ax.scene.plots) == nplots
+    return ax
+end
+function series_points(fig, i)
+    plot = series_axis(fig, 2).scene.plots[i]
+    @test plot isa Lines
+    return plot[1][]
+end
+
+@testset "the series plots draw each series against the times, $T" for T in (Float64, Float32)
+    t = collect(T, 0:0.25:2)
+    s1, s2 = sin.(t), cos.(t)
+
+    for (f, xlabel, ylabel) in ((plot_errors, "t", "error"),
+        (plot_energy, "t", "energy"),
+        (plot_growth_rate, "parameter", "γ"))
+        fig = f(t, (s1, s2))
+        ax = series_axis(fig, 2)
+
+        @test ax.xlabel[] == xlabel
+        @test ax.ylabel[] == ylabel
+        @test ax.title[] == ""
+        p1, p2 = series_points(fig, 1), series_points(fig, 2)
+        @test first.(p1) == t && last.(p1) == s1
+        @test first.(p2) == t && last.(p2) == s2
+
+        file = tempname() * ".png"
+        save(file, fig)
+        @test filesize(file) > 0
+    end
+
+    # a single series is one plot
+    @test length(series_axis(plot_errors(t, (s1,)), 1).scene.plots) == 1
+
+    # an empty series and a time vector of the wrong length are refused
+    @test_throws ArgumentError plot_errors(t, ())
+    @test_throws DimensionMismatch plot_errors(t, (s1, s2[1:(end - 1)]))
+    @test_throws ArgumentError plot_energy(t, ())
+    @test_throws DimensionMismatch plot_growth_rate(t, (vcat(s1, s1),))
+end
+
+@testset "plot_particles draws a saved state of the snapshots" begin
+    T = Float64
+    n, nₛ, nh = 5, 3, 2
+    space = ParameterSpace(Parameter(:β, T(6), T(7), 2))
+    SS = Snapshots(T, 1, n, nh, nₛ, space)
+
+    # a state that lies inside the domains, so the plotted data are the input itself
+    SS.X[1, :, 2, 1] .= T[0.1, 0.2, 0.3, 0.4, 0.5]
+    SS.V[1, :, 2, 1] .= T[-1, -2, -3, -4, -5]
+
+    fig = plot_particles(SS, 2, 1; xdomain = XDOMAIN, vdomain = VDOMAIN)
+    ax = only_axis(fig)
+    plot = ax.scene.plots[1]
+    @test plot isa Scatter
+
+    points = plot[1][]
+    @test length(points) == n
+    @test first.(points) == SS.X[1, :, 2, 1]
+    @test last.(points) == SS.V[1, :, 2, 1]
+    @test ax.limits[] == (first(XDOMAIN), last(XDOMAIN), first(VDOMAIN), last(VDOMAIN))
+
+    file = tempname() * ".png"
+    save(file, fig)
+    @test filesize(file) > 0
+
+    # `ts` and `p` index the saved times and the parameters of the snapshots
+    @test_throws ArgumentError plot_particles(
+        SS, 0, 1; xdomain = XDOMAIN, vdomain = VDOMAIN)
+    @test_throws ArgumentError plot_particles(
+        SS, nₛ + 1, 1; xdomain = XDOMAIN, vdomain = VDOMAIN)
+    @test_throws ArgumentError plot_particles(
+        SS, 1, 0; xdomain = XDOMAIN, vdomain = VDOMAIN)
+    @test_throws ArgumentError plot_particles(
+        SS, 1, 3; xdomain = XDOMAIN, vdomain = VDOMAIN)
+    @test occursin("1:3", message_of(() -> plot_particles(
+        SS, 4, 1; xdomain = XDOMAIN, vdomain = VDOMAIN)))
+    @test occursin("1:2", message_of(() -> plot_particles(
+        SS, 1, 3; xdomain = XDOMAIN, vdomain = VDOMAIN)))
+
+    # `x` wraps into `xdomain`, as the particle method's does: one period away is the same point
+    period = last(XDOMAIN) - first(XDOMAIN)
+    SS.X[1, :, 3, 1] .= T[0.25 + period, 0.5, 0.75, 0.25, 0.5]
+    wrapped = only_plot(plot_particles(SS, 3, 1; xdomain = XDOMAIN, vdomain = VDOMAIN))[1][]
+    @test first.(wrapped) == T[0.25, 0.5, 0.75, 0.25, 0.5]
 end

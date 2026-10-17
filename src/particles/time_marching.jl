@@ -252,3 +252,139 @@ function reduced_integrate_vp(P₀::ParticleList{T},
 
     return nothing
 end
+
+"""
+    full_leapfrog_step!(x, v, a, w, efield, Δt, t)
+
+One step `Δt` of the full-order leapfrog: half a drift, the deposit of the half-drifted positions
+and the kick of the full-order field at the time `t`, and the second half drift. `x` and `v` are
+the particle positions and velocities, `w` their weights, and `a` the acceleration buffer the
+field writes. The symmetric composition is second order. It is inferred and allocates nothing.
+"""
+@inline function full_leapfrog_step!(
+        x::AbstractVector{T}, v::AbstractVector{T}, a::AbstractVector{T},
+        w::AbstractVector{T}, efield::ElectricField, Δt::T, t) where {T}
+    half = T(0.5) * Δt
+
+    x .+= half .* v
+    update!(efield, x, w, t)
+    efield!(efield, a, x)
+    v .+= Δt .* a
+    x .+= half .* v
+
+    return nothing
+end
+
+"""
+    save_full_solution(SS, x, v, w, efield, p, t, ts)
+
+Write the state of a full-order march at the time `t` into the save `ts` of the sample `p` of the
+snapshots `SS`: the positions `x` and the velocities `v`, the potential's coefficients, and the
+three diagnostics. The accelerations `SS.A` are not written.
+
+The kinetic energy `K = ½∑ⱼwⱼvⱼ²` and the scalar momentum `M = ∑ⱼwⱼvⱼ` are those of a single
+component, `nd == 1`, which the march requires. It is inferred and allocates nothing.
+"""
+function save_full_solution(
+        SS::Snapshots{T}, x::AbstractVector{T}, v::AbstractVector{T}, w::AbstractVector{T},
+        efield::ElectricField, p, t::T, ts::Int) where {T}
+    # the saved state of the one component
+    copyto!(@view(SS.X[1, :, ts, p]), x)
+    copyto!(@view(SS.V[1, :, ts, p]), v)
+
+    # solve for the potential and copy its coefficients
+    update!(efield, x, w, t)
+    SS.Φ[:, ts, p] .= coefficients(efield)
+
+    # diagnostics
+    SS.W[ts, p] = energy(efield)
+    SS.K[ts, p] = dot(v, Diagonal(w), v) / 2
+    SS.M[ts, p] = dot(w, v)
+
+    return nothing
+end
+
+# The guards of the full-order march: the three of `_check_march` that name no basis, and the
+# particle count of the list, which the snapshots must hold room for.
+function _check_full_march(SS::Snapshots, P₀, IP::IntegratorParameters, params)
+    size(SS.X, 3) == IP.nₛ || throw(DimensionMismatch(
+        "the snapshots hold $(size(SS.X, 3)) saved times; the parameters ask for $(IP.nₛ)"))
+    size(SS.X, 1) == 1 || throw(ArgumentError(
+        "the scalar momentum is defined for nd == 1; the snapshots hold $(size(SS.X, 1)) " *
+        "components"))
+    length(P₀) == size(SS.X, 2) || throw(DimensionMismatch(
+        "the particle list holds $(length(P₀)) particles; the snapshots hold " *
+        "$(size(SS.X, 2))"))
+    params.χ > 0 || throw(ArgumentError(
+        "the χ scale is a positive timestep scale, got χ = $(params.χ)"))
+    return nothing
+end
+
+"""
+    integrate_vp(P₀, params, efield, SS, IP, p; save = true)
+
+The full-order leapfrog march of the analytic quadratic model, the same march as
+[`reduced_integrate_vp`](@ref) without a basis: the state of `P₀` advanced `IP.nₜ` steps of
+`IP.dt` by [`full_leapfrog_step!`](@ref), with one kick of the full field of `efield` per step.
+With `nsave = nₜ/(nₛ - 1)`, the state of every `nsave`-th step `it`, the initial state included,
+is written into the save `div(it, nsave) + 1` of the sample `p` of the snapshots `SS` by
+[`save_full_solution`](@ref).
+
+The march holds its own buffers, so `efield` is the only state it shares with the caller: `P₀` is
+copied and never written, and the march needs no cache argument.
+
+`params` is the caller's, and it must hold `χ`. **The χ scale is a timestep scale and nothing
+else:** the step is `Δt = IP.dt·T(params.χ)`, converted to the march's element type before the
+product, and the times handed to the field are unscaled: the kick of step `it` is at its midpoint
+`(it - ½)·IP.dt`, and the save of step `it` at `it·IP.dt`. So a time-independent field marched
+with `(dt, χ = 2)` equals the same field marched with `(2dt, χ = 1)` state for state.
+
+It returns `nothing`; the states are in `SS`, and the integration parameters hold the times.
+
+# Throws
+
+- `ArgumentError` when the snapshots carry another number of components than one, and when
+  `params.χ` is not `> 0`, which refuses `0`, a negative and `NaN` alike. The counts of `IP` are
+  checked by [`IntegratorParameters`](@ref) itself.
+- `DimensionMismatch` when the snapshots do not hold `IP.nₛ` saved times, and when the particle
+  list holds another number of particles than the snapshots do.
+- The `NamedTuple`'s own error when `params` holds no `χ`. There is no default.
+
+# Cost
+
+The loop's two calls — [`full_leapfrog_step!`](@ref) and [`save_full_solution`](@ref) — are
+inferred and allocate nothing. The buffers of the state are allocated once, before the loop.
+"""
+function integrate_vp(P₀::ParticleList{T},
+        params::NamedTuple,
+        efield::ElectricField,
+        SS::Snapshots{T},
+        IP::IntegratorParameters{T},
+        p;
+        save = true) where {T}
+    _check_full_march(SS, P₀, IP, params)
+
+    nsave = div(IP.nₜ, IP.nₛ - 1)
+
+    # the state of the march: a copy of the list, which the step raises in place
+    x = copy(vec(P₀.x))
+    v = copy(vec(P₀.v))
+    w = copy(vec(P₀.w))
+    a = zeros(T, length(P₀))
+
+    # effective timestep: the χ scale, converted to `T` before the product. The times of the
+    # field are unscaled, so a step of `IP.dt` in `IP.t` is one step of the march.
+    Δt = IP.dt * T(params.χ)
+
+    save && save_full_solution(SS, x, v, w, efield, p, zero(T), 1)
+
+    for it in 1:IP.nₜ
+        full_leapfrog_step!(x, v, a, w, efield, Δt, (it - T(0.5)) * IP.dt)
+
+        if save && it % nsave == 0
+            save_full_solution(SS, x, v, w, efield, p, it * IP.dt, div(it, nsave) + 1)
+        end
+    end
+
+    return nothing
+end

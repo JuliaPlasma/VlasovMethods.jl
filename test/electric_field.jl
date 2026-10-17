@@ -152,3 +152,84 @@ end
         @test _alloc_energy(f -> similar(f.nodes), field) > 0
     end
 end
+
+# The phrase of the exception a call raises, or a fixed word when it raises nothing: the guard
+# of `ScaledField` is the only check on a `χ` of the wrong sign, so its phrase is the evidence.
+function refusal(f)
+    try
+        f()
+        return "no exception"
+    catch thrown
+        return sprint(showerror, thrown)
+    end
+end
+
+@testset "check 1: ScaledField, $T" for T in (Float64, Float32)
+    field, q, w = poisson_field(T)
+    t = zero(T)
+
+    # `χ = 1` is the inner field exactly
+    one_ = ScaledField(field, one(T))
+    @test one_ isa ElectricField
+    @test one_.field === field
+    e = similar(q)
+    e′ = similar(q)
+    update!(field, q, w, t)
+    efield!(field, e′, q)
+    update!(one_, q, w, t)
+    @test efield!(one_, e, q) === e
+    @test e == e′
+    @test energy(one_) == energy(field)
+    @test coefficients(one_) == coefficients(field)
+
+    # `χ = 2` divides the field and the energy by four, exactly, and an integer `χ` is accepted
+    two = ScaledField(field, 2)
+    update!(two, q, w, t)
+    e2 = similar(q)
+    @test efield!(two, e2, q) === e2
+    @test e2 == e′ ./ 4
+    @test energy(two) == energy(field) / 4
+    @test eltype(e2) === T
+
+    # a `Float64` `χ` on a `Float32` field stays `Float32`
+    if T === Float32
+        half = ScaledField(field, 0.5)
+        update!(half, q, w, t)
+        @test eltype(efield!(half, similar(q), q)) === Float32
+        @test eltype(energy(half)) === Float32
+    end
+
+    # `update!` forwards: the scaled field's coefficients are those of the same deposit into a
+    # plain field of the same basis, and a drop of the forward leaves them at zero
+    a = ScaledField(
+        PoissonField(Potential(PeriodicBasisSpline((zero(T), one(T)), 3, 16))), 2)
+    b = PoissonField(Potential(PeriodicBasisSpline((zero(T), one(T)), 3, 16)))
+    update!(a, q, w, t)
+    update!(b, q, w, t)
+    @test coefficients(a) == coefficients(b)
+    @test any(!iszero, coefficients(a))
+    @test coefficients(ScaledField(field, 2)) == coefficients(field)
+
+    # a `χ` that is neither finite nor positive is refused, and its phrase says which value
+    for χ in (0, 0.0, -1, -1.0, T(NaN), T(Inf), T(-Inf))
+        @test_throws ArgumentError ScaledField(field, χ)
+        @test occursin("χ must be finite and positive",
+            refusal(() -> ScaledField(field, χ)))
+    end
+
+    @testset "the field and the energy allocate nothing" begin
+        sc = ScaledField(field, T(2))
+        es = similar(q)
+        @test @inferred(efield!(sc, es, q)) === es
+        @test @inferred(energy(sc)) isa T
+
+        # coverage instrumentation allocates on every counted line, so under it the assertion
+        # does not run rather than being weakened
+        if Base.JLOptions().code_coverage == 0
+            @test _alloc_efield(efield!, sc, es, q) == 0
+            @test _alloc_energy(energy, sc) == 0
+        end
+        @test _alloc_efield((f, e, x) -> similar(e), sc, es, q) > 0
+        @test _alloc_energy(f -> similar(f.field.nodes), sc) > 0
+    end
+end
