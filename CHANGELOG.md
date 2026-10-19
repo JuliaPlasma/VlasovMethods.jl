@@ -19,12 +19,13 @@ their own, except for what they removed and narrowed, which is listed in full be
 
 ### Bug Fixes
 
-- **`initialize!` of a `BumpOnTail`.** Its two `draw!` methods named `ParticleDistribution{1, 1}`,
-  which binds the distribution's first type parameter — its element type — to `1`, so no real
-  distribution matched and `initialize!(dist, BumpOnTail(…))` raised a `MethodError`. They now name
-  `ParticleDistribution{T, 1, 1}`, and the accept–reject and importance samples run. The same
-  signature of `Bump`'s `draw!` stays as it is; it has no caller, and `KNOWN_ISSUES.md` K67
-  records it.
+- **`initialize!` of a `BumpOnTail` with the accept–reject sample.** Its accept–reject `draw!`
+  method named `ParticleDistribution{1, 1}`, which binds the distribution's first type parameter —
+  its element type — to `1`, so no real distribution matched and
+  `initialize!(dist, BumpOnTail(…))` raised a `MethodError`. It now names
+  `ParticleDistribution{T, 1, 1}`, and the accept–reject sample runs. The importance-sampling
+  method of the same file stays as it is, and `KNOWN_ISSUES.md` K68 records it; the same signature
+  of `Bump`'s `draw!` has no caller, and `KNOWN_ISSUES.md` K67 records that one.
 
 ### New Features
 
@@ -35,7 +36,9 @@ their own, except for what they removed and narrowed, which is listed in full be
   and marches in the scaled time. `integrate_vp` and `reduced_integrate_vp` take the scale of a
   `ScaledField` from `params.χ`, the one source of `χ`: they march a `ScaledField`, or a reduced
   field over one, at the `χ` of the parameters. A stored `χ` other than `params.χ` throws an
-  `ArgumentError` that names both values, instead of being discarded. The energy
+  `ArgumentError` that names both values, instead of being discarded, and a `ScaledField` over a
+  `ScaledField` throws one whatever the two χ, because the inner wrapper would apply a second
+  scale. The energy
   divides by `χ²` and not by `χ⁴`, because `wᵢ·E(xᵢ)/χ²` is the force of the energy `W/χ²`.
   A `χ` that is not finite and positive throws an
   `ArgumentError`, and each division converts `χ` to the element type of the value it divides, so
@@ -108,7 +111,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   24–29. `scripts/analytic_quadratic.jl` reproduces the analytic quadratic model with the reduced
   ODE form at `k = 5` and the PODE form at `k = 20`. Every script writes through `--runs-dir` and
   `--results-dir`, and the three bump-on-tail scripts share `scripts/bump_on_tail_common.jl`,
-  which builds the field unscaled so that `params.χ` alone governs a march.
+  which builds each sample's field at that sample's χ, from the same parameter tuple the march
+  reads, so the scale reaches the march once.
 
 ### Documentation
 

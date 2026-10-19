@@ -35,7 +35,6 @@ const CHI = test_chi()
 
 basis = PeriodicBasisSpline((zero(T), domain_length()), OPT.degree, OPT.ncells)
 potential = Potential(basis)
-field = vp_field(potential)
 nh = nbasis(basis)
 
 # the bases of the training sweep, and the DEIM rows of the field basis
@@ -64,20 +63,21 @@ IP = IntegratorParameters(DT, NT, NS, nh, NPARTICLES, length(ps))
     NPARTICLES, OPT.ncells, OPT.degree, DT, OPT.final_time)
 @printf("  kₚ = %d, kₑ = %d, %d DEIM rows\n", bp.k, be.k, length(deim))
 
-# the full-order march of every test sample
+# the full-order march of every test sample, each on the sample's own scaled field, built from the
+# parameter tuple the march reads
 for p in eachindex(ps)
-    integrate_vp(dist.particles, march_parameters(ps(p).χ), field, SS, IP, p)
+    params = march_parameters(ps(p).χ)
+    integrate_vp(dist.particles, params, vp_field(potential, params), SS, IP, p)
 end
 
-# the reduced march of every test sample, on the DEIM field
+# the reduced march of every test sample, on the DEIM field of that same scaled field
 X0 = Ψₚ' * vec(dist.particles.x)
 RSS = Snapshots(T, 1, NPARTICLES, nh, NS, ps)
 RIC = ReducedIntegratorCache(IP, bp.k)
 for p in eachindex(ps)
-    efield = DEIMElectricField(field, Ψₚ, Ψₑ, deim, X0)
-    reduced_integrate_vp(
-        dist.particles, Ψₚ, march_parameters(ps(p).χ), efield, RSS, IP, RIC,
-        p)
+    params = march_parameters(ps(p).χ)
+    efield = DEIMElectricField(vp_field(potential, params), Ψₚ, Ψₑ, deim, X0)
+    reduced_integrate_vp(dist.particles, Ψₚ, params, efield, RSS, IP, RIC, p)
 end
 
 # the diagnostics of item 24–29, each on the arrays the marches wrote
@@ -104,13 +104,16 @@ save(figure,
         labels = ["RMS x", "L∞ x", "RMS v", "L∞ v"], xlabel = "t", ylabel = "error"))
 @printf("  wrote %s\n", figure)
 
-# item 24, the error against the parameter at T, 0.75T and 0.5T
+# item 24, both norms of both components against the parameter at T, 0.75T and 0.5T
+times = ("T", "0.75T", "0.5T")
+norms = ((:x2, "RMS x"), (:xmax, "L∞ x"), (:v2, "RMS v"), (:vmax, "L∞ v"))
 ts = saved_indices(NS)
 figure = results_path("bump_on_tail_errors_parameter.png")
 save(figure,
     plot_series(CHI,
-        (err.x2[ts[1], :], err.x2[ts[2], :], err.x2[ts[3], :]);
-        labels = ["T", "0.75T", "0.5T"], xlabel = "χ", ylabel = "RMS x error"))
+        [getproperty(err, name)[ts[i], :] for i in eachindex(times) for (name, _) in norms];
+        labels = ["$(times[i]), $(label)" for i in eachindex(times) for (_, label) in norms],
+        xlabel = "χ", ylabel = "error"))
 @printf("  wrote %s\n", figure)
 
 # item 25

@@ -293,6 +293,11 @@ end
     @test at.field === field
     @test at.χ == 2
 
+    atf = _with_scale(ScaledField(field, 2), 2.0)
+    @test atf isa ScaledField
+    @test atf.field === field
+    @test atf.χ === 2.0
+
     # a stored χ that differs is refused, and the message names both values: a caller who reads it
     # can tell which of the two it built
     for (stored, χ) in ((5, 2.0), (2.5, 0.5))
@@ -300,5 +305,14 @@ end
         @test occursin("ArgumentError", message)
         @test occursin("χ = $(stored)", message)
         @test occursin("χ = $χ", message)
+    end
+
+    # a scale over a scale is refused whatever the two χ, and the message names the inner one, the
+    # outer one and the march's: an inner wrapper the parameters' one χ does not govern
+    for (inner, outer) in ((5, 2), (2, 2), (5.0, 2.0))
+        message = refusal(() -> _with_scale(ScaledField(ScaledField(field, inner), outer), T(2)))
+        @test occursin("ArgumentError", message)
+        @test occursin("χ = $(inner)", message)
+        @test occursin("χ = $(outer)", message)
     end
 end

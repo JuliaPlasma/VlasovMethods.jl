@@ -2,17 +2,22 @@
 # quadratic potential `E(x) = β²x`, the cotangent-lift and POD bases of them, and the reduced ODE
 # and PODE marches at the off-sample β = 6.00.
 #
-#   julia --project=scripts scripts/analytic_quadratic.jl [--particles 1000] [--final-time 100.0] \
-#       [--tstep 1e-4] [--k-ode 5] [--k-pode 20] [--runs-dir dir] [--results-dir dir]
+#   julia --project=scripts scripts/analytic_quadratic.jl [--particles 1000] [--final-time 10.0] \
+#       [--tstep 1e-4] [--save-time 0.01] [--k-ode 5] [--k-pode 20] [--runs-dir dir] \
+#       [--results-dir dir]
 #
-# The default stops at `T = 100` of the paper's `T = 1000`, at the same `dt = 1e-4` and with the
-# same six β, so that a run is minutes rather than hours; the paper's run is
+# `--save-time` is the spacing of the training snapshot and `--tstep` the step of the reduced
+# marches: §4's full model steps at `dt = 0.001` and saves every 10th step, a spacing of `0.01`,
+# and the reduced model takes `dt = 1e-4`. The default stops at `T = 10` of the paper's `T = 1000`,
+# at the paper's cadence, so that a default run is short; the paper's run is
 #
 #   julia --project=scripts scripts/analytic_quadratic.jl --final-time 1000.0
 #
-# The closed form is evaluated at the saved times only, never at every step, so no trajectory of
-# `2n × 10⁶` states is stored. The figures go to `--results-dir`: the spectrum of the training
-# basis, the errors against the closed form and the drift of the Hamiltonian of the two forms.
+# whose training snapshot is `2000 × 600006` `Float64`, about 9.6 GB, and whose reduced marches
+# take `10⁷` steps. The closed form is evaluated at the saved times only, never at every step, so
+# no trajectory of `2n × 10⁶` states is stored. The figures go to `--results-dir`: the spectrum of
+# the training basis, the errors against the closed form and the drift of the Hamiltonian of the
+# two forms.
 
 include(joinpath(@__DIR__, "options.jl"))
 
@@ -26,8 +31,8 @@ using ReducedComplexityModeling: Parameter, ParameterSpace
 using VlasovMethods
 using GeometricIntegrators: LobattoIIIAIIIB, RK4, integrate
 
-const OPT = parse_arguments(ARGS; particles = 1000, final_time = 100.0, tstep = 1e-4,
-    k_ode = 5, k_pode = 20)
+const OPT = parse_arguments(ARGS; particles = 1000, final_time = 10.0, tstep = 1e-4,
+    save_time = 0.01, k_ode = 5, k_pode = 20)
 
 const T = Float64
 const DT = OPT.tstep
@@ -37,13 +42,28 @@ const TSPAN = OPT.final_time
 const TRAINING_β = (5.95, 5.97, 5.99, 6.01, 6.03, 6.05)
 const TEST_β = 6.0
 
-# the spacing of the training snapshot and of the reduced saves: the paper saves every 10th step of
-# the closed form, and the reduced model every 1000th step of its `10⁷`
-const SAVE_TIME = 1.0
+# The spacing of the training snapshot: §4's full model steps at `dt = 0.001` and saves every 10th
+# step, which is `--save-time 0.01`. The reduced forms save every `NSAVE = 1000` steps of their own
+# `dt = 1e-4`, which is §4's 10 000 saved states over `T = 1000`.
+const SAVE_TIME = OPT.save_time
 const NSAVE = 1000
 
 const NT = round(Int, TSPAN / DT)
 const NS = div(NT, NSAVE) + 1
+const NTS = length(T(0):T(SAVE_TIME):T(TSPAN))
+
+# `ReducedBasis` takes `k` from the snapshot: the POD form of the `2n × m` snapshot admits `k` up to
+# `min(2n, m)`, and the cotangent-lift form of `m` columns up to `min(n, 2m)`. A `--final-time`
+# that saves too few columns for the requested `k` is refused here, by name, instead of reaching
+# `ReducedBasis` as an out-of-range `k`.
+const NSLOTS = max(cld(OPT.k_ode, length(TRAINING_β)),
+    cld(OPT.k_pode, 2 * length(TRAINING_β)))
+if NTS < NSLOTS
+    throw(ArgumentError("--final-time $(TSPAN) at --save-time $(SAVE_TIME) saves $(NTS) times " *
+                        "per β, fewer than the $(NSLOTS) that k = $(OPT.k_ode) (ODE) and k = $(OPT.k_pode) " *
+                        "(PODE) need; the smallest final time is " *
+                        "$(@sprintf("%.4g", (NSLOTS - 1) * SAVE_TIME))"))
+end
 
 """
     initial_condition(::Type{T}; n) -> (q₀, p₀)

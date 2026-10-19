@@ -7,9 +7,8 @@
 #
 # Reads `<runid>.h5` from `--runs-dir`, which `bump_on_tail_training.jl` writes there, and writes
 # `<runid>_projections.h5`, `<runid>_vectorfield.h5` and two spectra to `--runs-dir` and
-# `--results-dir`. The tolerances are the old script's: the particle basis keeps all but `1e-4` of
-# the energy of the stacked positions and velocities, the field basis all but `1e-2` of the
-# accelerations'.
+# `--results-dir`. The tolerances: the particle basis keeps all but `1e-4` of the energy of the
+# stacked positions and velocities, the field basis all but `1e-2` of the accelerations'.
 
 include(joinpath(@__DIR__, "options.jl"))
 include(joinpath(@__DIR__, "bump_on_tail_common.jl"))

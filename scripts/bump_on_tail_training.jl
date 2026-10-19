@@ -31,7 +31,6 @@ const CHI = training_chi()
 
 basis = PeriodicBasisSpline((zero(T), domain_length()), OPT.degree, OPT.ncells)
 potential = Potential(basis)
-field = vp_field(potential)
 nh = nbasis(basis)
 
 dist = initial_distribution(; n = NPARTICLES)
@@ -48,20 +47,20 @@ IP = IntegratorParameters(DT, NT, NS, nh, NPARTICLES, length(ps))
 @printf("bump_on_tail_training: %d particles, %d cells, degree %d, dt = %g, t ∈ [0, %g]\n",
     NPARTICLES, OPT.ncells, OPT.degree, DT, OPT.final_time)
 
-for p in eachindex(ps)
-    integrate_vp(dist.particles, march_parameters(ps(p).χ), field, SS, IP, p)
-end
-
-# The acceleration of each saved state, which the field basis of the projections is built from:
-# the plain field at the saved positions, with the weights the march deposited. No march writes
-# `Snapshots.A`, so it is taken here from the positions the march saved.
+# Each sample marches on its own scaled field, built from the same parameter tuple the march
+# reads, and its saved accelerations are that field's: the acceleration the march applied,
+# `E/χ²`. No march writes `Snapshots.A`.
 a = zeros(T, NPARTICLES)
 w = vec(dist.particles.w)
-for p in eachindex(ps), ts in axes(SS.X, 3)
-
-    x = @view SS.X[1, :, ts, p]
-    field(a, x, w, IP.t[ts])
-    SS.A[1, :, ts, p] .= a
+for p in eachindex(ps)
+    params = march_parameters(ps(p).χ)
+    field = vp_field(potential, params)
+    integrate_vp(dist.particles, params, field, SS, IP, p)
+    for ts in axes(SS.X, 3)
+        x = @view SS.X[1, :, ts, p]
+        field(a, x, w, IP.t[ts])
+        SS.A[1, :, ts, p] .= a
+    end
 end
 
 # the snapshots, with the commit, the command and the seed the files of the set carry

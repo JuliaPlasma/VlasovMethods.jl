@@ -404,6 +404,24 @@ end
     efm = ReducedElectricField(ScaledField(field, 7), Ψ, Ψ' * vec(plt.x))
     @test_throws ArgumentError reduced_integrate_vp(
         plt, Ψ, (χ = χ,), efm, SSr, IPr, ReducedIntegratorCache(IPr, n), 1)
+
+    # a scale over a scale is refused as well, whichever of the two χ the march holds and whether
+    # or not one of them equals the parameters': the inner wrapper would apply a second scale
+    for (inner, outer) in ((5, 2), (2, 2))
+        err = try
+            full_march(T, plt, ScaledField(ScaledField(field, inner), outer), nt, 2;
+                dt = dt, χ = χ)
+        catch thrown
+            thrown
+        end
+        @test err isa ArgumentError
+        @test occursin("χ = $(inner)", sprint(showerror, err))
+        @test occursin("χ = $(outer)", sprint(showerror, err))
+    end
+
+    efn = ReducedElectricField(ScaledField(ScaledField(field, 5), 2), Ψ, Ψ' * vec(plt.x))
+    @test_throws ArgumentError reduced_integrate_vp(
+        plt, Ψ, (χ = χ,), efn, SSr, IPr, ReducedIntegratorCache(IPr, n), 1)
 end
 
 @testset "the guards of the full-order march, $T" for T in (Float64, Float32)

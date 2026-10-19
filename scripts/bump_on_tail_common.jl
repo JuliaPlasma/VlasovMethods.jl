@@ -2,9 +2,9 @@
 # training and test κ sweeps, the initial condition, the field a march takes, the runid and the
 # domain length.
 #
-# The field is unscaled, `vp_field(potential) = PoissonField(potential)`: `integrate_vp` and
-# `reduced_integrate_vp` apply `params.χ` themselves, so a pre-scaled field here would either be
-# dead weight or, at a χ other than `params.χ`, be refused.
+# The field a march takes is built per sample, `vp_field(potential, params)`: the sample's scaled
+# field, over the potential and at the χ of the same parameter tuple the march reads, so the scale
+# reaches the march once, in its timestep and in its field.
 #
 # VlasovMethods and the standard library only, so that `test/integration/bump_on_tail_scripts.jl`
 # includes this file without the environment of `scripts/`.
@@ -13,8 +13,8 @@ using Random
 using VlasovMethods
 
 # The parameters of the set, as the paper's scripts set them. `κ_REF` is the wave number of the
-# initial condition and of the domain; a sample's χ is its κ over this, and it enters a march as
-# the timestep scale alone.
+# initial condition and of the domain; a sample's χ is its κ over this, and it is the sample's time
+# and field scale.
 const κ_REF = 0.3
 const ε_BOT = 0.03
 const α_BOT = 0.1
@@ -51,7 +51,7 @@ end
     test_chi() -> Vector{Float64}
 
 The ten test χ: ten κ drawn uniformly from `κ_RANGE` under `Random.seed!(SEED_BOT)`, sorted, over
-`κ_REF` — the draw of the old testing script, reused so that the set is the paper's.
+`κ_REF`, which is the paper's seeded test set.
 """
 function test_chi()
     Random.seed!(SEED_BOT)
@@ -76,23 +76,24 @@ end
 march_parameters(χ) = (χ = χ,)
 
 """
-    vp_field(potential) -> PoissonField
+    vp_field(potential, params) -> ScaledField
 
-The field a march of this set takes, unscaled: the scale is `params.χ`, so the field carries none
-of its own and no script wraps it in a scale of its own.
+The field a march of this set takes, scaled at the sample's χ: `params` is the parameter tuple
+handed to the same march, so the wrapper's χ and the march's are one value. A plain field would
+leave the march a change of the time unit alone.
 """
-vp_field(potential) = PoissonField(potential)
+vp_field(potential, params) = ScaledField(PoissonField(potential), params.χ)
 
 """
-    commit_id() -> String
+    commit_id(root = dirname(@__DIR__)) -> String
 
-The commit of the VlasovMethods tree the scripts run in, from `git rev-parse HEAD` at the
-repository root; `"unknown"` where the scripts are not a git checkout, so that the attribute every
-written file carries exists either way.
+The commit of the VlasovMethods tree the scripts run in, from `git rev-parse HEAD` in `root`;
+`"unknown"` where `root` is not a git checkout, so that the attribute every written file carries
+exists either way.
 """
-function commit_id()
+function commit_id(root = dirname(@__DIR__))
     try
-        return readchomp(`git -C $(dirname(@__DIR__)) rev-parse HEAD`)
+        return readchomp(`git -C $root rev-parse HEAD`)
     catch error
         error isa Union{Base.IOError, ProcessFailedException} || rethrow()
         return "unknown"

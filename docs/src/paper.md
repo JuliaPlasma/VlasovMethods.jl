@@ -19,8 +19,10 @@ julia --project=scripts scripts/bump_on_tail_training.jl
 
 `scripts/Project.toml` points at this package by its path, and takes `ReducedBasisMethods` from
 the registry — a version that carries `spectrumplot`, which the spectra need. The first call of the
-first run precompiles the environment; the runs themselves take minutes, and the measured times
-are below.
+first run precompiles the environment; the runs themselves take seconds to minutes. Each time
+below is one cold run at the script's defaults, with the environment precompiled, on an Apple
+M4 Max (12 performance cores, 64 GiB), Julia 1.13.2, one Julia thread and 12 BLAS threads; a run at
+the paper's parameters takes longer, and a script's header gives that command.
 
 Every script takes `--runs-dir` and `--results-dir`, which default to `runs/` and `results/` at the
 repository root; both are ignored by git. A script writes nothing outside them. A script's header
@@ -32,6 +34,10 @@ The three scripts run in order. `bump_on_tail_training.jl` writes `<runid>.h5` i
 directory and the projections script reads it from there; the testing script reads the two basis
 files. One `--runs-dir` serves all three.
 
+A sample's χ is its κ over `0.3`, the reference wave number, and it is the sample's time and field
+scale: each script builds that sample's field at its χ and hands it to the march with the same
+parameter tuple, so the march applies the scale once — `Δt·χ` on the step and `E/χ²` on the field.
+
 ### `bump_on_tail_training.jl`
 
 The ten training χ of the paper's sweep, each a full-order march of one seeded initial condition,
@@ -41,7 +47,7 @@ saved into one `Snapshots`.
 julia --project=scripts scripts/bump_on_tail_training.jl
 ```
 
-Measured cold with the environment precompiled: **26.6 s**. Writes
+Measured cold with the environment precompiled: **29.4 s**. Writes
 
 - `<runid>.h5` — the `Snapshots` of the sweep, the `IntegratorParameters`, and the attributes
   `commit`, `command` and `seed`;
@@ -58,7 +64,7 @@ input files of the learned reduced field.
 julia --project=scripts scripts/bump_on_tail_projections.jl
 ```
 
-Measured cold with the environment precompiled: **28.0 s**. Writes
+Measured cold with the environment precompiled: **34.0 s**. Writes
 
 - `<runid>_projections.h5` — the particle basis and, under `field`, the field basis;
 - `<runid>_vectorfield.h5` — the reduced positions `X` and accelerations `A`, each
@@ -75,12 +81,12 @@ field hyper-reduced by DEIM — and the paper's diagnostics of the two.
 julia --project=scripts scripts/bump_on_tail_testing.jl
 ```
 
-Measured cold with the environment precompiled: **29.9 s**. Writes
+Measured cold with the environment precompiled: **31.6 s**. Writes
 
 - `bump_on_tail_errors_time.png` — the RMS and `L∞` errors of positions and velocities per saved
   time, item 24;
-- `bump_on_tail_errors_parameter.png` — the RMS position error against χ at `T`, `0.75T` and
-  `0.5T`, item 24;
+- `bump_on_tail_errors_parameter.png` — the RMS and `L∞` errors of positions and velocities
+  against χ at `T`, `0.75T` and `0.5T`, item 24;
 - `bump_on_tail_potential_error.png` — `‖Φ_ROM − Φ_HFM‖`, item 25;
 - `bump_on_tail_energy.png` — the field energy of the full and the reduced march at the best and
   the worst sample of the growth rate, item 26;
@@ -99,14 +105,16 @@ The closed-form trajectories of the six training β, the cotangent-lift and POD 
 the reduced ODE form at `k = 5` and PODE form at `k = 20` at the off-sample `β = 6.00`. The closed
 form is evaluated at the saved times only, so no trajectory of `2n × 10⁶` states is stored.
 
-The default stops at `T = 100` of the paper's `T = 1000`, at the same `dt = 1e-4`, so that a run is
-minutes rather than hours. The paper's run is
+The default stops at `T = 10` of the paper's `T = 1000`, at the paper's cadence: `--tstep 1e-4` is
+the reduced model's step, and `--save-time 0.01`, its default, is the spacing of the training
+snapshot — the paper's every 10th step of the full model's `dt = 0.001`. The paper's run is
 
 ```bash
 julia --project=scripts scripts/analytic_quadratic.jl --final-time 1000.0
 ```
 
-Measured cold at the default, with the environment precompiled: **121.6 s**. Writes
+whose training snapshot is `2000 × 600006` `Float64`, about 9.6 GB, and whose reduced marches take
+`10⁷` steps. Measured cold at the default, with the environment precompiled: **45.0 s**. Writes
 
 - `analytic_quadratic_spectrum.png` — the spectrum of the training basis, item 11;
 - `analytic_quadratic_errors.png` — the RMS and `L∞` errors of the lifted PODE trajectory against
