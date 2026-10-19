@@ -552,3 +552,32 @@ takes the next `K<n>`.
   `Int` above about `2^62`. The docstring states this closed form, so no wider arithmetic is added.
 - **kind:** found late
 - **found:** 2026-10-17
+
+### K67 · `initialize!` of a `Bump` raises a `MethodError`, because its `draw!` names the wrong type parameters.
+
+- **location:** `src/examples/bump.jl:28`
+- **evidence:** `ParticleDistribution{1, 1}` binds the distribution's first type parameter, which
+  is its element type, to `1`; the parameters are `{DT, XD, VD}`, so the method matches no
+  distribution. `julia --startup-file=no --project=scripts -e 'using VlasovMethods;
+  initialize!(ParticleDistribution(1, 1, 10), Bump())'` raises `MethodError: no method matching
+  draw!(::ParticleDistribution{Float64, 1, 1, …}, …)` with the candidate
+  `draw!(::ParticleDistribution{1, 1, …}, …)` listed as not matching. `BumpOnTail`'s `draw!` in
+  `src/examples/bumpontail.jl` names `ParticleDistribution{T, 1, 1}` and is reached by the
+  bump-on-tail scripts; `Bump`'s has no caller and is left as it is.
+- **kind:** defect
+- **found:** 2026-10-19
+
+### K68 · `initialize!` of a `BumpOnTail` with `ImportanceSampling` raises a `MethodError`, and the method reads a field the type does not have.
+
+- **location:** `src/examples/bumpontail.jl:85`
+- **evidence:** its signature names `ParticleDistribution{1, 1}`, which binds the distribution's
+  element type to `1`, so it matches no distribution:
+  `julia --startup-file=no --project=scripts -e 'using VlasovMethods;
+  initialize!(ParticleDistribution(1, 1, 4), BumpOnTail(), VlasovMethods.ImportanceSampling())'`
+  raises `MethodError: no method matching draw!(::ParticleDistribution{Float64, 1, 1, …}, …)`.
+  With the signature written `ParticleDistribution{T, 1, 1}` the method matches and then raises
+  `FieldError: type BumpOnTail has no field a`, because `@unpack κ, ε, a, v₀, σ` names `a` where
+  the type's field is `α` — measured on the same call. The accept–reject method of the same file
+  takes the real type parameters and is what the bump-on-tail scripts call.
+- **kind:** defect
+- **found:** 2026-10-19
