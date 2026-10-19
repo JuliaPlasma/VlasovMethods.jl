@@ -365,25 +365,34 @@ end
     update!(plain, x, w, zero(T))
     W = energy(plain) / T(χ)^2
 
-    # a field built with another `χ` than the parameters hold marches at the parameters' `χ`
-    for stored in (2, 5, T(0.25))
-        scaled = ScaledField(field, stored)
-        SS = Snapshots(T, 1, n, nh, 2, space(T))
-        ip = IntegratorParameters(dt, nt, 2, nh, n, 1)
-        integrate_vp(plt, (χ = χ,), scaled, SS, ip, 1)
-        @test SS.X[1, :, 2, 1] == x
-        @test SS.V[1, :, 2, 1] == v
-        @test SS.W[2, 1] == W
+    # a field built with the parameters' `χ` marches exactly as the plain field does: the scale is
+    # applied once, by the march, and not a second time by the wrapper
+    SSs = full_march(T, plt, ScaledField(field, χ), nt, 2; dt = dt, χ = χ)
+    @test SSs.X[1, :, 2, 1] == x
+    @test SSs.V[1, :, 2, 1] == v
+    @test SSs.W[2, 1] == W
+
+    # a field built with another `χ` than the parameters hold is refused before the loop, and the
+    # message names both values rather than discarding one of them in silence
+    for stored in (5, T(0.25))
+        err = try
+            full_march(T, plt, ScaledField(field, stored), nt, 2; dt = dt, χ = χ)
+        catch thrown
+            thrown
+        end
+        @test err isa ArgumentError
+        @test occursin("χ = $(stored)", sprint(showerror, err))
+        @test occursin("χ = $(χ)", sprint(showerror, err))
     end
 
     # the scale reaches the field: the march of the plain field at the same `χ` differs
     SSp = full_march(T, plt, field, nt, 2; dt = dt, χ = χ)
     @test SSp.V[1, :, 2, 1] != v
 
-    # the reduced march of the identity basis agrees with it bit for bit, whatever `χ` the
-    # reduced field carries
+    # the reduced march of the identity basis agrees with it bit for bit at the parameters' `χ`,
+    # and refuses a reduced field over another χ the same way
     Ψ = Matrix{T}(I, n, n)
-    ef = ReducedElectricField(ScaledField(field, 7), Ψ, Ψ' * vec(plt.x))
+    ef = ReducedElectricField(ScaledField(field, χ), Ψ, Ψ' * vec(plt.x))
     SSr = Snapshots(T, 1, n, nh, 2, space(T))
     IPr = IntegratorParameters(dt, nt, 2, nh, n, 1)
     reduced_integrate_vp(
@@ -391,6 +400,10 @@ end
     @test SSr.X[1, :, 2, 1] == x
     @test SSr.V[1, :, 2, 1] == v
     @test SSr.W[2, 1] == W
+
+    efm = ReducedElectricField(ScaledField(field, 7), Ψ, Ψ' * vec(plt.x))
+    @test_throws ArgumentError reduced_integrate_vp(
+        plt, Ψ, (χ = χ,), efm, SSr, IPr, ReducedIntegratorCache(IPr, n), 1)
 end
 
 @testset "the guards of the full-order march, $T" for T in (Float64, Float32)

@@ -4,7 +4,8 @@ using PoissonSolvers
 using SimpleSplines: SplineQuadrature, stiffness_matrix
 using Test
 using VlasovMethods
-using VlasovMethods: ElectricField, PoissonField, coefficients, efield!, energy,
+using VlasovMethods: ElectricField, PoissonField, _with_scale, coefficients, efield!,
+                     energy,
                      projection!,
                      update!
 using VlasovMethods: _electric_field
@@ -274,4 +275,30 @@ end
     # potential of that force
     @test maximum(abs, force .+ gradient ./ χ^2) > 0.1 * scale
     @test maximum(abs, force .+ gradient .* χ^2) > 0.1 * scale
+end
+
+# The scale a march applies to the field it is handed: `params.χ` is the one source of it, so a
+# plain field is its own scale and a `ScaledField` is rebuilt at `params.χ`. A `ScaledField` at
+# another χ would be marched at `params.χ` with its own value discarded, so it is refused instead.
+@testset "the scale of a march, $T" for T in (Float64, Float32)
+    field, q, w = poisson_field(T)
+
+    # a plain field is marched as it is
+    @test _with_scale(field, T(2)) === field
+
+    # a `ScaledField` at the parameters' χ is rebuilt over the same inner field, whatever the
+    # element type of its χ
+    at = _with_scale(ScaledField(field, 2), 2)
+    @test at isa ScaledField
+    @test at.field === field
+    @test at.χ == 2
+
+    # a stored χ that differs is refused, and the message names both values: a caller who reads it
+    # can tell which of the two it built
+    for (stored, χ) in ((5, 2.0), (2.5, 0.5))
+        message = refusal(() -> _with_scale(ScaledField(field, stored), χ))
+        @test occursin("ArgumentError", message)
+        @test occursin("χ = $(stored)", message)
+        @test occursin("χ = $χ", message)
+    end
 end
