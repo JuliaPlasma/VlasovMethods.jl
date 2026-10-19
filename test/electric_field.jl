@@ -312,7 +312,14 @@ end
     for (inner, outer) in ((5, 2), (2, 2), (5.0, 2.0))
         message = refusal(() -> _with_scale(ScaledField(ScaledField(field, inner), outer), T(2)))
         @test occursin("ArgumentError", message)
-        @test occursin("χ = $(inner)", message)
-        @test occursin("χ = $(outer)", message)
+        @test occursin("a ScaledField at χ = $(outer) over a ScaledField at χ = $(inner)",
+            message)
     end
+
+    # the three values are distinct, so each piece of the message is pinned to its own value: a
+    # message that drops the outer χ, swaps the two, or drops the march's is not this message
+    message = refusal(() -> _with_scale(ScaledField(ScaledField(field, 5), 7), T(3)))
+    @test occursin("ArgumentError", message)
+    @test occursin("a ScaledField at χ = 7 over a ScaledField at χ = 5", message)
+    @test occursin("the march is at χ = $(T(3))", message)
 end

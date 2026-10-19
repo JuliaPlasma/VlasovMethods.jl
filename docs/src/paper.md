@@ -35,8 +35,9 @@ directory and the projections script reads it from there; the testing script rea
 files. One `--runs-dir` serves all three.
 
 A sample's χ is its κ over `0.3`, the reference wave number, and it is the sample's time and field
-scale: each script builds that sample's field at its χ and hands it to the march with the same
-parameter tuple, so the march applies the scale once — `Δt·χ` on the step and `E/χ²` on the field.
+scale: the training and testing scripts build that sample's field at its χ and hand it to the
+march with the same parameter tuple, so the march applies the scale once — `Δt·χ` on the step and
+`E/χ²` on the field.
 
 ### `bump_on_tail_training.jl`
 

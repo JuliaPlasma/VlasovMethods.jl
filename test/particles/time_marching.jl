@@ -415,13 +415,46 @@ end
             thrown
         end
         @test err isa ArgumentError
-        @test occursin("χ = $(inner)", sprint(showerror, err))
-        @test occursin("χ = $(outer)", sprint(showerror, err))
+        @test occursin("over a ScaledField at χ = $(inner)", sprint(showerror, err))
     end
 
-    efn = ReducedElectricField(ScaledField(ScaledField(field, 5), 2), Ψ, Ψ' * vec(plt.x))
-    @test_throws ArgumentError reduced_integrate_vp(
-        plt, Ψ, (χ = χ,), efn, SSr, IPr, ReducedIntegratorCache(IPr, n), 1)
+    # the three values are distinct, so each piece of the message is pinned to its own value: a
+    # message that drops the outer χ, swaps the two, or drops the march's is not this message
+    err = try
+        full_march(T, plt, ScaledField(ScaledField(field, 5), 7), nt, 2; dt = dt, χ = 3)
+    catch thrown
+        thrown
+    end
+    @test err isa ArgumentError
+    @test occursin("a ScaledField at χ = 7 over a ScaledField at χ = 5", sprint(showerror, err))
+    @test occursin("the march is at χ = 3", sprint(showerror, err))
+
+    # the reduced path refuses the same two pairs, including the pair whose outer χ is the
+    # parameters' own, which only the nested rule can refuse there
+    for (inner, outer) in ((5, 2), (2, 2))
+        efn = ReducedElectricField(
+            ScaledField(ScaledField(field, inner), outer), Ψ, Ψ' * vec(plt.x))
+        err = try
+            reduced_integrate_vp(
+                plt, Ψ, (χ = χ,), efn, SSr, IPr, ReducedIntegratorCache(IPr, n), 1)
+        catch thrown
+            thrown
+        end
+        @test err isa ArgumentError
+        @test occursin("over a ScaledField at χ = $(inner)", sprint(showerror, err))
+    end
+
+    # and the reduced path pins all three values to their own places too
+    efn = ReducedElectricField(ScaledField(ScaledField(field, 5), 7), Ψ, Ψ' * vec(plt.x))
+    err = try
+        reduced_integrate_vp(
+            plt, Ψ, (χ = 3,), efn, SSr, IPr, ReducedIntegratorCache(IPr, n), 1)
+    catch thrown
+        thrown
+    end
+    @test err isa ArgumentError
+    @test occursin("a ScaledField at χ = 7 over a ScaledField at χ = 5", sprint(showerror, err))
+    @test occursin("the march is at χ = 3", sprint(showerror, err))
 end
 
 @testset "the guards of the full-order march, $T" for T in (Float64, Float32)
