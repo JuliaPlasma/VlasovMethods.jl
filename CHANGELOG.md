@@ -17,6 +17,15 @@ their own, except for what they removed and narrowed, which is listed in full be
 
 ## [Unreleased] — targeting 0.4.0
 
+### Bug Fixes
+
+- **`initialize!` of a `BumpOnTail`.** Its two `draw!` methods named `ParticleDistribution{1, 1}`,
+  which binds the distribution's first type parameter — its element type — to `1`, so no real
+  distribution matched and `initialize!(dist, BumpOnTail(…))` raised a `MethodError`. They now name
+  `ParticleDistribution{T, 1, 1}`, and the accept–reject and importance samples run. The same
+  signature of `Bump`'s `draw!` stays as it is; it has no caller, and `KNOWN_ISSUES.md` K67
+  records it.
+
 ### New Features
 
 - **`ScaledField`.** `ScaledField(field, χ)` wraps any `ElectricField` and divides the field of
@@ -25,7 +34,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   `ElectricField`, so a reduced march wraps it as `ReducedElectricField(ScaledField(f, χ), Ψ, X₀)`
   and marches in the scaled time. `integrate_vp` and `reduced_integrate_vp` take the scale of a
   `ScaledField` from `params.χ`, the one source of `χ`: they march a `ScaledField`, or a reduced
-  field over one, at the `χ` of the parameters and not at the `χ` it was built with. The energy
+  field over one, at the `χ` of the parameters. A stored `χ` other than `params.χ` throws an
+  `ArgumentError` that names both values, instead of being discarded. The energy
   divides by `χ²` and not by `χ⁴`, because `wᵢ·E(xᵢ)/χ²` is the force of the energy `W/χ²`.
   A `χ` that is not finite and positive throws an
   `ArgumentError`, and each division converts `χ` to the element type of the value it divides, so
@@ -90,6 +100,20 @@ their own, except for what they removed and narrowed, which is listed in full be
 
 - The `plot_particles` method on a `Snapshots` draws one saved state,
   `SS.X[1, :, ts, p]` against `SS.V[1, :, ts, p]`, so one frame of a march is one call.
+
+- **The paper's two example sets as scripts.** `scripts/bump_on_tail_training.jl`,
+  `scripts/bump_on_tail_projections.jl` and `scripts/bump_on_tail_testing.jl` reproduce the
+  self-consistent bump-on-tail set: the training sweep over χ, the reduced bases and the spectra,
+  the test sweep with the field hyper-reduced by DEIM, and the figures of acceptance items 11 and
+  24–29. `scripts/analytic_quadratic.jl` reproduces the analytic quadratic model with the reduced
+  ODE form at `k = 5` and the PODE form at `k = 20`. Every script writes through `--runs-dir` and
+  `--results-dir`, and the three bump-on-tail scripts share `scripts/bump_on_tail_common.jl`,
+  which builds the field unscaled so that `params.χ` alone governs a march.
+
+### Documentation
+
+- **The paper's examples.** `docs/src/paper.md` names each of the four scripts, the command with
+  the paper's parameters, its measured run time and the files it writes.
 
 ## [0.3.0] — 2026-10-16
 

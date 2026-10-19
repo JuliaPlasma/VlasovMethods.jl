@@ -281,7 +281,7 @@ end
 # plain field is its own scale and a `ScaledField` is rebuilt at `params.χ`. A `ScaledField` at
 # another χ would be marched at `params.χ` with its own value discarded, so it is refused instead.
 @testset "the scale of a march, $T" for T in (Float64, Float32)
-    field, q, w = poisson_field(T)
+    field = first(poisson_field(T))
 
     # a plain field is marched as it is
     @test _with_scale(field, T(2)) === field
