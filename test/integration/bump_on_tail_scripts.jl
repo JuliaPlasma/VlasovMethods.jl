@@ -1,3 +1,4 @@
+using HDF5
 using ParticleMethods: ParticleList
 using PoissonSolvers
 using ReducedComplexityModeling: Parameter, ParameterSpace
@@ -120,6 +121,9 @@ end
     @test save_stride(10, 1e-3, 1e-3) == 10
     @test save_stride(10, 1e-3, 1e-4) == 100
 
+    # a ratio that is a little below a whole number is the whole number
+    @test save_stride(3, 0.7, 0.1) == 21
+
     # a ratio that is not a whole number is refused: the reduced states would not be the states
     # of the saved times
     @test_throws ArgumentError save_stride(10, 1e-3, 3e-3)
@@ -149,20 +153,54 @@ end
     field = vp_field(potential, params)
     nh = length(coefficients(field))
 
-    SS = Snapshots(T, 1, length(x), nh, 3, space(T))
-    ip = IntegratorParameters(T(1e-3), 2, 3, nh, length(x), 1)
+    # two samples, so that the fill of one of them is seen
+    samples = ParameterSpace(Parameter(:χ, T(1), T(2), [T(1), T(2)]))
+    SS = Snapshots(T, 1, length(x), nh, 3, samples)
+    ip = IntegratorParameters(T(1e-3), 2, 3, nh, length(x), 2)
     integrate_vp(plt, params, field, SS, ip, 1)
+    integrate_vp(plt, params, field, SS, ip, 2)
 
     # the accelerations of the saved states, which the march does not save, are the field of the
     # sample at the positions of the state, divided by χ²
-    fill_accelerations!(SS, field, ip, vec(plt.w), 1)
+    fill_accelerations!(SS, field, ip, vec(plt.w), 2)
 
     plain = PoissonField(potential)
     update!(plain, x, w, zero(T))
     e = similar(x)
     efield!(plain, e, x)
     @test !all(iszero, e)
-    @test SS.A[1, :, 1, 1] == e ./ 4
+
+    # the second sample alone carries them
+    @test all(iszero, SS.A[1, :, 1, 1])
+    @test SS.A[1, :, 1, 2] == e ./ 4
+
+    # and every saved state carries them, the last one included
+    xlast = SS.X[1, :, 3, 2]
+    update!(plain, xlast, w, zero(T))
+    elast = similar(x)
+    efield!(plain, elast, xlast)
+    @test SS.A[1, :, 3, 2] == elast ./ 4
+end
+
+@testset "the training run holds the accelerations of its saved states" begin
+    # The script is run in its own process, because it is a script: it marches the sweep of the
+    # wave number and writes the snapshots of the run.
+    script = joinpath(@__DIR__, "..", "..", "scripts", "bump_on_tail_training.jl")
+    mktempdir() do dir
+        command = `$(Base.julia_cmd()) --startup-file=no --project=$(Base.active_project())
+            $script --npart 32 --final-time 0.4 --runs-dir $dir/runs
+            --results-dir $dir/results`
+        process = run(pipeline(ignorestatus(command), stderr = devnull), wait = false)
+        wait(process)
+        @test process.exitcode == 0
+
+        file = joinpath(dir, "runs", "BoT_Np32_k_010_050_ns10_T0.4.h5")
+        @test isfile(file)
+        snapshots = h5open(file, "r") do handle
+            Snapshots(handle)
+        end
+        @test !all(iszero, snapshots.A)
+    end
 end
 
 @testset "the name of a run carries its parameters" begin
