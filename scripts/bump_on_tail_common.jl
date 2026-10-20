@@ -61,11 +61,19 @@ The number of steps of `rdt` between two saved times: `save_step` steps of `dt` 
 
 The ratio must be a whole number, or the reduced states are not the states of the saved times. A
 ratio that is not a whole number throws an `ArgumentError` that names the two steps.
+
+The ratio is a computed number, and the computation rounds four times: the decimal `dt` and the
+decimal `rdt` are each within the unit round-off `u = eps(Float64)/2` of their exact values, and
+the product and the quotient each round within `u`. The ratio therefore differs from the exact
+quotient by at most `4u = 2·eps(Float64)` in relative terms, and the guard admits a ratio that
+lies within `2·eps(Float64)·stride` of the whole number `stride`. A ratio inside that bound is
+the whole number of steps, because its saved time then differs from `stride·rdt` by the round-off
+of the time itself.
 """
 function save_stride(save_step, dt, rdt)
     ratio = save_step * dt / rdt
     stride = round(Int, ratio)
-    abs(ratio - stride) ≤ 1e-9 * stride || throw(ArgumentError(
+    abs(ratio - stride) ≤ 2 * eps(Float64) * stride || throw(ArgumentError(
         "the save step of $(save_step * dt) is $ratio steps of $rdt, which is not a whole " *
         "number; the reduced states would not be the states of the saved times"))
     return stride

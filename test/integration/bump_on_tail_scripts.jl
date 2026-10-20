@@ -19,6 +19,17 @@ function fixture(::Type{T}; n = 32, ncells = 8) where {T}
     return potential, plt, x, w
 end
 
+# The exception a call raises, or `nothing` when it raises none: a test of a refusal names the
+# phrase of the guard and not only the type of the exception.
+function caught(f)
+    try
+        f()
+    catch thrown
+        return thrown
+    end
+    return nothing
+end
+
 # The parameter space of the march, which holds one sample.
 space(::Type{T}) where {T} = ParameterSpace(Parameter(:χ, T(1), T(1), 1))
 
@@ -134,10 +145,27 @@ end
     # a ratio that is a little below a whole number is the whole number
     @test save_stride(3, 0.7, 0.1) == 21
 
+    # a ratio that is a little below a whole number is the whole number, when the difference is
+    # the round-off of the four roundings of the quotient
+    @test save_stride(3, 0.7, 0.084) == 25
+
+    # the bound of the guard is the round-off of the four roundings: at a stride of two the bound
+    # is two units in the last place, a ratio that lies exactly at it is the whole number, and a
+    # ratio that lies one unit beyond it is not
+    @test save_stride(1, 2.0 - 2.0^-50, 1.0) == 2
+    thrown = caught(() -> save_stride(1, 2.0 - 3 * 2.0^-51, 1.0))
+    @test thrown isa ArgumentError
+    @test occursin("which is not a whole number", sprint(showerror, thrown))
+
     # a ratio that is not a whole number is refused: the reduced states would not be the states
     # of the saved times
-    @test_throws ArgumentError save_stride(10, 1e-3, 3e-3)
-    @test_throws ArgumentError save_stride(10, 1e-3, 9e-4)
+    for (save_step, dt, rdt) in ((10, 1e-3, 3e-3), (10, 1e-3, 9e-4),
+        (1, 100.00000001, 1.0), (10, 1e-3, 1.0000000001e-4),
+        (1, 1e9 + 0.25, 1.0), (1, 1e9 + 0.5, 1.0))
+        thrown = caught(() -> save_stride(save_step, dt, rdt))
+        @test thrown isa ArgumentError
+        @test occursin("which is not a whole number", sprint(showerror, thrown))
+    end
 end
 
 @testset "the analytic script refuses a stride that is not a whole number" begin
