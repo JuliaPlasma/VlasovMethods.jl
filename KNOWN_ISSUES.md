@@ -576,3 +576,45 @@ takes the next `K<n>`.
   fixing the name alone would not make the method work.
 - **kind:** defect
 - **found:** 2026-10-20
+
+### K69 · The marches do not save the accelerations, so the field basis of a marched sweep is degenerate.
+
+- **location:** `src/particles/time_marching.jl:149` and `src/particles/time_marching.jl:299`
+- **evidence:** The command
+
+  ```
+  julia --startup-file=no --project=. -e '
+  using ParticleMethods: ParticleList
+  using ReducedBasisMethods: PODEVD
+  using ReducedComplexityModeling: Parameter, ParameterSpace
+  using VlasovMethods
+  include("test/helpers/poisson_field.jl")
+  field, q, w = poisson_field(Float64; n = 40)
+  n = length(q)
+  plt = ParticleList(reshape(q, 1, n), reshape(0.5 .* q, 1, n), reshape(w, 1, n))
+  nh = length(VlasovMethods.coefficients(field))
+  SS = Snapshots(Float64, 1, n, nh, 3, ParameterSpace(Parameter(:χ, 1.0, 1.0, 1)))
+  integrate_vp(plt, (χ = 1.0,), field, SS, IntegratorParameters(0.1, 2, 3, nh, n, 1), 1)
+  println("the maximum of the accelerations of a marched sweep: ", maximum(abs, SS.A))
+  FB = field_basis(PODEVD(), SS; tolerance = 1e-2)
+  println("the field basis of a marched sweep holds ", FB.k, " of ", size(FB.Φ, 1), " columns")
+  println("its spectrum: ", FB.Λ)
+  '
+  ```
+
+  run in the root of the checkout prints
+
+  ```
+  the maximum of the accelerations of a marched sweep: 0.0
+  the field basis of a marched sweep holds 1 of 40 columns
+  its spectrum: [0.0, 0.0, 0.0]
+  ```
+
+  The two `save` functions of the march write the positions, the velocities, the potential's
+  coefficients and the three diagnostics, and their docstrings say that the accelerations are not
+  written. The field basis of `src/particles/snapshots.jl:132` is the basis of those
+  accelerations, so the basis of a marched sweep holds one column and a spectrum of zeros. The
+  training script of `scripts/bump_on_tail_training.jl` fills `SS.A` itself, with the field of the
+  sample at the positions of the state.
+- **kind:** found late
+- **found:** 2026-10-20
