@@ -574,3 +574,17 @@ takes the next `K<n>`.
   does not make the draw run.
 - **kind:** defect
 - **found:** 2026-10-20
+
+### K69 · No march writes the accelerations `SS.A`, so a field basis of a marched sweep is zero.
+
+- **location:** `src/particles/time_marching.jl:298`
+- **evidence:** a sweep of three samples, `κ ∈ (0.2, 0.3, 0.4)`, of `1000` particles of
+  `initial_distribution(1000, 1234)` from `scripts/bump_on_tail_common.jl`, each marched by
+  `integrate_vp(P, params, vp_field(potential, params), SS, IP, p)` for `10` steps of `0.1` and
+  saved at every step, gives `maximum(abs, SS.X) == 27.484886316678836`,
+  `maximum(abs, SS.A) == 0.0`, and `field_basis(PODEVD(), SS; k = 3).Λ[1:3] == [0.0, 0.0, 0.0]`.
+  `save_full_solution` and `save_solution` write `X`, `V`, `Φ`, `W`, `K` and `M`, and their
+  docstrings say that `SS.A` is not written. `scripts/bump_on_tail_training.jl` fills `SS.A`
+  after each march with `accelerations!`, from the same field object.
+- **kind:** defect
+- **found:** 2026-10-20
