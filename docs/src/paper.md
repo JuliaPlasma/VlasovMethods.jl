@@ -39,7 +39,8 @@ inside a few minutes; the paper's parameters are the flags of the second column.
 
 The times are those of a cold process on the machine of the author, with Julia 1.13, and they
 count the loading of the package. The run of the analytic script at the paper's parameters takes
-hours rather than seconds, because the reduced march of the paper runs `10⁷` steps.
+hours rather than seconds and a few gigabytes, because the reduced march of the paper runs `10⁷`
+steps and the closed form is evaluated at `10⁵` times.
 
 The scripts of one run share its name, which holds the parameters it names: the particle count,
 the wave-number range of the sweep, the number of samples and the final time. A run of other
