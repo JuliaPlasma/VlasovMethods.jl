@@ -112,13 +112,6 @@ their own, except for what they removed and narrowed, which is listed in full be
 
 ### Bug Fixes
 
-- **A march no longer discards the `χ` of a `ScaledField` in silence.** `integrate_vp` and
-  `reduced_integrate_vp` take the scale of a `ScaledField` from `params.χ`, so a `ScaledField`
-  built at another `χ` was marched at `params.χ` with its own `χ` dropped and no word. The march
-  throws an `ArgumentError` that names both values now. A `ScaledField` over a `ScaledField` is
-  refused as well, so that no scale is applied twice; its message names the inner `χ`, the outer
-  `χ` and the march's `χ`. Build the field at the march's `χ`.
-
 - **The bump-on-tail draws particles.** The accept–reject method of `BumpOnTail`'s `draw!` named
   the distribution's type parameters as `ParticleDistribution{1, 1}`, which puts the element type
   where the `x` dimension belongs, so the method matched no distribution and
