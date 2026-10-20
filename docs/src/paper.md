@@ -37,9 +37,9 @@ sample is the problem at `κ = 0.3` with the scale `χ = κ / 0.3`, and it march
 
 | script | what it does | run time | files |
 |:--|:--|:--|:--|
-| `bump_on_tail_training.jl` | the full-order march of the training sweep, and the accelerations the field applied | 48 s | `<runid>_training.h5`; `<runid>_training_field_energy.png` (26), `<runid>_training_growth_rate.png` (28) |
-| `bump_on_tail_projections.jl` | the cotangent-lift basis of the particles, the POD basis of the accelerations and its DEIM indices, and the reduced data `X` and `A` of the training sweep | 31 s | `<runid>_projections.h5`, `<runid>_vectorfield.h5`; `<runid>_spectrum_particle.png`, `<runid>_spectrum_field.png` (11) |
-| `bump_on_tail_testing.jl` | the full-order and the reduced march, with the DEIM field, of the test sweep, and the diagnostics of the one against the other | 31 s | `<runid>_testing.h5`; `<runid>_errors_x_time.png`, `<runid>_errors_v_time.png`, `<runid>_errors_x_parameter.png`, `<runid>_errors_v_parameter.png` (24), `<runid>_potential_error.png` (25), `<runid>_field_energy.png` (26), `<runid>_energy.png`, `<runid>_energy_drift.png` (27), `<runid>_growth_rate.png` (28), `<runid>_particles_initial.png`, `<runid>_particles_final_hfm.png`, `<runid>_particles_final_rom.png` (29) |
+| `bump_on_tail_training.jl` | the full-order march of the training sweep, and the accelerations the field applied | 25 s | `<runid>_training.h5`; `<runid>_training_field_energy.png` (26), `<runid>_training_growth_rate.png` (28) |
+| `bump_on_tail_projections.jl` | the cotangent-lift basis of the particles, the POD basis of the accelerations and its DEIM indices, and the reduced data `X` and `A` of the training sweep | 29 s | `<runid>_projections.h5`, `<runid>_vectorfield.h5`; `<runid>_spectrum_particle.png`, `<runid>_spectrum_field.png` (11) |
+| `bump_on_tail_testing.jl` | the full-order and the reduced march, with the DEIM field, of the test sweep, and the diagnostics of the one against the other | 29 s | `<runid>_testing.h5`; `<runid>_errors_x_time.png`, `<runid>_errors_v_time.png`, `<runid>_errors_x_parameter.png`, `<runid>_errors_v_parameter.png` (24), `<runid>_potential_error.png` (25), `<runid>_field_energy.png` (26), `<runid>_energy.png`, `<runid>_energy_drift.png` (27), `<runid>_growth_rate.png` (28), `<runid>_particles_initial.png`, `<runid>_particles_final_hfm.png`, `<runid>_particles_final_rom.png` (29) |
 
 The commands with the paper's parameters are the defaults:
 

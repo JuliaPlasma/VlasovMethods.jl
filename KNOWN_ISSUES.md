@@ -625,3 +625,26 @@ takes the next `K<n>`.
   --final-time 100.0`, is run; it exits 0.
 - **kind:** not verified
 - **found:** 2026-10-20
+
+### K72 · The training and the testing scripts fit the growth rate over different maxima of the field energy.
+
+- **location:** `scripts/bump_on_tail_training.jl:83`
+- **evidence:** `bump_on_tail_training.jl` calls `growth_rate(IP.t, SS.W)`, whose default is
+  `maxima = 2:5`, and `bump_on_tail_testing.jl:121` calls `growth_rate(t, SSh.W; maxima = 1:3)`.
+  On the default training run, the ten rates over `2:5` are
+  `[0.0112, 0.0402, 0.1318, 0.1248, 0.1349, 0.1208, 0.1938, 0.1045, 0.0833, 0.3271]`, and over
+  `1:3` they are `[0.0135, 0.0027, -0.001, 0.0939, 0.108, 0.1096, 0.0917, 0.1105, 0.0976, -0.3834]`.
+  So the item-28 figure of the training run and that of the test run do not plot one quantity.
+- **kind:** defect
+- **found:** 2026-10-21
+
+### K73 · Three test files each define their own `refusal` helper.
+
+- **location:** `test/electric_field.jl:158`
+- **evidence:** `git grep -n 'function refusal' -- test` finds `test/electric_field.jl:158`,
+  `test/integration/bump_on_tail_scripts.jl:22` and `test/particles/diagnostics.jl:10`. The
+  first and the third are on `origin/main`. The three bodies are the same: each returns the
+  message of the exception that its argument throws, or `"no exception"`. A change to one does
+  not reach the others.
+- **kind:** found late
+- **found:** 2026-10-21
