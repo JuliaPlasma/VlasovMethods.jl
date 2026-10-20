@@ -33,7 +33,8 @@ const OPT = parse_arguments(ARGS; runid = BUMP_ON_TAIL_DEFAULTS.runid,
 # the training run: its steps, its initial condition and its grid
 IP₀, x, v, w, ncells, degree = h5open(runs_path(OPT.runid * "_training.h5"), "r") do file
     IntegratorParameters(file, "integrator"), read(file["x"]), read(file["v"]),
-    read(file["w"]), read(attributes(file)["ncells"]), read(attributes(file)["degree"])
+    read(file["w"]), read(HDF5.attributes(file)["ncells"]),
+    read(HDF5.attributes(file)["degree"])
 end
 P₀ = VlasovMethods.ParticleList(x, v, w)
 
@@ -69,9 +70,9 @@ h5open(fpath, "w") do file
     h5save(file, SSh; path = "full")
     h5save(file, SSr; path = "reduced")
     file["kappa"] = κs
-    attributes(file)["commit"] = repository_commit()
-    attributes(file)["command"] = command_line("bump_on_tail_testing.jl", ARGS)
-    attributes(file)["seed"] = OPT.seed
+    HDF5.attributes(file)["commit"] = repository_commit()
+    HDF5.attributes(file)["command"] = command_line("bump_on_tail_testing.jl", ARGS)
+    HDF5.attributes(file)["seed"] = OPT.seed
 end
 @printf("  wrote %s\n", fpath)
 

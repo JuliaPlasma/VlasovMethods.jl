@@ -62,11 +62,11 @@ h5open(fpath, "w") do file
     file["v"] = Matrix(P₀.v)
     file["w"] = Matrix(P₀.w)
     file["kappa"] = κs
-    attributes(file)["commit"] = repository_commit()
-    attributes(file)["command"] = command_line("bump_on_tail_training.jl", ARGS)
-    attributes(file)["seed"] = OPT.seed
-    attributes(file)["ncells"] = OPT.ncells
-    attributes(file)["degree"] = OPT.degree
+    HDF5.attributes(file)["commit"] = repository_commit()
+    HDF5.attributes(file)["command"] = command_line("bump_on_tail_training.jl", ARGS)
+    HDF5.attributes(file)["seed"] = OPT.seed
+    HDF5.attributes(file)["ncells"] = OPT.ncells
+    HDF5.attributes(file)["degree"] = OPT.degree
 end
 @printf("  wrote %s\n", fpath)
 

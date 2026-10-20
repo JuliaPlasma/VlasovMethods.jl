@@ -5,10 +5,14 @@
 # which the HNN of the reduced field is trained on.
 #
 #   julia --project=scripts scripts/bump_on_tail_projections.jl [--runid bump_on_tail] \
-#       [--particle-tol 1e-4] [--field-tol 1e-2] [--runs-dir dir] [--results-dir dir]
+#       [--particle-tol 1e-8] [--field-tol 1e-4] [--runs-dir dir] [--results-dir dir]
 #
-# The defaults are the old script's tolerances: each basis keeps the leading vectors that carry
-# all but that share of the energy of its spectrum. The run reads `<runid>_training.h5` from
+# Each basis keeps the leading vectors that carry all but `tol` of the energy of its spectrum. The
+# defaults are the second pair of tolerances the old script names, which give `kₚ = 120` and
+# `kₑ = 345` on the default training run. The pair it ran, `1e-4` and `1e-2`, gives `kₚ = 10` and
+# `kₑ = 55`; the reduced field energy of the smallest test `κ` then has three local maxima, and the
+# growth-rate fit of `bump_on_tail_testing.jl` takes the second to the fifth. The run reads
+# `<runid>_training.h5` from
 # `--runs-dir` and writes `<runid>_projections.h5` and `<runid>_vectorfield.h5` there, and the two
 # spectra to `--results-dir`.
 
@@ -22,12 +26,12 @@ using HDF5
 using ReducedBasisMethods: CotangentLiftEVD, PODEVD, get_DEIM_indices, h5save, spectrumplot
 using VlasovMethods
 
-const OPT = parse_arguments(ARGS; runid = BUMP_ON_TAIL_DEFAULTS.runid, particle_tol = 1e-4,
-    field_tol = 1e-2)
+const OPT = parse_arguments(ARGS; runid = BUMP_ON_TAIL_DEFAULTS.runid, particle_tol = 1e-8,
+    field_tol = 1e-4)
 
 tpath = runs_path(OPT.runid * "_training.h5")
 SS, seed = h5open(tpath, "r") do file
-    Snapshots(file, "snapshots"), read(attributes(file)["seed"])
+    Snapshots(file, "snapshots"), read(HDF5.attributes(file)["seed"])
 end
 
 # the bases
@@ -40,9 +44,9 @@ commit = repository_commit()
 command = command_line("bump_on_tail_projections.jl", ARGS)
 
 function provenance!(file)
-    attributes(file)["commit"] = commit
-    attributes(file)["command"] = command
-    attributes(file)["seed"] = seed
+    HDF5.attributes(file)["commit"] = commit
+    HDF5.attributes(file)["command"] = command
+    HDF5.attributes(file)["seed"] = seed
     return file
 end
 

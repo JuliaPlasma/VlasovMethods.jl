@@ -6,16 +6,17 @@
 #
 #   julia --project=scripts scripts/analytic_quadratic.jl [--runid analytic_quadratic] \
 #       [--npart 1000] [--beta 6.0] [--tstep 0.001] [--train-step 1000] [--save-step 100] \
-#       [--rtstep 0.0001] [--final-time 1000.0] [--kode 5] [--kpode 20] \
+#       [--rtstep 0.0001] [--final-time 100.0] [--kode 5] [--kpode 20] \
 #       [--runs-dir dir] [--results-dir dir]
 #
 # `tstep` is the step of the full model, which the closed form needs only to place its saves:
 # the training snapshots are `train_step` steps apart, and the states that the reduced runs are
-# compared at are `save_step` steps apart. The paper trains on every 10th step, a snapshot of
-# 2000 × 600006 entries, 9.6 GB; the default trains on every 1000th, 6006 columns, and is otherwise
-# the paper's run. The paper's parameters are
+# compared at are `save_step` steps apart. The paper trains on every 10th step up to `T = 1000`, a
+# snapshot of 2000 × 600006 entries, 9.6 GB, and its PODE run alone takes 10⁷ reduced steps. The
+# default trains on every 1000th step and runs to `T = 100`, and is otherwise the paper's run. The
+# paper's parameters are
 #
-#   julia --project=scripts scripts/analytic_quadratic.jl --train-step 10
+#   julia --project=scripts scripts/analytic_quadratic.jl --train-step 10 --final-time 1000.0
 #
 # The run writes `<runid>.h5` to `--runs-dir`, and to `--results-dir` the errors of the positions
 # and the velocities (item 24), the drift of the energy (27) and the spectra of the two bases (11).
@@ -36,7 +37,7 @@ using VlasovMethods
 using GeometricIntegrators: LobattoIIIAIIIB, RK4, integrate
 
 const OPT = parse_arguments(ARGS; runid = "analytic_quadratic", npart = 1000, beta = 6.0,
-    tstep = 0.001, train_step = 1000, save_step = 100, rtstep = 1e-4, final_time = 1000.0,
+    tstep = 0.001, train_step = 1000, save_step = 100, rtstep = 1e-4, final_time = 100.0,
     kode = 5, kpode = 20)
 
 # the six training `β` of the paper
@@ -135,8 +136,8 @@ h5open(fpath, "w") do file
         end
         file["$(name)/H"] = H
     end
-    attributes(file)["commit"] = repository_commit()
-    attributes(file)["command"] = command_line("analytic_quadratic.jl", ARGS)
+    HDF5.attributes(file)["commit"] = repository_commit()
+    HDF5.attributes(file)["command"] = command_line("analytic_quadratic.jl", ARGS)
 end
 @printf("  wrote %s\n", fpath)
 
