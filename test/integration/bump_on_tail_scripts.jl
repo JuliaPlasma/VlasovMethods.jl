@@ -132,7 +132,7 @@ end
 end
 
 @testset "the step count of a march" begin
-    # the old script's floating-point `div` gave 249 here
+    # the floating-point `div` of `25.0 / 0.1` gives 249, and `round` gives 250
     @test step_count(25.0, 0.1) == 250
     @test step_count(10.0, 1e-3) == 10000
     @test step_count(1.0, 0.25) == 4

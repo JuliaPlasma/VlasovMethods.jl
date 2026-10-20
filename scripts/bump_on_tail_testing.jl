@@ -86,8 +86,8 @@ h5open(runs_path("$(RUNID)_reduced.h5"), "w") do file
     h5save(file, IPTEST; path = "integrator")
 end
 
-# the diagnostics of the two marches: the errors of the trajectories and of the potential (items 24
-# and 25), the energies (items 26 and 27) and the growth rate (item 28)
+# the diagnostics of the two marches: the errors of the trajectories and of the potential, the
+# energies and the growth rate
 const ERRORS = trajectory_errors(SSH.X[1, :, :, :], SSH.V[1, :, :, :],
     SSR.X[1, :, :, :], SSR.V[1, :, :, :])
 const ΦERR = potential_error(SSH.Φ, SSR.Φ)
@@ -109,16 +109,15 @@ const BEST, WORST = best_and_worst(ΓH, ΓR)
 @printf("the growth rates agree best at the sample %d and worst at the sample %d\n", BEST,
     WORST)
 
-# the saved times of the trends of item 24: the last one, the one nearest three quarters of the
-# way and the one nearest halfway
+# the saved times of the error trends: the last one, the one nearest three quarters of the way and
+# the one nearest halfway
 const SAVED_TIMES = saved_indices(IPTEST.nₛ)
 const TREND_LABELS = ["t = T", "t = 0.75T", "t = 0.5T"]
 
-# the figures: the errors of the first test sample against the time (item 24), the errors of every
-# test sample against the wave number at the three saved times (item 24), the potential error of
-# every sample (item 25), the field energy (item 26), the total energy and its drift (item 27),
-# the growth rate and the field energy of the best and the worst sample (item 28) and the
-# phase-space frames (item 29)
+# the figures: the errors of the first test sample against the time, the errors of every test
+# sample against the wave number at the three saved times, the potential error of every sample,
+# the field energy, the total energy and its drift, the growth rate and the field energy of the
+# best and the worst sample, and the phase-space frames
 fig = plot_series(
     IPTEST.t, (ERRORS.x2[:, 1], ERRORS.xmax[:, 1], ERRORS.v2[:, 1],
         ERRORS.vmax[:, 1]);

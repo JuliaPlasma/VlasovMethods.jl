@@ -90,23 +90,23 @@ with RBM's `spectrumplot`, and every script writes the figures of the quantities
 set. The names carry the run and the script, so that the figures of the training run and of the
 test run do not overwrite each other.
 
-| file | quantity | item |
-|:--|:--|:--|
-| `BoT_..._training_field_energy.png` | the field energy of every sample of the training sweep | 26 |
-| `BoT_..._training_energy_drift.png` | the relative drift of the total energy of the training sweep | 27 |
-| `BoT_..._training_particles_t0.png`, `BoT_..._training_particles_tT.png` | the phase space of the training sweep at the first and the last saved time | 29 |
-| `BoT_..._particle_spectrum.png`, `BoT_..._field_spectrum.png` | the spectra of the particle basis and of the field basis | 11 |
-| `BoT_..._testing_errors.png` | the errors of the reduced trajectory against the full-order one, against the time | 24 |
-| `BoT_..._testing_error_x2.png`, `BoT_..._testing_error_xmax.png`, `BoT_..._testing_error_v2.png`, `BoT_..._testing_error_vmax.png` | the errors of the reduced trajectory against the full-order one, against the wave number at `T`, `0.75T` and `0.5T` | 24 |
-| `BoT_..._testing_potential_error.png` | the error of the reduced potential against the full-order one | 25 |
-| `BoT_..._testing_field_energy.png` | the field energy of the two marches | 26 |
-| `BoT_..._testing_total_energy.png` | the total energy of the two marches | 27 |
-| `BoT_..._testing_energy_drift.png` | the relative drift of the total energy of the two marches | 27 |
-| `BoT_..._testing_growth_rate.png` | the growth rate of the two marches against the wave number | 28 |
-| `BoT_..._testing_field_energy_best.png`, `BoT_..._testing_field_energy_worst.png` | the field energy of the best and of the worst test sample | 28 |
-| `BoT_..._testing_particles_t0.png`, `BoT_..._testing_particles_tT.png` | the phase space of the reduced march at the first and the last saved time | 29 |
-| `analytic_..._errors.png` | the errors of the reduced trajectory against the closed form | 24 |
-| `analytic_..._energy_drift.png` | the relative drift of the total energy of the closed form and of the reduced march | 27 |
+| file | quantity |
+|:--|:--|
+| `BoT_..._training_field_energy.png` | the field energy of every sample of the training sweep |
+| `BoT_..._training_energy_drift.png` | the relative drift of the total energy of the training sweep |
+| `BoT_..._training_particles_t0.png`, `BoT_..._training_particles_tT.png` | the phase space of the training sweep at the first and the last saved time |
+| `BoT_..._particle_spectrum.png`, `BoT_..._field_spectrum.png` | the spectra of the particle basis and of the field basis |
+| `BoT_..._testing_errors.png` | the errors of the reduced trajectory against the full-order one, against the time |
+| `BoT_..._testing_error_x2.png`, `BoT_..._testing_error_xmax.png`, `BoT_..._testing_error_v2.png`, `BoT_..._testing_error_vmax.png` | the errors of the reduced trajectory against the full-order one, against the wave number at `T`, `0.75T` and `0.5T` |
+| `BoT_..._testing_potential_error.png` | the error of the reduced potential against the full-order one |
+| `BoT_..._testing_field_energy.png` | the field energy of the two marches |
+| `BoT_..._testing_total_energy.png` | the total energy of the two marches |
+| `BoT_..._testing_energy_drift.png` | the relative drift of the total energy of the two marches |
+| `BoT_..._testing_growth_rate.png` | the growth rate of the two marches against the wave number |
+| `BoT_..._testing_field_energy_best.png`, `BoT_..._testing_field_energy_worst.png` | the field energy of the best and of the worst test sample |
+| `BoT_..._testing_particles_t0.png`, `BoT_..._testing_particles_tT.png` | the phase space of the reduced march at the first and the last saved time |
+| `analytic_..._errors.png` | the errors of the reduced trajectory against the closed form |
+| `analytic_..._energy_drift.png` | the relative drift of the total energy of the closed form and of the reduced march |
 
 A figure reproduces the quantity of the paper's figure at the paper's parameters. It does not
 reproduce its numbers: the paper's values are not pinned by a test, and the random draws of the

@@ -34,9 +34,8 @@ const NSAMPLES = 10
 const KAPPA_MIN = 0.1
 const KAPPA_MAX = 0.5
 
-# The step count is `round` and not the floating-point `div` of the old script, which gave 249 for
-# `T = 25` and `dt = 0.1`. The integrator parameters need `nₛ - 1` to divide `nₜ`, and `nₛ = nₜ + 1`
-# divides it.
+# The step count is `round` and not the floating-point `div`, which gives 249 for `T = 25` and
+# `dt = 0.1`. The integrator parameters need `nₛ - 1` to divide `nₜ`, and `nₛ = nₜ + 1` divides it.
 const NT = step_count(FINAL_TIME, TSTEP)
 const NS = NT + 1
 
@@ -85,8 +84,8 @@ end
 
 @printf("wrote %s (%d saved times, %d samples)\n", H5FILE, NS, length(PSC))
 
-# the figures: the field energy of every sample (item 26), the relative drift of the total energy
-# (item 27) and the phase-space frames at the first and the last saved time (item 29)
+# the figures: the field energy of every sample, the relative drift of the total energy and the
+# phase-space frames at the first and the last saved time
 const W = SS.W
 const H = SS.K .+ SS.W
 

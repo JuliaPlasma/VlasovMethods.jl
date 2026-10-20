@@ -1,5 +1,5 @@
 # The reduced bases of the bump-on-tail example: the particle basis and the field basis of the
-# training sweep, the reduced data that the HNN of P39 reads, and the spectra of the two bases.
+# training sweep, the reduced data that the HNN reads, and the spectra of the two bases.
 #
 #   julia --project=scripts scripts/bump_on_tail_projections.jl \
 #       [--runid BoT_Np10000_k_010_050_ns10_T25] [--particle-tol 1e-4] [--field-tol 1e-2] \
@@ -42,8 +42,8 @@ const FB = field_basis(PODEVD(), SS; tolerance = OPT.field_tol)
 @printf("the particle basis holds %d of %d columns, the field basis %d of %d\n",
     RB.k, size(RB.Φ, 1), FB.k, size(FB.Φ, 1))
 
-# the reduced data of P39: the positions and the accelerations of every saved state, projected onto
-# the particle basis
+# the reduced data of the HNN: the positions and the accelerations of every saved state, projected
+# onto the particle basis
 const X = SS.X
 const A = SS.A
 const XR = zeros(size(RB.Φ, 2), size(X, 3), size(X, 4))
@@ -78,7 +78,7 @@ end
 @printf("wrote %s and %s (%d × %d × %d each)\n", PROJECTIONS, VECTORFIELD,
     size(XR, 1), size(XR, 2), size(XR, 3))
 
-# the spectra of the two bases (item 11)
+# the spectra of the two bases
 fig = spectrumplot(RB.Λ; ylabel = "λᵢ")
 save(results_path("$(RUNID)_particle_spectrum.png"), fig)
 

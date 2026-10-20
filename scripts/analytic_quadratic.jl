@@ -1,6 +1,5 @@
-# The analytic quadratic-potential example: the exact solution of the model of the acceptance
-# list, the reduced basis of its training trajectories, and the reduced march at the test
-# parameter.
+# The analytic quadratic-potential example: the exact solution of the model, the reduced basis of
+# its training trajectories, and the reduced march at the test parameter.
 #
 #   julia --project=scripts scripts/analytic_quadratic.jl [--npart 200] [--dt 1e-3] \
 #       [--rdt 1e-3] [--final-time 10.0] [--save-step 10] [--k 20] [--runs-dir dir] \
@@ -45,7 +44,7 @@ const RUNID = "analytic_beta600_n$(NPART)_T$(replace(string(FINAL_TIME), "." => 
 """
     initial_condition(::Type{T}, n)
 
-The initial condition of the acceptance list: `q₀ = 10·randn(n)` from the generator of seed 1,
+The initial condition of the model: `q₀ = 10·randn(n)` from the generator of seed 1,
 `p₀ ~ N(0, 1)` from the generator of seed 10, and then, for every particle whose draw of the
 generator of seed 100 is `≥ 1/(1 + a)`, the bump `p₀ ← σᵥ·p₀ + v₀` with `a = 0.3`, `σᵥ = 0.5` and
 `v₀ = 4.0`.
@@ -147,8 +146,8 @@ h5open(runs_path("$(RUNID).h5"), "w") do file
     HDF5.attributes(file)["seed"] = 1
 end
 
-# the figures: the errors of the reduced trajectory against the closed form (item 24) and the
-# drift of the total energy (item 27)
+# the figures: the errors of the reduced trajectory against the closed form and the drift of the
+# total energy
 fig = plot_series(TS, (ERRORS.x2, ERRORS.xmax, ERRORS.v2, ERRORS.vmax);
     labels = ["x2", "xmax", "v2", "vmax"], xlabel = "t", ylabel = "error")
 save(results_path("$(RUNID)_errors.png"), fig)

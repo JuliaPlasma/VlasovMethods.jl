@@ -16,7 +16,7 @@ using VlasovMethods: BumpOnTail, ParticleDistribution, PoissonField, ScaledField
     κ_ref
 
 The reference wave number of the bump-on-tail model, `0.3`: the `χ` of a sample is its wave number
-divided by this, as the training notebook computes it.
+divided by this.
 """
 const κ_ref = 0.3
 
@@ -48,8 +48,8 @@ march_parameters(κ) = (χ = κ / κ_ref,)
     step_count(final_time, tstep)
 
 The number of time steps of a march from zero to `final_time`: `round` and not the
-floating-point `div` of the old script, which gave 249 for `T = 25` and `dt = 0.1`. The
-integrator parameters need `nₛ - 1` to divide `nₜ`, and `nₛ = nₜ + 1` divides it.
+floating-point `div`, which gives 249 for `T = 25` and `dt = 0.1`. The integrator parameters need
+`nₛ - 1` to divide `nₜ`, and `nₛ = nₜ + 1` divides it.
 """
 step_count(final_time, tstep) = round(Int, final_time / tstep)
 

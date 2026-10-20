@@ -572,7 +572,7 @@ takes the next `K<n>`.
   raises a `MethodError`, with `ImportanceSampling` taken from `VlasovMethods`, which does not
   export it: the method's `dist::ParticleDistribution{1, 1}` names the element type
   `1`, so the method matches no distribution. Its body unpacks `a` from a `BumpOnTail`, whose
-  field is `α`, so it would raise an `UndefVarError` as well. The accept–reject method of the
+  field is `α`, so it would raise a `FieldError` as well. The accept–reject method of the
   same example takes the type parameters as they are and draws; this one is left as it is, because
   fixing the name alone would not make the method work.
 - **kind:** defect
