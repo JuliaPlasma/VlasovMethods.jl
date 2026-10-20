@@ -98,8 +98,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   self-consistent bump-on-tail set, ported from ReducedBasisMethods' `scripts/bump_on_tail_{1,2,3}*.jl`
   onto `integrate_vp`, `reduced_integrate_vp` and `DEIMElectricField`, and
   `scripts/analytic_quadratic.jl` runs the analytic quadratic model, ported from its `reference/`
-  files onto `AnalyticHamiltonian` and the reduced ODE and PODE forms. Each sample of a sweep
-  marches its own `ScaledField` at `params.χ`. The scripts write their files through `--runs-dir`
+  files onto `AnalyticHamiltonian` and the reduced ODE and PODE forms. Each sample of a
+  bump-on-tail sweep marches its own `ScaledField` at `params.χ`. The scripts write their files through `--runs-dir`
   and `--results-dir` and draw the paper's quantities with `plot_series`, `plot_particles` and
   `spectrumplot`; the match with the paper is qualitative, and no value is pinned.
   `bump_on_tail_projections.jl` writes `<runid>_projections.h5` and `<runid>_vectorfield.h5`, the

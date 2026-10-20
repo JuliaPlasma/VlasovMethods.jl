@@ -1,6 +1,7 @@
 # The shared part of the drivers of the paper's two example sets, `scripts/bump_on_tail_common.jl`:
 # the sweeps, the seeded initial condition, the field of one sample, the accelerations it applies
-# and the stride of the analytic set's saves. No test runs a driver; each runs for minutes.
+# and the stride of the analytic set's saves. No test runs a driver: the four together run for
+# about four minutes.
 
 using LinearAlgebra
 using ParticleMethods: ParticleList
