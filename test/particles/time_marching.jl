@@ -365,15 +365,31 @@ end
     update!(plain, x, w, zero(T))
     W = energy(plain) / T(χ)^2
 
-    # a field built with another `χ` than the parameters hold marches at the parameters' `χ`
-    for stored in (2, 5, T(0.25))
+    # a field built with the parameters' `χ` marches at that `χ`
+    scaled = ScaledField(field, χ)
+    SS = Snapshots(T, 1, n, nh, 2, space(T))
+    ip = IntegratorParameters(dt, nt, 2, nh, n, 1)
+    integrate_vp(plt, (χ = χ,), scaled, SS, ip, 1)
+    @test SS.X[1, :, 2, 1] == x
+    @test SS.V[1, :, 2, 1] == v
+    @test SS.W[2, 1] == W
+
+    # a field built with another `χ` than the parameters hold is refused, and the message names
+    # both values
+    for stored in (5, T(0.25))
         scaled = ScaledField(field, stored)
         SS = Snapshots(T, 1, n, nh, 2, space(T))
         ip = IntegratorParameters(dt, nt, 2, nh, n, 1)
-        integrate_vp(plt, (χ = χ,), scaled, SS, ip, 1)
-        @test SS.X[1, :, 2, 1] == x
-        @test SS.V[1, :, 2, 1] == v
-        @test SS.W[2, 1] == W
+        err = try
+            integrate_vp(plt, (χ = χ,), scaled, SS, ip, 1)
+            nothing
+        catch thrown
+            thrown
+        end
+        @test err isa ArgumentError
+        m = sprint(showerror, err)
+        @test occursin("the field carries χ = $(stored)", m)
+        @test occursin("the march is at χ = $(χ)", m)
     end
 
     # the scale reaches the field: the march of the plain field at the same `χ` differs
@@ -383,7 +399,7 @@ end
     # the reduced march of the identity basis agrees with it bit for bit, whatever `χ` the
     # reduced field carries
     Ψ = Matrix{T}(I, n, n)
-    ef = ReducedElectricField(ScaledField(field, 7), Ψ, Ψ' * vec(plt.x))
+    ef = ReducedElectricField(ScaledField(field, χ), Ψ, Ψ' * vec(plt.x))
     SSr = Snapshots(T, 1, n, nh, 2, space(T))
     IPr = IntegratorParameters(dt, nt, 2, nh, n, 1)
     reduced_integrate_vp(
@@ -391,6 +407,64 @@ end
     @test SSr.X[1, :, 2, 1] == x
     @test SSr.V[1, :, 2, 1] == v
     @test SSr.W[2, 1] == W
+end
+
+@testset "the marches refuse a nested ScaledField, $T" for T in (Float64, Float32)
+    n, nt, dt = 64, 20, T(1e-3)
+    plt, field = bump_on_tail(T; n = n)
+    nh = length(coefficients(field))
+    Ψ = Matrix{T}(I, n, n)
+
+    # The full-order march: a `ScaledField` over a `ScaledField` is refused at any inner `χ`,
+    # and the message names the inner `χ`, the outer `χ` and the march's `χ`.
+    err = try
+        full_march(T, plt, ScaledField(ScaledField(field, 5), 7), nt, 2; dt = dt, χ = 3)
+        nothing
+    catch thrown
+        thrown
+    end
+    @test err isa ArgumentError
+    m = sprint(showerror, err)
+    @test occursin("a ScaledField at χ = 7 over a ScaledField at χ = 5", m)
+    @test occursin("the march is at χ = 3", m)
+
+    # The reduced march refuses the same field, and it refuses the pair whose outer `χ` is the
+    # march's own: the two values are equal there, so only the phrase tells the two refusals
+    # apart.
+    for (inner, outer) in ((5, 2), (2, 2))
+        ef = ReducedElectricField(
+            ScaledField(ScaledField(field, inner), outer), Ψ, Ψ' * vec(plt.x))
+        SSr = Snapshots(T, 1, n, nh, 2, space(T))
+        IPr = IntegratorParameters(dt, nt, 2, nh, n, 1)
+        err = try
+            reduced_integrate_vp(
+                plt, Ψ, (χ = 2,), ef, SSr, IPr, ReducedIntegratorCache(IPr, n), 1)
+            nothing
+        catch thrown
+            thrown
+        end
+        @test err isa ArgumentError
+        m = sprint(showerror, err)
+        @test occursin("over a ScaledField at χ = $(inner)", m)
+        @test occursin("the march is at χ = 2", m)
+    end
+
+    # the triple of three different values, on the reduced path
+    ef = ReducedElectricField(
+        ScaledField(ScaledField(field, 5), 7), Ψ, Ψ' * vec(plt.x))
+    SSr = Snapshots(T, 1, n, nh, 2, space(T))
+    IPr = IntegratorParameters(dt, nt, 2, nh, n, 1)
+    err = try
+        reduced_integrate_vp(
+            plt, Ψ, (χ = 3,), ef, SSr, IPr, ReducedIntegratorCache(IPr, n), 1)
+        nothing
+    catch thrown
+        thrown
+    end
+    @test err isa ArgumentError
+    m = sprint(showerror, err)
+    @test occursin("a ScaledField at χ = 7 over a ScaledField at χ = 5", m)
+    @test occursin("the march is at χ = 3", m)
 end
 
 @testset "the guards of the full-order march, $T" for T in (Float64, Float32)

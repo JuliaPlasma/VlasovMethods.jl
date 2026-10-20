@@ -25,8 +25,9 @@ their own, except for what they removed and narrowed, which is listed in full be
   `ElectricField`, so a reduced march wraps it as `ReducedElectricField(ScaledField(f, χ), Ψ, X₀)`
   and marches in the scaled time. `integrate_vp` and `reduced_integrate_vp` take the scale of a
   `ScaledField` from `params.χ`, the one source of `χ`: they march a `ScaledField`, or a reduced
-  field over one, at the `χ` of the parameters and not at the `χ` it was built with. The energy
-  divides by `χ²` and not by `χ⁴`, because `wᵢ·E(xᵢ)/χ²` is the force of the energy `W/χ²`.
+  field over one, at the `χ` of the parameters. A `ScaledField` built at another `χ` is refused,
+  and so is a `ScaledField` over a `ScaledField`. The energy divides by `χ²` and not by `χ⁴`,
+  because `wᵢ·E(xᵢ)/χ²` is the force of the energy `W/χ²`.
   A `χ` that is not finite and positive throws an
   `ArgumentError`, and each division converts `χ` to the element type of the value it divides, so
   a `Float32` field with a `Float64` `χ` stays `Float32`.
@@ -90,6 +91,15 @@ their own, except for what they removed and narrowed, which is listed in full be
 
 - The `plot_particles` method on a `Snapshots` draws one saved state,
   `SS.X[1, :, ts, p]` against `SS.V[1, :, ts, p]`, so one frame of a march is one call.
+
+### Bug Fixes
+
+- **A march no longer discards the `χ` of a `ScaledField` in silence.** `integrate_vp` and
+  `reduced_integrate_vp` take the scale of a `ScaledField` from `params.χ`, so a `ScaledField`
+  built at another `χ` was marched at `params.χ` with its own `χ` dropped and no word. The march
+  throws an `ArgumentError` that names both values now. A `ScaledField` over a `ScaledField` is
+  refused as well, so that no scale is applied twice; its message names the inner `χ`, the outer
+  `χ` and the march's `χ`. Build the field at the march's `χ`.
 
 ## [0.3.0] — 2026-10-16
 

@@ -7,7 +7,7 @@ using VlasovMethods
 using VlasovMethods: ElectricField, PoissonField, coefficients, efield!, energy,
                      projection!,
                      update!
-using VlasovMethods: _electric_field
+using VlasovMethods: _electric_field, _with_scale
 
 include("helpers/allocation_barriers.jl")
 include("helpers/poisson_field.jl")
@@ -241,6 +241,38 @@ end
         @test _alloc_energy(f -> similar(f.field.nodes), sc) > 0
         @test _alloc_update((f, x, w, t) -> similar(x), sc, q, w, t) > 0
     end
+end
+
+@testset "the scale of a march, $T" for T in (Float64, Float32)
+    field, q, w = poisson_field(T)
+
+    # a plain field is its own scaled field
+    @test _with_scale(field, T(2)) === field
+
+    # a `ScaledField` at the march's `χ` marches: it is rebuilt over the same inner field
+    rebuilt = _with_scale(ScaledField(field, T(2)), T(2))
+    @test rebuilt isa ScaledField
+    @test rebuilt.field === field
+    @test rebuilt.χ == T(2)
+
+    # a `ScaledField` at another `χ` is refused, and the message names both values
+    m = refusal(() -> _with_scale(ScaledField(field, 5), T(2)))
+    @test occursin("the field carries χ = 5", m)
+    @test occursin("the march is at χ = $(T(2))", m)
+
+    # a `ScaledField` over a `ScaledField` is refused at any inner `χ`, equal to the march's or
+    # not, and the message names the inner `χ`, the outer `χ` and the march's `χ`. The three
+    # pairs hold three different values, so that no assertion can tell two of them apart.
+    for (inner, outer) in ((5, 2), (2, 2), (5.0, 2.0))
+        m = refusal(() -> _with_scale(ScaledField(ScaledField(field, inner), outer), T(2)))
+        @test occursin("a ScaledField at χ = $(outer) over a ScaledField at χ = $(inner)", m)
+        @test occursin("over a ScaledField at χ = $(inner)", m)
+        @test occursin("the march is at χ = $(T(2))", m)
+    end
+
+    m = refusal(() -> _with_scale(ScaledField(ScaledField(field, 5), 7), T(3)))
+    @test occursin("a ScaledField at χ = 7 over a ScaledField at χ = 5", m)
+    @test occursin("the march is at χ = $(T(3))", m)
 end
 
 @testset "the energy of a ScaledField carries χ², the potential of its field" begin
