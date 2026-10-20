@@ -22,6 +22,16 @@ end
 # The parameter space of the march, which holds one sample.
 space(::Type{T}) where {T} = ParameterSpace(Parameter(:χ, T(1), T(1), 1))
 
+# A `git` that answers the commit of the checkout, so that a script runs where the tree is no
+# checkout. The commit itself is read by the test of `repository_commit`, not by the scripts.
+function stub_git()
+    directory = mktempdir()
+    path = joinpath(directory, "git")
+    write(path, "#!/bin/sh\necho 0000000000000000000000000000000000000000\n")
+    chmod(path, 0o755)
+    return directory
+end
+
 # One full-order march of the particles on the field: the scaled field of the sample when
 # `scaled` is set, the plain field otherwise.
 function march(::Type{T}, plt, potential, x, w; dt = T(1e-3), χ = 1, nt = 10,
@@ -139,6 +149,7 @@ end
             $script --final-time 0.03 --rdt 0.003 --runs-dir $dir/runs
             --results-dir $dir/results`
         err = IOBuffer()
+        command = setenv(command, "PATH" => stub_git() * ":" * ENV["PATH"])
         process = run(pipeline(ignorestatus(command), stderr = err), wait = false)
         wait(process)
         @test process.exitcode != 0
@@ -190,6 +201,7 @@ end
         command = `$(Base.julia_cmd()) --startup-file=no --project=$(Base.active_project())
             $script --npart 32 --final-time 0.4 --runs-dir $dir/runs
             --results-dir $dir/results`
+        command = setenv(command, "PATH" => stub_git() * ":" * ENV["PATH"])
         process = run(pipeline(ignorestatus(command), stderr = devnull), wait = false)
         wait(process)
         @test process.exitcode == 0
