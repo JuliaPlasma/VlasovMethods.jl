@@ -97,8 +97,9 @@ const DRIFT_H = [energy_drift(HH[:, p]) for p in axes(HH, 2)]
 const DRIFT_R = [energy_drift(HR[:, p]) for p in axes(HR, 2)]
 
 # The growth rate of the two marches: the fit runs over the local maxima of the field energy, and
-# the reduced history has fewer of them than the full-order one, so the range holds the first two
-# maxima, which both histories hold at the paper's parameters.
+# the reduced history has fewer of them than the full-order one — the least of the reduced ones
+# holds three maxima, the least of the full-order ones six — so the range holds the first two
+# maxima, which every history holds at the paper's parameters.
 const MAXIMA = 1:2
 const WINDOW = 2
 const ΓH = growth_rate(IPTEST.t, SSH.W; window = WINDOW, maxima = MAXIMA)

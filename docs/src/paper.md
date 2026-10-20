@@ -4,8 +4,8 @@ CurrentModule = VlasovMethods
 
 # The reproduction scripts
 
-The two example sets of the paper have a script each, and every script writes its data to the
-runs directory and its figures to the results directory. The four scripts are:
+The two example sets of the paper have scripts of their own, and every script writes its data to
+the runs directory and its figures to the results directory. The four scripts are:
 
 | script | example set | what it does |
 |:--|:--|:--|
@@ -15,11 +15,11 @@ runs directory and its figures to the results directory. The four scripts are:
 | `scripts/analytic_quadratic.jl` | analytic quadratic | the closed form of the model, the reduced basis of its training trajectories, and the reduced march at the test parameter |
 
 The three bump-on-tail scripts share `scripts/bump_on_tail_common.jl`, which holds the parameters
-of the model, the wave numbers of a sweep, the field of a sample, the particle cloud, the name of
-a run and the stride of the saved times; the analytic script includes it for the commit of the
-checkout and for the stride of its saved times. The projections script reads the snapshots of the
-training run, and the testing script reads the two files of the projections run, so the three run
-in that order.
+of the model, the wave numbers of a sweep, the field of a sample, the particle cloud, the
+accelerations of a saved state, the name of a run and the stride of the saved times; the analytic
+script includes it for the commit of the checkout and for the stride of its saved times. The
+projections script reads the snapshots of the training run, and the testing script reads the two
+files of the projections run, so the three run in that order.
 
 !!! note "The pages here run no script"
     The runs take too long for a documentation build, so this page names the commands and the
@@ -81,9 +81,10 @@ runs/analytic_beta600_n200_T10p0.h5
 
 ## The figures
 
-Every figure is drawn with [`plot_series`](@ref) or [`plot_particles`](@ref), and every script
-writes the figures of the quantities of its example set. The names carry the run and the script,
-so that the figures of the training run and of the test run do not overwrite each other.
+Every figure is drawn with [`plot_series`](@ref) or [`plot_particles`](@ref), and the two spectra
+with RBM's `spectrumplot`, and every script writes the figures of the quantities of its example
+set. The names carry the run and the script, so that the figures of the training run and of the
+test run do not overwrite each other.
 
 | file | quantity | item |
 |:--|:--|:--|
