@@ -126,9 +126,10 @@ of the divided field, which is quadratic in the field and would carry `χ⁴`. [
 `coefficients` forward to `field` unchanged, because the deposit and the solve carry no amplitude.
 
 It is an `ElectricField`, so a reduced march wraps it as
-`ReducedElectricField(ScaledField(field, χ), Ψ, X)`. A march takes its scale from `params.χ` and
-not from the `χ` stored here: it marches a `ScaledField`, or a reduced field over one, at the `χ`
-of its parameters (see [`integrate_vp`](@ref)), so the stored `χ` serves a call outside a march.
+`ReducedElectricField(ScaledField(field, χ), Ψ, X)`. A march takes its scale from `params.χ`, so
+a `ScaledField` it is given, or the one under a reduced field, must be built at that `χ`: a
+`ScaledField` at another `χ`, and a `ScaledField` over a `ScaledField`, throw an `ArgumentError`
+before the march starts (see [`integrate_vp`](@ref)).
 
 `χ` must be finite and positive; the constructor throws an `ArgumentError` otherwise, which
 refuses `0`, a negative and `NaN` alike. Each division converts `χ` to the element type of the
@@ -163,8 +164,23 @@ end
 
 coefficients(f::ScaledField) = coefficients(f.field)
 
-# The field of a march at the scale `χ` of its parameters, which are the one source of the scale: a
-# `ScaledField` is rebuilt over the same inner field with `χ`, and any other field is its own.
+# The field of a march at the scale `χ` of its parameters, which are the one source of the scale.
+# Any field other than a `ScaledField` is its own. A `ScaledField` is rebuilt over the same inner
+# field with `χ` when it carries that `χ`, and refused when it carries another, which the march
+# would discard. A `ScaledField` over a `ScaledField` is refused at any `χ`, because the march
+# rebuilds only the outer one and the inner one would scale the field a second time.
 # `src/particles/electric_field.jl` gives a reduced field over a `ScaledField` the same rule.
 _with_scale(f::ElectricField, χ) = f
-_with_scale(f::ScaledField, χ) = ScaledField(f.field, χ)
+
+function _with_scale(f::ScaledField, χ)
+    f.χ == χ || throw(ArgumentError(
+        "the field carries χ = $(f.χ) ($(typeof(f.χ))), but the march is at χ = $(χ) " *
+        "($(typeof(χ))); build the field at the march's χ"))
+    return ScaledField(f.field, χ)
+end
+
+function _with_scale(f::ScaledField{<:ScaledField}, χ)
+    throw(ArgumentError(
+        "a ScaledField at χ = $(f.χ) over a ScaledField at χ = $(f.field.χ) scales the field " *
+        "twice, and the march is at χ = $(χ); build one ScaledField at the march's χ"))
+end

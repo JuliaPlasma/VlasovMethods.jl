@@ -7,7 +7,7 @@ using VlasovMethods
 using VlasovMethods: ElectricField, PoissonField, coefficients, efield!, energy,
                      projection!,
                      update!
-using VlasovMethods: _electric_field
+using VlasovMethods: _electric_field, _with_scale
 
 include("helpers/allocation_barriers.jl")
 include("helpers/poisson_field.jl")
@@ -241,6 +241,46 @@ end
         @test _alloc_energy(f -> similar(f.field.nodes), sc) > 0
         @test _alloc_update((f, x, w, t) -> similar(x), sc, q, w, t) > 0
     end
+end
+
+@testset "the scale of a march, $T" for T in (Float64, Float32)
+    field = first(poisson_field(T))
+
+    # a plain field is marched as it is
+    @test _with_scale(field, T(2)) === field
+
+    # a `ScaledField` at the march's `χ` is the same inner field at that `χ`, whatever the type of
+    # the stored value
+    for stored in (2, T(2), 2.0)
+        sc = _with_scale(ScaledField(field, stored), T(2))
+        @test sc isa ScaledField
+        @test sc.field === field
+        @test sc.χ == 2
+    end
+
+    # a `ScaledField` at another `χ` is refused, and the phrase names the stored value and the
+    # march's, each at its own place and with its type
+    for stored in (5, T(0.25))
+        m = refusal(() -> _with_scale(ScaledField(field, stored), T(2)))
+        @test occursin(
+            "the field carries χ = $(stored) ($(typeof(stored))), but the march is at " *
+            "χ = $(T(2)) ($(T))", m)
+    end
+
+    # two values of `0.1` in two types differ, and the types tell them apart
+    m = refusal(() -> _with_scale(ScaledField(field, 0.1f0), 0.1))
+    @test occursin("the field carries χ = 0.1 (Float32), but the march is at χ = 0.1 (Float64)", m)
+
+    # a `ScaledField` over a `ScaledField` is refused at every inner `χ`, equal to the march's or not
+    for (inner, outer) in ((5, 2), (2, 2), (5.0, 2.0))
+        m = refusal(() -> _with_scale(ScaledField(ScaledField(field, inner), outer), T(2)))
+        @test occursin("over a ScaledField at χ = $(inner)", m)
+    end
+
+    # three distinct values, so that each is asserted at its own place: inner 5, outer 7, march 3
+    m = refusal(() -> _with_scale(ScaledField(ScaledField(field, 5), 7), T(3)))
+    @test occursin("a ScaledField at χ = 7 over a ScaledField at χ = 5", m)
+    @test occursin("the march is at χ = $(T(3))", m)
 end
 
 @testset "the energy of a ScaledField carries χ², the potential of its field" begin

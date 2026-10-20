@@ -365,8 +365,8 @@ end
     update!(plain, x, w, zero(T))
     W = energy(plain) / T(χ)^2
 
-    # a field built with another `χ` than the parameters hold marches at the parameters' `χ`
-    for stored in (2, 5, T(0.25))
+    # a field built at the parameters' `χ`, in any of its types, marches at it
+    for stored in (2, T(2), 2.0)
         scaled = ScaledField(field, stored)
         SS = Snapshots(T, 1, n, nh, 2, space(T))
         ip = IntegratorParameters(dt, nt, 2, nh, n, 1)
@@ -380,10 +380,10 @@ end
     SSp = full_march(T, plt, field, nt, 2; dt = dt, χ = χ)
     @test SSp.V[1, :, 2, 1] != v
 
-    # the reduced march of the identity basis agrees with it bit for bit, whatever `χ` the
-    # reduced field carries
+    # the reduced march of the identity basis over a field at the parameters' `χ` agrees with it
+    # bit for bit
     Ψ = Matrix{T}(I, n, n)
-    ef = ReducedElectricField(ScaledField(field, 7), Ψ, Ψ' * vec(plt.x))
+    ef = ReducedElectricField(ScaledField(field, χ), Ψ, Ψ' * vec(plt.x))
     SSr = Snapshots(T, 1, n, nh, 2, space(T))
     IPr = IntegratorParameters(dt, nt, 2, nh, n, 1)
     reduced_integrate_vp(
@@ -391,6 +391,76 @@ end
     @test SSr.X[1, :, 2, 1] == x
     @test SSr.V[1, :, 2, 1] == v
     @test SSr.W[2, 1] == W
+end
+
+# The exception of a call, or `nothing` when it raises none.
+function thrown(f)
+    try
+        f()
+        return nothing
+    catch err
+        return err
+    end
+end
+
+@testset "the marches refuse a χ they would discard, $T" for T in (Float64, Float32)
+    n, nt, dt, χ = 64, 20, T(1e-3), 2
+    plt, field = bump_on_tail(T; n = n)
+    nh = length(coefficients(field))
+    Ψ = Matrix{T}(I, n, n)
+
+    full!(efield, params) = integrate_vp(plt, params, efield,
+        Snapshots(T, 1, n, nh, 2, space(T)), IntegratorParameters(dt, nt, 2, nh, n, 1), 1)
+    function reduced!(efield, params)
+        ef = ReducedElectricField(efield, Ψ, Ψ' * vec(plt.x))
+        IPr = IntegratorParameters(dt, nt, 2, nh, n, 1)
+        return reduced_integrate_vp(
+            plt, Ψ, params, ef, Snapshots(T, 1, n, nh, 2, space(T)),
+            IPr, ReducedIntegratorCache(IPr, n), 1)
+    end
+
+    for march! in (full!, reduced!)
+        # a `ScaledField` at another `χ` than the parameters hold is refused, and the message
+        # names both values with their types, each at its own place
+        for stored in (5, 5.0, T(0.25))
+            err = thrown(() -> march!(ScaledField(field, stored), (χ = χ,)))
+            @test err isa ArgumentError
+            @test occursin(
+                "the field carries χ = $(stored) ($(typeof(stored))), but the march is at " *
+                "χ = $(χ) ($(typeof(χ)))", sprint(showerror, err))
+        end
+
+        # a `ScaledField` over a `ScaledField` is refused at every inner `χ`, equal to the
+        # parameters' or not
+        for (inner, outer) in ((5, 2), (2, 2))
+            err = thrown(() -> march!(ScaledField(ScaledField(field, inner), outer), (χ = χ,)))
+            @test err isa ArgumentError
+            @test occursin("over a ScaledField at χ = $(inner)", sprint(showerror, err))
+        end
+
+        # three distinct values: inner 5, outer 7, and the march at 3
+        err = thrown(() -> march!(ScaledField(ScaledField(field, 5), 7), (χ = 3,)))
+        @test err isa ArgumentError
+        m = sprint(showerror, err)
+        @test occursin("a ScaledField at χ = 7 over a ScaledField at χ = 5", m)
+        @test occursin("the march is at χ = 3", m)
+
+        # the accepted sides: a `ScaledField` at the parameters' `χ`, and a plain field
+        @test march!(ScaledField(field, χ), (χ = χ,)) === nothing
+        @test march!(field, (χ = χ,)) === nothing
+    end
+
+    # the step of the march over a `ScaledField` allocates nothing, as over the plain field
+    f = full_fixture(T)
+    sc = ScaledField(f.field, χ)
+    x, v, a, w = collect(vec(f.plt.x)), collect(vec(f.plt.v)), zeros(T, n),
+    collect(vec(f.plt.w))
+    @test @inferred(full_leapfrog_step!(x, v, a, w, sc, dt, zero(T))) === nothing
+    if Base.JLOptions().code_coverage == 0
+        @test _alloc_full_step(full_leapfrog_step!, x, v, a, w, sc, dt, zero(T)) == 0
+    end
+    @test _alloc_full_step((x, v, a, w, e, Δt, t) -> similar(x), x, v, a, w, sc, dt,
+        zero(T)) > 0
 end
 
 @testset "the guards of the full-order march, $T" for T in (Float64, Float32)
