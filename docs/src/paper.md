@@ -2,11 +2,12 @@
 
 The reduced models of this package are tested on two sets of examples, the analytic quadratic
 model and the self-consistent bump-on-tail instability. Four scripts in `scripts/` run them and
-draw the paper's quantities: the errors of the positions and the velocities (item 24 of the
-acceptance list), the error of the potential (25), the field energy (26), the energy and its
-drift (27), the growth rates (28), phase-space frames (29) and the spectra of the bases (11). The
-match with the paper's figures is qualitative: each figure plots the same quantity at the paper's
-parameters, and no value is pinned against the paper.
+draw the paper's quantities, each under the number that the tables below and the comments of the
+scripts use: the errors of the positions and the velocities (24), the error of the potential
+(25), the field energy (26), the energy and its drift (27), the growth rates (28), phase-space
+frames (29) and the spectra of the bases (11). The match with the paper's figures is qualitative:
+each figure plots the same quantity at the paper's parameters, and no value is pinned against the
+paper.
 
 This page builds no figure and runs no script, because the runs take minutes.
 
@@ -50,7 +51,7 @@ julia --project=scripts scripts/bump_on_tail_testing.jl
 ```
 
 Each basis keeps the leading vectors that carry all but the tolerance of the energy of its
-spectrum. The default pair, which ReducedBasisMethods' original projection script ran, gives
+spectrum. The default pair, which ReducedBasisMethods' projection script runs, gives
 `kₚ = 10` and `kₑ = 55` on the default training run. That script names a second pair, `1e-8` and
 `1e-4`, which gives `kₚ = 120` and `kₑ = 345`:
 

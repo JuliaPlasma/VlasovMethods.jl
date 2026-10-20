@@ -8,8 +8,8 @@
 #       [--particle-tol 1e-4] [--field-tol 1e-2] [--runs-dir dir] [--results-dir dir]
 #
 # Each basis keeps the leading vectors that carry all but `tol` of the energy of its spectrum. The
-# defaults are the pair of tolerances the old projection script ran. It names a second pair,
-# `1e-8` and `1e-4`, which keeps larger bases:
+# defaults are the pair of tolerances that ReducedBasisMethods' projection script runs. It names
+# a second pair, `1e-8` and `1e-4`, which keeps larger bases:
 #
 #   julia --project=scripts scripts/bump_on_tail_projections.jl --particle-tol 1e-8 \
 #       --field-tol 1e-4

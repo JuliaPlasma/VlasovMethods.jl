@@ -634,7 +634,7 @@ takes the next `K<n>`.
   On the default training run, the ten rates over `2:5` are
   `[0.0112, 0.0402, 0.1318, 0.1248, 0.1349, 0.1208, 0.1938, 0.1045, 0.0833, 0.3271]`, and over
   `1:3` they are `[0.0135, 0.0027, -0.001, 0.0939, 0.108, 0.1096, 0.0917, 0.1105, 0.0976, -0.3834]`.
-  So the item-28 figure of the training run and that of the test run do not plot one quantity.
+  So the growth-rate figure of the training run and that of the test run do not plot one quantity.
 - **kind:** defect
 - **found:** 2026-10-21
 

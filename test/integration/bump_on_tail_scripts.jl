@@ -59,13 +59,14 @@ end
 end
 
 @testset "the sweeps" begin
-    # the step count rounds the quotient, where the old script's `Int(div(25, 0.1))` is 249
+    # the step count rounds the quotient, where ReducedBasisMethods' training script's
+    # `Int(div(25, 0.1))` is 249
     @test step_count(25.0, 0.1) == 250
     @test Int(div(25, 0.1)) == 249
     # `0.3 / 0.1` is `2.9999999999999996`, which rounds to `3` and truncates to `2`
     @test step_count(0.3, 0.1) == 3
 
-    # the projection tolerances are the pair the old projection script ran
+    # the projection tolerances are the pair that ReducedBasisMethods' projection script runs
     @test BUMP_ON_TAIL_DEFAULTS.particle_tol == 1e-4
     @test BUMP_ON_TAIL_DEFAULTS.field_tol == 1e-2
 

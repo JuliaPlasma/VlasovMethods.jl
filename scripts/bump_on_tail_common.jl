@@ -13,17 +13,17 @@ using VlasovMethods
 "The wave number `κ` of the reference problem, on whose domain every sample of a sweep runs."
 const KAPPA_REF = 0.3
 
-"The bump-on-tail initial condition of the old scripts: the amplitude, the fast share, the width
-and the offset velocity of the bump."
+"The bump-on-tail initial condition of ReducedBasisMethods' scripts: the amplitude, the fast
+share, the width and the offset velocity of the bump."
 const BUMP = (ε = 0.03, α = 0.1, σ = 0.5, v₀ = 4.5)
 
 """
     BUMP_ON_TAIL_DEFAULTS
 
-The defaults of the three bump-on-tail drivers, which are the old scripts' parameters: `10⁴`
-particles, `16` cells of a cubic periodic spline, `dt = 0.1` up to `T = 25`, ten samples of
-`κ ∈ [0.1, 0.5]`, the seed `1234`, and the tolerances `1e-4` of the particle basis and `1e-2` of
-the field basis, the pair the old projection script ran.
+The defaults of the three bump-on-tail drivers, which are the parameters of ReducedBasisMethods'
+scripts: `10⁴` particles, `16` cells of a cubic periodic spline, `dt = 0.1` up to `T = 25`, ten
+samples of `κ ∈ [0.1, 0.5]`, the seed `1234`, and the tolerances `1e-4` of the particle basis and
+`1e-2` of the field basis, the pair its projection script runs.
 """
 const BUMP_ON_TAIL_DEFAULTS = (runid = "bump_on_tail", npart = 10_000, ncells = 16,
     degree = 3, tstep = 0.1, final_time = 25.0, kappa_min = 0.1, kappa_max = 0.5,
@@ -35,9 +35,9 @@ domain(κ) = (0.0, 2π / κ)
 """
     step_count(final_time, tstep)
 
-The number of steps of `tstep` up to `final_time`, `round(Int, final_time / tstep)`. The old
-training script took `Int(div(25, 0.1))`, which is `249`, because `div` of two floats rounds the
-quotient `249.99…` down.
+The number of steps of `tstep` up to `final_time`, `round(Int, final_time / tstep)`.
+ReducedBasisMethods' training script takes `Int(div(25, 0.1))`, which is `249`, because `div` of
+two floats rounds the quotient `249.99…` down.
 """
 step_count(final_time, tstep) = round(Int, final_time / tstep)
 
@@ -55,7 +55,8 @@ end
     testing_kappas(kappa_min, kappa_max, nsamples, seed)
 
 The wave numbers of the test sweep: `nsamples` values uniform in `[kappa_min, kappa_max)`, drawn
-from `Xoshiro(seed)` and sorted, as the old test script drew them after `Random.seed!(seed)`.
+from `Xoshiro(seed)` and sorted, as ReducedBasisMethods' test script draws them after
+`Random.seed!(seed)`.
 """
 function testing_kappas(kappa_min, kappa_max, nsamples, seed)
     κ = rand(Xoshiro(seed), nsamples) .* (kappa_max - kappa_min) .+ kappa_min

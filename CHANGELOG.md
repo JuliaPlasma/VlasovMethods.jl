@@ -27,8 +27,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   `params.χ`, the one source of `χ`, so a `ScaledField` they are given, or the one under a reduced
   field, must be built at that `χ`. One at another `χ`, which the march would discard, throws an
   `ArgumentError` that names both values, and so does a `ScaledField` over a `ScaledField`, which
-  would scale the field twice. The energy
-  divides by `χ²` and not by `χ⁴`, because `wᵢ·E(xᵢ)/χ²` is the force of the energy `W/χ²`.
+  would scale the field twice. The energy divides by `χ²` and not by `χ⁴`, because `wᵢ·E(xᵢ)/χ²`
+  is the force of the energy `W/χ²`.
   A `χ` that is not finite and positive throws an
   `ArgumentError`, and each division converts `χ` to the element type of the value it divides, so
   a `Float32` field with a `Float64` `χ` stays `Float32`.
@@ -95,13 +95,14 @@ their own, except for what they removed and narrowed, which is listed in full be
 
 - **The paper's two example sets as scripts.** `scripts/bump_on_tail_training.jl`,
   `scripts/bump_on_tail_projections.jl` and `scripts/bump_on_tail_testing.jl` run the
-  self-consistent bump-on-tail set, ported from ReducedBasisMethods' `scripts/bump_on_tail_{1,2,3}*.jl`
-  onto `integrate_vp`, `reduced_integrate_vp` and `DEIMElectricField`, and
-  `scripts/analytic_quadratic.jl` runs the analytic quadratic model, ported from its `reference/`
-  files onto `AnalyticHamiltonian` and the reduced ODE and PODE forms. Each sample of a
-  bump-on-tail sweep marches its own `ScaledField` at `params.χ`. The scripts write their files through `--runs-dir`
-  and `--results-dir` and draw the paper's quantities with `plot_series`, `plot_particles` and
-  `spectrumplot`; the match with the paper is qualitative, and no value is pinned.
+  self-consistent bump-on-tail set, ported from ReducedBasisMethods'
+  `scripts/bump_on_tail_{1,2,3}*.jl` onto `integrate_vp`, `reduced_integrate_vp` and
+  `DEIMElectricField`, and `scripts/analytic_quadratic.jl` runs the analytic quadratic model,
+  ported from its `reference/` files onto `AnalyticHamiltonian` and the reduced ODE and PODE
+  forms. Each sample of a bump-on-tail sweep marches its own `ScaledField` at `params.χ`. The
+  scripts write their files through `--runs-dir` and `--results-dir` and draw the paper's
+  quantities with `plot_series`, `plot_particles` and `spectrumplot`; the match with the paper is
+  qualitative, and no value is pinned.
   `bump_on_tail_projections.jl` writes `<runid>_projections.h5` and `<runid>_vectorfield.h5`, the
   input files of the HNN of the reduced field, with the commit, the command and the seed as HDF5
   attributes.
