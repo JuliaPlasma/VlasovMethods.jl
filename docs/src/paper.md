@@ -34,16 +34,20 @@ third column names the flags of the paper's parameters.
 
 | script | the default run | the paper's parameters | run time |
 |:--|:--|:--|:--|
-| `bump_on_tail_training.jl` | `julia --project=scripts scripts/bump_on_tail_training.jl` | the defaults: `--npart 10000 --final-time 25.0` | 29 s |
-| `bump_on_tail_projections.jl` | `julia --project=scripts scripts/bump_on_tail_projections.jl` | the defaults: `--runid BoT_Np10000_k_010_050_ns10_T25` | 32 s |
-| `bump_on_tail_testing.jl` | `julia --project=scripts scripts/bump_on_tail_testing.jl` | the defaults: `--runid BoT_Np10000_k_010_050_ns10_T25` | 32 s |
-| `analytic_quadratic.jl` | `julia --project=scripts scripts/analytic_quadratic.jl` | `--npart 1000 --final-time 1000 --dt 1e-3 --rdt 1e-4` | 31 s |
+| `bump_on_tail_training.jl` | `julia --project=scripts scripts/bump_on_tail_training.jl` | the defaults: `--npart 10000 --final-time 25.0` | 40 s |
+| `bump_on_tail_projections.jl` | `julia --project=scripts scripts/bump_on_tail_projections.jl` | the defaults: `--runid BoT_Np10000_k_010_050_ns10_T25` | 30 s |
+| `bump_on_tail_testing.jl` | `julia --project=scripts scripts/bump_on_tail_testing.jl` | the defaults: `--runid BoT_Np10000_k_010_050_ns10_T25` | 29 s |
+| `analytic_quadratic.jl` | `julia --project=scripts scripts/analytic_quadratic.jl` | `--npart 1000 --final-time 1000 --dt 1e-3 --rdt 1e-4` | 30 s |
 
-The times are those of a cold process on the machine of the author, with Julia 1.13, and they
-count the loading of the package. The run of the analytic script at the paper's parameters is far
-longer and needs much more memory: the training matrix holds `2000 × 600006` doubles, about
-9.6 GB, and the reduced march stores the `10⁷` steps of the 40-dimensional state twice over,
-about 12.8 GB. A run of `10⁶` reduced steps at `1000` particles takes 112 s.
+The times are those of one cold run on the machine of the author, with Julia 1.13, and they
+count the loading of the package. They vary by some seconds with the load of the machine.
+
+The run of the analytic script at the paper's parameters needs far more memory and far more
+time than a default run: the training matrix holds `2000 × 600006` doubles, about 9.6 GB, and
+the reduced march stores the `10⁷` steps of the 40-dimensional state, about 3.2 GB, which the
+script copies before it lifts it. A run of `10⁶` reduced steps at `1000` particles,
+`--npart 1000 --final-time 100 --dt 1e-3 --rdt 1e-4`, took 107 s and peaked at 6.2 GB of
+memory.
 
 The scripts of one run share its name, which holds the parameters it names: the particle count,
 the wave-number range of the sweep, the number of samples and the final time. A run of other

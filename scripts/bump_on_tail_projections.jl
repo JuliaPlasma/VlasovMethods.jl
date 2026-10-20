@@ -2,7 +2,7 @@
 # training sweep, the reduced data that the HNN of P39 reads, and the spectra of the two bases.
 #
 #   julia --project=scripts scripts/bump_on_tail_projections.jl \
-#       [--runid BoT_Np1000_k_010_050_ns10_T25] [--particle-tol 1e-4] [--field-tol 1e-2] \
+#       [--runid BoT_Np10000_k_010_050_ns10_T25] [--particle-tol 1e-4] [--field-tol 1e-2] \
 #       [--runs-dir dir] [--results-dir dir]
 #
 # The two files go to `--runs-dir`, the spectra to `--results-dir`. The run id names the training
