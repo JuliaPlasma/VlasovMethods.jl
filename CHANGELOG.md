@@ -101,6 +101,13 @@ their own, except for what they removed and narrowed, which is listed in full be
   refused as well, so that no scale is applied twice; its message names the inner `χ`, the outer
   `χ` and the march's `χ`. Build the field at the march's `χ`.
 
+- **The bump-on-tail draws particles.** The accept–reject method of `BumpOnTail`'s `draw!` named
+  the distribution's type parameters as `ParticleDistribution{1, 1}`, which puts the element type
+  where the `x` dimension belongs, so the method matched no distribution and
+  `initialize!(dist, BumpOnTail(…))` threw a `MethodError`. The method takes the element type as
+  it is now. The `Bump` example and the importance-sampling draw of `BumpOnTail` have the same
+  gap and are recorded in `KNOWN_ISSUES.md` as K67 and K68.
+
 ## [0.3.0] — 2026-10-16
 
 ### Bug Fixes

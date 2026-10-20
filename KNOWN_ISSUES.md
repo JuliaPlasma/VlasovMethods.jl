@@ -552,3 +552,27 @@ takes the next `K<n>`.
   `Int` above about `2^62`. The docstring states this closed form, so no wider arithmetic is added.
 - **kind:** found late
 - **found:** 2026-10-17
+
+### K67 · The `Bump` example draws no particles.
+
+- **location:** `src/examples/bump.jl:28`
+- **evidence:** `initialize!(ParticleDistribution(1, 1, 8), Bump())` raises a `MethodError`: the
+  method's `dist::ParticleDistribution{1, 1}` names the element type `1`, and
+  `ParticleDistribution{DT, XD, VD, PT}` has its element type in the first place, so the method
+  matches no distribution. The accept–reject method of `BumpOnTail` takes the type parameters as
+  they are and draws; this one is left as it is, because the `Bump` example is not used by any
+  script.
+- **kind:** defect
+- **found:** 2026-10-20
+
+### K68 · The importance-sampling draw of `BumpOnTail` draws no particles.
+
+- **location:** `src/examples/bumpontail.jl:85`
+- **evidence:** `initialize!(ParticleDistribution(1, 1, 8), BumpOnTail(), ImportanceSampling())`
+  raises a `MethodError`: the method's `dist::ParticleDistribution{1, 1}` names the element type
+  `1`, so the method matches no distribution. Its body unpacks `a` from a `BumpOnTail`, whose
+  field is `α`, so it would raise an `UndefVarError` as well. The accept–reject method of the
+  same example takes the type parameters as they are and draws; this one is left as it is, because
+  fixing the name alone would not make the method work.
+- **kind:** defect
+- **found:** 2026-10-20
