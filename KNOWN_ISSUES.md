@@ -552,3 +552,25 @@ takes the next `K<n>`.
   `Int` above about `2^62`. The docstring states this closed form, so no wider arithmetic is added.
 - **kind:** found late
 - **found:** 2026-10-17
+
+### K67 · `initialize!` with a `Bump` raises a `MethodError` for every particle distribution.
+
+- **location:** `src/examples/bump.jl:28`
+- **evidence:** `initialize!(ParticleDistribution(1, 1, 10), VlasovMethods.Bump())` throws
+  `MethodError: no method matching draw!(::ParticleDistribution{Float64, 1, 1, …`. The method is
+  declared for `ParticleDistribution{1, 1}`, whose first type parameter is the element type, so
+  no distribution of one position and one velocity dimension matches it.
+- **kind:** defect
+- **found:** 2026-10-20
+
+### K68 · The importance-sampling draw of `BumpOnTail` cannot run.
+
+- **location:** `src/examples/bumpontail.jl:85`
+- **evidence:** `initialize!(ParticleDistribution(1, 1, 10), BumpOnTail(),
+  VlasovMethods.ImportanceSampling())` throws `MethodError: no method matching
+  draw!(::ParticleDistribution{Float64, 1, 1, …`, because the method is declared for
+  `ParticleDistribution{1, 1}`. Behind the signature, the body unpacks `a`, and
+  `fieldnames(BumpOnTail{Float64})` is `(:ε, :κ, :α, :σ, :v₀)`, so a corrected signature alone
+  does not make the draw run.
+- **kind:** defect
+- **found:** 2026-10-20

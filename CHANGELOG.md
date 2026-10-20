@@ -93,6 +93,14 @@ their own, except for what they removed and narrowed, which is listed in full be
 - The `plot_particles` method on a `Snapshots` draws one saved state,
   `SS.X[1, :, ts, p]` against `SS.V[1, :, ts, p]`, so one frame of a march is one call.
 
+### Bug Fixes
+
+- **`initialize!(dist, BumpOnTail(…))` draws the particles.** The accept–reject `draw!` of
+  `BumpOnTail` was declared for `ParticleDistribution{1, 1}`, whose first parameter is the element
+  type, so no distribution matched it and the call threw a `MethodError`. It now takes
+  `ParticleDistribution{<:Any, 1, 1}`. The importance-sampling draw and the draw of `Bump` keep
+  the old declaration and are recorded as K68 and K67 in `KNOWN_ISSUES.md`.
+
 ## [0.3.0] — 2026-10-16
 
 ### Bug Fixes
