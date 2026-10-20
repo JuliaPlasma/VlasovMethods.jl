@@ -93,6 +93,24 @@ their own, except for what they removed and narrowed, which is listed in full be
 - The `plot_particles` method on a `Snapshots` draws one saved state,
   `SS.X[1, :, ts, p]` against `SS.V[1, :, ts, p]`, so one frame of a march is one call.
 
+- **The paper's two example sets as scripts.** `scripts/bump_on_tail_training.jl`,
+  `scripts/bump_on_tail_projections.jl` and `scripts/bump_on_tail_testing.jl` run the
+  self-consistent bump-on-tail set, ported from ReducedBasisMethods' `scripts/bump_on_tail_{1,2,3}*.jl`
+  onto `integrate_vp`, `reduced_integrate_vp` and `DEIMElectricField`, and
+  `scripts/analytic_quadratic.jl` runs the analytic quadratic model, ported from its `reference/`
+  files onto `AnalyticHamiltonian` and the reduced ODE and PODE forms. Each sample of a sweep
+  marches its own `ScaledField` at `params.χ`. The scripts write their files through `--runs-dir`
+  and `--results-dir` and draw the paper's quantities with `plot_series`, `plot_particles` and
+  `spectrumplot`; the match with the paper is qualitative, and no value is pinned.
+  `bump_on_tail_projections.jl` writes `<runid>_projections.h5` and `<runid>_vectorfield.h5`, the
+  input files of the HNN of the reduced field, with the commit, the command and the seed as HDF5
+  attributes.
+
+### Documentation
+
+- **A page for the paper's examples**, `docs/src/paper.md`, names each of the four scripts, its
+  command with the paper's parameters, its measured run time and the files it writes.
+
 ### Bug Fixes
 
 - **`initialize!(dist, BumpOnTail(…))` draws the particles.** The accept–reject `draw!` of
