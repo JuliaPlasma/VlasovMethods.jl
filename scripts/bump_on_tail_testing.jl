@@ -110,7 +110,7 @@ const BEST, WORST = best_and_worst(ΓH, ΓR)
 
 # the saved times of the trends of item 24: the last one, the one nearest three quarters of the
 # way and the one nearest halfway
-const INDICES = saved_indices(IPTEST.nₛ)
+const SAVED_TIMES = saved_indices(IPTEST.nₛ)
 const TREND_LABELS = ["t = T", "t = 0.75T", "t = 0.5T"]
 
 # the figures: the errors of the first test sample against the time (item 24), the errors of every
@@ -126,7 +126,7 @@ save(results_path("$(RUNID)_testing_errors.png"), fig)
 
 for (values, name) in ((ERRORS.x2, "x2"), (ERRORS.xmax, "xmax"), (ERRORS.v2, "v2"),
     (ERRORS.vmax, "vmax"))
-    errfig = plot_series(KAPPA, (values[ts, :] for ts in INDICES);
+    errfig = plot_series(KAPPA, (values[ts, :] for ts in SAVED_TIMES);
         labels = TREND_LABELS, xlabel = "κ", ylabel = "error")
     save(results_path("$(RUNID)_testing_error_$(name).png"), errfig)
 end
