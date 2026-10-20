@@ -244,7 +244,7 @@ end
 end
 
 @testset "the scale of a march, $T" for T in (Float64, Float32)
-    field, q, w = poisson_field(T)
+    field, _, _ = poisson_field(T)
 
     # a plain field is its own scaled field
     @test _with_scale(field, T(2)) === field
