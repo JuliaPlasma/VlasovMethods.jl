@@ -576,14 +576,3 @@ takes the next `K<n>`.
   fixing the name alone would not make the method work.
 - **kind:** defect
 - **found:** 2026-10-20
-
-### K69 · The marches do not save the accelerations.
-
-- **location:** `src/particles/time_marching.jl:144` and `src/particles/time_marching.jl:294`
-- **evidence:** neither `save_solution` nor `save_full_solution` writes `SS.A`, so a marched
-  sweep holds zeros there. The field basis of `src/particles/snapshots.jl:132` is the basis of
-  those accelerations, so it is degenerate: the field basis of a marched sweep holds one column
-  and a spectrum of zeros. The training script of `scripts/bump_on_tail_training.jl` fills
-  `SS.A` itself, from the field of the sample at the positions of the state.
-- **kind:** found late
-- **found:** 2026-10-20

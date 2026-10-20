@@ -2,11 +2,11 @@
 # wave number, the snapshots it saves and the figures of the field energy, of the total energy and
 # of the phase-space frames.
 #
-#   julia --project=scripts scripts/bump_on_tail_training.jl [--npart 1000] [--ncells 16] \
+#   julia --project=scripts scripts/bump_on_tail_training.jl [--npart 10000] [--ncells 16] \
 #       [--order 3] [--tstep 0.1] [--final-time 25.0] [--runs-dir dir] [--results-dir dir]
 #
-# The snapshots go to `--runs-dir`, the figures to `--results-dir`. The paper's parameters are
-# `--npart 10000`; the defaults are smaller, so that the run stays inside a few minutes.
+# The snapshots go to `--runs-dir`, the figures to `--results-dir`. The defaults are the paper's
+# parameters: `--npart 10000` and `--final-time 25.0`.
 
 include(joinpath(@__DIR__, "options.jl"))
 include(joinpath(@__DIR__, "bump_on_tail_common.jl"))
@@ -17,7 +17,7 @@ using PoissonSolvers
 using Printf
 using ReducedComplexityModeling: Parameter, ParameterSpace
 using VlasovMethods
-using VlasovMethods: efield!, h5save, plot_particles, plot_series, update!
+using VlasovMethods: h5save, plot_particles, plot_series
 
 const OPT = parse_arguments(
     ARGS; npart = DEFAULT_NPART, ncells = 16, order = 3, tstep = 0.1,
@@ -60,26 +60,17 @@ const DIST = initial_distribution(NPART)
 const IP = IntegratorParameters(TSTEP, NT, NS, NH, NPART, length(PSC))
 const SS = Snapshots(Float64, 1, NPART, NH, NS, PSC)
 
-# the sweep: every sample is marched at its own `χ`, and the field of the sample carries it
+# The sweep: every sample is marched at its own `χ`, and the field of the sample carries it. The
+# accelerations of the saved states, which the marches do not save, are filled with the same field
+# of the sample: the field is updated at the positions of the state, and the scaled field divides
+# the field by χ², so that the acceleration is the one the field has at the positions of the state.
 for p in eachindex(PSC)
     params = march_parameters(PSC(p).κ)
     efield = vp_field(POTENTIAL, params)
     integrate_vp(DIST.particles, params, efield, SS, IP, p)
+    fill_accelerations!(SS, efield, IP, vec(DIST.particles.w), p)
     @printf("training sample %d of %d: κ = %g, χ = %g\n", p, length(PSC), PSC(p).κ,
         params.χ)
-end
-
-# The accelerations of the saved states, which the marches do not save: the field of the sample is
-# updated at the positions of the state, and the scaled field divides the field by χ², so that the
-# acceleration is the one the field has at the positions of the state.
-for p in eachindex(PSC)
-    params = march_parameters(PSC(p).κ)
-    efield = vp_field(POTENTIAL, params)
-    for it in 1:NS
-        x = view(SS.X, 1, :, it, p)
-        update!(efield, x, vec(DIST.particles.w), IP.t[it])
-        efield!(efield, view(SS.A, 1, :, it, p), x)
-    end
 end
 
 const H5FILE = runs_path("$(RUNID).h5")

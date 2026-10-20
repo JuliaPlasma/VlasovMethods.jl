@@ -36,8 +36,7 @@ const FINAL_TIME = OPT.final_time
 const SAVE_STEP = OPT.save_step
 const K = OPT.k
 
-# the parameters of the model: the six training values of β and the test one, which lies off the
-# training range
+# the parameters of the model: the six training values of β and the test one, which is off-sample
 const TRAINING_β = (5.95, 5.97, 5.99, 6.01, 6.03, 6.05)
 const TEST_β = 6.00
 
@@ -82,6 +81,10 @@ const Q0, P0 = initial_condition(Float64, NPART)
 # the saved times: the closed form is evaluated at them only, and never at every step
 const TS = collect(range(0.0, FINAL_TIME; step = SAVE_STEP * DT))
 
+# the number of reduced steps between two saved times, which the run refuses when it is not a
+# whole number: the reduced states would not be the states of the saved times
+const STRIDE = save_stride(SAVE_STEP, DT, RDT)
+
 # the training snapshot: the stacked `[Q; P]` of the six training wave numbers
 const S = Matrix{Float64}(undef, 2 * NPART, length(TRAINING_β) * length(TS))
 for (j, β) in enumerate(TRAINING_β)
@@ -96,7 +99,7 @@ const B = ReducedBasis(CotangentLiftSVD(), S, NamedTuple(), PSC; k = K)
 
 @printf("the basis holds %d of %d columns\n", B.k, size(B.Φ, 1))
 
-# the reduced march at the test value of β, which lies off the training range
+# the reduced march at the test value of β, which is off-sample
 const H = AnalyticHamiltonian(TEST_β)
 const X0 = vcat(Q0, P0)
 const PROB = reduced_pode(B, H, (0.0, FINAL_TIME), RDT, project(B, X0))
@@ -104,10 +107,11 @@ const SOL = integrate(PROB, LobattoIIIAIIIB(2); f_abstol = 1e-14)
 
 # The columns of the reduced trajectory that hold the saved times: the march saves every step of
 # `RDT`, and the closed form is evaluated every `SAVE_STEP` steps of `DT`. Only these columns are
-# lifted, so that the memory of the run does not grow with the number of steps.
+# lifted, so that the lifted trajectory holds the saved times and not every step of the march.
+# The march itself keeps every step of the reduced state, so the memory of the run still grows
+# with the number of steps.
 const QRED = Array(SOL.q)
 const PRED = Array(SOL.p)
-const STRIDE = round(Int, SAVE_STEP * DT / RDT)
 const COLUMNS = 1:STRIDE:size(QRED, 2)
 const LIFTED = lift(B, vcat(QRED[:, COLUMNS], PRED[:, COLUMNS]))
 const QL = LIFTED[1:NPART, :]

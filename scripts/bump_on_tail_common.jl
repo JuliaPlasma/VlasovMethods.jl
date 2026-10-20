@@ -8,7 +8,9 @@ using Printf: @sprintf
 using Random
 using VlasovMethods: BumpOnTail, ParticleDistribution, PoissonField, ScaledField,
                      coefficients,
-                     initialize!
+                     efield!,
+                     initialize!,
+                     update!
 
 """
     κ_ref
@@ -52,6 +54,24 @@ integrator parameters need `nₛ - 1` to divide `nₜ`, and `nₛ = nₜ + 1` di
 step_count(final_time, tstep) = round(Int, final_time / tstep)
 
 """
+    save_stride(save_step, dt, rdt)
+
+The number of steps of `rdt` between two saved times: `save_step` steps of `dt` are the time
+`save_step·dt`, and the reduced march steps every `rdt`, so their ratio is the number of steps.
+
+The ratio must be a whole number, or the reduced states are not the states of the saved times. A
+ratio that is not a whole number throws an `ArgumentError` that names the two steps.
+"""
+function save_stride(save_step, dt, rdt)
+    ratio = save_step * dt / rdt
+    stride = round(Int, ratio)
+    abs(ratio - stride) ≤ 1e-9 * stride || throw(ArgumentError(
+        "the save step of $(save_step * dt) is $ratio steps of $rdt, which is not a whole " *
+        "number; the reduced states would not be the states of the saved times"))
+    return stride
+end
+
+"""
     vp_field(potential, params)
 
 The electric field of a sample: a `ScaledField` over the `PoissonField` of the `potential`, at the
@@ -67,6 +87,25 @@ The number of degrees of freedom of the `potential`: the length of the coefficie
 march saves into the snapshots.
 """
 potential_degrees(potential) = length(coefficients(PoissonField(potential)))
+
+"""
+    fill_accelerations!(SS, efield, IP, w, p)
+
+The accelerations of the saved states of the sample `p`, which the marches do not save: the field
+`efield` is updated at the positions of every saved state, and the scaled field divides the field
+by `χ²`, so that the acceleration is the one the field has at the positions of the state.
+
+The `efield` is the field of the sample, the one the march took, and `w` holds the weights of the
+particles. It returns `SS`.
+"""
+function fill_accelerations!(SS, efield, IP, w, p)
+    for it in 1:IP.nₛ
+        x = view(SS.X, 1, :, it, p)
+        update!(efield, x, w, IP.t[it])
+        efield!(efield, view(SS.A, 1, :, it, p), x)
+    end
+    return SS
+end
 
 """
     initial_distribution(n; seed = 1234)
@@ -110,8 +149,9 @@ function bump_on_tail_runid(npart, nsamples, final_time)
 end
 
 # The defaults of the three scripts, so that they name the same run: the training script marches
-# with them, and the other two read the files it writes.
-const DEFAULT_NPART = 1000
+# with them, and the other two read the files it writes. The particle count is the paper's, and so
+# is the run it names.
+const DEFAULT_NPART = 10000
 const DEFAULT_NSAMPLES = 10
 const DEFAULT_FINAL_TIME = 25.0
 const DEFAULT_RUNID = bump_on_tail_runid(DEFAULT_NPART, DEFAULT_NSAMPLES, DEFAULT_FINAL_TIME)
@@ -119,13 +159,10 @@ const DEFAULT_RUNID = bump_on_tail_runid(DEFAULT_NPART, DEFAULT_NSAMPLES, DEFAUL
 """
     repository_commit(directory = dirname(@__DIR__))
 
-The commit of the VlasovMethods checkout the script runs in, or `"unknown"` when it runs outside
-one. The `directory` is the root of the checkout, which is the parent of the `scripts` directory.
+The commit of the VlasovMethods checkout the script runs in, which is `git rev-parse HEAD` of the
+`directory`, the root of the checkout, which is the parent of the `scripts` directory. A directory
+that is no checkout has no commit, and the command fails.
 """
 function repository_commit(directory = dirname(@__DIR__))
-    try
-        return readchomp(`git -C $directory rev-parse HEAD`)
-    catch
-        return "unknown"
-    end
+    readchomp(`git -C $directory rev-parse HEAD`)
 end

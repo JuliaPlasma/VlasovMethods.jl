@@ -116,25 +116,75 @@ end
     @test step_count(1.0, 0.25) == 4
 end
 
+@testset "the stride of the saved times is a whole number of reduced steps" begin
+    @test save_stride(10, 1e-3, 1e-3) == 10
+    @test save_stride(10, 1e-3, 1e-4) == 100
+
+    # a ratio that is not a whole number is refused: the reduced states would not be the states
+    # of the saved times
+    @test_throws ArgumentError save_stride(10, 1e-3, 3e-3)
+    @test_throws ArgumentError save_stride(10, 1e-3, 9e-4)
+end
+
+@testset "the analytic script refuses a stride that is not a whole number" begin
+    # The script is run in its own process, because it is a script: it refuses before it marches,
+    # and it writes its files into the directories of the run.
+    script = joinpath(@__DIR__, "..", "..", "scripts", "analytic_quadratic.jl")
+    mktempdir() do dir
+        command = `$(Base.julia_cmd()) --startup-file=no --project=$(Base.active_project())
+            $script --final-time 0.03 --rdt 0.003 --runs-dir $dir/runs
+            --results-dir $dir/results`
+        err = IOBuffer()
+        process = run(pipeline(ignorestatus(command), stderr = err), wait = false)
+        wait(process)
+        @test process.exitcode != 0
+        @test occursin("which is not a whole number", String(take!(err)))
+    end
+end
+
+@testset "the training script fills the accelerations of the saved states" begin
+    T = Float64
+    potential, plt, x, w = fixture(T)
+    params = (χ = 2.0,)
+    field = vp_field(potential, params)
+    nh = length(coefficients(field))
+
+    SS = Snapshots(T, 1, length(x), nh, 3, space(T))
+    ip = IntegratorParameters(T(1e-3), 2, 3, nh, length(x), 1)
+    integrate_vp(plt, params, field, SS, ip, 1)
+
+    # the accelerations of the saved states, which the march does not save, are the field of the
+    # sample at the positions of the state, divided by χ²
+    fill_accelerations!(SS, field, ip, vec(plt.w), 1)
+
+    plain = PoissonField(potential)
+    update!(plain, x, w, zero(T))
+    e = similar(x)
+    efield!(plain, e, x)
+    @test !all(iszero, e)
+    @test SS.A[1, :, 1, 1] == e ./ 4
+end
+
 @testset "the name of a run carries its parameters" begin
     @test bump_on_tail_runid(1000, 10, 25.0) != bump_on_tail_runid(2000, 10, 25.0)
     @test bump_on_tail_runid(1000, 10, 25.0) != bump_on_tail_runid(1000, 20, 25.0)
     @test bump_on_tail_runid(1000, 10, 25.0) != bump_on_tail_runid(1000, 10, 50.0)
+
+    # the defaults of the three scripts are the paper's parameters, and the run they name is the
+    # paper's run
+    @test DEFAULT_NPART == 10000
+    @test DEFAULT_NSAMPLES == 10
+    @test DEFAULT_FINAL_TIME == 25.0
+    @test DEFAULT_RUNID == "BoT_Np10000_k_010_050_ns10_T25"
 end
 
 @testset "the commit of the checkout" begin
-    # a repository of its own, so that the commit is read and not the fallback of a directory that
-    # is no checkout
+    # a repository of its own, so that the commit is read
     mktempdir() do dir
         run(`git -C $dir init --quiet`)
         run(`git -C $dir -c user.name=test -c user.email=test@example.com commit --quiet
             --allow-empty -m "the initial commit"`)
         @test length(repository_commit(dir)) == 40
-    end
-
-    # a directory that is no checkout has no commit
-    mktempdir() do dir
-        @test repository_commit(dir) == "unknown"
     end
 end
 

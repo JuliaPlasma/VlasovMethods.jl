@@ -102,8 +102,9 @@ their own, except for what they removed and narrowed, which is listed in full be
   the HNN, and the testing script marches the ten test samples with the full-order and with the
   reduced model and draws the diagnostics of the two. The analytic script evaluates the closed
   form of the model, builds the reduced basis of its training trajectories and marches the
-  reduced model at the test parameter. The defaults are smaller than the paper's parameters, so
-  that a run stays inside a few minutes.
+  reduced model at the test parameter. The defaults of the three bump-on-tail scripts are the
+  paper's parameters; the defaults of the analytic script are smaller, so that a run stays inside
+  a few minutes.
 
 - **The page on the reproduction scripts.** `docs/src/paper.md` names the four scripts, their
   commands with the paper's parameters, their measured run times, the files they write and the

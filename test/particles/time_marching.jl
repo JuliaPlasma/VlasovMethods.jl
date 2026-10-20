@@ -407,6 +407,23 @@ end
     @test SSr.X[1, :, 2, 1] == x
     @test SSr.V[1, :, 2, 1] == v
     @test SSr.W[2, 1] == W
+
+    # the reduced march refuses a field that carries another `χ` than the parameters hold, and
+    # the message names both values
+    ef = ReducedElectricField(ScaledField(field, 5), Ψ, Ψ' * vec(plt.x))
+    SSr = Snapshots(T, 1, n, nh, 2, space(T))
+    IPr = IntegratorParameters(dt, nt, 2, nh, n, 1)
+    err = try
+        reduced_integrate_vp(
+            plt, Ψ, (χ = χ,), ef, SSr, IPr, ReducedIntegratorCache(IPr, n), 1)
+        nothing
+    catch thrown
+        thrown
+    end
+    @test err isa ArgumentError
+    m = sprint(showerror, err)
+    @test occursin("the field carries χ = 5", m)
+    @test occursin("the march is at χ = $(χ)", m)
 end
 
 @testset "the marches refuse a nested ScaledField, $T" for T in (Float64, Float32)
@@ -427,6 +444,22 @@ end
     m = sprint(showerror, err)
     @test occursin("a ScaledField at χ = 7 over a ScaledField at χ = 5", m)
     @test occursin("the march is at χ = 3", m)
+
+    # The full-order march refuses the equal pair as well: the outer `χ` and the march's `χ` are
+    # the same value there, so only the phrase tells the two refusals apart.
+    for (inner, outer) in ((5, 2), (2, 2))
+        err = try
+            full_march(T, plt, ScaledField(ScaledField(field, inner), outer),
+                nt, 2; dt = dt, χ = 2)
+            nothing
+        catch thrown
+            thrown
+        end
+        @test err isa ArgumentError
+        m = sprint(showerror, err)
+        @test occursin("over a ScaledField at χ = $(inner)", m)
+        @test occursin("the march is at χ = 2", m)
+    end
 
     # The reduced march refuses the same field, and it refuses the pair whose outer `χ` is the
     # march's own: the two values are equal there, so only the phrase tells the two refusals
