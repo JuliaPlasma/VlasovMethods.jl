@@ -1,5 +1,6 @@
-# The code the three bump-on-tail scripts share: the parameters of the model, the wave numbers of
-# a sweep, the field of a sample, the particle cloud and the name of a run.
+# The code the scripts of the two example sets share: the parameters of the bump-on-tail model,
+# the wave numbers of a sweep, the field of a sample, the particle cloud, the name of a run and
+# the commit of the checkout.
 #
 # It uses VlasovMethods and the standard library only, so that a test can `include` it.
 

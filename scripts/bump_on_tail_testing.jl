@@ -87,12 +87,10 @@ h5open(runs_path("$(RUNID)_reduced.h5"), "w") do file
 end
 
 # the diagnostics of the two marches: the errors of the trajectories and of the potential (items 24
-# and 25), the relative error of the field energy (item 26), the drift of the total energy (item
-# 27) and the growth rate (item 28)
+# and 25), the drift of the total energy (item 27) and the growth rate (item 28)
 const ERRORS = trajectory_errors(SSH.X[1, :, :, :], SSH.V[1, :, :, :],
     SSR.X[1, :, :, :], SSR.V[1, :, :, :])
 const ΦERR = potential_error(SSH.Φ, SSR.Φ)
-const WERR = field_energy_error(SSH.W, SSR.W)
 const HH = SSH.K .+ SSH.W
 const HR = SSR.K .+ SSR.W
 const DRIFT_H = [energy_drift(HH[:, p]) for p in axes(HH, 2)]
@@ -104,9 +102,9 @@ const BEST, WORST = best_and_worst(ΓH, ΓR)
 @printf("the growth rates agree best at the sample %d and worst at the sample %d\n", BEST,
     WORST)
 
-# the figures of the first test sample: the errors (item 24), the potential error (item 25), the
-# field energy (item 26), the drift of the total energy (item 27) and the phase-space frames (item
-# 29)
+# the figures: the errors of the first test sample (item 24), the potential error of every sample
+# (item 25), the field energy (item 26), the drift of the total energy (item 27), the growth rate
+# (item 28) and the phase-space frames (item 29)
 fig = plot_series(
     IPTEST.t, (ERRORS.x2[:, 1], ERRORS.xmax[:, 1], ERRORS.v2[:, 1],
         ERRORS.vmax[:, 1]);

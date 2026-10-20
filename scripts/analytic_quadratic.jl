@@ -11,6 +11,8 @@
 # run stays inside a few minutes.
 
 include(joinpath(@__DIR__, "options.jl"))
+# the shared file of the scripts, for the commit of the checkout
+include(joinpath(@__DIR__, "bump_on_tail_common.jl"))
 
 using CairoMakie
 using HDF5
@@ -34,7 +36,7 @@ const FINAL_TIME = OPT.final_time
 const SAVE_STEP = OPT.save_step
 const K = OPT.k
 
-# the parameters of the model: the six training wave numbers and the test one, which is off the
+# the parameters of the model: the six training values of β and the test one, which lies off the
 # training range
 const TRAINING_β = (5.95, 5.97, 5.99, 6.01, 6.03, 6.05)
 const TEST_β = 6.00
@@ -94,7 +96,7 @@ const B = ReducedBasis(CotangentLiftSVD(), S, NamedTuple(), PSC; k = K)
 
 @printf("the basis holds %d of %d columns\n", B.k, size(B.Φ, 1))
 
-# the reduced march at the test wave number, which lies off the training range
+# the reduced march at the test value of β, which lies off the training range
 const H = AnalyticHamiltonian(TEST_β)
 const X0 = vcat(Q0, P0)
 const PROB = reduced_pode(B, H, (0.0, FINAL_TIME), RDT, project(B, X0))
@@ -127,11 +129,7 @@ const HEXACT = [(sum(abs2, PEXACT[:, t]) .+ TEST_β^2 * sum(abs2, QEXACT[:, t]))
 const HREDUCED = [(sum(abs2, PL[:, t]) .+ TEST_β^2 * sum(abs2, QL[:, t])) / 2
                   for t in axes(QL, 2)]
 
-const COMMIT = try
-    readchomp(`git -C $(dirname(@__DIR__)) rev-parse HEAD`)
-catch
-    "unknown"
-end
+const COMMIT = repository_commit()
 
 h5open(runs_path("$(RUNID).h5"), "w") do file
     file["t"] = TS

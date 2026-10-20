@@ -71,7 +71,7 @@ end
 
 # The accelerations of the saved states, which the marches do not save: the field of the sample is
 # updated at the positions of the state, and the scaled field divides the field by χ², so that the
-# acceleration is the one the march kicked with.
+# acceleration is the one the field has at the positions of the state.
 for p in eachindex(PSC)
     params = march_parameters(PSC(p).κ)
     efield = vp_field(POTENTIAL, params)

@@ -31,10 +31,10 @@ inside a few minutes; the paper's parameters are the flags of the second column.
 
 | script | the default run | the paper's parameters | run time |
 |:--|:--|:--|:--|
-| `bump_on_tail_training.jl` | `julia --project=scripts scripts/bump_on_tail_training.jl` | `--npart 10000` | 27 s |
+| `bump_on_tail_training.jl` | `julia --project=scripts scripts/bump_on_tail_training.jl` | `--npart 10000` | 28 s |
 | `bump_on_tail_projections.jl` | `julia --project=scripts scripts/bump_on_tail_projections.jl` | the defaults | 29 s |
-| `bump_on_tail_testing.jl` | `julia --project=scripts scripts/bump_on_tail_testing.jl` | the defaults | 30 s |
-| `analytic_quadratic.jl` | `julia --project=scripts scripts/analytic_quadratic.jl` | `--npart 1000 --final-time 1000 --dt 1e-3 --rdt 1e-4` | 31 s |
+| `bump_on_tail_testing.jl` | `julia --project=scripts scripts/bump_on_tail_testing.jl` | the defaults | 31 s |
+| `analytic_quadratic.jl` | `julia --project=scripts scripts/analytic_quadratic.jl` | `--npart 1000 --final-time 1000 --dt 1e-3 --rdt 1e-4` | 32 s |
 
 The times are those of a cold process on the machine of the author, with Julia 1.13, and they
 count the loading of the package. The run of the analytic script at the paper's parameters takes
