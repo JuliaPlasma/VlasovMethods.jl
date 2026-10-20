@@ -92,6 +92,23 @@ their own, except for what they removed and narrowed, which is listed in full be
 - The `plot_particles` method on a `Snapshots` draws one saved state,
   `SS.X[1, :, ts, p]` against `SS.V[1, :, ts, p]`, so one frame of a march is one call.
 
+- **The reproduction scripts of the paper's two example sets.** `scripts/bump_on_tail_training.jl`,
+  `scripts/bump_on_tail_projections.jl`, `scripts/bump_on_tail_testing.jl` and
+  `scripts/analytic_quadratic.jl` run the two example sets: the self-consistent bump-on-tail and
+  the analytic quadratic model. Every script writes its data to the runs directory and its
+  figures to the results directory, and takes `--runs-dir` and `--results-dir` to redirect them.
+  The training script marches the sweep of the wave number and saves the snapshots, the
+  projections script builds the particle basis and the field basis and writes the reduced data of
+  the HNN, and the testing script marches the ten test samples with the full-order and with the
+  reduced model and draws the diagnostics of the two. The analytic script evaluates the closed
+  form of the model, builds the reduced basis of its training trajectories and marches the
+  reduced model at the test parameter. The defaults are smaller than the paper's parameters, so
+  that a run stays inside a few minutes.
+
+- **The page on the reproduction scripts.** `docs/src/paper.md` names the four scripts, their
+  commands with the paper's parameters, their measured run times, the files they write and the
+  figures they draw.
+
 ### Bug Fixes
 
 - **A march no longer discards the `χ` of a `ScaledField` in silence.** `integrate_vp` and

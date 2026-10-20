@@ -9,11 +9,20 @@ Profile = "9abbd945-dff8-562f-b5e8-e1ebf5ef1b79"
 ProgressMeter = "92933f4c-e287-5a05-a399-4b506db050ca"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 ReducedBasisMethods = "91da5cd7-58ae-4d67-87db-f03d1c8da121"
+ReducedComplexityModeling = "abb4722c-1d8e-48eb-a3bd-45b3116bfaba"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 VlasovMethods = "4a954452-39e6-424b-ae51-38fc4bbc42ef"
 
 [compat]
 CairoMakie = "0.15"
+
+# 0.2.2 is the first release that carries `spectrumplot`, which the projections script draws the
+# spectra with.
+ReducedBasisMethods = "0.2.2"
+
+# ReducedComplexityModeling provides `Parameter` and `ParameterSpace`, which the parameter sweep
+# of the scripts is built from.
+ReducedComplexityModeling = "0.1.1"
 
 # VlasovMethods is unregistered, so no registry can supply it. `docs/` needs no `[sources]` entry
 # because `Documenter.yml` runs `Pkg.develop` on the parent package before it builds. Nothing does

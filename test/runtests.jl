@@ -31,6 +31,7 @@ if "core" in GROUPS
     @safetestset "Reduced March" include("particles/time_marching.jl")
     @safetestset "Diagnostics" include("particles/diagnostics.jl")
     @safetestset "Reduced Equations" include("particles/reduced_equations.jl")
+    @safetestset "Bump-on-Tail Scripts" include("integration/bump_on_tail_scripts.jl")
 end
 
 if "slow" in GROUPS
