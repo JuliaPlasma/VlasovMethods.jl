@@ -62,6 +62,12 @@ end
     # the step count rounds the quotient, where the old script's `Int(div(25, 0.1))` is 249
     @test step_count(25.0, 0.1) == 250
     @test Int(div(25, 0.1)) == 249
+    # `0.3 / 0.1` is `2.9999999999999996`, which rounds to `3` and truncates to `2`
+    @test step_count(0.3, 0.1) == 3
+
+    # the projection tolerances are the pair the old projection script ran
+    @test BUMP_ON_TAIL_DEFAULTS.particle_tol == 1e-4
+    @test BUMP_ON_TAIL_DEFAULTS.field_tol == 1e-2
 
     κ = training_kappas(0.1, 0.5, 10)
     @test length(κ) == 10
@@ -93,6 +99,12 @@ end
     @test f.field.potential === potential
     @test f.χ === p.χ
 
+    # and at the scale of a sample of the sweeps, which is no power of two
+    q = march_parameters(0.1)
+    g = vp_field(potential, q)
+    @test g.field.potential === potential
+    @test g.χ === q.χ
+
     # (ii) at `χ = 2` the field and the saved energy are a quarter of the plain field's, exactly,
     # because a division by a power of two is exact
     plt = initial_distribution(400, 1234).particles
@@ -105,6 +117,12 @@ end
     efield!(plain, e₀, x)
     @test any(!iszero, e₀)
     @test e == e₀ ./ 4
+
+    # at that scale the field is the plain field's over `q.χ²`, up to the round-off of a division
+    update!(g, x, w, 0.0)
+    efield!(g, e, x)
+    @test e ≈ e₀ ./ q.χ^2 rtol=1e-14
+    @test !(e ≈ e₀ ./ 4)
 
     scaled = sweep_march(plt, vp_field(reference_potential(), p), 4, 0.1, 2.0)
     unscaled = sweep_march(plt, PoissonField(reference_potential()), 4, 0.1, 2.0)
@@ -169,5 +187,12 @@ end
         m = refusal(() -> save_stride(args...))
         @test occursin("a save is at least one reduced step", m)
         @test !occursin(phrase, m)
+    end
+
+    # a ratio that is not finite, or beyond the steps an `Int` counts, is refused by its own phrase
+    for args in ((1, Inf, 1.0), (1, NaN, 1.0), (1, 1.0, 0.0), (10, 1e-3, 1e-30))
+        m = refusal(() -> save_stride(args...))
+        @test startswith(m, "ArgumentError")
+        @test occursin("which is no count of reduced steps", m)
     end
 end

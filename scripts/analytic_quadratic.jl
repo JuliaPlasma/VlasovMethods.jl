@@ -87,7 +87,7 @@ h = AnalyticHamiltonian(OPT.beta)
 """
 The errors of the reduced run in the basis `b` against the closed form at the times `t`: the step
 `advance(z)` takes the reduced state from one save to the next. A run whose state stops being
-finite ends there, and its later entries stay `NaN`.
+finite ends there, says so, and its later entries stay `NaN`.
 """
 function compare(b, z, advance)
     errors = (x2 = fill(NaN, nsaves + 1), xmax = fill(NaN, nsaves + 1),
@@ -95,7 +95,11 @@ function compare(b, z, advance)
     H = fill(NaN, nsaves + 1)
     for j in eachindex(t)
         j > 1 && (z = advance(z))
-        all(isfinite, z) || break
+        if !all(isfinite, z)
+            @printf("  the reduced state is not finite at t = %g; the run ends there\n",
+                t[j])
+            break
+        end
         x = lift(b, z)
         qe, pe = exact(OPT.beta, q₀, p₀, t[j])
         e = trajectory_errors(reshape(qe, n, 1), reshape(pe, n, 1),

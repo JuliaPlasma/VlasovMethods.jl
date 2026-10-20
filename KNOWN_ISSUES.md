@@ -578,13 +578,50 @@ takes the next `K<n>`.
 ### K69 · No march writes the accelerations `SS.A`, so a field basis of a marched sweep is zero.
 
 - **location:** `src/particles/time_marching.jl:298`
-- **evidence:** a sweep of three samples, `κ ∈ (0.2, 0.3, 0.4)`, of `1000` particles of
-  `initial_distribution(1000, 1234)` from `scripts/bump_on_tail_common.jl`, each marched by
-  `integrate_vp(P, params, vp_field(potential, params), SS, IP, p)` for `10` steps of `0.1` and
-  saved at every step, gives `maximum(abs, SS.X) == 27.484886316678836`,
-  `maximum(abs, SS.A) == 0.0`, and `field_basis(PODEVD(), SS; k = 3).Λ[1:3] == [0.0, 0.0, 0.0]`.
-  `save_full_solution` and `save_solution` write `X`, `V`, `Φ`, `W`, `K` and `M`, and their
-  docstrings say that `SS.A` is not written. `scripts/bump_on_tail_training.jl` fills `SS.A`
-  after each march with `accelerations!`, from the same field object.
+- **evidence:** a sweep of three samples of `1000` particles, each marched `10` steps of `0.1`
+  and saved at every step, in `julia --project=scripts` at the repository root:
+
+  ```julia
+  include("scripts/bump_on_tail_common.jl")
+  using PoissonSolvers, ReducedBasisMethods, ReducedComplexityModeling
+  potential = Potential(PeriodicBasisSpline(domain(KAPPA_REF), 3, 16))
+  κs = [0.2, 0.3, 0.4]
+  P = initial_distribution(1000, 1234).particles
+  nh = length(VlasovMethods.coefficients(PoissonField(potential)))
+  space = ParameterSpace(Parameter(:χ, [march_parameters(κ).χ for κ in κs]))
+  SS = Snapshots(Float64, 1, 1000, nh, 11, space)
+  IP = IntegratorParameters(0.1, 10, 11, nh, 1000, 3)
+  for p in 1:3
+      params = march_parameters(κs[p])
+      integrate_vp(P, params, vp_field(potential, params), SS, IP, p)
+  end
+  (maximum(abs, SS.X), maximum(abs, SS.A), field_basis(PODEVD(), SS; k = 3).Λ[1:3])
+  ```
+
+  returns `(27.484886316678836, 0.0, [0.0, 0.0, 0.0])`. `save_full_solution` and
+  `save_solution` write `X`, `V`, `Φ`, `W`, `K` and `M`, and their docstrings say that `SS.A` is
+  not written. `scripts/bump_on_tail_training.jl` fills `SS.A` after each march with
+  `accelerations!`, from the same field object.
 - **kind:** defect
+- **found:** 2026-10-20
+
+### K70 · The docstrings of the two marches call the χ scale "a timestep scale and nothing else", and a `ScaledField` also divides the field by `χ²`.
+
+- **location:** `src/particles/time_marching.jl:200`
+- **evidence:** the docstrings of `reduced_integrate_vp` (`:200`) and `integrate_vp` (`:349`)
+  open their paragraph on `params` with "**The χ scale is a timestep scale and nothing else:**".
+  The paragraph after it says that the march rebuilds a `ScaledField` with `params.χ`, and for
+  `integrate_vp` that "the field and its energy are divided by the `χ²` of the step". Both
+  sentences are on `origin/main` (`:200`, `:347`, `:355`).
+- **kind:** docs
+- **found:** 2026-10-20
+
+### K71 · The analytic set's command with the paper's parameters is not run.
+
+- **location:** `scripts/analytic_quadratic.jl`
+- **evidence:** `julia --project=scripts scripts/analytic_quadratic.jl --train-step 10
+  --final-time 1000.0` builds a training snapshot of `2000 × 600006` entries, 9.6 GB, and two
+  SVDs of it, and its PODE run is `10⁷` reduced steps. Only the default, `--train-step 1000
+  --final-time 100.0`, is run; it exits 0.
+- **kind:** not verified
 - **found:** 2026-10-20

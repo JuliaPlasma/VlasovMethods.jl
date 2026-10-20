@@ -115,13 +115,17 @@ write_figure(
     "potential_error";
     logscale = true)
 
-# item 28: the growth rates, and the samples whose rates agree best and worst
-γh = growth_rate(t, SSh.W)
-γr = growth_rate(t, SSr.W)
+# item 28: the growth rates, and the samples whose rates agree best and worst. The fit takes the
+# first three local maxima of the field energy, because the reduced run of the smallest `κ` at the
+# default tolerances has no more.
+γh = growth_rate(t, SSh.W; maxima = 1:3)
+γr = growth_rate(t, SSr.W; maxima = 1:3)
 best, worst = best_and_worst(γh, γr)
-write_figure(
-    plot_series(κs, (γh, γr); labels = ["HFM", "ROM"], xlabel = "κ", ylabel = "γ"),
-    "growth_rate")
+# the legend goes beside the axis, where it covers no rate of the largest `κ`
+fig = plot_series(κs, (γh, γr); labels = ["HFM", "ROM"], xlabel = "κ", ylabel = "γ")
+delete!(only(filter(c -> c isa Legend, fig.content)))
+Legend(fig[1, 2], fig.content[1])
+write_figure(fig, "growth_rate")
 @printf("  best κ = %.4f, worst κ = %.4f\n", κs[best], κs[worst])
 
 # items 26 and 27: the field energy, the energy and its drift of the best and the worst sample

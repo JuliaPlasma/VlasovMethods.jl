@@ -22,11 +22,12 @@ const BUMP = (ε = 0.03, α = 0.1, σ = 0.5, v₀ = 4.5)
 
 The defaults of the three bump-on-tail drivers, which are the old scripts' parameters: `10⁴`
 particles, `16` cells of a cubic periodic spline, `dt = 0.1` up to `T = 25`, ten samples of
-`κ ∈ [0.1, 0.5]` and the seed `1234`.
+`κ ∈ [0.1, 0.5]`, the seed `1234`, and the tolerances `1e-4` of the particle basis and `1e-2` of
+the field basis, the pair the old projection script ran.
 """
 const BUMP_ON_TAIL_DEFAULTS = (runid = "bump_on_tail", npart = 10_000, ncells = 16,
     degree = 3, tstep = 0.1, final_time = 25.0, kappa_min = 0.1, kappa_max = 0.5,
-    nsamples = 10, seed = 1234)
+    nsamples = 10, seed = 1234, particle_tol = 1e-4, field_tol = 1e-2)
 
 "The periodic domain `(0, 2π/κ)` of one wavelength of the perturbation of wave number `κ`."
 domain(κ) = (0.0, 2π / κ)
@@ -121,9 +122,15 @@ within `2 * eps(Float64) * stride` of the whole number `stride` is therefore tak
 because the saved times then differ from `stride * rdt` only by the round-off of the times
 themselves. `save_stride(3, 0.7, 0.084)` computes the ratio `24.999999999999993`, which is
 `1.28 eps` from `25`, relative, and is `25`.
+
+A ratio that is not finite, such as the ratio of `rdt = 0` or of a `NaN` input, and a ratio
+whose magnitude an `Int` does not hold are refused by an `ArgumentError` of their own.
 """
 function save_stride(save_step, dt, rdt)
     ratio = save_step * dt / rdt
+    abs(ratio) < typemax(Int) || throw(ArgumentError(
+        "a save of $(save_step) steps of dt = $(dt) is $(ratio) reduced steps of " *
+        "rdt = $(rdt), which is no count of reduced steps"))
     stride = round(Int, ratio)
     stride ≥ 1 || throw(ArgumentError(
         "a save of $(save_step) steps of dt = $(dt) is $(ratio) reduced steps of " *
