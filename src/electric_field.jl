@@ -126,11 +126,11 @@ of the divided field, which is quadratic in the field and would carry `χ⁴`. [
 `coefficients` forward to `field` unchanged, because the deposit and the solve carry no amplitude.
 
 It is an `ElectricField`, so a reduced march wraps it as
-`ReducedElectricField(ScaledField(field, χ), Ψ, X)`. A march takes its scale from `params.χ` and
-not from the `χ` stored here: it marches a `ScaledField`, or a reduced field over one, at the `χ`
-of its parameters (see [`integrate_vp`](@ref)). A stored `χ` that differs from the march's is
-refused with an `ArgumentError` that names both values, and a `ScaledField` over a `ScaledField`
-is refused as well, so that no scale is ever applied twice. Build the field at the march's `χ`.
+`ReducedElectricField(ScaledField(field, χ), Ψ, X)`. A march takes its scale from `params.χ`: it
+marches a `ScaledField`, or a reduced field over one, at the `χ` of its parameters (see
+[`integrate_vp`](@ref)). A stored `χ` that differs from the march's is refused with an
+`ArgumentError` that names both values, and a `ScaledField` over a `ScaledField` is refused as
+well, so that no scale is ever applied twice. Build the field at the march's `χ`.
 
 `χ` must be finite and positive; the constructor throws an `ArgumentError` otherwise, which
 refuses `0`, a negative and `NaN` alike. Each division converts `χ` to the element type of the
