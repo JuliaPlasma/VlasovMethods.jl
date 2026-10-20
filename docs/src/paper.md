@@ -15,9 +15,10 @@ runs directory and its figures to the results directory. The four scripts are:
 | `scripts/analytic_quadratic.jl` | analytic quadratic | the closed form of the model, the reduced basis of its training trajectories, and the reduced march at the test parameter |
 
 The three bump-on-tail scripts share `scripts/bump_on_tail_common.jl`, which holds the parameters
-of the model, the wave numbers of a sweep, the field of a sample and the particle cloud. The
-projections script reads the snapshots of the training run, and the testing script reads the two
-files of the projections run, so the three run in that order.
+of the model, the wave numbers of a sweep, the field of a sample, the particle cloud and the name
+of a run; the analytic script includes it for the commit of the checkout. The projections script
+reads the snapshots of the training run, and the testing script reads the two files of the
+projections run, so the three run in that order.
 
 !!! note "The pages here run no script"
     The runs take too long for a documentation build, so this page names the commands and the
