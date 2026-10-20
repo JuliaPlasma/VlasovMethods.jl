@@ -32,7 +32,7 @@ flags of its own. The defaults of the three bump-on-tail scripts are the paper's
 defaults of the analytic script are smaller, so that a run stays inside a few minutes, and the
 third column names the flags of the paper's parameters.
 
-| script | the default run | the paper's parameters | run time |
+| script | the default run | the paper's parameters | run time of the default run |
 |:--|:--|:--|:--|
 | `bump_on_tail_training.jl` | `julia --project=scripts scripts/bump_on_tail_training.jl` | the defaults: `--npart 10000 --final-time 25.0` | 40 s |
 | `bump_on_tail_projections.jl` | `julia --project=scripts scripts/bump_on_tail_projections.jl` | the defaults: `--runid BoT_Np10000_k_010_050_ns10_T25` | 30 s |
@@ -86,9 +86,9 @@ runs/analytic_beta600_n200_T10p0.h5
 ## The figures
 
 Every figure is drawn with [`plot_series`](@ref) or [`plot_particles`](@ref), and the two spectra
-with RBM's `spectrumplot`, and every script writes the figures of the quantities of its example
-set. The names carry the run and the script, so that the figures of the training run and of the
-test run do not overwrite each other.
+with ReducedBasisMethods' `spectrumplot`, and every script writes the figures of the quantities of
+its example set. The names carry the run and the script, so that the figures of the training run
+and of the test run do not overwrite each other.
 
 | file | quantity |
 |:--|:--|
