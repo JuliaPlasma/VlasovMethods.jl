@@ -79,7 +79,9 @@ figure = results_path(OPT.runid * "_training_field_energy.png")
 save(figure, fig)
 @printf("  wrote %s\n", figure)
 
-# item 28: the growth rate of each sample against its wave number
+# the full-order growth rate of each training sample against its wave number, fitted over the
+# maxima `2:5` of the field energy, as ReducedBasisMethods' training script fits it; the item-28
+# comparison of the two models is in `bump_on_tail_testing.jl`
 γ = growth_rate(IP.t, SS.W)
 fig = plot_series(κs, (γ,); labels = ["HFM"], xlabel = "κ", ylabel = "γ")
 figure = results_path(OPT.runid * "_training_growth_rate.png")

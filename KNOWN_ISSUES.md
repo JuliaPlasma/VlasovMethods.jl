@@ -626,15 +626,35 @@ takes the next `K<n>`.
 - **kind:** not verified
 - **found:** 2026-10-20
 
-### K72 · The training and the testing scripts fit the growth rate over different maxima of the field energy.
+### K72 · Over the maxima `1:3`, the full-order growth rate of the three largest test `κ` is negative.
 
-- **location:** `scripts/bump_on_tail_training.jl:83`
-- **evidence:** `bump_on_tail_training.jl` calls `growth_rate(IP.t, SS.W)`, whose default is
-  `maxima = 2:5`, and `bump_on_tail_testing.jl:121` calls `growth_rate(t, SSh.W; maxima = 1:3)`.
-  On the default training run, the ten rates over `2:5` are
-  `[0.0112, 0.0402, 0.1318, 0.1248, 0.1349, 0.1208, 0.1938, 0.1045, 0.0833, 0.3271]`, and over
-  `1:3` they are `[0.0135, 0.0027, -0.001, 0.0939, 0.108, 0.1096, 0.0917, 0.1105, 0.0976, -0.3834]`.
-  So the growth-rate figure of the training run and that of the test run do not plot one quantity.
+- **location:** `scripts/bump_on_tail_testing.jl:121`
+- **evidence:** after the default chain of the three bump-on-tail scripts, in
+  `julia --project=scripts` at the repository root:
+
+  ```julia
+  using HDF5, VlasovMethods
+  Wh, Wr, κ = h5open("runs/bump_on_tail_testing.h5", "r") do f
+      read(f["full/W"]), read(f["reduced/W"]), read(f["kappa"])
+  end
+  t = 0.1 .* (0:250)
+  for (n, W) in (("HFM", Wh), ("ROM", Wr)), m in (2:5, 1:3)
+      r = try round.(growth_rate(t, W; maxima = m); digits = 4) catch e sprint(showerror, e) end
+      println(n, " ", m, " ", r)
+  end
+  ```
+
+  prints, for `κ = [0.106, 0.1524, 0.2645, 0.3081, 0.3319, 0.3558, 0.4358, 0.4786, 0.4869, 0.4889]`:
+
+  ```
+  HFM 2:5 [0.0085, 0.0557, 0.1345, 0.1294, 0.1154, 0.2056, 0.0604, 0.3515, 0.3565, 0.3546]
+  HFM 1:3 [0.0128, 0.0009, 0.106, 0.1128, 0.1084, 0.0693, 0.107, -0.4229, -0.3885, -0.3802]
+  ROM 2:5 ArgumentError: the maxima range selects index 5, beyond the 3 maxima found
+  ROM 1:3 [0.1842, 0.243, 0.1453, 0.233, -0.0886, 0.3848, 0.3166, 0.4397, 0.4366, 0.429]
+  ```
+
+  The testing script fits both models over `1:3`, because the reduced run at the default
+  tolerances has only three maxima for some `κ`.
 - **kind:** defect
 - **found:** 2026-10-21
 

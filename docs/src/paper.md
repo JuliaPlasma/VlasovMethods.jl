@@ -38,7 +38,7 @@ sample is the problem at `κ = 0.3` with the scale `χ = κ / 0.3`, and it march
 
 | script | what it does | run time | files |
 |:--|:--|:--|:--|
-| `bump_on_tail_training.jl` | the full-order march of the training sweep, and the accelerations the field applied | 25 s | `<runid>_training.h5`; `<runid>_training_field_energy.png` (26), `<runid>_training_growth_rate.png` (28) |
+| `bump_on_tail_training.jl` | the full-order march of the training sweep, and the accelerations the field applied | 25 s | `<runid>_training.h5`; `<runid>_training_field_energy.png` (26), `<runid>_training_growth_rate.png` (the training rates, maxima 2–5) |
 | `bump_on_tail_projections.jl` | the cotangent-lift basis of the particles, the POD basis of the accelerations and its DEIM indices, and the reduced data `X` and `A` of the training sweep | 29 s | `<runid>_projections.h5`, `<runid>_vectorfield.h5`; `<runid>_spectrum_particle.png`, `<runid>_spectrum_field.png` (11) |
 | `bump_on_tail_testing.jl` | the full-order and the reduced march, with the DEIM field, of the test sweep, and the diagnostics of the one against the other | 29 s | `<runid>_testing.h5`; `<runid>_errors_x_time.png`, `<runid>_errors_v_time.png`, `<runid>_errors_x_parameter.png`, `<runid>_errors_v_parameter.png` (24), `<runid>_potential_error.png` (25), `<runid>_field_energy.png` (26), `<runid>_energy.png`, `<runid>_energy_drift.png` (27), `<runid>_growth_rate.png` (28), `<runid>_particles_initial.png`, `<runid>_particles_final_hfm.png`, `<runid>_particles_final_rom.png` (29) |
 
@@ -61,6 +61,9 @@ julia --project=scripts scripts/bump_on_tail_projections.jl --particle-tol 1e-8 
 
 `bump_on_tail_testing.jl` fits each growth rate to the first three local maxima of the field
 energy, because the reduced run of the smallest test `κ` has no more at the default pair.
+`bump_on_tail_training.jl` fits the full-order rate of each training sample to the maxima 2 to 5,
+as ReducedBasisMethods' training script does. Over the first three maxima, the full-order rate of
+the three largest test `κ` is negative.
 
 `<runid>_projections.h5` holds the particle basis, the field basis and the DEIM indices, and
 `<runid>_vectorfield.h5` holds the reduced coordinates `X` and accelerations `A`, each of the size
