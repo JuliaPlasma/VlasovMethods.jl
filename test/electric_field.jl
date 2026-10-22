@@ -248,7 +248,7 @@ end
     # rebuilt at the parameters' `χ`, and a stored `χ` that differs would leave the step scale and
     # the field scale out of step. The phrase is asserted because the constructor's own refusal of
     # a non-finite or non-positive `χ` raises the same exception type.
-    field, q, w = poisson_field(T)
+    field, q, _ = poisson_field(T)
     χ = T(2)
 
     @test _with_scale(field, χ) === field
