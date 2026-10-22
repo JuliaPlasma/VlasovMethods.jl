@@ -99,3 +99,23 @@ end
         end
     end
 end
+
+@testset "1D Particle Distribution Tests - Bump on Tail" begin
+    # The accept–reject draw of `src/examples/bumpontail.jl`: the positions are drawn on the one
+    # period `[0, 2π/κ]` and every particle is written, so no particle keeps the zero the
+    # constructor gave it, and the weights sum to one. The seed is set here: the draw consumes the
+    # global RNG, and the test above has already drawn from it.
+    κ = 0.3
+    Random.seed!(1234)
+    dist = initialize!(ParticleDistribution(1, 1, 1000), BumpOnTail(κ = κ))
+
+    x = vec(dist.particles.x)
+    @test length(x) == 1000
+    @test all(!iszero, x)
+    @test all(0 .≤ x .≤ 2π / κ)
+    @test sum(dist.particles.w) ≈ 2π / κ atol = 1e-8
+    # the draw is the one the seed gives, so a second draw of the same seed is the same cloud
+    Random.seed!(1234)
+    again = initialize!(ParticleDistribution(1, 1, 1000), BumpOnTail(κ = κ))
+    @test vec(again.particles.x) == x
+end
