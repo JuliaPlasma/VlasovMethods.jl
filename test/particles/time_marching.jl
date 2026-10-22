@@ -405,20 +405,22 @@ end
 
 @testset "a χ that a march would discard is refused, $T" for T in (Float64, Float32)
     # The step is `dt·params.χ` and the field is that of the `ScaledField`; a stored `χ` of its own
-    # would put the two scales of one march out of step. Each refusal names both values, and the
-    # phrase is asserted because `_check_march` and `_check_full_march` refuse a χ of the wrong sign
-    # with the same `ArgumentError`: the type alone does not tell the guards apart.
+    # would put the two scales of one march out of step. The comparison is exact, so a stored `χ`
+    # one ulp away is refused as well. Each refusal names both values, and the phrase is asserted
+    # because `_check_march` and `_check_full_march` refuse a χ of the wrong sign with the same
+    # `ArgumentError`: the type alone does not tell the guards apart.
     n, nt, dt, χ = 64, 20, T(1e-3), T(2)
     plt, field = bump_on_tail(T; n = n)
     nh = length(coefficients(field))
 
-    for stored in (5, T(0.25))
+    for stored in (5, T(0.25), nextfloat(χ))
         scaled = ScaledField(field, stored)
         SS = Snapshots(T, 1, n, nh, 2, space(T))
         ip = IntegratorParameters(dt, nt, 2, nh, n, 1)
         @test_throws ArgumentError integrate_vp(plt, (χ = χ,), scaled, SS, ip, 1)
         msg = _message(() -> integrate_vp(plt, (χ = χ,), scaled, SS, ip, 1))
-        @test occursin("a ScaledField at χ", msg)
+        @test occursin("the field is a ScaledField at χ", msg)
+        @test !occursin("wraps", msg)
         @test occursin(string(stored), msg) && occursin(string(χ), msg)
 
         # the reduced path refuses it too, and with a phrase of its own: `_with_scale` of a
@@ -433,7 +435,7 @@ end
             plt, Ψ, (χ = χ,), ef, SSr, IPr, ic, 1)
         msg_r = _message(() -> reduced_integrate_vp(
             plt, Ψ, (χ = χ,), ef, SSr, IPr, ic, 1))
-        @test occursin("a ScaledField at χ", msg_r)
+        @test occursin("the reduced field wraps a ScaledField at χ", msg_r)
         @test occursin(string(stored), msg_r) && occursin(string(χ), msg_r)
     end
 end

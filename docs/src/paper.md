@@ -31,8 +31,8 @@ same particles and the same potential, marched at ten time scales. The three scr
 | `scripts/bump_on_tail_projections.jl` | `<runid>_projections.h5`, `<runid>_vectorfield.h5`, `item11_spectra.png` | 34 s |
 | `scripts/bump_on_tail_testing.jl` | `growth_rates.csv`, `item24_*`–`item29_*` figures | 37 s |
 
-`<runid>` is a name the parameters produce, such as
-`BoT_np10000_nh16_dt0p1_T25p0_k0p1-0p5`, so two runs of different parameters never share a file.
+`<runid>` is a name the parameters produce — the particle and cell counts, the timestep, the final
+time and the wave-number range — such as `BoT_np10000_nh16_dt0p1_T25p0_k0p1-0p5`.
 
 ### `scripts/bump_on_tail_training.jl`
 

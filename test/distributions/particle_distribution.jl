@@ -103,8 +103,8 @@ end
 @testset "1D Particle Distribution Tests - Bump on Tail" begin
     # The accept–reject draw of `src/examples/bumpontail.jl`: the positions are drawn on the one
     # period `[0, 2π/κ]` and every particle is written, so no particle keeps the zero the
-    # constructor gave it, and the weights sum to one. The seed is set here: the draw consumes the
-    # global RNG, and the test above has already drawn from it.
+    # constructor gave it, and every weight is the uniform `2π/κ/N`. The seed is set here: the
+    # draw consumes the global RNG, and the tests above have already drawn from it.
     κ = 0.3
     Random.seed!(1234)
     dist = initialize!(ParticleDistribution(1, 1, 1000), BumpOnTail(κ = κ))
@@ -118,4 +118,21 @@ end
     Random.seed!(1234)
     again = initialize!(ParticleDistribution(1, 1, 1000), BumpOnTail(κ = κ))
     @test vec(again.particles.x) == x
+
+    # the importance-sampling draw of the same file: the second method, which writes every
+    # particle at its proposal and weights it by `fₓ` instead of the uniform `2π/κ/N`
+    params = BumpOnTail(κ = κ)
+    Random.seed!(1234)
+    weighted = initialize!(ParticleDistribution(1, 1, 1000), params,
+        VlasovMethods.ImportanceSampling())
+
+    xw = vec(weighted.particles.x)
+    @test all(!iszero, xw)
+    @test all(0 .≤ xw .≤ 2π / κ)
+    # the weight is `fₓ(x)·2π/κ/N`, and another grouping of that product differs by a few ulps
+    @test vec(weighted.particles.w) ≈
+          VlasovMethods.fₓ.(xw, Ref(params)) .* (2π / κ / 1000) rtol = 4eps(Float64)
+    # the bump takes `α = 0.1` of the particles to `v₀ = 4.5`, so the mean of `v` is near
+    # `α v₀ = 0.45`, and a tail branch that never fires leaves it at zero
+    @test mean(vec(weighted.particles.v)) > 0.2
 end

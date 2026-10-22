@@ -91,9 +91,8 @@ _number(x::Real) = replace(string(x), "." => "p")
 """
     run_id(params) -> String
 
-The name of a run, from the parameters that change its results: the particle and cell counts, the
-timestep and the final time, and the wave-number range of the sweep. Two runs of different
-parameters never share a file.
+The name of a run: the particle and cell counts, the timestep, the final time and the wave-number
+range of the sweep. The spline degree, the seed and the two basis tolerances are not in it.
 """
 function run_id(params)
     return "BoT_np$(params.np)_nh$(params.nh)_dt$(_number(params.dt))_T$(_number(params.T))" *

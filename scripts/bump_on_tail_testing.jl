@@ -8,7 +8,9 @@
 # The default step is `0.05` and not the paper command's `0.1`: the growth-rate fit of item 28 reads
 # the first four maxima of the field energy over a window of five saved states, and at `0.1` the
 # ninth of the ten drawn time scales resolves so coarsely that its fit turns negative. The paper's
-# command is `--dt 0.1`.
+# command:
+#
+#   julia --project=scripts scripts/bump_on_tail_testing.jl --dt 0.1 --final-time 25.0
 #
 # The reduced model takes the particle basis that `bump_on_tail_projections.jl` wrote into the runs
 # directory, so run that script first: this one finds it as the runs directory's single
@@ -83,11 +85,13 @@ for p in 1:nparam
 
     ϕerr[:, p] .= potential_error(@view(HFM.Φ[:, :, 1]), @view(RSS.Φ[:, :, 1]))
 
-    Wh[:, p] .= HFM.W[:, 1]
-    Wr[:, p] .= RSS.W[:, 1]
+    # a march's `W` is the energy of the scaled field, `W/χ²`, and the paper's `W` is the plain
+    # one: the reference multiplies the scaled energy back by `χ²` before it plots or adds
+    Wh[:, p] .= HFM.W[:, 1] .* χ^2
+    Wr[:, p] .= RSS.W[:, 1] .* χ^2
     # the energy of the model is the kinetic energy of the particles plus the field energy
-    Hh[:, p] .= HFM.W[:, 1] .+ HFM.K[:, 1]
-    Hr[:, p] .= RSS.W[:, 1] .+ RSS.K[:, 1]
+    Hh[:, p] .= Wh[:, p] .+ HFM.K[:, 1]
+    Hr[:, p] .= Wr[:, p] .+ RSS.K[:, 1]
     dHh[:, p] .= energy_drift(@view(Hh[:, p]))
     dHr[:, p] .= energy_drift(@view(Hr[:, p]))
 
@@ -123,7 +127,8 @@ fpath = results_path(item_figure(28, "growth_rate"))
 save(fpath, figure)
 @printf("  wrote %s\n", fpath)
 
-# item 24: the position and velocity errors against time, and against κ at three saved times
+# item 24: the four components of `trajectory_errors` — the root mean squares `x2` and `v2`, and
+# the `L∞` maxima `xmax` and `vmax` — against time, and against κ at three saved times
 figure = plot_series(t, [x2[:, p] for p in 1:nparam]; xlabel = "t", ylabel = "Δx₂")
 fpath = results_path(item_figure(24, "position_error"))
 save(fpath, figure)
@@ -134,12 +139,32 @@ fpath = results_path(item_figure(24, "velocity_error"))
 save(fpath, figure)
 @printf("  wrote %s\n", fpath)
 
+figure = plot_series(t, [xmax[:, p] for p in 1:nparam]; xlabel = "t", ylabel = "Δmax x")
+fpath = results_path(item_figure(24, "position_max"))
+save(fpath, figure)
+@printf("  wrote %s\n", fpath)
+
+figure = plot_series(t, [vmax[:, p] for p in 1:nparam]; xlabel = "t", ylabel = "Δmax v")
+fpath = results_path(item_figure(24, "velocity_max"))
+save(fpath, figure)
+@printf("  wrote %s\n", fpath)
+
 iT, imid, ihalf = nₛ, div(3 * (nₛ - 1), 4) + 1, div(nₛ - 1, 2) + 1
 figure = plot_series(sweep.κ,
     [x2[iT, :], v2[iT, :], x2[imid, :], v2[imid, :], x2[ihalf, :], v2[ihalf, :]];
     labels = ["Δx₂(T)", "Δv₂(T)", "Δx₂(0.75T)", "Δv₂(0.75T)", "Δx₂(0.5T)", "Δv₂(0.5T)"],
     xlabel = "κ", ylabel = "error")
 fpath = results_path(item_figure(24, "errors_vs_kappa"))
+save(fpath, figure)
+@printf("  wrote %s\n", fpath)
+
+figure = plot_series(sweep.κ,
+    [xmax[iT, :], vmax[iT, :], xmax[imid, :],
+        vmax[imid, :], xmax[ihalf, :], vmax[ihalf, :]];
+    labels = ["Δmax x(T)", "Δmax v(T)", "Δmax x(0.75T)", "Δmax v(0.75T)",
+        "Δmax x(0.5T)", "Δmax v(0.5T)"],
+    xlabel = "κ", ylabel = "error")
+fpath = results_path(item_figure(24, "max_errors_vs_kappa"))
 save(fpath, figure)
 @printf("  wrote %s\n", fpath)
 

@@ -29,7 +29,7 @@ include(joinpath(SCRIPTS, "bump_on_tail_common.jl"))
 const PAPER_SCRIPTS = ("bump_on_tail_training.jl", "bump_on_tail_projections.jl",
     "bump_on_tail_testing.jl", "analytic_quadratic.jl")
 
-"The source of every `.jl` file of `scripts/`, by name."
+"The source of every `.jl` file of the scripts directory, by name."
 function script_sources()
     Dict(f => read(joinpath(SCRIPTS, f), String)
     for f in readdir(SCRIPTS) if endswith(f, ".jl"))
@@ -41,6 +41,9 @@ end
     @test isdefined(@__MODULE__, :vp_field)
     @test isdefined(@__MODULE__, :training_sweep)
     @test makie_loaded() == MAKIE_BEFORE
+    # and no line of the common file loads one, whatever the process has already loaded
+    common = read(joinpath(SCRIPTS, "bump_on_tail_common.jl"), String)
+    @test !occursin(r"(?m)^\s*(?:using|import)\s+[^\n]*Makie", common)
 
     for f in PAPER_SCRIPTS
         @test isfile(joinpath(SCRIPTS, f))
@@ -123,6 +126,15 @@ end
     @test length(VlasovMethods._find_maxima(W3, 5)) == 3
     @test isapprox(fit_growth_rate(t3, W3), 0.05; rtol = 1e-2)
 
+    # `log W` is linear through the fourth maximum of the history above, so `1:3` and `1:4` fit the
+    # same line there; a history that saturates before its fourth maximum separates them, and the
+    # fit is the one over the four
+    ts = collect(0:0.001:20.0)
+    Ws = exp.(0.1 .* min.(ts, 3.0)) .* cos.(ts) .^ 2
+    @test length(VlasovMethods._find_maxima(Ws, 5)) == 7
+    @test fit_growth_rate(ts, Ws) == growth_rate(ts, Ws; window = 5, maxima = 1:4)
+    @test fit_growth_rate(ts, Ws) != growth_rate(ts, Ws; window = 5, maxima = 1:3)
+
     # a history with fewer than two maxima has no fit
     @test_throws ArgumentError fit_growth_rate(t, ones(length(t)))
 end
@@ -143,10 +155,13 @@ end
     second = merge(first, (np = 2000,))
     @test run_id(first) != run_id(second)
 
+    # a seed that `BOT_SEED` does not hold, so that a writer which hardcodes the constant fails the
+    # attribute check below
+    seed = 7
     ppath, vpath = write_p39_files(dir, first, particle, field, X, A;
-        commit = commit, command = "--np 1000", seed = 1234)
+        commit = commit, command = "--np 1000", seed = seed)
     write_p39_files(dir, second, particle, field, X, A;
-        commit = commit, command = "--np 2000", seed = 1234)
+        commit = commit, command = "--np 2000", seed = seed)
 
     @test isfile(ppath) && isfile(vpath)
     @test length(readdir(dir)) == 4
@@ -159,7 +174,7 @@ end
             attrs = attributes(io)
             @test haskey(attrs, "commit") && read(attrs["commit"]) == commit
             @test haskey(attrs, "command") && read(attrs["command"]) isa String
-            @test haskey(attrs, "seed") && read(attrs["seed"]) == 1234
+            @test haskey(attrs, "seed") && read(attrs["seed"]) == seed
         end
     end
 
@@ -187,10 +202,38 @@ end
     page = read(joinpath(ROOT, "docs", "src", "paper.md"), String)
     for script in PAPER_SCRIPTS
         @test occursin(script, page)
+
+        # each script's own section gives its paper command, its run time in seconds and a file it
+        # writes
+        path = relpath(joinpath(SCRIPTS, script), ROOT)
+        @test occursin("### `$path`", page)
+        section = last(split(page, "### `$path`"))
+        @test occursin("julia --project=" * dirname(path) * " " * path, section)
+        @test occursin(r"\d+ s", section)
+        @test occursin(r"\.(h5|csv|png)", section)
     end
     # the page describes the runs and embeds nothing: a docs build runs no script and draws no
     # figure
     @test !occursin("@example", page)
     @test !occursin("@eval", page)
     @test !occursin("![", page)
+end
+
+@testset "figures" begin
+    src = read(joinpath(SCRIPTS, "bump_on_tail_testing.jl"), String)
+
+    # item 24 draws the four components of `trajectory_errors` that D-P38-1 names: the root mean
+    # squares `x2` and `v2` and the `L∞` maxima `xmax` and `vmax`, each against time and against κ
+    # at `T`, `0.75T` and `0.5T`
+    chunks = split(src, "figure = plot_series")
+    @test length(chunks) > 1
+    plotting = join(chunks[2:end])
+    for component in ("x2", "v2", "xmax", "vmax")
+        @test occursin(component, plotting)
+    end
+
+    # items 26 and 27 plot the paper's `W`, the energy of the plain field: a march stores the
+    # energy of the scaled field, `W/χ²`, and the script multiplies it back
+    @test occursin("HFM.W[:, 1] .* χ^2", src)
+    @test occursin("RSS.W[:, 1] .* χ^2", src)
 end

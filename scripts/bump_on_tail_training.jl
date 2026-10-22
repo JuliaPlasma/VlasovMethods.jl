@@ -6,8 +6,8 @@
 #   julia --project=scripts scripts/bump_on_tail_training.jl [--np 10000] [--nh 16] [--order 3] \
 #       [--dt 0.1] [--final-time 25.0] [--seed 1234] [--runs-dir dir] [--results-dir dir]
 #
-# The run id of the file comes from the parameters, so two runs of different parameters never
-# share one. It draws no figure.
+# The run id of the file comes from the parameters it names — the particle and cell counts, the
+# timestep, the final time and the wave-number range. It draws no figure.
 
 include(joinpath(@__DIR__, "options.jl"))
 include(joinpath(@__DIR__, "bump_on_tail_common.jl"))

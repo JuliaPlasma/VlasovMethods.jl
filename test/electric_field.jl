@@ -264,6 +264,11 @@ end
         @test occursin("a ScaledField at χ", msg)
         @test occursin(string(stored), msg) && occursin(string(χ), msg)
     end
+
+    # the comparison is exact: a stored `χ` one ulp away is another scale
+    close = nextfloat(χ)
+    @test_throws ArgumentError _with_scale(ScaledField(field, close), χ)
+    @test occursin("a ScaledField at χ", refusal(() -> _with_scale(ScaledField(field, close), χ)))
 end
 
 @testset "the energy of a ScaledField carries χ², the potential of its field" begin
