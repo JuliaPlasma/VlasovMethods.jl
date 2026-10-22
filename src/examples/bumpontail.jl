@@ -40,7 +40,8 @@ Returns particles drawn from g for the bump-on-tail case.
 input: nb. pf particles Nₚ, x-marginal function gₓ, parameters μ
 output: Particles struct
 """
-function draw!(dist::ParticleDistribution{1, 1}, fₓ::Base.Callable, params::BumpOnTail, ::AcceptRejectSampling)
+function draw!(dist::ParticleDistribution{T, 1, 1}, fₓ::Base.Callable, params::BumpOnTail,
+        ::AcceptRejectSampling) where {T}
     @unpack ε, κ, α, σ, v₀ = params
 
     # number of particles
@@ -81,8 +82,9 @@ Returns particles drawn from g for the bump-on-tail case.
 input: nb. pf particles Nₚ, x-marginal function gₓ, parameters μ
 output: Particles struct
 """
-function draw!(dist::ParticleDistribution{1, 1}, fₓ::Base.Callable, params::BumpOnTail, ::ImportanceSampling)
-    @unpack κ, ε, a, v₀, σ = params
+function draw!(dist::ParticleDistribution{T, 1, 1}, fₓ::Base.Callable, params::BumpOnTail,
+        ::ImportanceSampling) where {T}
+    @unpack κ, ε, α, v₀, σ = params
 
     # number of particles
     N = length(dist.particles)
@@ -104,7 +106,7 @@ function draw!(dist::ParticleDistribution{1, 1}, fₓ::Base.Callable, params::Bu
         # inverse CDF sampling in v
         vₛ = 2y[2] - 1
         dist.particles.v[1, n] = √2 * erfinv(vₛ)  # draw from bulk
-        if rand(1)[1] > 1-a
+        if rand(1)[1] > 1-α
             dist.particles.v[1, n] = dist.particles.v[1, n]*σ + v₀  # draw from tail
         end
         n = n+1
