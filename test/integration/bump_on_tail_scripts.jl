@@ -18,6 +18,11 @@ using VlasovMethods: efield!, update!
 const ROOT = normpath(joinpath(@__DIR__, "..", ".."))
 const SCRIPTS = joinpath(ROOT, "scripts")
 
+# whether Makie is loaded before the include: another testset of the same process may have loaded
+# it, and what the clause asks is that the include does not
+makie_loaded() = any(k -> k.name == "CairoMakie", keys(Base.loaded_modules))
+const MAKIE_BEFORE = makie_loaded()
+
 include(joinpath(SCRIPTS, "bump_on_tail_common.jl"))
 
 # the scripts of the paper's two example sets, in the order a run takes them
@@ -35,7 +40,7 @@ end
     # Makie, fails here rather than in a run of a script
     @test isdefined(@__MODULE__, :vp_field)
     @test isdefined(@__MODULE__, :training_sweep)
-    @test !any(k -> k.name == "CairoMakie", keys(Base.loaded_modules))
+    @test makie_loaded() == MAKIE_BEFORE
 
     for f in PAPER_SCRIPTS
         @test isfile(joinpath(SCRIPTS, f))
