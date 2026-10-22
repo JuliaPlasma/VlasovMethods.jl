@@ -6,7 +6,7 @@ using Test
 using VlasovMethods
 using VlasovMethods: ElectricField, PoissonField, coefficients, efield!, energy,
                      projection!,
-                     update!
+                     update!, _with_scale
 using VlasovMethods: _electric_field
 
 include("helpers/allocation_barriers.jl")
@@ -241,6 +241,34 @@ end
         @test _alloc_energy(f -> similar(f.field.nodes), sc) > 0
         @test _alloc_update((f, x, w, t) -> similar(x), sc, q, w, t) > 0
     end
+end
+
+@testset "_with_scale refuses a stored χ that the march would discard, $T" for T in (Float64, Float32)
+    # `_with_scale` is the one place a march reads the scale of its field: a `ScaledField` is
+    # rebuilt at the parameters' `χ`, and a stored `χ` that differs would leave the step scale and
+    # the field scale out of step. The phrase is asserted because the constructor's own refusal of
+    # a non-finite or non-positive `χ` raises the same exception type.
+    field, q, _ = poisson_field(T)
+    χ = T(2)
+
+    @test _with_scale(field, χ) === field
+
+    scaled = _with_scale(ScaledField(field, χ), χ)
+    @test scaled isa ScaledField
+    @test scaled.χ == χ
+    @test efield!(scaled, similar(q), q) == efield!(field, similar(q), q) ./ 4
+
+    for stored in (5, T(0.25))
+        @test_throws ArgumentError _with_scale(ScaledField(field, stored), χ)
+        msg = refusal(() -> _with_scale(ScaledField(field, stored), χ))
+        @test occursin("a ScaledField at χ", msg)
+        @test occursin(string(stored), msg) && occursin(string(χ), msg)
+    end
+
+    # the comparison is exact: a stored `χ` one ulp away is another scale
+    close = nextfloat(χ)
+    @test_throws ArgumentError _with_scale(ScaledField(field, close), χ)
+    @test occursin("a ScaledField at χ", refusal(() -> _with_scale(ScaledField(field, close), χ)))
 end
 
 @testset "the energy of a ScaledField carries χ², the potential of its field" begin
