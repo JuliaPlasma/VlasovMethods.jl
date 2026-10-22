@@ -1,9 +1,9 @@
 # The functions of the bump-on-tail drivers in `scripts/`, which `scripts/bump_on_tail_common.jl`
 # holds so that this file can include it: the field of a march, the sweeps and the step count, the
-# growth-rate fit of the reference, and the writer of the two files that the HNN of the next part
-# reads. It also reads the drivers and the docs as text, for what no function of theirs can show:
-# the one place a scaled field is built, the output paths, and the docs page. No driver runs here;
-# a driver writes its figures with CairoMakie, which the common file does not load.
+# growth-rate fit of the reference, and the writer of the two files that the HNN reads. It also
+# reads the drivers and the docs as text, for what no function of theirs can show: the one place a
+# scaled field is built, the output paths, and the docs page. No driver runs here; a driver writes
+# its figures with CairoMakie, which the common file does not load.
 
 using HDF5
 using LinearAlgebra
