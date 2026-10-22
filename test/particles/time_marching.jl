@@ -365,8 +365,9 @@ end
     update!(plain, x, w, zero(T))
     W = energy(plain) / T(χ)^2
 
-    # a field built with another `χ` than the parameters hold marches at the parameters' `χ`
-    for stored in (2, 5, T(0.25))
+    # a field built at the parameters' `χ` marches at that `χ`, whether the stored scale is the
+    # parameters' integer or its own element type
+    for stored in (χ, T(χ))
         scaled = ScaledField(field, stored)
         SS = Snapshots(T, 1, n, nh, 2, space(T))
         ip = IntegratorParameters(dt, nt, 2, nh, n, 1)
@@ -380,10 +381,9 @@ end
     SSp = full_march(T, plt, field, nt, 2; dt = dt, χ = χ)
     @test SSp.V[1, :, 2, 1] != v
 
-    # the reduced march of the identity basis agrees with it bit for bit, whatever `χ` the
-    # reduced field carries
+    # the reduced march of the identity basis agrees with it bit for bit
     Ψ = Matrix{T}(I, n, n)
-    ef = ReducedElectricField(ScaledField(field, 7), Ψ, Ψ' * vec(plt.x))
+    ef = ReducedElectricField(ScaledField(field, T(χ)), Ψ, Ψ' * vec(plt.x))
     SSr = Snapshots(T, 1, n, nh, 2, space(T))
     IPr = IntegratorParameters(dt, nt, 2, nh, n, 1)
     reduced_integrate_vp(
@@ -391,6 +391,51 @@ end
     @test SSr.X[1, :, 2, 1] == x
     @test SSr.V[1, :, 2, 1] == v
     @test SSr.W[2, 1] == W
+end
+
+# The whole message of the exception a call raises, or a word when it raises nothing.
+function _message(f)
+    try
+        f()
+        return "no exception"
+    catch thrown
+        return sprint(showerror, thrown)
+    end
+end
+
+@testset "a χ that a march would discard is refused, $T" for T in (Float64, Float32)
+    # The step is `dt·params.χ` and the field is that of the `ScaledField`; a stored `χ` of its own
+    # would put the two scales of one march out of step. Each refusal names both values, and the
+    # phrase is asserted because `_check_march` and `_check_full_march` refuse a χ of the wrong sign
+    # with the same `ArgumentError`: the type alone does not tell the guards apart.
+    n, nt, dt, χ = 64, 20, T(1e-3), T(2)
+    plt, field = bump_on_tail(T; n = n)
+    nh = length(coefficients(field))
+
+    for stored in (5, T(0.25))
+        scaled = ScaledField(field, stored)
+        SS = Snapshots(T, 1, n, nh, 2, space(T))
+        ip = IntegratorParameters(dt, nt, 2, nh, n, 1)
+        @test_throws ArgumentError integrate_vp(plt, (χ = χ,), scaled, SS, ip, 1)
+        msg = _message(() -> integrate_vp(plt, (χ = χ,), scaled, SS, ip, 1))
+        @test occursin("a ScaledField at χ", msg)
+        @test occursin(string(stored), msg) && occursin(string(χ), msg)
+
+        # the reduced path refuses it too, and with a phrase of its own: `_with_scale` of a
+        # `ReducedElectricField` reads the scale of the field it wraps, so a reduced march names
+        # the wrapped field's `χ` and not the stored `χ` of a scale it does not carry
+        Ψ = Matrix{T}(I, n, n)
+        ef = ReducedElectricField(scaled, Ψ, Ψ' * vec(plt.x))
+        SSr = Snapshots(T, 1, n, nh, 2, space(T))
+        IPr = IntegratorParameters(dt, nt, 2, nh, n, 1)
+        ic = ReducedIntegratorCache(IPr, n)
+        @test_throws ArgumentError reduced_integrate_vp(
+            plt, Ψ, (χ = χ,), ef, SSr, IPr, ic, 1)
+        msg_r = _message(() -> reduced_integrate_vp(
+            plt, Ψ, (χ = χ,), ef, SSr, IPr, ic, 1))
+        @test occursin("a ScaledField at χ", msg_r)
+        @test occursin(string(stored), msg_r) && occursin(string(χ), msg_r)
+    end
 end
 
 @testset "the guards of the full-order march, $T" for T in (Float64, Float32)

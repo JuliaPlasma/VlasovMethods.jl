@@ -126,9 +126,12 @@ of the divided field, which is quadratic in the field and would carry `χ⁴`. [
 `coefficients` forward to `field` unchanged, because the deposit and the solve carry no amplitude.
 
 It is an `ElectricField`, so a reduced march wraps it as
-`ReducedElectricField(ScaledField(field, χ), Ψ, X)`. A march takes its scale from `params.χ` and
-not from the `χ` stored here: it marches a `ScaledField`, or a reduced field over one, at the `χ`
-of its parameters (see [`integrate_vp`](@ref)), so the stored `χ` serves a call outside a march.
+`ReducedElectricField(ScaledField(field, χ), Ψ, X)`. The `χ` stored here must be the `params.χ` of
+the march the field is handed to: the march takes its step scale and the `χ²` of the field from
+`params.χ` alone, so a `ScaledField`, or a reduced field over one, at another `χ` is refused with
+an `ArgumentError` that names both values rather than rescaled in silence (see
+[`integrate_vp`](@ref)). The stored `χ` therefore serves a call outside a march, and the
+construction of one at the scale the march will take.
 
 `χ` must be finite and positive; the constructor throws an `ArgumentError` otherwise, which
 refuses `0`, a negative and `NaN` alike. Each division converts `χ` to the element type of the
@@ -164,7 +167,14 @@ end
 coefficients(f::ScaledField) = coefficients(f.field)
 
 # The field of a march at the scale `χ` of its parameters, which are the one source of the scale: a
-# `ScaledField` is rebuilt over the same inner field with `χ`, and any other field is its own.
-# `src/particles/electric_field.jl` gives a reduced field over a `ScaledField` the same rule.
+# `ScaledField` is rebuilt over the same inner field with `χ`, and any other field is its own. A
+# stored `χ` that the rebuild would discard is refused, because the march's step and its field would
+# then carry two scales. `src/particles/electric_field.jl` gives a reduced field over a
+# `ScaledField` the same rule.
 _with_scale(f::ElectricField, χ) = f
-_with_scale(f::ScaledField, χ) = ScaledField(f.field, χ)
+function _with_scale(f::ScaledField, χ)
+    f.χ == χ || throw(ArgumentError(
+        "the field is a ScaledField at χ = $(f.χ); a march takes its step and the scale of its " *
+        "field from params.χ = $χ, so the two would differ"))
+    return ScaledField(f.field, χ)
+end
