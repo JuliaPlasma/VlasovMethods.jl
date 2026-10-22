@@ -25,7 +25,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   `ElectricField`, so a reduced march wraps it as `ReducedElectricField(ScaledField(f, χ), Ψ, X₀)`
   and marches in the scaled time. `integrate_vp` and `reduced_integrate_vp` take the scale of a
   `ScaledField` from `params.χ`, the one source of `χ`: they march a `ScaledField`, or a reduced
-  field over one, at the `χ` of the parameters and not at the `χ` it was built with. The energy
+  field over one, at the `χ` of the parameters, and refuse one stored at another `χ` rather than
+  rescaling it in silence. The energy
   divides by `χ²` and not by `χ⁴`, because `wᵢ·E(xᵢ)/χ²` is the force of the energy `W/χ²`.
   A `χ` that is not finite and positive throws an
   `ArgumentError`, and each division converts `χ` to the element type of the value it divides, so
@@ -90,6 +91,33 @@ their own, except for what they removed and narrowed, which is listed in full be
 
 - The `plot_particles` method on a `Snapshots` draws one saved state,
   `SS.X[1, :, ts, p]` against `SS.V[1, :, ts, p]`, so one frame of a march is one call.
+
+- **A `χ` that a march would discard is refused.** `integrate_vp` and `reduced_integrate_vp`
+  throw an `ArgumentError` when the field they are given is a `ScaledField`, or a
+  `ReducedElectricField` over one, whose `χ` differs from `params.χ`, and the message names both
+  values. The step and the field of one march then carry one scale, and a field built at the
+  scale of another run stops the march instead of being marched in silence. A `ScaledField` at
+  exactly `params.χ`, and a plain field, march as before.
+
+- **The bump-on-tail draw.** `initialize!(dist, BumpOnTail())` draws by accept–reject on a 1D1V
+  `ParticleDistribution` of any element type. Both `draw!` methods of `src/examples/bumpontail.jl`
+  took `ParticleDistribution{1, 1}`, whose parameters are the element type and the position
+  dimension, so no 1D1V distribution matched them and every bump-on-tail initial condition threw a
+  `MethodError`.
+
+- **The paper's two example sets as scripts.** `scripts/bump_on_tail_training.jl`,
+  `bump_on_tail_projections.jl` and `bump_on_tail_testing.jl` are the bump-on-tail example set —
+  the ten time scales of the paper's training sweep, the reduced bases of its projections at the
+  notebook's tolerances, and the test sweep with its errors, energies and growth rates — and
+  `scripts/analytic_quadratic.jl` is the analytic quadratic model in its two reduced forms. They
+  share `scripts/bump_on_tail_common.jl`, take their output directories from `--runs-dir` and
+  `--results-dir`, so that a clean checkout stays clean, and draw the figures of the paper's
+  quantities. `bump_on_tail_projections.jl` also writes the two HDF5 files that the neural-network
+  part of the plan reads.
+
+- **`docs/src/paper.md`.** A page of the manual that names each of the four scripts, its command
+  at the paper's parameters, the files it writes and its measured run time. It runs no script and
+  embeds no figure.
 
 ## [0.3.0] — 2026-10-16
 
