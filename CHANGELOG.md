@@ -103,8 +103,9 @@ their own, except for what they removed and narrowed, which is listed in full be
 - **The paper's two examples as scripts.** `scripts/bump_on_tail_training.jl`,
   `bump_on_tail_projections.jl` and `bump_on_tail_testing.jl` run the bump-on-tail example in three
   steps: the full-order training sweep of ten wave numbers, the cotangent-lift basis of the
-  particles and the POD basis of the field, and the full-order and reduced marches of ten test wave
-  numbers. `scripts/analytic_quadratic.jl` runs the analytic quadratic model, its full-order
+  particles and the POD basis of the field, and the marches of ten test wave numbers by the
+  full-order model and by two reduced models, with the DEIM field and with the full field of the
+  lifted particles. `scripts/analytic_quadratic.jl` runs the analytic quadratic model, its full-order
   closed form and its ODE and PODE reduced forms. They are ported from the `bump_on_tail_*.jl`
   scripts and the `reference/` files of ReducedBasisMethods onto the marches, the diagnostics and
   the plots of this package. Every script writes into `--runs-dir` and `--results-dir`, and names

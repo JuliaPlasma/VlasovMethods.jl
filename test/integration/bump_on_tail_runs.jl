@@ -89,14 +89,16 @@ mktempdir() do dir
     @testset "testing" begin
         @test succeeded(driver("bump_on_tail_testing.jl", options..., "--samples", "3"))
         rates = readlines(joinpath(results, "growth_rates.csv"))
-        @test rates[1] == "kappa,gamma_hfm,gamma_rom"
+        @test rates[1] == "kappa,gamma_hfm,gamma_rom,gamma_rom_full"
         @test length(rates) == 4
-        @test length(pngs(results, "item24_")) == 8
-        @test length(pngs(results, "item25_")) == 1
+        # items 24 and 25 once per reduced model, the full-field model's ending in `_full`
+        @test length(pngs(results, "item24_")) == 16
+        @test count(endswith("_full.png"), pngs(results, "item24_")) == 8
+        @test length(pngs(results, "item25_")) == 2
         @test "item26_field_energy.png" in pngs(results, "item26_")
         @test length(pngs(results, "item27_")) == 3
         @test length(pngs(results, "item28_")) == 1
-        @test length(pngs(results, "item29_")) == 3
+        @test length(pngs(results, "item29_")) == 4
     end
 
     @testset "analytic" begin

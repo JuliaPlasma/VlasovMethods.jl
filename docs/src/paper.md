@@ -68,22 +68,25 @@ of its spectrum: `--particle-tolerance` (`1e-9`) and `--field-tolerance` (`1e-5`
 ### `bump_on_tail_testing.jl`
 
 The test sweep: ten wave numbers drawn uniform in `[0.1, 0.5]` after the seed, each marched by the
-full-order model (HFM) and by the reduced model of the two bases with the DEIM field (ROM).
-`--samples` (`10`) sets their number.
+full-order model (HFM) and by two reduced models of the two bases (ROM): one with the DEIM field,
+which the reference's testing script marches, and one with the full field of the lifted particles,
+which the reference keeps commented out beside it. `--samples` (`10`) sets their number.
 
 - **Paper command:** `julia --project=scripts scripts/bump_on_tail_testing.jl`
-- **Measured run time:** 37 s.
+- **Measured run time:** 43 s.
 - **Writes:** in the results directory, `growth_rates.csv`, the growth rate of the field energy of
-  each test sample, HFM and ROM, under the header `kappa,gamma_hfm,gamma_rom`, and the figures:
+  each test sample, HFM, DEIM model and full-field model, under the header
+  `kappa,gamma_hfm,gamma_rom,gamma_rom_full`, and the figures. A figure of one reduced model is
+  the DEIM model's, and its twin that ends in `_full` is the full-field model's:
 
   | item | files | what they plot |
   |:--|:--|:--|
-  | 24 | `item24_<error>_time.png`, `item24_<error>_kappa.png` | the four trajectory errors `x2`, `xmax`, `v2` and `vmax` against time for every sample, and against `κ` at `T`, `0.75T` and `0.5T` |
-  | 25 | `item25_potential_error.png` | the absolute error of the potential against time |
-  | 26 | `item26_field_energy.png`, `item26_field_energy_best.png`, `item26_field_energy_worst.png` | the field energy, HFM against ROM, of every sample, and of the samples whose growth rates agree best and worst |
-  | 27 | `item27_energy.png`, `item27_energy_drift.png`, `item27_energy_drift_kappa.png` | the energy and its relative drift, HFM against ROM, and the size of the drift against `κ` at `T`, `0.75T` and `0.5T` |
-  | 28 | `item28_growth_rate.png` | the growth rate against `κ`, HFM and ROM |
-  | 29 | `item29_particles_t0.png`, `item29_particles_T_hfm.png`, `item29_particles_T_rom.png` | the particles of the sample nearest `κ₀`, at `t = 0` and, HFM and ROM, at `T` |
+  | 24 | `item24_<error>_time[_full].png`, `item24_<error>_kappa[_full].png` | the four trajectory errors `x2`, `xmax`, `v2` and `vmax` against time for every sample, and against `κ` at `T`, `0.75T` and `0.5T` |
+  | 25 | `item25_potential_error[_full].png` | the absolute error of the potential against time |
+  | 26 | `item26_field_energy.png`, `item26_field_energy_best.png`, `item26_field_energy_worst.png` | the field energy of the three models, of every sample, and of the samples whose growth rates of HFM and DEIM model agree best and worst |
+  | 27 | `item27_energy.png`, `item27_energy_drift.png`, `item27_energy_drift_kappa.png` | the energy and its relative drift of the three models, and the size of the drift against `κ` at `T`, `0.75T` and `0.5T` |
+  | 28 | `item28_growth_rate.png` | the growth rate against `κ` of the three models |
+  | 29 | `item29_particles_t0.png`, `item29_particles_T_hfm.png`, `item29_particles_T_rom[_full].png` | the particles of the sample nearest `κ₀`, at `t = 0` and, for each model, at `T` |
 
   The growth rate is half the slope of the least-squares line of `log W` through the first four
   maxima of the field energy `W`, or through all of them when there are fewer, with a window of 5
