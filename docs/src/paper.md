@@ -46,9 +46,9 @@ The training sweep: the full-order march of the ten wave numbers `κ` evenly spa
 
 ### `bump_on_tail_projections.jl`
 
-The reduced bases of the training sweep: the cotangent-lift basis of the particles, and the POD basis
-of the field. Each keeps the leading vectors that carry all but its tolerance of the energy of its
-spectrum: `--particle-tolerance` (`1e-9`) and `--field-tolerance` (`1e-5`).
+The reduced bases of the training sweep: the cotangent-lift basis of the particles, and the POD
+basis of the field. Each keeps the leading vectors that carry all but its tolerance of the energy
+of its spectrum: `--particle-tolerance` (`1e-9`) and `--field-tolerance` (`1e-5`).
 
 - **Paper command:**
   `julia --project=scripts scripts/bump_on_tail_projections.jl --particle-tolerance 1e-9 --field-tolerance 1e-5`

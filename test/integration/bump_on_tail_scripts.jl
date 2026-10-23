@@ -102,8 +102,8 @@ end
     @test step_count(25.0, 0.1) == 250
     @test step_count(1000.0, 0.001) == 10^6
 
-    # the training sweep: the ten κ of ReducedBasisMethods' `bump_on_tail_1_training.jl`, evenly
-    # spaced in [0.1, 0.5]
+    # the training sweep: ten κ evenly spaced in [0.1, 0.5], the range of a commented-out line of
+    # ReducedBasisMethods' `bump_on_tail_1_training.jl`
     κ = training_kappas()
     @test length(κ) == 10
     @test first(κ) == 0.1

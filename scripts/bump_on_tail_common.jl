@@ -28,8 +28,8 @@ const KAPPA_REFERENCE = 0.3
 """
 The options that the three bump-on-tail drivers share, with the values of ReducedBasisMethods'
 `scripts/bump_on_tail_1_training.jl`: the timestep `dt`, the final time, the number of particles,
-the number of spline cells of the potential, the spline degree and the seed of the draw. Every driver takes all of them, so that the
-three agree on the run id.
+the number of spline cells of the potential, the spline degree and the seed of the draw. Every
+driver takes all of them, so that the three agree on the run id.
 """
 const BUMP_ON_TAIL = (
     dt = 0.1, final_time = 25.0, particles = 10_000, cells = 16, degree = 3, seed = 1234)
@@ -56,10 +56,10 @@ step_count(final_time, dt) = round(Int, final_time / dt)
 """
     training_kappas()
 
-The ten wave numbers of the training sweep, evenly spaced in `[0.1, 0.5]`: the `χ` range
-`0.1/κ₀ … 0.5/κ₀` of ten samples of ReducedBasisMethods' `scripts/bump_on_tail_1_training.jl`, as
-wave numbers. The sweep passes them to `Parameter` as a list of values, as it passes the test
-sweep.
+The ten wave numbers of the training sweep, evenly spaced in `[0.1, 0.5]`: as wave numbers, the
+`χ` range `0.1/κ₀ … 0.5/κ₀` of ten samples in a commented-out `Parameter` line of
+ReducedBasisMethods' `scripts/bump_on_tail_1_training.jl`, whose active line runs the one sample
+`χ = 1`. The sweep passes them to `Parameter` as a list of values, as it passes the test sweep.
 """
 training_kappas() = collect(range(0.1, 0.5; length = 10))
 
