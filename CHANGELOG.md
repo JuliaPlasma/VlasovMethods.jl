@@ -23,13 +23,19 @@ their own, except for what they removed and narrowed, which is listed in full be
   `efield!` and the value of `energy` by `χ²`, while `update!` and `coefficients` forward to
   `field` unchanged, because the deposit and the solve carry no amplitude. It is an
   `ElectricField`, so a reduced march wraps it as `ReducedElectricField(ScaledField(f, χ), Ψ, X₀)`
-  and marches in the scaled time. `integrate_vp` and `reduced_integrate_vp` take the scale of a
-  `ScaledField` from `params.χ`, the one source of `χ`: they march a `ScaledField`, or a reduced
-  field over one, at the `χ` of the parameters and not at the `χ` it was built with. The energy
-  divides by `χ²` and not by `χ⁴`, because `wᵢ·E(xᵢ)/χ²` is the force of the energy `W/χ²`.
-  A `χ` that is not finite and positive throws an
+  and marches in the scaled time. `integrate_vp` and `reduced_integrate_vp` take the scale from
+  `params.χ`, the one source of `χ`, and refuse a `ScaledField` built at another `χ` (next entry).
+  The energy divides by `χ²` and not by `χ⁴`, because `wᵢ·E(xᵢ)/χ²` is the force of the energy
+  `W/χ²`. A `χ` that is not finite and positive throws an
   `ArgumentError`, and each division converts `χ` to the element type of the value it divides, so
   a `Float32` field with a `Float64` `χ` stays `Float32`.
+
+- **A march refuses a `χ` that it would discard.** `integrate_vp` and `reduced_integrate_vp` throw
+  an `ArgumentError` that names both values when the field they are given is a `ScaledField`, or a
+  `ReducedElectricField` over one, built at another `χ` than `params.χ`. A march takes its one `χ`
+  from `params.χ`, for the timestep and the field together, so a stored `χ` that differs would be
+  discarded in silence. A `ScaledField` built at `params.χ`, where an integer `χ` equals its
+  float, and a plain field march as before.
 
 - **`integrate_vp`.** The full-order leapfrog march, `reduced_integrate_vp` with no reduced basis
   and no cache: the same `Δt = IP.dt·χ`, the same save slots, and the same `X`, `V`, `Φ`, `W`, `K`

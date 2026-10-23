@@ -7,7 +7,7 @@ using VlasovMethods
 using VlasovMethods: ElectricField, PoissonField, coefficients, efield!, energy,
                      projection!,
                      update!
-using VlasovMethods: _electric_field
+using VlasovMethods: _electric_field, _with_scale
 
 include("helpers/allocation_barriers.jl")
 include("helpers/poisson_field.jl")
@@ -240,6 +240,33 @@ end
         @test _alloc_efield((f, e, x) -> similar(e), sc, es, q) > 0
         @test _alloc_energy(f -> similar(f.field.nodes), sc) > 0
         @test _alloc_update((f, x, w, t) -> similar(x), sc, q, w, t) > 0
+    end
+end
+
+@testset "a march takes the field at the χ of its parameters, $T" for T in (Float64, Float32)
+    field, _, _ = poisson_field(T)
+
+    # a plain field is its own field at every χ: the march scales only the timestep
+    @test _with_scale(field, 2) === field
+    @test _with_scale(field, T(0.25)) === field
+
+    # a `ScaledField` at the χ of the parameters is the field the march takes, and an integer χ
+    # equals its float
+    sc = ScaledField(field, 2)
+    @test _with_scale(sc, 2) === sc
+    @test _with_scale(sc, T(2)) === sc
+
+    # a `ScaledField` at another χ is refused, because the march would discard its χ, and the
+    # message names both values. `ScaledField` refuses a χ of the wrong sign with the same
+    # exception type, so the phrase is the evidence. Each value is printed with `repr`, so a
+    # `Float32` χ against a `Float64` one of the same decimal reads as two values.
+    f0 = T === Float32 ? "f0" : ""
+    for (stored, χ, phrase) in ((5, 2, "χ = 5, and the march at params.χ = 2;"),
+        (T(0.25), 2, "χ = 0.25$f0, and the march at params.χ = 2;"),
+        (2, T(2.5), "χ = 2, and the march at params.χ = 2.5$f0;"),
+        (0.1f0, 0.1, "χ = 0.1f0, and the march at params.χ = 0.1;"))
+        @test_throws "ArgumentError: the field is scaled at $phrase" _with_scale(
+            ScaledField(field, stored), χ)
     end
 end
 

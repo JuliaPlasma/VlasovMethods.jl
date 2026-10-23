@@ -203,17 +203,18 @@ product, and the times handed to the field are unscaled: the kick of step `it` i
 `(it - ½)·IP.dt`, and the save of step `it` at `it·IP.dt`. So a time-independent field marched
 with `(dt, χ = 2)` equals the same field marched with `(2dt, χ = 1)` state for state.
 
-**`params.χ` is the one source of the scale.** When `efield` is a [`ScaledField`](@ref) or a
-`ReducedElectricField` over one, the march rebuilds it over the same field with `params.χ`, so the
-`χ` it was built with is not used. Any other field is marched as it is.
+**`params.χ` is the one source of the scale.** When `efield` is a `ReducedElectricField` over a
+[`ScaledField`](@ref), the `χ` the `ScaledField` was built with must equal `params.χ`, and the
+march takes the field as it is. Any other field is marched as it is.
 
 It returns `nothing`; the states are in `SS`, and the integration parameters hold the times.
 
 # Throws
 
 - `ArgumentError` when the snapshots carry another number of components than one; when the basis
-  has a zero column count or more columns than rows; and when `params.χ` is not `> 0`, which
-  refuses `0`, a negative and `NaN` alike. The counts of `IP` are checked by
+  has a zero column count or more columns than rows; when `params.χ` is not `> 0`, which
+  refuses `0`, a negative and `NaN` alike; and when `efield` is over a `ScaledField` built with
+  another `χ` than `params.χ`, naming both. The counts of `IP` are checked by
   [`IntegratorParameters`](@ref) itself.
 - `DimensionMismatch` when the snapshots do not hold `IP.nₛ` saved times.
 - The `NamedTuple`'s own error when `params` holds no `χ`. There is no default.
@@ -350,18 +351,20 @@ product, and the times handed to the field are unscaled: the kick of step `it` i
 `(it - ½)·IP.dt`, and the save of step `it` at `it·IP.dt`. So a time-independent field marched
 with `(dt, χ = 2)` equals the same field marched with `(2dt, χ = 1)` state for state.
 
-**`params.χ` is the one source of the scale.** When `efield` is a [`ScaledField`](@ref), the march
-rebuilds it over the same field with `params.χ`, so the `χ` it was built with is not used, and
-the field and its energy are divided by the `χ²` of the step. Any other field is marched as it is.
+**`params.χ` is the one source of the scale.** When `efield` is a [`ScaledField`](@ref), or a
+`ReducedElectricField` over one, the `χ` the `ScaledField` was built with must equal `params.χ`,
+and the field and its energy are divided by the `χ²` of the step. Any other field is marched as it
+is.
 
 It returns `nothing`; the states are in `SS`, and the integration parameters hold the times.
 
 # Throws
 
-- `ArgumentError` when the snapshots carry another number of components than one, and when
+- `ArgumentError` when the snapshots carry another number of components than one; when
   `params.χ` is not finite and `> 0`, which refuses `0`, a negative, `Inf` and `NaN` alike, as
-  [`ScaledField`](@ref) does. The counts of `IP` are checked by [`IntegratorParameters`](@ref)
-  itself.
+  [`ScaledField`](@ref) does; and when `efield` is a `ScaledField`, or a `ReducedElectricField`
+  over one, built with another `χ` than `params.χ`, naming both. The counts of `IP` are checked by
+  [`IntegratorParameters`](@ref) itself.
 - `DimensionMismatch` when the snapshots do not hold `IP.nₛ` saved times, and when the particle
   list holds another number of particles than the snapshots do.
 - The `NamedTuple`'s own error when `params` holds no `χ`. There is no default.
