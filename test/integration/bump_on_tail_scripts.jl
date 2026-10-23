@@ -108,7 +108,8 @@ end
     @test last(κ) ≈ 0.5
     @test all(diff(κ) .≈ 0.4 / 9)
 
-    # the test sweep: ten κ drawn uniform in [0.1, 0.5] after the seed, sorted, with χ = κ/0.3
+    # the test sweep: ten κ in [0.1, 0.5], sorted, with χ = κ/0.3, the same after the same seed
+    # and other after another; the distribution of the draws is not checked
     κ₁, χ₁ = test_sweep(1234)
     @test length(κ₁) == 10
     @test issorted(κ₁)
