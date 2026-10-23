@@ -32,8 +32,8 @@ the files that the next script reads. Each takes the options of the paper's trai
 (`0.1`), `--final-time` (`25.0`), `--particles` (`10000`), `--cells` of the spline potential
 (`16`), `--degree` of the spline (`3`) and `--seed` (`1234`). The particles are drawn once, at the
 reference wave number `κ₀ = 0.3`, and a sample at the wave number `κ` marches them on the same
-domain with the scale `χ = κ/κ₀`. Every default is the paper's value, so the paper command of each
-script is the command without options.
+domain with the scale `χ = κ/κ₀`. Every default is the paper's value, so each script runs the
+paper's parameters without options.
 
 ### `bump_on_tail_training.jl`
 
