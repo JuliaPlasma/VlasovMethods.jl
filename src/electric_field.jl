@@ -174,7 +174,10 @@ function _with_scale(f::ScaledField, χ)
     return f
 end
 
+# Each value is printed with `repr`, which marks a `Float32` as `0.1f0`, so that `0.1f0` against
+# `0.1` does not read as two equal values: the comparison is `==`, which tells the two apart.
 function _refuse_scale(stored, χ)
-    throw(ArgumentError("the field is scaled at χ = $stored, and the march at params.χ = $χ; " *
+    throw(ArgumentError("the field is scaled at χ = $(repr(stored)), and the march at " *
+                        "params.χ = $(repr(χ)); " *
                         "a march takes its one χ from params.χ, so build the ScaledField at it"))
 end

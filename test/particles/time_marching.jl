@@ -367,16 +367,6 @@ end
         1, t, ts) > 0
 end
 
-"The message of the exception that `f()` throws, or a fixed phrase when it throws none."
-function refusal(f)
-    try
-        f()
-        return "no exception"
-    catch thrown
-        return sprint(showerror, thrown)
-    end
-end
-
 @testset "the marches take a ScaledField at params.χ and refuse one at another χ, $T" for T in (
     Float64, Float32)
     n, nt, dt, χ = 64, 20, T(1e-3), 2
@@ -430,22 +420,19 @@ end
     # A field built with another `χ` is refused by both marches, which would discard its `χ`, and
     # the message names both values. `_check_full_march` and `_check_march` refuse a bad
     # `params.χ` with the same exception type, so the phrase is the evidence.
-    for stored in (5, T(0.25))
+    refused(s) = "ArgumentError: the field is scaled at χ = $s, and the march at params.χ = 2;"
+    f0 = T === Float32 ? "f0" : ""
+    for (stored, text) in ((5, "5"), (T(0.25), "0.25$f0"))
         SS = Snapshots(T, 1, n, nh, 2, space(T))
-        full!() = integrate_vp(plt, (χ = χ,), ScaledField(field, stored), SS, ip, 1)
-        @test_throws ArgumentError full!()
-        @test occursin("the field is scaled at χ = $stored", refusal(full!))
-        @test occursin("params.χ = $χ", refusal(full!))
+        @test_throws refused(text) integrate_vp(
+            plt, (χ = χ,), ScaledField(field, stored), SS, ip, 1)
     end
-    for (stored, ef) in ((7, ReducedElectricField(ScaledField(field, 7), Ψ, X₀)),
-        (T(0.25), ReducedElectricField(ScaledField(field, T(0.25)), Ψ, X₀)),
-        (7, DEIMElectricField(ScaledField(field, 7), Ψ, Ψ, get_DEIM_indices(Ψ), X₀)))
+    for (text, ef) in (("7", ReducedElectricField(ScaledField(field, 7), Ψ, X₀)),
+        ("0.25$f0", ReducedElectricField(ScaledField(field, T(0.25)), Ψ, X₀)),
+        ("7", DEIMElectricField(ScaledField(field, 7), Ψ, Ψ, get_DEIM_indices(Ψ), X₀)))
         SS = Snapshots(T, 1, n, nh, 2, space(T))
-        reduced!() = reduced_integrate_vp(
+        @test_throws refused(text) reduced_integrate_vp(
             plt, Ψ, (χ = χ,), ef, SS, ip, ReducedIntegratorCache(ip, n), 1)
-        @test_throws ArgumentError reduced!()
-        @test occursin("the field is scaled at χ = $stored", refusal(reduced!))
-        @test occursin("params.χ = $χ", refusal(reduced!))
     end
 end
 
