@@ -117,7 +117,7 @@ end
     @test length(VlasovMethods._find_maxima(W, 5)) == 7
     @test isapprox(fit_growth_rate(t, W), 0.05; rtol = 1e-2)
     # `growth_rate`'s own defaults are not the reference's fit: `window = 2` and `maxima = 2:5`
-    # put a saturated maximum into the regression (measured `0.0350` on the base)
+    # put a saturated maximum into the regression (measured `0.03505`)
     @test growth_rate(t, W) < 0.045
 
     # three maxima at the window: every one of them enters the fit

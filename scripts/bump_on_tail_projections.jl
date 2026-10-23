@@ -9,9 +9,9 @@
 #       --dt 0.1 --final-time 25.0 --particle-tol 1e-9 --field-tol 1e-5
 #
 # `--particle-tol 1e-9` is the tolerance of the particle basis and `--field-tol 1e-5` that of the
-# field basis; the old `scripts/bump_on_tail_2_projections.jl` of the reference used `1e-4` and
-# `1e-2`. The script marches the ten training samples itself, as `bump_on_tail_training.jl` does,
-# so it needs no earlier run; P39 reads the two files it writes.
+# field basis; `bump_on_tail_2_projections.jl` of the reference takes `1e-4` and `1e-2`. The
+# script marches the ten training samples itself, as `bump_on_tail_training.jl` does, so it
+# needs no earlier run; P39 reads the two files it writes.
 #
 #   julia --project=scripts scripts/bump_on_tail_projections.jl [--np 10000] [--nh 16] \
 #       [--order 3] [--dt 0.1] [--final-time 25.0] [--seed 1234] [--particle-tol 1e-9] \

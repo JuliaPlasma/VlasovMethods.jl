@@ -112,8 +112,9 @@ their own, except for what they removed and narrowed, which is listed in full be
   `scripts/analytic_quadratic.jl` is the analytic quadratic model in its two reduced forms. The
   three bump-on-tail scripts share `scripts/bump_on_tail_common.jl`; each of the four takes its
   output directories from `--runs-dir` and `--results-dir`, so that a clean checkout stays clean,
-  and draws the figures of the paper's quantities. `bump_on_tail_projections.jl` also writes the
-  two HDF5 files that the neural-network part of the plan reads.
+  and three of them draw the figures of the paper's quantities.
+  `bump_on_tail_projections.jl` also writes the two HDF5 files that the neural-network part
+  of the plan reads.
 
 - **`docs/src/paper.md`.** A page of the manual that names each of the four scripts, its command
   at the paper's parameters, the files it writes and its measured run time. It runs no script and
