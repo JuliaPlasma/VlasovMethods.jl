@@ -552,3 +552,34 @@ takes the next `K<n>`.
   `Int` above about `2^62`. The docstring states this closed form, so no wider arithmetic is added.
 - **kind:** found late
 - **found:** 2026-10-17
+
+### K67 · A nested `ScaledField` marches with the field divided by the product of both `χ²`.
+
+- **location:** `src/electric_field.jl:172`, `_with_scale(f::ScaledField, χ)`
+- **evidence:** `_with_scale(ScaledField(ScaledField(f, 5.0), 2.0), 2.0)` gives an `efield!` that is
+  the plain field's divided by `100`, in `Float64` and `Float32`, and both `integrate_vp` and
+  `reduced_integrate_vp` march it at `params.χ = 2.0` with no error. A probe of both on
+  `05431f10` printed `plain / taken = (99.99999999999999, 100.00000000000001)` and
+  `nested full march => no exception`. The march compares only the outer `χ` with `params.χ`.
+- **kind:** found late
+- **found:** 2026-10-23
+
+### K68 · No 1D1V distribution matches the `draw!` of the `Bump` example.
+
+- **location:** `src/examples/bump.jl:28`
+- **evidence:** `initialize!(ParticleDistribution(1, 1, 100), VlasovMethods.Bump())` raises
+  `MethodError: no method matching draw!(::ParticleDistribution{Float64, 1, 1, …}`, on
+  `05431f10` and on this branch. The method binds `ParticleDistribution{1, 1}`, whose first
+  parameter is the element type.
+- **kind:** found late
+- **found:** 2026-10-23
+
+### K69 · The legend of `plot_series` overflows its axis for many labelled series.
+
+- **location:** `ext/VlasovMethodsMakieExt.jl:128`, `plot_series`
+- **evidence:** at the default figure size of `600 × 450`, the legend of 20 labelled series is
+  481 px high in an axis of 375 px, on `05431f10`; 10 series give 251 px. The figure
+  `item26_field_energy.png` of `scripts/bump_on_tail_testing.jl` draws 20 series, so its legend
+  is taller than the figure.
+- **kind:** found late
+- **found:** 2026-10-23
