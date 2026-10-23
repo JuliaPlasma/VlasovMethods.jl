@@ -35,12 +35,15 @@ function initialize!(dist::ParticleDistribution, params::BumpOnTail,
 end
 
 """
-Returns particles drawn from g for the bump-on-tail case.
+    draw!(dist, fₓ, params::BumpOnTail, ::AcceptRejectSampling)
 
-input: nb. pf particles Nₚ, x-marginal function gₓ, parameters μ
-output: Particles struct
+Fill the 1D1V distribution `dist` with the bump-on-tail particles of `params`, and return it. Each
+position is a Sobol proposal, uniform on `[0, 2π/κ]`, accepted with the probability
+`fₓ(x)/(1 + ε)`, and each particle has the weight `2π/κ/N`. Each velocity is drawn from the bulk
+`N(0, 1)` by the inverse CDF, and moved into the tail, `σv + v₀`, with the probability `α`.
 """
-function draw!(dist::ParticleDistribution{1, 1}, fₓ::Base.Callable, params::BumpOnTail, ::AcceptRejectSampling)
+function draw!(dist::ParticleDistribution{<:Any, 1, 1}, fₓ::Base.Callable,
+        params::BumpOnTail, ::AcceptRejectSampling)
     @unpack ε, κ, α, σ, v₀ = params
 
     # number of particles
@@ -76,13 +79,15 @@ function draw!(dist::ParticleDistribution{1, 1}, fₓ::Base.Callable, params::Bu
 end
 
 """
-Returns particles drawn from g for the bump-on-tail case.
+    draw!(dist, fₓ, params::BumpOnTail, ::ImportanceSampling)
 
-input: nb. pf particles Nₚ, x-marginal function gₓ, parameters μ
-output: Particles struct
+Fill the 1D1V distribution `dist` with the bump-on-tail particles of `params`, and return it. Each
+position is a Sobol proposal, uniform on `[0, 2π/κ]`, with the weight `fₓ(x)·2π/κ/N`. The
+velocities are drawn as for `AcceptRejectSampling`.
 """
-function draw!(dist::ParticleDistribution{1, 1}, fₓ::Base.Callable, params::BumpOnTail, ::ImportanceSampling)
-    @unpack κ, ε, a, v₀, σ = params
+function draw!(dist::ParticleDistribution{<:Any, 1, 1}, fₓ::Base.Callable,
+        params::BumpOnTail, ::ImportanceSampling)
+    @unpack κ, ε, α, v₀, σ = params
 
     # number of particles
     N = length(dist.particles)
@@ -104,7 +109,7 @@ function draw!(dist::ParticleDistribution{1, 1}, fₓ::Base.Callable, params::Bu
         # inverse CDF sampling in v
         vₛ = 2y[2] - 1
         dist.particles.v[1, n] = √2 * erfinv(vₛ)  # draw from bulk
-        if rand(1)[1] > 1-a
+        if rand(1)[1] > 1-α
             dist.particles.v[1, n] = dist.particles.v[1, n]*σ + v₀  # draw from tail
         end
         n = n+1
