@@ -26,9 +26,9 @@ using VlasovMethods: efield!, update!
 const KAPPA_REFERENCE = 0.3
 
 """
-The options that the three bump-on-tail drivers share, with the old training script's values: the
-timestep `dt`, the final time, the number of particles, the number of spline cells of the
-potential, the spline degree and the seed of the draw. Every driver takes all of them, so that the
+The options that the three bump-on-tail drivers share, with the values of ReducedBasisMethods'
+`scripts/bump_on_tail_1_training.jl`: the timestep `dt`, the final time, the number of particles,
+the number of spline cells of the potential, the spline degree and the seed of the draw. Every driver takes all of them, so that the
 three agree on the run id.
 """
 const BUMP_ON_TAIL = (
@@ -57,8 +57,9 @@ step_count(final_time, dt) = round(Int, final_time / dt)
     training_kappas()
 
 The ten wave numbers of the training sweep, evenly spaced in `[0.1, 0.5]`: the `χ` range
-`0.1/κ₀ … 0.5/κ₀` of ten samples of the old training script, as wave numbers. The sweep passes them
-to `Parameter` as a list of values, as it passes the test sweep.
+`0.1/κ₀ … 0.5/κ₀` of ten samples of ReducedBasisMethods' `scripts/bump_on_tail_1_training.jl`, as
+wave numbers. The sweep passes them to `Parameter` as a list of values, as it passes the test
+sweep.
 """
 training_kappas() = collect(range(0.1, 0.5; length = 10))
 

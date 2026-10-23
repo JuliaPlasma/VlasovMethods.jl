@@ -88,7 +88,8 @@ end
 end
 
 @testset "paths" begin
-    # every file goes through `runs_path` or `results_path`: no driver names the old output paths
+    # every file goes through `runs_path` or `results_path`: no driver names the output paths of
+    # the ReducedBasisMethods scripts
     for (f, text) in script_texts(), line in eachline(IOBuffer(text))
 
         @test !occursin("../runs", line)
@@ -101,7 +102,8 @@ end
     @test step_count(25.0, 0.1) == 250
     @test step_count(1000.0, 0.001) == 10^6
 
-    # the training sweep: the ten κ of the old training script, evenly spaced in [0.1, 0.5]
+    # the training sweep: the ten κ of ReducedBasisMethods' `bump_on_tail_1_training.jl`, evenly
+    # spaced in [0.1, 0.5]
     κ = training_kappas()
     @test length(κ) == 10
     @test first(κ) == 0.1
