@@ -59,7 +59,8 @@ end
 energy(f::ReducedElectricField) = energy(f.field)
 
 # The reduced field over the `ScaledField` of a march, at the scale `χ`: the field itself when its
-# `ScaledField` is built at `χ`; `_with_scale` of that `ScaledField` refuses any other `χ`.
+# `ScaledField` is built at `χ`; `_with_scale` of that `ScaledField` refuses any other `χ`, and a
+# `ScaledField` over a `ScaledField`.
 function _with_scale(f::ReducedElectricField{<:ScaledField}, χ)
     _with_scale(f.field, χ)
     return f

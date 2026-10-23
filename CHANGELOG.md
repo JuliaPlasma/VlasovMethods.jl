@@ -36,7 +36,9 @@ their own, except for what they removed and narrowed, which is listed in full be
   from `params.χ`, for the timestep and the field together, so a stored `χ` that differs would be
   discarded in silence. A `ScaledField` built at `params.χ`, where an integer `χ` equals its
   float, and a plain field march as before. The message prints each value with `repr`, so a
-  `Float32` `0.1f0` against a `Float64` `0.1` reads as two values.
+  `Float32` `0.1f0` against a `Float64` `0.1` reads as two values. A `ScaledField` over a
+  `ScaledField` is refused at any `χ`, the march's own included: it divides the field by both
+  `χ²`, and the comparison of the outer `χ` alone would let it through.
 
 - **`integrate_vp`.** The full-order leapfrog march, `reduced_integrate_vp` with no reduced basis
   and no cache: the same `Δt = IP.dt·χ`, the same save slots, and the same `X`, `V`, `Φ`, `W`, `K`

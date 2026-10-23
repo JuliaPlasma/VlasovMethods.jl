@@ -268,6 +268,16 @@ end
         @test_throws "ArgumentError: the field is scaled at $phrase" _with_scale(
             ScaledField(field, stored), χ)
     end
+
+    # A `ScaledField` over a `ScaledField` is refused at any χ, the march's own included, and the
+    # message names the outer, the inner and the march's χ in that order: three distinct values
+    # in the last case tell each place apart.
+    for (outer, inner, χ) in ((2, 2, 2), (2, 5, 2), (7, 5, 3), (T(2), T(2), T(2)))
+        @test_throws "ArgumentError: the field is a ScaledField at χ = $(repr(outer)) over a " *
+                     "ScaledField at χ = $(repr(inner)), which scales it twice, and the march " *
+                     "is at params.χ = $(repr(χ));" _with_scale(
+            ScaledField(ScaledField(field, inner), outer), χ)
+    end
 end
 
 @testset "the energy of a ScaledField carries χ², the potential of its field" begin

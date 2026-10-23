@@ -213,8 +213,9 @@ It returns `nothing`; the states are in `SS`, and the integration parameters hol
 
 - `ArgumentError` when the snapshots carry another number of components than one; when the basis
   has a zero column count or more columns than rows; when `params.χ` is not `> 0`, which
-  refuses `0`, a negative and `NaN` alike; and when `efield` is over a `ScaledField` built with
-  another `χ` than `params.χ`, naming both. The counts of `IP` are checked by
+  refuses `0`, a negative and `NaN` alike; when `efield` is over a `ScaledField` built with
+  another `χ` than `params.χ`, naming both; and when `efield` is over a `ScaledField` over a
+  `ScaledField`, at any `χ`. The counts of `IP` are checked by
   [`IntegratorParameters`](@ref) itself.
 - `DimensionMismatch` when the snapshots do not hold `IP.nₛ` saved times.
 - The `NamedTuple`'s own error when `params` holds no `χ`. There is no default.
@@ -362,8 +363,9 @@ It returns `nothing`; the states are in `SS`, and the integration parameters hol
 
 - `ArgumentError` when the snapshots carry another number of components than one; when
   `params.χ` is not finite and `> 0`, which refuses `0`, a negative, `Inf` and `NaN` alike, as
-  [`ScaledField`](@ref) does; and when `efield` is a `ScaledField`, or a `ReducedElectricField`
-  over one, built with another `χ` than `params.χ`, naming both. The counts of `IP` are checked by
+  [`ScaledField`](@ref) does; when `efield` is a `ScaledField`, or a `ReducedElectricField`
+  over one, built with another `χ` than `params.χ`, naming both; and when that `ScaledField` is
+  over a `ScaledField`, at any `χ`. The counts of `IP` are checked by
   [`IntegratorParameters`](@ref) itself.
 - `DimensionMismatch` when the snapshots do not hold `IP.nₛ` saved times, and when the particle
   list holds another number of particles than the snapshots do.

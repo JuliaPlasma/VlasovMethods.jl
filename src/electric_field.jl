@@ -128,8 +128,8 @@ of the divided field, which is quadratic in the field and would carry `χ⁴`. [
 It is an `ElectricField`, so a reduced march wraps it as
 `ReducedElectricField(ScaledField(field, χ), Ψ, X)`. A march takes its scale from `params.χ`, so
 it marches a `ScaledField`, or a reduced field over one, only when the `χ` stored here equals
-`params.χ`, and throws an `ArgumentError` that names both values otherwise (see
-[`integrate_vp`](@ref)).
+`params.χ`, and throws an `ArgumentError` that names both values otherwise. It refuses a
+`ScaledField` over a `ScaledField` at any `χ` (see [`integrate_vp`](@ref)).
 
 `χ` must be finite and positive; the constructor throws an `ArgumentError` otherwise, which
 refuses `0`, a negative and `NaN` alike. Each division converts `χ` to the element type of the
@@ -172,6 +172,14 @@ _with_scale(f::ElectricField, χ) = f
 function _with_scale(f::ScaledField, χ)
     f.χ == χ || _refuse_scale(f.χ, χ)
     return f
+end
+
+# A `ScaledField` over a `ScaledField` divides the field by both `χ²`, and the march would compare
+# only the outer `χ` with its own, so it is refused at any `χ`.
+function _with_scale(f::ScaledField{<:ScaledField}, χ)
+    throw(ArgumentError("the field is a ScaledField at χ = $(repr(f.χ)) over a ScaledField at " *
+                        "χ = $(repr(f.field.χ)), which scales it twice, and the march is at " *
+                        "params.χ = $(repr(χ)); build one ScaledField at params.χ"))
 end
 
 # Each value is printed with `repr`, which marks a `Float32` as `0.1f0`, so that `0.1f0` against

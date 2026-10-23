@@ -434,6 +434,22 @@ end
         @test_throws refused(text) reduced_integrate_vp(
             plt, Ψ, (χ = χ,), ef, SS, ip, ReducedIntegratorCache(ip, n), 1)
     end
+
+    # A `ScaledField` over a `ScaledField` is refused by all three marches, also where its outer χ
+    # is the march's, which the comparison of one χ alone would let through.
+    nested(outer, inner) = "ArgumentError: the field is a ScaledField at χ = $outer over a " *
+                           "ScaledField at χ = $inner, which scales it twice"
+    for inner in (2, 5)
+        sc = ScaledField(ScaledField(field, inner), χ)
+        SS = Snapshots(T, 1, n, nh, 2, space(T))
+        @test_throws nested(χ, inner) integrate_vp(plt, (χ = χ,), sc, SS, ip, 1)
+        for ef in (ReducedElectricField(sc, Ψ, X₀),
+            DEIMElectricField(sc, Ψ, Ψ, get_DEIM_indices(Ψ), X₀))
+            SS = Snapshots(T, 1, n, nh, 2, space(T))
+            @test_throws nested(χ, inner) reduced_integrate_vp(
+                plt, Ψ, (χ = χ,), ef, SS, ip, ReducedIntegratorCache(ip, n), 1)
+        end
+    end
 end
 
 @testset "the guards of the full-order march, $T" for T in (Float64, Float32)
