@@ -58,11 +58,12 @@ end
 
 energy(f::ReducedElectricField) = energy(f.field)
 
-# The reduced field over the `ScaledField` of a march, at the scale `χ`: the same bases and a new
-# `ScaledField` over the same inner field, so the buffers of the result are its own and the
-# potential is the one the caller's field holds.
+# The reduced field over the `ScaledField` of a march, at the scale `χ`: the field itself when its
+# `ScaledField` is built at `χ`; `_with_scale` of that `ScaledField` refuses any other `χ`, and a
+# `ScaledField` over a `ScaledField`.
 function _with_scale(f::ReducedElectricField{<:ScaledField}, χ)
-    return ReducedElectricField(_with_scale(f.field, χ), f.Ψₓ, f.Ψₚ, f.Ψₑ, f.x)
+    _with_scale(f.field, χ)
+    return f
 end
 
 coefficients(f::ReducedElectricField) = coefficients(f.field)

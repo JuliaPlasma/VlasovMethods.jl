@@ -552,3 +552,24 @@ takes the next `K<n>`.
   `Int` above about `2^62`. The docstring states this closed form, so no wider arithmetic is added.
 - **kind:** found late
 - **found:** 2026-10-17
+
+### K68 · No 1D1V distribution matches the `draw!` of the `Bump` example.
+
+- **location:** `src/examples/bump.jl:28`
+- **evidence:** `initialize!(ParticleDistribution(1, 1, 100), VlasovMethods.Bump())` raises
+  `MethodError: no method matching draw!(::ParticleDistribution{Float64, 1, 1, …}`, on
+  `05431f10` and on this branch. The method binds `ParticleDistribution{1, 1}`, whose first
+  parameter is the element type.
+- **kind:** found late
+- **found:** 2026-10-23
+
+### K69 · The legend of `plot_series` overflows its axis for many labelled series.
+
+- **location:** `ext/VlasovMethodsMakieExt.jl:128`, `plot_series`
+- **evidence:** at the default figure size of `600 × 450`, the legend of 20 labelled series is
+  481 px high in an axis of 375 px, on `05431f10`; 10 series give 251 px.
+  `scripts/bump_on_tail_testing.jl` draws its 30-series figures of items 26 and 27 without
+  labels and adds a legend of one entry per model. Its figures of items 24 and 25 label one series
+  per sample, so at the default of 10 samples no figure of the scripts shows the overflow.
+- **kind:** found late
+- **found:** 2026-10-23

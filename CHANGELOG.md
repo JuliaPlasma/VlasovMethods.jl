@@ -23,13 +23,22 @@ their own, except for what they removed and narrowed, which is listed in full be
   `efield!` and the value of `energy` by `χ²`, while `update!` and `coefficients` forward to
   `field` unchanged, because the deposit and the solve carry no amplitude. It is an
   `ElectricField`, so a reduced march wraps it as `ReducedElectricField(ScaledField(f, χ), Ψ, X₀)`
-  and marches in the scaled time. `integrate_vp` and `reduced_integrate_vp` take the scale of a
-  `ScaledField` from `params.χ`, the one source of `χ`: they march a `ScaledField`, or a reduced
-  field over one, at the `χ` of the parameters and not at the `χ` it was built with. The energy
-  divides by `χ²` and not by `χ⁴`, because `wᵢ·E(xᵢ)/χ²` is the force of the energy `W/χ²`.
-  A `χ` that is not finite and positive throws an
+  and marches in the scaled time. `integrate_vp` and `reduced_integrate_vp` take the scale from
+  `params.χ`, the one source of `χ`, and refuse a `ScaledField` built at another `χ` (next entry).
+  The energy divides by `χ²` and not by `χ⁴`, because `wᵢ·E(xᵢ)/χ²` is the force of the energy
+  `W/χ²`. A `χ` that is not finite and positive throws an
   `ArgumentError`, and each division converts `χ` to the element type of the value it divides, so
   a `Float32` field with a `Float64` `χ` stays `Float32`.
+
+- **A march refuses a `χ` that it would discard.** `integrate_vp` and `reduced_integrate_vp` throw
+  an `ArgumentError` that names both values when the field they are given is a `ScaledField`, or a
+  `ReducedElectricField` over one, built at another `χ` than `params.χ`. A march takes its one `χ`
+  from `params.χ`, for the timestep and the field together, so a stored `χ` that differs would be
+  discarded in silence. A `ScaledField` built at `params.χ`, where an integer `χ` equals its
+  float, and a plain field march as before. The message prints each value with `repr`, so a
+  `Float32` `0.1f0` against a `Float64` `0.1` reads as two values. A `ScaledField` over a
+  `ScaledField` is refused at any `χ`, the march's own included: it divides the field by both
+  `χ²`, and the comparison of the outer `χ` alone would let it through.
 
 - **`integrate_vp`.** The full-order leapfrog march, `reduced_integrate_vp` with no reduced basis
   and no cache: the same `Δt = IP.dt·χ`, the same save slots, and the same `X`, `V`, `Φ`, `W`, `K`
@@ -90,6 +99,36 @@ their own, except for what they removed and narrowed, which is listed in full be
 
 - The `plot_particles` method on a `Snapshots` draws one saved state,
   `SS.X[1, :, ts, p]` against `SS.V[1, :, ts, p]`, so one frame of a march is one call.
+
+- **The paper's two examples as scripts.** `scripts/bump_on_tail_training.jl`,
+  `bump_on_tail_projections.jl` and `bump_on_tail_testing.jl` run the bump-on-tail example in three
+  steps: the full-order training sweep of ten wave numbers, the cotangent-lift basis of the
+  particles and the POD basis of the field, and the marches of ten test wave numbers by the
+  full-order model and by two reduced models, with the DEIM field and with the full field of the
+  lifted particles. `scripts/analytic_quadratic.jl` runs the analytic quadratic model, its full-order
+  closed form and its ODE and PODE reduced forms. They are ported from the `bump_on_tail_*.jl`
+  scripts and the `reference/` files of ReducedBasisMethods onto the marches, the diagnostics and
+  the plots of this package. Every script writes into `--runs-dir` and `--results-dir`, and names
+  each figure `item<NN>_<what>.png` after the item of the paper it draws, on the axes of the
+  reference notebooks. The projections script also writes the particle basis and the reduced data
+  `X` and `A` that the HNN reads. Every HDF5 file records the commit and the command that wrote
+  it as attributes, and a bump-on-tail file also the seed. `scripts/bump_on_tail_common.jl` holds
+  what the three bump-on-tail scripts share, and `test/integration/bump_on_tail_scripts.jl` tests
+  it; `test/integration/bump_on_tail_runs.jl`, in the group `slow`, runs the four scripts at
+  small options. `scripts/Project.toml` gains `ReducedComplexityModeling`, at the package's bound
+  `0.1.1`. The bound of `ReducedBasisMethods` rises from `0.2.1` to `0.2.2`, the first release with
+  `spectrumplot`, which the scripts call.
+
+- **The docs page "The paper's examples"** says how to run the four scripts, and gives the paper
+  command, the measured run time and the files of each.
+
+### Bug Fixes
+
+- **`initialize!(dist, BumpOnTail())` draws.** Both `draw!` methods of the bump-on-tail example
+  bound `ParticleDistribution{1, 1}`, whose first parameter is the element type, so no 1D1V
+  distribution matched them and the call raised a `MethodError`. They now take a 1D1V
+  `ParticleDistribution` of any element type. The importance-sampling method also read a field
+  `a` that `BumpOnTail` does not have; it reads the tail share `α`.
 
 ## [0.3.0] — 2026-10-16
 

@@ -228,6 +228,18 @@ end
     @test _alloc4((a, b, c, d) -> similar(a.zₓ), f.ic, f.efield, Δt, t) > 0
     @test _alloc_save((a, b, c, d, e, g, h) -> similar(a.X), f.SS, f.ic, f.Ψ,
         f.efield, 1, t, ts) > 0
+
+    # the reduced field over a `ScaledField`, which a march at `params.χ = 2` steps as it is
+    sc = ReducedElectricField(ScaledField(f.efield.field, T(2)), f.Ψ, f.ic.zₓ)
+    @test @inferred(leapfrog_step!(f.ic, sc, Δt, t)) === f.ic
+    @test @inferred(save_solution(f.SS, f.ic, f.Ψ, sc, 1, t, ts)) === nothing
+    if Base.JLOptions().code_coverage == 0
+        @test _alloc4(leapfrog_step!, f.ic, sc, Δt, t) == 0
+        @test _alloc_save(save_solution, f.SS, f.ic, f.Ψ, sc, 1, t, ts) == 0
+    end
+    @test _alloc4((a, b, c, d) -> similar(a.zₓ), f.ic, sc, Δt, t) > 0
+    @test _alloc_save((a, b, c, d, e, g, h) -> similar(a.X), f.SS, f.ic, f.Ψ, sc, 1, t,
+        ts) > 0
 end
 
 # The full-order march's own two barriers. `test/helpers/allocation_barriers.jl` carries the
@@ -341,13 +353,28 @@ end
         Δt, t) > 0
     @test _alloc_full_save((SS, x, v, w, e, p, t, ts) -> similar(SS.X), f.SS, x, v, w,
         f.field, 1, t, ts) > 0
+
+    # the `ScaledField` that a march at `params.χ = 2` steps as it is
+    sc = ScaledField(f.field, T(2))
+    @test @inferred(full_leapfrog_step!(x, v, a, w, sc, Δt, t)) === nothing
+    @test @inferred(save_full_solution(f.SS, x, v, w, sc, 1, t, ts)) === nothing
+    if Base.JLOptions().code_coverage == 0
+        @test _alloc_full_step(full_leapfrog_step!, x, v, a, w, sc, Δt, t) == 0
+        @test _alloc_full_save(save_full_solution, f.SS, x, v, w, sc, 1, t, ts) == 0
+    end
+    @test _alloc_full_step((x, v, a, w, e, Δt, t) -> similar(x), x, v, a, w, sc, Δt, t) > 0
+    @test _alloc_full_save((SS, x, v, w, e, p, t, ts) -> similar(SS.X), f.SS, x, v, w, sc,
+        1, t, ts) > 0
 end
 
-@testset "the marches take the scale of a ScaledField from params.χ, $T" for T in (Float64, Float32)
+@testset "the marches take a ScaledField at params.χ and refuse one at another χ, $T" for T in (
+    Float64, Float32)
     n, nt, dt, χ = 64, 20, T(1e-3), 2
     plt, field = bump_on_tail(T; n = n)
     _, plain = bump_on_tail(T; n = n)
     nh = length(coefficients(field))
+    ip = IntegratorParameters(dt, nt, 2, nh, n, 1)
+    X₀ = vec(plt.x)
 
     # The reference holds no `ScaledField`: the leapfrog of the plain field at the step `dt·χ`, with
     # the acceleration `E/χ²` and the energy `W/χ²` written out.
@@ -365,12 +392,11 @@ end
     update!(plain, x, w, zero(T))
     W = energy(plain) / T(χ)^2
 
-    # a field built with another `χ` than the parameters hold marches at the parameters' `χ`
-    for stored in (2, 5, T(0.25))
-        scaled = ScaledField(field, stored)
+    # a field built with the `χ` the parameters hold marches at it, an integer `χ` and its float
+    # alike
+    for stored in (2, T(2))
         SS = Snapshots(T, 1, n, nh, 2, space(T))
-        ip = IntegratorParameters(dt, nt, 2, nh, n, 1)
-        integrate_vp(plt, (χ = χ,), scaled, SS, ip, 1)
+        integrate_vp(plt, (χ = χ,), ScaledField(field, stored), SS, ip, 1)
         @test SS.X[1, :, 2, 1] == x
         @test SS.V[1, :, 2, 1] == v
         @test SS.W[2, 1] == W
@@ -380,17 +406,50 @@ end
     SSp = full_march(T, plt, field, nt, 2; dt = dt, χ = χ)
     @test SSp.V[1, :, 2, 1] != v
 
-    # the reduced march of the identity basis agrees with it bit for bit, whatever `χ` the
-    # reduced field carries
+    # the reduced march of the identity basis over the same `ScaledField` agrees with it bit for
+    # bit
     Ψ = Matrix{T}(I, n, n)
-    ef = ReducedElectricField(ScaledField(field, 7), Ψ, Ψ' * vec(plt.x))
     SSr = Snapshots(T, 1, n, nh, 2, space(T))
-    IPr = IntegratorParameters(dt, nt, 2, nh, n, 1)
     reduced_integrate_vp(
-        plt, Ψ, (χ = χ,), ef, SSr, IPr, ReducedIntegratorCache(IPr, n), 1)
+        plt, Ψ, (χ = χ,), ReducedElectricField(ScaledField(field, χ), Ψ, X₀),
+        SSr, ip, ReducedIntegratorCache(ip, n), 1)
     @test SSr.X[1, :, 2, 1] == x
     @test SSr.V[1, :, 2, 1] == v
     @test SSr.W[2, 1] == W
+
+    # A field built with another `χ` is refused by both marches, which would discard its `χ`, and
+    # the message names both values. `_check_full_march` and `_check_march` refuse a bad
+    # `params.χ` with the same exception type, so the phrase is the evidence.
+    refused(s) = "ArgumentError: the field is scaled at χ = $s, and the march at params.χ = 2;"
+    f0 = T === Float32 ? "f0" : ""
+    for (stored, text) in ((5, "5"), (T(0.25), "0.25$f0"))
+        SS = Snapshots(T, 1, n, nh, 2, space(T))
+        @test_throws refused(text) integrate_vp(
+            plt, (χ = χ,), ScaledField(field, stored), SS, ip, 1)
+    end
+    for (text, ef) in (("7", ReducedElectricField(ScaledField(field, 7), Ψ, X₀)),
+        ("0.25$f0", ReducedElectricField(ScaledField(field, T(0.25)), Ψ, X₀)),
+        ("7", DEIMElectricField(ScaledField(field, 7), Ψ, Ψ, get_DEIM_indices(Ψ), X₀)))
+        SS = Snapshots(T, 1, n, nh, 2, space(T))
+        @test_throws refused(text) reduced_integrate_vp(
+            plt, Ψ, (χ = χ,), ef, SS, ip, ReducedIntegratorCache(ip, n), 1)
+    end
+
+    # A `ScaledField` over a `ScaledField` is refused by all three marches, also where its outer χ
+    # is the march's, which the comparison of one χ alone would let through.
+    nested(outer, inner) = "ArgumentError: the field is a ScaledField at χ = $outer over a " *
+                           "ScaledField at χ = $inner, which scales it twice"
+    for inner in (2, 5)
+        sc = ScaledField(ScaledField(field, inner), χ)
+        SS = Snapshots(T, 1, n, nh, 2, space(T))
+        @test_throws nested(χ, inner) integrate_vp(plt, (χ = χ,), sc, SS, ip, 1)
+        for ef in (ReducedElectricField(sc, Ψ, X₀),
+            DEIMElectricField(sc, Ψ, Ψ, get_DEIM_indices(Ψ), X₀))
+            SS = Snapshots(T, 1, n, nh, 2, space(T))
+            @test_throws nested(χ, inner) reduced_integrate_vp(
+                plt, Ψ, (χ = χ,), ef, SS, ip, ReducedIntegratorCache(ip, n), 1)
+        end
+    end
 end
 
 @testset "the guards of the full-order march, $T" for T in (Float64, Float32)
