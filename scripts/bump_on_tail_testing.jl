@@ -6,8 +6,8 @@
 #       [--dt 0.05] [--final-time 25.0] [--seed 1234] [--runs-dir dir] [--results-dir dir]
 #
 # The default step is `0.05` and not the paper command's `0.1`: the growth-rate fit of item 28 reads
-# the first four maxima of the field energy over a window of five saved states, and at `0.1` the
-# ninth of the ten drawn time scales resolves so coarsely that its fit turns negative. The paper's
+# the first four maxima of the field energy over a window of five saved states, and at `0.1` two of
+# the ten drawn time scales resolve so coarsely that their fits turn negative. The paper's
 # command:
 #
 #   julia --project=scripts scripts/bump_on_tail_testing.jl --dt 0.1 --final-time 25.0

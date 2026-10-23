@@ -7,8 +7,8 @@
 # `Reduced_Vlasov_PODE_CotangentLift.jl`: the full model at `dt = 0.001` to `T = 1000`, and the
 # reduced model at `dt = 0.0001` to `T = 1000` saved every 1000th step, which is the 10 000 saved
 # states of the paper, with `k = 5` for the ODE/RK4 form and `k = 20` for the PODE form. The
-# default is smaller — `T = 20` at `dt = 0.001` — so that a reproduction is minutes rather than
-# hours:
+# default is smaller — `T = 20` at `dt = 0.001` — so that a reproduction takes about a minute
+# rather than hours:
 #
 #   julia --project=scripts scripts/analytic_quadratic.jl --final-time 1000 --dt 0.001 \
 #       --dt-reduced 0.0001 --nsave 10 --nsave-reduced 1000
