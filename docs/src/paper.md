@@ -38,7 +38,7 @@ time and the wave-number range — such as `BoT_np10000_nh16_dt0p1_T25p0_k0p1-0p
 
 Marches the ten training samples full order and writes their `Snapshots` — positions, velocities,
 accelerations, potential coefficients and the three diagnostics of every saved time — to the runs
-directory. The paper's command:
+directory as `<runid>.h5`. The paper's command:
 
 ```bash
 julia --project=scripts scripts/bump_on_tail_training.jl --np 10000 --nh 16 --order 3 \

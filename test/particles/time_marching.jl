@@ -413,7 +413,7 @@ end
     plt, field = bump_on_tail(T; n = n)
     nh = length(coefficients(field))
 
-    for stored in (5, T(0.25), nextfloat(χ))
+    for stored in (T(0.375), T(0.25), nextfloat(χ))
         scaled = ScaledField(field, stored)
         SS = Snapshots(T, 1, n, nh, 2, space(T))
         ip = IntegratorParameters(dt, nt, 2, nh, n, 1)
@@ -421,7 +421,8 @@ end
         msg = _message(() -> integrate_vp(plt, (χ = χ,), scaled, SS, ip, 1))
         @test occursin("the field is a ScaledField at χ", msg)
         @test !occursin("wraps", msg)
-        @test occursin(string(stored), msg) && occursin(string(χ), msg)
+        @test occursin("ScaledField at χ = $stored", msg)
+        @test occursin("params.χ = $χ", msg)
 
         # the reduced path refuses it too, and with a phrase of its own: `_with_scale` of a
         # `ReducedElectricField` reads the scale of the field it wraps, so a reduced march names
@@ -436,7 +437,8 @@ end
         msg_r = _message(() -> reduced_integrate_vp(
             plt, Ψ, (χ = χ,), ef, SSr, IPr, ic, 1))
         @test occursin("the reduced field wraps a ScaledField at χ", msg_r)
-        @test occursin(string(stored), msg_r) && occursin(string(χ), msg_r)
+        @test occursin("ScaledField at χ = $stored", msg_r)
+        @test occursin("params.χ = $χ", msg_r)
     end
 end
 

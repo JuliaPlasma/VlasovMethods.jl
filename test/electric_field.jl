@@ -258,11 +258,12 @@ end
     @test scaled.χ == χ
     @test efield!(scaled, similar(q), q) == efield!(field, similar(q), q) ./ 4
 
-    for stored in (5, T(0.25))
+    for stored in (T(0.375), T(0.25))
         @test_throws ArgumentError _with_scale(ScaledField(field, stored), χ)
         msg = refusal(() -> _with_scale(ScaledField(field, stored), χ))
         @test occursin("a ScaledField at χ", msg)
-        @test occursin(string(stored), msg) && occursin(string(χ), msg)
+        @test occursin("ScaledField at χ = $stored", msg)
+        @test occursin("params.χ = $χ", msg)
     end
 
     # the comparison is exact: a stored `χ` one ulp away is another scale

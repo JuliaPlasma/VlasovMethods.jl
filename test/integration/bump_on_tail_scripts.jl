@@ -204,13 +204,16 @@ end
         @test occursin(script, page)
 
         # each script's own section gives its paper command, its run time in seconds and a file it
-        # writes. The page holds the path with `/` on every platform, so the path is built in the
-        # page's form rather than from the filesystem, whose separator is `\` on Windows
+        # writes. The section ends at the next heading, so a later script's section cannot supply
+        # one of the three, and the time is a whole number of seconds rather than the `000 s` of a
+        # count such as `10 000 saved`. The page holds the path with `/` on every platform, so the
+        # path is built in the page's form rather than from the filesystem, whose separator is `\`
+        # on Windows
         path = "scripts/" * script
         @test occursin("### `$path`", page)
-        section = last(split(page, "### `$path`"))
+        section = first(split(last(split(page, "### `$path`")), r"(?m)^#{2,3} "))
         @test occursin("julia --project=scripts " * path, section)
-        @test occursin(r"\d+ s", section)
+        @test occursin(r"\b\d+ s\b", section)
         @test occursin(r"\.(h5|csv|png)", section)
     end
     # the page describes the runs and embeds nothing: a docs build runs no script and draws no
@@ -223,14 +226,38 @@ end
 @testset "figures" begin
     src = read(joinpath(SCRIPTS, "bump_on_tail_testing.jl"), String)
 
+    # one block per `plot_series` call — the call and the `save` that follows it, up to the next
+    # call — and a figure is located by the name it saves. A component is then asserted in the
+    # block of the figure that plots it, so a comment, or a neighbouring figure, cannot stand in
+    # for the figure itself
+    blocks = split(src, "figure = plot_series")[2:end]
+    @test length(blocks) > 1
+    block(name) = filter(b -> occursin("item_figure(24, \"$name\")", b), blocks)
+
     # item 24 draws the four components of `trajectory_errors` that D-P38-1 names: the root mean
-    # squares `x2` and `v2` and the `L∞` maxima `xmax` and `vmax`, each against time and against κ
-    # at `T`, `0.75T` and `0.5T`
-    chunks = split(src, "figure = plot_series")
-    @test length(chunks) > 1
-    plotting = join(chunks[2:end])
-    for component in ("x2", "v2", "xmax", "vmax")
-        @test occursin(component, plotting)
+    # squares `x2` and `v2` and the `L∞` maxima `xmax` and `vmax`, each against time
+    time_figures = ("position_error" => "x2[:, p]", "velocity_error" => "v2[:, p]",
+        "position_max" => "xmax[:, p]", "velocity_max" => "vmax[:, p]")
+    for (name, component) in time_figures
+        found = block(name)
+        @test length(found) == 1
+        isempty(found) && continue
+        @test occursin(component, first(found))
+    end
+
+    # ... and against κ at `T`, `0.75T` and `0.5T`, in the two figures that carry six series
+    kappa_figures = ("errors_vs_kappa" => ("x2", "v2"),
+        "max_errors_vs_kappa" => ("xmax", "vmax"))
+    for (name, components) in kappa_figures
+        found = block(name)
+        @test length(found) == 1
+        isempty(found) && continue
+        section = first(found)
+        for component in components
+            for time in ("iT", "imid", "ihalf")
+                @test occursin("$component[$time, :]", section)
+            end
+        end
     end
 
     # items 26 and 27 plot the paper's `W`, the energy of the plain field: a march stores the
