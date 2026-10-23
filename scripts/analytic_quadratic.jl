@@ -91,7 +91,8 @@ function march(step, z₀, saves)
     Z[:, 1] .= z₀
     for j in 1:saves
         Z[:, j + 1] .= step(Z[:, j])
-        all(isfinite, Z[:, j + 1]) || error("the reduced state is not finite at save $j")
+        all(isfinite, @view Z[:, j + 1]) ||
+            error("the reduced state is not finite at save $j")
     end
     return Z
 end
