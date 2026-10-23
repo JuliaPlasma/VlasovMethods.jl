@@ -35,7 +35,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   `ReducedElectricField` over one, built at another `χ` than `params.χ`. A march takes its one `χ`
   from `params.χ`, for the timestep and the field together, so a stored `χ` that differs would be
   discarded in silence. A `ScaledField` built at `params.χ`, where an integer `χ` equals its
-  float, and a plain field march as before.
+  float, and a plain field march as before. The message prints each value with `repr`, so a
+  `Float32` `0.1f0` against a `Float64` `0.1` reads as two values.
 
 - **`integrate_vp`.** The full-order leapfrog march, `reduced_integrate_vp` with no reduced basis
   and no cache: the same `Δt = IP.dt·χ`, the same save slots, and the same `X`, `V`, `Φ`, `W`, `K`
@@ -109,7 +110,7 @@ their own, except for what they removed and narrowed, which is listed in full be
   also writes the particle basis and the reduced data `X` and `A` that the HNN reads, with the
   commit, the command and the seed as attributes. `scripts/bump_on_tail_common.jl` holds what the
   three bump-on-tail scripts share, and `test/integration/bump_on_tail_scripts.jl` tests it.
-  `scripts/Project.toml` gains `ReducedComplexityModeling`.
+  `scripts/Project.toml` gains `ReducedComplexityModeling`, at the package's bound `0.1.1`.
 
 - **The docs page "The paper's examples"** says how to run the four scripts, and gives the paper
   command, the measured run time and the files of each.

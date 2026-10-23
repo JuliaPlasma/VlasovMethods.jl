@@ -6,7 +6,6 @@
 # its figures with CairoMakie, which the common file does not load.
 
 using HDF5
-using LinearAlgebra
 using PoissonSolvers
 using Random
 using ReducedBasisMethods: ReducedBasis, CotangentLiftEVD, PODEVD
@@ -119,6 +118,13 @@ end
     κ₂, _ = test_sweep(1)
     @test κ₂ != κ₁
     @test test_sweep(1234; n = 3)[1] |> length == 3
+
+    # The range is [0.1, 0.5] at both ends: 10⁴ uniform draws leave a gap of more than 10⁻³ at
+    # either end with a chance of about e⁻²⁵, so a sweep of a narrower range fails here.
+    κ₃, _ = test_sweep(1234; n = 10_000)
+    @test all(0.1 .≤ κ₃ .≤ 0.5)
+    @test minimum(κ₃) < 0.1 + 1e-3
+    @test maximum(κ₃) > 0.5 - 1e-3
 
     # the parameter space of a sweep holds `χ = κ/κ₀`, one sample per κ, in the order of a sorted κ
     space = parameter_space([0.15, 0.3, 0.6])
@@ -236,9 +242,22 @@ end
     @test occursin(string(o.particles), run_id(o))
 end
 
+"The value of the keyword `pages` of the call in `expr`, as the expression it parses to."
+function pages_argument(expr)
+    expr isa Expr || return nothing
+    expr.head === :kw && expr.args[1] === :pages && return expr.args[2]
+    for arg in expr.args
+        found = pages_argument(arg)
+        isnothing(found) || return found
+    end
+    return nothing
+end
+
 @testset "docs page" begin
-    make = read(joinpath(REPOSITORY, "docs", "make.jl"), String)
-    @test occursin("\"paper.md\"", make)
+    # the pages of the manual, from the parsed `docs/make.jl`, so a commented entry is not one
+    make = Meta.parseall(read(joinpath(REPOSITORY, "docs", "make.jl"), String))
+    pages = Core.eval(Module(), pages_argument(make))
+    @test "paper.md" in last.(pages)
 
     page = read(joinpath(REPOSITORY, "docs", "src", "paper.md"), String)
     for f in ("bump_on_tail_training.jl", "bump_on_tail_projections.jl",
