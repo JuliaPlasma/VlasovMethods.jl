@@ -35,7 +35,8 @@ using ReducedBasisMethods: CotangentLiftEVD, PODSVD, ReducedBasis, project, redu
 using ReducedComplexityModeling: Parameter, ParameterSpace
 using VlasovMethods
 
-# The parameters of §4's table, as `reference/Vlasov_Analytic.jl` draws them.
+# The parameters of §4's table: `β = 6` as the reference's two reduced forms take it, and the
+# initial condition as `reference/Vlasov_Analytic.jl` draws it.
 const BETA = 6.0            # the frequency of the harmonic potential
 const SIGMA_X = 10.0        # spread of the initial positions
 const SIGMA_V = 0.5         # spread of the bump's velocities
@@ -76,9 +77,9 @@ function analytic_states(q0, p0, ts)
 end
 
 "The reduced states `z` of `b` over `nchunks` chunks of `nsave` steps of `dt`, one state per
-chunk, the initial state first: the form `step` is `reduced_ode` with `RK4`, or `reduced_pode` with
-Lobatto IIIA–IIIB(2). The model is autonomous, so each chunk restarts the clock at zero and the
-physical time is tracked as the chunk index times the chunk's span."
+chunk, the initial state first: `reduced_ode` with `RK4` for `form = :ode`, and `reduced_pode`
+with Lobatto IIIA–IIIB(2) for `form = :pode`. The model is autonomous, so each chunk restarts
+the clock at zero and the physical time is tracked as the chunk index times the chunk's span."
 function reduced_states(form, b, h, z0, nchunks, nsave, dt)
     n = length(z0)
     Z = Matrix{Float64}(undef, n, nchunks + 1)
