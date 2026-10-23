@@ -15,7 +15,6 @@
 # would find the bare name ambiguous
 using HDF5
 using HDF5: attributes
-using LinearAlgebra
 using PoissonSolvers
 using Random
 using ReducedBasisMethods: ReducedBasis, h5save
@@ -205,7 +204,8 @@ which is not the notebook's rule of five monotone samples on each side. It is
 than two maxima leave no line to fit. A matrix `W` gives one rate per column.
 """
 function fit_growth_rate(t, W::AbstractVector)
-    # the maxima of `growth_rate` itself, so that the count and the fit find the same points
+    # The maxima of `growth_rate` itself, so that the count and the fit find the same points. The
+    # call of the internal `_find_maxima` is deliberate: no public function gives the count.
     m = min(4, length(VlasovMethods._find_maxima(W, 5)))
     m ≥ 2 || return NaN
     return growth_rate(t, W; window = 5, maxima = 1:m)
