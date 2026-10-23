@@ -57,7 +57,7 @@ of its spectrum: `--particle-tolerance` (`1e-9`) and `--field-tolerance` (`1e-5`
 
 - **Paper command:**
   `julia --project=scripts scripts/bump_on_tail_projections.jl --particle-tolerance 1e-9 --field-tolerance 1e-5`
-- **Measured run time:** 32 s, with the bases of `k = 205` particle vectors and `kₑ = 570` field
+- **Measured run time:** 34 s, with the bases of `k = 205` particle vectors and `kₑ = 570` field
   vectors.
 - **Writes:** in the runs directory, `<run id>_projections.h5`, the particle basis with the field
   basis in its group `field`, and `<run id>_vectorfield.h5`, the reduced positions `X` and
@@ -72,7 +72,7 @@ full-order model (HFM) and by the reduced model of the two bases with the DEIM f
 `--samples` (`10`) sets their number.
 
 - **Paper command:** `julia --project=scripts scripts/bump_on_tail_testing.jl`
-- **Measured run time:** 34 s.
+- **Measured run time:** 37 s.
 - **Writes:** in the results directory, `growth_rates.csv`, the growth rate of the field energy of
   each test sample, HFM and ROM, under the header `kappa,gamma_hfm,gamma_rom`, and the figures:
 
@@ -106,7 +106,7 @@ IIIA–IIIB(2). `--final-time` and `--saves` set the final time and the number o
 - **Paper command:**
   `julia --project=scripts scripts/analytic_quadratic.jl --final-time 1000 --saves 10000`.
   The default is `--final-time 100 --saves 1000`, a tenth of the paper's steps.
-- **Measured run time:** 128 s, with the defaults.
+- **Measured run time:** 135 s, with the defaults.
 - **Writes:** in the runs directory, `analytic_full.h5`, `analytic_ode_k5.h5` and
   `analytic_pode_k20.h5`, each with the saved times `t`, the positions `q`, the velocities `p` and
   the Hamiltonian `H` of every saved state, and the root attributes `dt` and `nsave`; the two
