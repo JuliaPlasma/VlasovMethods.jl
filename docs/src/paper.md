@@ -79,9 +79,10 @@ The default step is `0.05`: the growth-rate fit reads the first four maxima of t
 over a window of five saved states, and at `0.1` one of the ten drawn time scales resolves so
 coarsely that its fit turns negative. The script reads the particle basis that
 `bump_on_tail_projections.jl` wrote, so run that script first; it finds it as the runs directory's
-single `*_projections.h5`. It writes `growth_rates.csv` with one `κ, γ_HFM, γ_ROM` row per test
-sample, and the figures `item24_*`, `item25_*`, `item26_*`, `item27_*`, `item28_growth_rate.png`
-and `item29_particles_*.png`. The defaults take about 34 s.
+single `*_projections.h5`. It writes `growth_rates.csv`, whose header is
+`kappa,gamma_hfm,gamma_rom`, one row per test sample, and the figures `item24_*`,
+`item25_*`, `item26_*`, `item27_*`, `item28_growth_rate.png` and
+`item29_particles_*.png`. The defaults take about 34 s.
 
 ## The analytic quadratic model
 

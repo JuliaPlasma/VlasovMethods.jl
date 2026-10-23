@@ -552,3 +552,15 @@ takes the next `K<n>`.
   `Int` above about `2^62`. The docstring states this closed form, so no wider arithmetic is added.
 - **kind:** found late
 - **found:** 2026-10-17
+
+### K67 · `Bump` cannot be initialised: its `draw!` method binds the wrong `ParticleDistribution` parameters.
+
+- **location:** `src/examples/bump.jl:28`
+- **evidence:** The `draw!` method takes `ParticleDistribution{1, 1}`, whose parameters are the
+  element type and the position dimension, so no 1D1V distribution matches it:
+  `initialize!(ParticleDistribution(1, 1, 10), Bump())` throws
+  `MethodError: no method matching draw!(::ParticleDistribution{Float64, 1, 1, …})`. The same
+  defect in `src/examples/bumpontail.jl` is fixed by
+  `ParticleDistribution{T, 1, 1} … where {T}`, which this method can take as well.
+- **kind:** defect
+- **found:** 2026-10-23
