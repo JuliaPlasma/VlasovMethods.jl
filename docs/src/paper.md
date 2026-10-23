@@ -87,7 +87,8 @@ full-order model (HFM) and by the reduced model of the two bases with the DEIM f
 
   The growth rate is half the slope of the least-squares line of `log W` through the first four
   maxima of the field energy `W`, or through all of them when there are fewer, with a window of 5
-  saved states on each side of a maximum. A sample with fewer than two maxima has no rate, `NaN`.
+  saved states on each side of a maximum. A sample with fewer than two maxima has no rate, `NaN`,
+  and item 26 ranks only the samples that have one.
   The errors and the field energy are drawn on log axes, as the reference draws them; the errors
   from the first save on, because at `t = 0` they are those of the projection alone.
 
