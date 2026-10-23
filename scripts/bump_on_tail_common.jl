@@ -162,7 +162,7 @@ end
 Write the two files that the HNN reads: the particle basis `basis` into `projections`, with the
 field basis `field_basis` in its group `field` when one is given, and the reduced data `X` and `A`
 of [`reduced_data`](@ref) into `vectorfield`. Each file carries the root attributes `commit`,
-`command` and `seed`: the commit of VlasovMethods, the arguments of the driver and the seed of the
+`command` and `seed`: the commit of VlasovMethods, the command of the driver and the seed of the
 draw.
 """
 function write_p39_files(projections, vectorfield, basis, X, A; commit, command, seed,
