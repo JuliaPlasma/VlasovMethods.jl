@@ -166,7 +166,8 @@ coefficients(f::ScaledField) = coefficients(f.field)
 
 # The field of a march at the scale `χ` of its parameters, which are the one source of the scale. A
 # march would discard the `χ` of a `ScaledField`, so one built at another `χ` is refused and one
-# built at `χ` is the field the march takes; any other field is its own.
+# built at `χ` is the field the march takes, unless it is over a `ScaledField` (below); any other
+# field is its own.
 # `src/particles/electric_field.jl` gives a reduced field over a `ScaledField` the same rule.
 _with_scale(f::ElectricField, χ) = f
 function _with_scale(f::ScaledField, χ)
