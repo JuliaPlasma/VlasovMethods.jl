@@ -120,20 +120,28 @@ function fit_growth_rate(t, W)
 end
 
 """
-    fill_accelerations!(A, X, potential, χ, params, w)
+    fill_accelerations!(A, X, p, potential, χ, params, w)
 
-Write the accelerations of every saved state of the positions `X` into `A`, because
+Write the accelerations of sample `p` of the positions `X` into the same sample of `A`, because
 [`integrate_vp`](@ref) saves none: the positions of each saved state are deposited with the weights
 `w` into [`vp_field`](@ref)`(potential, (χ = χ,))` again, and the field it solves is written into
-the sample. The values are those of the scaled state, `E/χ²`, as the march's kicks are.
+the sample. The values are those of the scaled state, `E/χ²`, as the march's kicks are. The sample
+indexes the read and the write alike, so no array's shape stands for another's.
 
 The potential is left holding the solution of the last saved state.
+
+# Throws
+
+- `ArgumentError` when `X` and `A` do not hold the same number of saved states; the message names
+  both counts.
 """
-function fill_accelerations!(A, X, potential, χ, params, w)
+function fill_accelerations!(A, X, p, potential, χ, params, w)
+    size(X, 3) == size(A, 3) || throw(ArgumentError(
+        "the positions hold $(size(X, 3)) saved states and the accelerations $(size(A, 3))"))
+
     field = vp_field(potential, (χ = χ,))
     a = zeros(size(X, 2))
-    for p in axes(X, 4), ts in axes(X, 3)
-
+    for ts in axes(X, 3)
         x = @view X[1, :, ts, p]
         update!(field, x, w, (ts - 1) * params.dt)
         efield!(field, a, x)
@@ -170,7 +178,7 @@ function training_sweep(params; κ = TRAINING_KAPPA)
     end
 
     for p in eachindex(κ)
-        fill_accelerations!(SS.A, @view(SS.X[:, :, :, p:p]), potentials[p], χ[p], params,
+        fill_accelerations!(SS.A, SS.X, p, potentials[p], χ[p], params,
             vec(dist.particles.w))
     end
 

@@ -27,9 +27,9 @@ same particles and the same potential, marched at ten time scales. The three scr
 
 | script | writes | time |
 |:--|:--|--:|
-| `scripts/bump_on_tail_training.jl` | `<runid>.h5`: the ten training samples | 13 s |
-| `scripts/bump_on_tail_projections.jl` | `<runid>_projections.h5`, `<runid>_vectorfield.h5`, `item11_spectra.png` | 33 s |
-| `scripts/bump_on_tail_testing.jl` | `growth_rates.csv`, `item24_*`–`item29_*` figures | 34 s |
+| `scripts/bump_on_tail_training.jl` | `<runid>.h5`: the ten training samples | 14 s |
+| `scripts/bump_on_tail_projections.jl` | `<runid>_projections.h5`, `<runid>_vectorfield.h5`, `item11_spectra.png` | 34 s |
+| `scripts/bump_on_tail_testing.jl` | `growth_rates.csv`, `item24_*`–`item29_*` figures | 38 s |
 
 `<runid>` is a name the parameters produce — the particle and cell counts, the timestep, the final
 time and the wave-number range — such as `BoT_np10000_nh16_dt0p1_T25p0_k0p1-0p5`.
@@ -45,7 +45,7 @@ julia --project=scripts scripts/bump_on_tail_training.jl --np 10000 --nh 16 --or
     --dt 0.1 --final-time 25.0
 ```
 
-The default is that command, at about 13 s and a 600 MB file.
+The default is that command, at about 14 s and a 600 MB file.
 
 ### `scripts/bump_on_tail_projections.jl`
 
@@ -59,11 +59,11 @@ julia --project=scripts scripts/bump_on_tail_projections.jl --particle-tol 1e-9 
 ```
 
 At the paper's parameters — `--np 10000 --nh 16 --order 3 --dt 0.1 --final-time 25.0` with those
-two tolerances — it retains `k = 209` particle modes and `k = 250` field modes on the machine named
+two tolerances — it retains `k = 209` particle modes and `k = 750` field modes on the machine named
 above. It writes the particle basis and the field basis into `<runid>_projections.h5`, the reduced
 positions and accelerations of every saved state into `<runid>_vectorfield.h5`, each with the root
 attributes `commit`, `command` and `seed`, and the particle and field spectra to
-`item11_spectra.png`. The default is the command above, at about 33 s.
+`item11_spectra.png`. The default is the command above, at about 34 s.
 
 ### `scripts/bump_on_tail_testing.jl`
 
@@ -82,7 +82,7 @@ coarsely that its fit turns negative. The script reads the particle basis that
 single `*_projections.h5`. It writes `growth_rates.csv`, whose header is
 `kappa,gamma_hfm,gamma_rom`, one row per test sample, and the figures `item24_*`,
 `item25_*`, `item26_*`, `item27_*`, `item28_growth_rate.png` and
-`item29_particles_*.png`. The defaults take about 34 s.
+`item29_particles_*.png`. The defaults take about 38 s.
 
 ## The analytic quadratic model
 

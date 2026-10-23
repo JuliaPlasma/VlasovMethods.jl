@@ -109,6 +109,52 @@ end
     @test issorted(TRAINING_KAPPA)
 end
 
+@testset "training sweep" begin
+    # one particle set and one potential marched at two time scales: the sample index has to reach
+    # the write as well as the read, or every sample's accelerations land in the first
+    params = (
+        np = 100, nh = 4, order = 3, dt = 0.5, T = 1.0, κlo = 0.1, κhi = 0.5, seed = 1234)
+    sweep = training_sweep(params; κ = [0.1, 0.5])
+    SS = sweep.snapshots
+    nₛ = step_count(params.T, params.dt) + 1
+    @test size(SS.X) == (1, params.np, nₛ, 2)
+    @test size(SS.A) == size(SS.X)
+
+    # every sample holds accelerations of its own ...
+    for p in axes(SS.A, 4)
+        @test any(!iszero, @view SS.A[:, :, :, p])
+    end
+    # ... and two time scales of one particle set are two histories
+    @test SS.A[:, :, :, 1] != SS.A[:, :, :, 2]
+
+    # and each is the field of its own scale: its own positions, deposited with its own weights
+    # into `E/χ²`, at every saved time
+    w = vec(sweep.particles.particles.w)
+    a = zeros(params.np)
+    for p in axes(SS.A, 4)
+        field = vp_field(sweep.potentials[p], (χ = sweep.chi[p],))
+        for ts in axes(SS.X, 3)
+            x = @view SS.X[1, :, ts, p]
+            update!(field, x, w, (ts - 1) * params.dt)
+            efield!(field, a, x)
+            @test vec(SS.A[1, :, ts, p]) == a
+        end
+    end
+
+    # a positions history of another step count is refused, and the message names both counts
+    X2 = zeros(1, params.np, 2, 1)
+    A3 = zeros(1, params.np, 3, 1)
+    @test_throws ArgumentError fill_accelerations!(
+        A3, X2, 1, sweep.potentials[1], sweep.chi[1], params, w)
+    msg = try
+        fill_accelerations!(A3, X2, 1, sweep.potentials[1], sweep.chi[1], params, w)
+        ""
+    catch e
+        sprint(showerror, e)
+    end
+    @test occursin("the positions hold 2 saved states and the accelerations 3", msg)
+end
+
 @testset "growth rate" begin
     # the reference's `W` of cell 36: an exponential of `γ = 0.05` that is flat after its fourth
     # maximum, on a window of five samples
@@ -259,6 +305,12 @@ end
             end
         end
     end
+
+    # the three saved times those figures index are `T` and the saved states nearest `0.75T` and
+    # `0.5T`, from one line above them: the blocks hold the names, so the definition is what has
+    # to hold the three indices
+    @test count(==("iT, imid, ihalf = nₛ, div(3 * (nₛ - 1), 4) + 1, div(nₛ - 1, 2) + 1"),
+        strip.(split(src, '\n'))) == 1
 
     # items 26 and 27 plot the paper's `W`, the energy of the plain field: a march stores the
     # energy of the scaled field, `W/χ²`, and the script multiplies it back
