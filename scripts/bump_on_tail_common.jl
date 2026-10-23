@@ -167,20 +167,29 @@ draw.
 """
 function write_p39_files(projections, vectorfield, basis, X, A; commit, command, seed,
         field_basis = nothing)
+    size(A) == size(X) || throw(DimensionMismatch(
+        "the reduced accelerations are of size $(size(A)); the positions of size $(size(X))"))
+    size(X, 1) == basis.k || throw(DimensionMismatch(
+        "the reduced data hold $(size(X, 1)) coefficients; the basis holds k = $(basis.k)"))
     h5open(projections, "w") do io
         h5save(io, basis)
         field_basis === nothing || h5save(io, field_basis; path = "field")
-        _write_provenance(io, commit, command, seed)
+        write_provenance(io, commit, command, seed)
     end
     h5open(vectorfield, "w") do io
         io["X"] = X
         io["A"] = A
-        _write_provenance(io, commit, command, seed)
+        write_provenance(io, commit, command, seed)
     end
     return projections, vectorfield
 end
 
-function _write_provenance(io, commit, command, seed)
+"""
+    write_provenance(io, commit, command, seed)
+
+Write the root attributes `commit`, `command` and `seed` of the open HDF5 file `io`.
+"""
+function write_provenance(io, commit, command, seed)
     attributes(io)["commit"] = commit
     attributes(io)["command"] = command
     attributes(io)["seed"] = seed
@@ -188,11 +197,20 @@ function _write_provenance(io, commit, command, seed)
 end
 
 """
-    git_commit()
+    git_commit(root = <the checkout that holds this file>)
 
-The commit of the VlasovMethods checkout that holds this file, `git rev-parse HEAD`.
+The commit of the git checkout at `root`, `git rev-parse HEAD`. A directory that is no checkout
+throws, so no file records a commit it cannot name.
 """
-git_commit() = readchomp(`git -C $(dirname(@__DIR__)) rev-parse HEAD`)
+git_commit(root = dirname(@__DIR__)) = readchomp(`git -C $root rev-parse HEAD`)
+
+"""
+    command_line()
+
+The command of the running driver: its file name and its arguments, so that the default run, which
+has no arguments, still names its script.
+"""
+command_line() = join([basename(PROGRAM_FILE); ARGS], " ")
 
 """
     fit_growth_rate(t, W)

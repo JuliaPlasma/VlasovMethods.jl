@@ -33,7 +33,7 @@ function main(o)
 
     X, A = reduced_data(particles, SS)
     write_p39_files(runs_path(id * "_projections.h5"), runs_path(id * "_vectorfield.h5"),
-        particles, X, A; commit = git_commit(), command = join(ARGS, " "), seed = o.seed,
+        particles, X, A; commit = git_commit(), command = command_line(), seed = o.seed,
         field_basis = field)
 
     save(results_path("item11_particle_spectrum.png"),

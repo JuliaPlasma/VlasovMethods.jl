@@ -26,6 +26,22 @@ function log_scale!(fig)
     return fig
 end
 
+"""
+    hfm_rom!(fig, n)
+
+The figure `fig` of `plot_series` over `2n` unlabelled series, the `n` of the full-order model
+first, with one colour and one legend entry per model, as the reference draws all samples at once.
+"""
+function hfm_rom!(fig, n)
+    ax = only(c for c in fig.content if c isa Axis)
+    colours = [(:blue, 0.5), (:orange, 0.5)]
+    for (i, line) in enumerate(filter(p -> p isa Lines, ax.scene.plots))
+        line.color = colours[i ≤ n ? 1 : 2]
+    end
+    axislegend(ax, [LineElement(color = c) for c in colours], ["HFM", "ROM"])
+    return fig
+end
+
 function main(o)
     Φ, Ψₑ = h5open(runs_path(run_id(o) * "_projections.h5"), "r") do io
         ReducedBasis(io).Φ, ReducedBasis(io, "field").Φ
@@ -54,9 +70,15 @@ function main(o)
     end
 
     t = IP.t
+    n = length(κ)
     samples = ["κ = $(round(k; digits = 3))" for k in κ]
-    hfm_rom = vcat("HFM, " .* samples, "ROM, " .* samples)
     columns(M) = collect(eachcol(M))
+    γ_hfm = fit_growth_rate(t, HFM.W)
+    γ_rom = fit_growth_rate(t, ROM.W)
+
+    # The errors from the first save on, on log axes as in the reference: at t = 0 they are those
+    # of the projection of the initial particles alone, and a log axis cannot draw a zero.
+    later = 2:length(t)
 
     # item 24: the trajectory errors against time, and against κ at T, 0.75T and 0.5T
     errors = trajectory_errors(HFM.X[1, :, :, :], HFM.V[1, :, :, :],
@@ -64,32 +86,50 @@ function main(o)
     at = saved_indices(IP.nₛ)
     for q in keys(errors)
         save(results_path("item24_$(q)_time.png"),
-            plot_series(t, columns(errors[q]); labels = samples, ylabel = string(q)))
+            log_scale!(plot_series(
+                t[later], columns(errors[q][later, :]); labels = samples,
+                ylabel = string(q))))
         save(results_path("item24_$(q)_kappa.png"),
-            plot_series(κ, [errors[q][i, :] for i in at];
-                labels = ["t = $(t[i])" for i in at], xlabel = "κ", ylabel = string(q)))
+            log_scale!(plot_series(κ, [errors[q][i, :] for i in at];
+                labels = ["t = $(t[i])" for i in at], xlabel = "κ", ylabel = string(q))))
     end
 
     # item 25: the absolute error of the potential against time
     save(results_path("item25_potential_error.png"),
-        plot_series(t, columns(potential_error(HFM.Φ, ROM.Φ)); labels = samples,
-            ylabel = "‖Φ_ROM − Φ_HFM‖"))
+        log_scale!(plot_series(t[later], columns(potential_error(HFM.Φ, ROM.Φ)[later, :]);
+            labels = samples, ylabel = "‖Φ_ROM − Φ_HFM‖")))
 
-    # item 26: the field energy, HFM against ROM
+    # item 26: the field energy, HFM against ROM, of every sample, and of the samples whose growth
+    # rates agree best and worst
     save(results_path("item26_field_energy.png"),
-        log_scale!(plot_series(t, vcat(columns(HFM.W), columns(ROM.W)); labels = hfm_rom,
-            ylabel = "W")))
+        hfm_rom!(
+            log_scale!(plot_series(t, vcat(columns(HFM.W), columns(ROM.W));
+                ylabel = "W")), n))
+    # a sample whose energy has fewer than two maxima has no rate, and no rank
+    finite = findall(p -> isfinite(γ_hfm[p]) && isfinite(γ_rom[p]), 1:n)
+    ranked = isempty(finite) ? Int[] :
+             finite[[best_and_worst(γ_hfm[finite], γ_rom[finite])...]]
+    for (case, p) in zip(("best", "worst"), ranked)
+        save(results_path("item26_field_energy_$(case).png"),
+            log_scale!(plot_series(t, (HFM.W[:, p], ROM.W[:, p]);
+                labels = ["HFM, " * samples[p], "ROM, " * samples[p]], ylabel = "W")))
+    end
 
-    # item 27: the energy and its relative drift, HFM against ROM
+    # item 27: the energy and its relative drift, HFM against ROM, and the size of the drift
+    # against κ at T, 0.75T and 0.5T
     H = hcat(HFM.K .+ HFM.W, ROM.K .+ ROM.W)
+    drift = reduce(hcat, energy_drift.(columns(H)))
     save(results_path("item27_energy.png"),
-        plot_series(t, columns(H); labels = hfm_rom, ylabel = "H"))
+        hfm_rom!(plot_series(t, columns(H); ylabel = "H"), n))
     save(results_path("item27_energy_drift.png"),
-        plot_series(t, energy_drift.(columns(H)); labels = hfm_rom, ylabel = "ΔH/H"))
+        hfm_rom!(plot_series(t, columns(drift); ylabel = "ΔH/H"), n))
+    save(results_path("item27_energy_drift_kappa.png"),
+        log_scale!(plot_series(κ,
+            [abs.(drift[i, m]) for m in (1:n, (n + 1):(2n)) for i in at];
+            labels = ["$(model), t = $(t[i])" for model in ("HFM", "ROM") for i in at],
+            xlabel = "κ", ylabel = "|ΔH/H|")))
 
     # item 28: the growth rate against κ, with the fit of the reference
-    γ_hfm = fit_growth_rate(t, HFM.W)
-    γ_rom = fit_growth_rate(t, ROM.W)
     save(results_path("item28_growth_rate.png"),
         plot_series(κ, (γ_hfm, γ_rom); labels = ["HFM", "ROM"], xlabel = "κ", ylabel = "γ"))
     open(results_path("growth_rates.csv"), "w") do io

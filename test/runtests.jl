@@ -37,4 +37,5 @@ end
 if "slow" in GROUPS
     @safetestset "Reduced March at T = 1000" include("verification/time_marching.jl")
     @safetestset "Reduced Equations at T = 1000" include("verification/reduced_equations.jl")
+    @safetestset "Bump-on-tail Runs" include("integration/bump_on_tail_runs.jl")
 end

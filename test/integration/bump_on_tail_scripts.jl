@@ -2,8 +2,8 @@
 # holds so that this file can include it: the field of a march, the sweeps and the step count, the
 # growth-rate fit of the reference, and the writer of the two files that the HNN reads. It also
 # reads the drivers and the docs as text, for what no function of theirs can show: the one place a
-# scaled field is built, the output paths, and the docs page. No driver runs here; a driver writes
-# its figures with CairoMakie, which the common file does not load.
+# scaled field is built, the output paths, and the docs page. No driver runs here:
+# `bump_on_tail_runs.jl` runs them, in the group `slow`.
 
 using HDF5
 using PoissonSolvers
@@ -236,6 +236,14 @@ end
             commit = commit, command = "", seed = 7, field_basis = fields)
         @test ReducedBasis(projections).Φ == basis.Φ
         @test ReducedBasis(projections, "field").Φ == fields.Φ
+
+        # the reduced data must match each other and the basis
+        @test_throws "the reduced accelerations are of size (3, 3, 2)" write_p39_files(
+            projections, vectorfield, basis, X, A[:, 1:3, :];
+            commit = commit, command = "", seed = 7)
+        @test_throws "the basis holds k = 3" write_p39_files(
+            projections, vectorfield, basis, X[1:2, :, :], A[1:2, :, :];
+            commit = commit, command = "", seed = 7)
     end
 
     # the run id comes from the parameters
@@ -243,6 +251,20 @@ end
     @test run_id(o) != run_id(merge(o, (; particles = 1000)))
     @test run_id(o) != run_id(merge(o, (; seed = 1)))
     @test occursin(string(o.particles), run_id(o))
+end
+
+@testset "commit" begin
+    # the commit of a checkout, read in a new repository of one commit, and an error outside one
+    mktempdir() do dir
+        git = `git -C $dir -c user.name=test -c user.email=test@example.org`
+        run(`$git init --quiet`)
+        run(`$git commit --quiet --allow-empty -m fixture`)
+        commit = git_commit(dir)
+        @test commit == readchomp(`$git rev-parse HEAD`)
+        @test occursin(r"^[0-9a-f]{40}$", commit)
+    end
+    @test_throws ProcessFailedException git_commit(mktempdir())
+    @test git_commit() == readchomp(`git -C $REPOSITORY rev-parse HEAD`)
 end
 
 "The value of the keyword `pages` of the call in `expr`, as the expression it parses to."
@@ -262,10 +284,15 @@ end
     pages = Core.eval(Module(), pages_argument(make))
     @test "paper.md" in last.(pages)
 
+    # each script has its own section, which gives its paper command, its run time and its files
     page = read(joinpath(REPOSITORY, "docs", "src", "paper.md"), String)
+    sections = split(page, r"^#+ "m)
     for f in ("bump_on_tail_training.jl", "bump_on_tail_projections.jl",
         "bump_on_tail_testing.jl", "analytic_quadratic.jl")
-        @test occursin(f, page)
+        section = only(s for s in sections if startswith(s, "`$f`"))
+        @test occursin("julia --project=scripts scripts/$f", section)
+        @test occursin(r"\*\*Measured run time:\*\* \d+ s", section)
+        @test occursin(r"\*\*Writes:\*\*.*\.(h5|png)"s, section)
     end
     @test !occursin("@example", page)
     @test !occursin("@eval", page)

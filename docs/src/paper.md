@@ -23,7 +23,11 @@ root of the repository, which git ignores. A flag that a script does not know st
 julia --project=scripts scripts/bump_on_tail_training.jl --runs-dir /tmp/runs --results-dir /tmp/results
 ```
 
-Each figure is a PNG named `item<NN>_<what>.png`, after the item of the paper that it draws.
+Each figure is a PNG named `item<NN>_<what>.png`, after the item of the paper that it draws. A
+figure plots the quantity of its item at the script's parameters. It does not reproduce the
+paper's numbers: the paper's draws ran on Julia 1.3.1, and no value is pinned against them. Every
+HDF5 file carries the root attributes `commit`, the commit of VlasovMethods that wrote it, and
+`command`, the script and its arguments.
 
 ## The bump-on-tail problem
 
@@ -42,7 +46,8 @@ The training sweep: the full-order march of the ten wave numbers `κ` evenly spa
 - **Paper command:** `julia --project=scripts scripts/bump_on_tail_training.jl`
 - **Measured run time:** 15 s.
 - **Writes:** `<run id>.h5` in the runs directory, the snapshots of the sweep with the
-  accelerations of every saved state, and the integrator parameters in its group `integrator`.
+  accelerations of every saved state, and the integrator parameters in its group `integrator`,
+  with the root attribute `seed` beside `commit` and `command`.
 
 ### `bump_on_tail_projections.jl`
 
@@ -75,14 +80,16 @@ full-order model (HFM) and by the reduced model of the two bases with the DEIM f
   |:--|:--|:--|
   | 24 | `item24_<error>_time.png`, `item24_<error>_kappa.png` | the four trajectory errors `x2`, `xmax`, `v2` and `vmax` against time for every sample, and against `κ` at `T`, `0.75T` and `0.5T` |
   | 25 | `item25_potential_error.png` | the absolute error of the potential against time |
-  | 26 | `item26_field_energy.png` | the field energy, HFM against ROM |
-  | 27 | `item27_energy.png`, `item27_energy_drift.png` | the energy and its relative drift, HFM against ROM |
+  | 26 | `item26_field_energy.png`, `item26_field_energy_best.png`, `item26_field_energy_worst.png` | the field energy, HFM against ROM, of every sample, and of the samples whose growth rates agree best and worst |
+  | 27 | `item27_energy.png`, `item27_energy_drift.png`, `item27_energy_drift_kappa.png` | the energy and its relative drift, HFM against ROM, and the size of the drift against `κ` at `T`, `0.75T` and `0.5T` |
   | 28 | `item28_growth_rate.png` | the growth rate against `κ`, HFM and ROM |
   | 29 | `item29_particles_t0.png`, `item29_particles_T_hfm.png`, `item29_particles_T_rom.png` | the particles of the sample nearest `κ₀`, at `t = 0` and, HFM and ROM, at `T` |
 
   The growth rate is half the slope of the least-squares line of `log W` through the first four
   maxima of the field energy `W`, or through all of them when there are fewer, with a window of 5
-  saved states on each side of a maximum.
+  saved states on each side of a maximum. A sample with fewer than two maxima has no rate, `NaN`.
+  The errors and the field energy are drawn on log axes, as the reference draws them; the errors
+  from the first save on, because at `t = 0` they are those of the projection alone.
 
 ## The analytic quadratic model
 
@@ -103,7 +110,10 @@ IIIA–IIIB(2). `--final-time` and `--saves` set the final time and the number o
   `analytic_pode_k20.h5`, each with the saved times `t`, the positions `q`, the velocities `p` and
   the Hamiltonian `H` of every saved state, and the root attributes `dt` and `nsave`; the two
   reduced files also hold the reduced states `z`. In the results directory, the two spectra of the
-  training set: `item11_analytic_pod_spectrum.png` and `item11_analytic_cotangent_spectrum.png`.
+  training set, `item11_analytic_pod_spectrum.png` and `item11_analytic_cotangent_spectrum.png`;
+  the errors of both reduced forms against the closed form, `item24_analytic_x.png` and
+  `item24_analytic_v.png`; and their energy drift, `item27_analytic_energy_drift.png`. A reduced
+  state that is not finite stops the run with an error.
 
 ## How the run times were measured
 

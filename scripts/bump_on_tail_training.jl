@@ -8,8 +8,8 @@
 #     julia --project=scripts scripts/bump_on_tail_training.jl
 #
 # Writes `runs_path("<run id>.h5")`: the snapshots of the sweep, with their accelerations, and the
-# integrator parameters in the group `integrator`. `bump_on_tail_projections.jl` reads it, with the
-# same options.
+# integrator parameters in the group `integrator`, with the root attributes `commit`, `command` and
+# `seed`. `bump_on_tail_projections.jl` reads it, with the same options.
 
 include("options.jl")
 include("bump_on_tail_common.jl")
@@ -37,6 +37,7 @@ function main(o)
     h5open(file, "w") do io
         h5save(io, SS)
         h5save(io, IP; path = "integrator")
+        write_provenance(io, git_commit(), command_line(), o.seed)
     end
     println("wrote ", file)
     return nothing

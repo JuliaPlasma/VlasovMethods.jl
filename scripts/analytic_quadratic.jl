@@ -19,7 +19,9 @@
 # Writes into `runs_path`: `analytic_full.h5`, `analytic_ode_k5.h5` and `analytic_pode_k20.h5`,
 # each with the saved times `t`, the positions `q` and the velocities `p` of every saved state, and
 # its Hamiltonian `H`; the reduced files also hold the reduced states `z`. Each has the root
-# attributes `dt` and `nsave`. Draws the two spectra of the training set into `results_path`.
+# attributes `dt`, `nsave`, `commit` and `command`. Draws into `results_path` the two spectra of
+# the training set (item 11), the errors of the two reduced forms against the closed form (item
+# 24) and their energy drift (item 27).
 
 include("options.jl")
 
@@ -33,7 +35,7 @@ using Random
 using ReducedBasisMethods: ReducedBasis, PODSVD, CotangentLiftSVD, lift, project,
                            reduced_ode, reduced_pode, spectrumplot
 using ReducedComplexityModeling: Parameter, ParameterSpace
-using VlasovMethods: AnalyticHamiltonian
+using VlasovMethods: AnalyticHamiltonian, energy_drift, plot_series, trajectory_errors
 
 const OPT = parse_arguments(ARGS; final_time = 100.0, saves = 1000, particles = 1000)
 
@@ -61,10 +63,19 @@ function solution(β, q₀, p₀, t)
             p₀ .* cos.(β .* t') .- (β .* q₀) .* sin.(β .* t')]
 end
 
-"The number of steps of `dt` between two saves, which must be a whole number."
+"""
+The number of steps of `dt` between two saves, which must be a whole number. The ratio
+`final_time/(saves·dt)` carries four roundings, of the decimal `final_time`, of the decimal `dt`,
+of the product and of the quotient, each at most `eps/2` relative, so a ratio within `2eps`
+relative of a whole number is that number.
+"""
 function steps_per_save(o, dt)
-    nsave = round(Int, o.final_time / (o.saves * dt))
-    isapprox(nsave * o.saves * dt, o.final_time; rtol = 1e-12) || throw(ArgumentError(
+    o.saves ≥ 1 && isfinite(o.final_time) && o.final_time > 0 || throw(ArgumentError(
+        "a run saves at least once to a finite final time above zero; got $(o.saves) saves " *
+        "to $(o.final_time)"))
+    ratio = o.final_time / (o.saves * dt)
+    nsave = round(Int, ratio)
+    nsave ≥ 1 && abs(ratio - nsave) ≤ 2 * eps(Float64) * nsave || throw(ArgumentError(
         "the final time $(o.final_time) is not $(o.saves) saves of a whole number of steps " *
         "of $dt"))
     return nsave
@@ -73,16 +84,20 @@ end
 """
 The march of a reduced form in `saves` chunks of `nsave` steps, of which the last state of each is
 saved: `step(z)` integrates one chunk from `z` and returns its last state. The model is autonomous,
-so every chunk restarts the clock at zero.
+so every chunk restarts the clock at zero. A state that is not finite stops the run.
 """
 function march(step, z₀, saves)
     Z = zeros(length(z₀), saves + 1)
     Z[:, 1] .= z₀
     for j in 1:saves
         Z[:, j + 1] .= step(Z[:, j])
+        all(isfinite, Z[:, j + 1]) || error("the reduced state is not finite at save $j")
     end
     return Z
 end
+
+"The Hamiltonian `h` of every column of the stacked states `x`."
+energies(h, x) = [h(0.0, c, NamedTuple()) for c in eachcol(x)]
 
 "Write one result: the times, the lifted states, the Hamiltonian, and any other dataset."
 function write_result(file, t, x, h; dt, nsave, datasets...)
@@ -91,27 +106,35 @@ function write_result(file, t, x, h; dt, nsave, datasets...)
         io["t"] = collect(t)
         io["q"] = x[1:n, :]
         io["p"] = x[(n + 1):end, :]
-        io["H"] = [h(0.0, c, NamedTuple()) for c in eachcol(x)]
+        io["H"] = energies(h, x)
         for (name, value) in pairs(datasets)
             io[string(name)] = value
         end
         attributes(io)["dt"] = dt
         attributes(io)["nsave"] = nsave
+        attributes(io)["commit"] = readchomp(`git -C $(dirname(@__DIR__)) rev-parse HEAD`)
+        attributes(io)["command"] = join([basename(PROGRAM_FILE); ARGS], " ")
     end
     println("wrote ", file)
 end
 
-function main(o)
-    t = range(0, o.final_time; length = o.saves + 1)
-    q₀, p₀ = initial_condition(o.particles)
-    h = AnalyticHamiltonian(TEST_β)
+"The axis of a figure of `plot_series`, on a log scale."
+function log_scale!(fig)
+    only(c for c in fig.content if c isa Axis).yscale = log10
+    return fig
+end
 
+function main(o)
     # the full model, saved every `nsave` steps of `DT_FULL`
     nsave_full = steps_per_save(o, DT_FULL)
     nsave_full ≥ 10 || throw(ArgumentError(
         "the full model saves every $(nsave_full) steps; it saves every 10th step at most"))
-    write_result(runs_path("analytic_full.h5"), t, solution(TEST_β, q₀, p₀, t), h;
-        dt = DT_FULL, nsave = nsave_full)
+    t = range(0, o.final_time; length = o.saves + 1)
+    q₀, p₀ = initial_condition(o.particles)
+    h = AnalyticHamiltonian(TEST_β)
+    full = solution(TEST_β, q₀, p₀, t)
+    write_result(
+        runs_path("analytic_full.h5"), t, full, h; dt = DT_FULL, nsave = nsave_full)
 
     # the bases of the training set at the saved times
     S = reduce(hcat, [solution(β, q₀, p₀, t) for β in TRAINING_β])
@@ -130,7 +153,8 @@ function main(o)
 
     ode(z) = integrate(reduced_ode(pod, h, span, DT_REDUCED, z), RK4()).q[end]
     Z = march(ode, project(pod, x₀), o.saves)
-    write_result(runs_path("analytic_ode_k5.h5"), t, lift(pod, Z), h;
+    x_ode = lift(pod, Z)
+    write_result(runs_path("analytic_ode_k5.h5"), t, x_ode, h;
         dt = DT_REDUCED, nsave = nsave, z = Z)
 
     function pode(z)
@@ -140,8 +164,29 @@ function main(o)
         return vcat(sol.q[end], sol.p[end])
     end
     Z = march(pode, project(cotangent, x₀), o.saves)
-    write_result(runs_path("analytic_pode_k20.h5"), t, lift(cotangent, Z), h;
+    x_pode = lift(cotangent, Z)
+    write_result(runs_path("analytic_pode_k20.h5"), t, x_pode, h;
         dt = DT_REDUCED, nsave = nsave, z = Z)
+
+    # Items 24 and 27 from the first save on, on log axes: at t = 0 the errors are those of the
+    # projection alone, and the drift is zero, which a log axis cannot draw.
+    n = o.particles
+    later = 2:length(t)
+    halves(x) = (reshape(x[1:n, later], n, :, 1), reshape(x[(n + 1):end, later], n, :, 1))
+    forms = ("ODE, k = 5" => x_ode, "PODE, k = 20" => x_pode)
+    errors = [form => trajectory_errors(halves(full)..., halves(x)...)
+              for (form, x) in forms]
+    for (q, name) in ((:x, "positions"), (:v, "velocities"))
+        save(results_path("item24_analytic_$(q).png"),
+            log_scale!(plot_series(t[later],
+                [vec(e[Symbol(q, k)]) for (_, e) in errors for k in (2, :max)];
+                labels = ["$(form), $(q)$(k)" for (form, _) in errors for k in (2, :max)],
+                ylabel = "error of the $(name)")))
+    end
+    save(results_path("item27_analytic_energy_drift.png"),
+        log_scale!(plot_series(t[later],
+            [abs.(energy_drift(energies(h, x))[later]) for (_, x) in forms];
+            labels = collect(first.(forms)), ylabel = "|ΔH/H|")))
     return nothing
 end
 

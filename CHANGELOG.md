@@ -106,11 +106,15 @@ their own, except for what they removed and narrowed, which is listed in full be
   closed form and its ODE and PODE reduced forms. They are ported from the `bump_on_tail_*.jl`
   scripts and the `reference/` files of ReducedBasisMethods onto the marches, the diagnostics and
   the plots of this package. Every script writes into `--runs-dir` and `--results-dir`, and names
-  each figure `item<NN>_<what>.png` after the item of the paper it draws. The projections script
-  also writes the particle basis and the reduced data `X` and `A` that the HNN reads, with the
-  commit, the command and the seed as attributes. `scripts/bump_on_tail_common.jl` holds what the
-  three bump-on-tail scripts share, and `test/integration/bump_on_tail_scripts.jl` tests it.
-  `scripts/Project.toml` gains `ReducedComplexityModeling`, at the package's bound `0.1.1`.
+  each figure `item<NN>_<what>.png` after the item of the paper it draws, on the axes of the
+  reference notebooks. The projections script also writes the particle basis and the reduced data
+  `X` and `A` that the HNN reads. Every HDF5 file records the commit and the command that wrote
+  it as attributes, and a bump-on-tail file also the seed. `scripts/bump_on_tail_common.jl` holds
+  what the three bump-on-tail scripts share, and `test/integration/bump_on_tail_scripts.jl` tests
+  it; `test/integration/bump_on_tail_runs.jl`, in the group `slow`, runs the four scripts at
+  small options. `scripts/Project.toml` gains `ReducedComplexityModeling`, at the package's bound
+  `0.1.1`. The bound of `ReducedBasisMethods` rises from `0.2.1` to `0.2.2`, the first release with
+  `spectrumplot`, which the scripts call.
 
 - **The docs page "The paper's examples"** says how to run the four scripts, and gives the paper
   command, the measured run time and the files of each.
