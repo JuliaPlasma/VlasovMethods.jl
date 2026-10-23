@@ -45,8 +45,17 @@ function pngs(dir, prefix)
              filesize(joinpath(dir, f)) > 0, readdir(dir))
 end
 
+"""
+The ignored and untracked files of the checkout, `git status --porcelain --ignored`, without the
+`.cov` files that a run with coverage writes beside every source file each process loads.
+"""
+function checkout_status()
+    status = readlines(`git -C $REPOSITORY status --porcelain --ignored`)
+    return filter(line -> !endswith(line, ".cov"), status)
+end
+
 const COMMIT = readchomp(`git -C $REPOSITORY rev-parse HEAD`)
-const STATUS = read(`git -C $REPOSITORY status --porcelain --ignored`, String)
+const STATUS = checkout_status()
 
 mktempdir() do dir
     runs, results = joinpath(dir, "runs"), joinpath(dir, "results")
@@ -127,5 +136,5 @@ mktempdir() do dir
 end
 
 @testset "the checkout is unchanged" begin
-    @test read(`git -C $REPOSITORY status --porcelain --ignored`, String) == STATUS
+    @test checkout_status() == STATUS
 end
