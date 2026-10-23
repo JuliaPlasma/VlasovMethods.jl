@@ -68,9 +68,10 @@ of its spectrum: `--particle-tolerance` (`1e-9`) and `--field-tolerance` (`1e-5`
 ### `bump_on_tail_testing.jl`
 
 The test sweep: ten wave numbers drawn uniform in `[0.1, 0.5]` after the seed, each marched by the
-full-order model (HFM) and by two reduced models of the two bases (ROM): one with the DEIM field,
-which the reference's testing script marches, and one with the full field of the lifted particles,
-which the reference keeps commented out beside it. `--samples` (`10`) sets their number.
+full-order model (HFM) and by two reduced models of the particle basis (ROM): one with the DEIM
+field of the field basis, which the reference's testing script marches, and one with the full
+field of the lifted particles, which the reference keeps commented out beside it. `--samples`
+(`10`) sets their number.
 
 - **Paper command:** `julia --project=scripts scripts/bump_on_tail_testing.jl`
 - **Measured run time:** 43 s.

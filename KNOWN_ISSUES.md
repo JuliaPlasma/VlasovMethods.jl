@@ -568,7 +568,7 @@ takes the next `K<n>`.
 - **location:** `ext/VlasovMethodsMakieExt.jl:128`, `plot_series`
 - **evidence:** at the default figure size of `600 × 450`, the legend of 20 labelled series is
   481 px high in an axis of 375 px, on `05431f10`; 10 series give 251 px.
-  `scripts/bump_on_tail_testing.jl` draws its 20-series figures of items 26 and 27 without
+  `scripts/bump_on_tail_testing.jl` draws its 30-series figures of items 26 and 27 without
   labels and adds a legend of one entry per model. Its figures of items 24 and 25 label one series
   per sample, so at the default of 10 samples no figure of the scripts shows the overflow.
 - **kind:** found late
