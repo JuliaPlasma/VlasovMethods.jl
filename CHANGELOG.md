@@ -109,11 +109,11 @@ their own, except for what they removed and narrowed, which is listed in full be
   `bump_on_tail_projections.jl` and `bump_on_tail_testing.jl` are the bump-on-tail example set —
   the ten time scales of the paper's training sweep, the reduced bases of its projections at the
   notebook's tolerances, and the test sweep with its errors, energies and growth rates — and
-  `scripts/analytic_quadratic.jl` is the analytic quadratic model in its two reduced forms. They
-  share `scripts/bump_on_tail_common.jl`, take their output directories from `--runs-dir` and
-  `--results-dir`, so that a clean checkout stays clean, and draw the figures of the paper's
-  quantities. `bump_on_tail_projections.jl` also writes the two HDF5 files that the neural-network
-  part of the plan reads.
+  `scripts/analytic_quadratic.jl` is the analytic quadratic model in its two reduced forms. The
+  three bump-on-tail scripts share `scripts/bump_on_tail_common.jl`; each of the four takes its
+  output directories from `--runs-dir` and `--results-dir`, so that a clean checkout stays clean,
+  and draws the figures of the paper's quantities. `bump_on_tail_projections.jl` also writes the
+  two HDF5 files that the neural-network part of the plan reads.
 
 - **`docs/src/paper.md`.** A page of the manual that names each of the four scripts, its command
   at the paper's parameters, the files it writes and its measured run time. It runs no script and

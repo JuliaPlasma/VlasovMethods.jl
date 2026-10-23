@@ -1,4 +1,4 @@
-# The tests of the four bump-on-tail scripts and of the code they share: the field every march
+# The tests of the three bump-on-tail scripts and of the code they share: the field every march
 # takes, the two sweeps, the growth-rate fit of item 28, the P39 writer, and the docs page. It
 # includes the scripts' common file, which loads no Makie package, and it runs no script: the four
 # defaults run from a clean checkout by hand (T8.8).
@@ -203,12 +203,12 @@ end
     for script in PAPER_SCRIPTS
         @test occursin(script, page)
 
-        # each script's own section gives its paper command, its run time in seconds and a file it
-        # writes. The section ends at the next heading, so a later script's section cannot supply
-        # one of the three, and the time is a whole number of seconds rather than the `000 s` of a
-        # count such as `10 000 saved`. The page holds the path with `/` on every platform, so the
-        # path is built in the page's form rather than from the filesystem, whose separator is `\`
-        # on Windows
+        # each script's own section gives its paper command, its run time and a file it
+        # writes. The section ends at the next heading, so a later script's section cannot
+        # supply one of the three. The time is a count of seconds, which the `000 s` inside
+        # `10 000 saved` does not match, because `saved` continues the word. The page holds
+        # the path with `/` on every platform, so it is built in the page's form rather than
+        # from the filesystem, whose separator is `\` on Windows
         path = "scripts/" * script
         @test occursin("### `$path`", page)
         section = first(split(last(split(page, "### `$path`")), r"(?m)^#{2,3} "))

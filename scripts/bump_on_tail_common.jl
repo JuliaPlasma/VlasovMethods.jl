@@ -1,4 +1,4 @@
-# The code the four bump-on-tail scripts share: the field every march takes, the two sweeps, the
+# The code the three bump-on-tail scripts share: the field every march takes, the two sweeps, the
 # growth-rate fit of the paper's item 28, and the writer of P39's two input files.
 #
 # It loads no Makie package, so that `test/integration/bump_on_tail_scripts.jl` can `include` it

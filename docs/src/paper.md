@@ -27,9 +27,9 @@ same particles and the same potential, marched at ten time scales. The three scr
 
 | script | writes | time |
 |:--|:--|--:|
-| `scripts/bump_on_tail_training.jl` | `<runid>.h5`: the ten training samples | 14 s |
-| `scripts/bump_on_tail_projections.jl` | `<runid>_projections.h5`, `<runid>_vectorfield.h5`, `item11_spectra.png` | 34 s |
-| `scripts/bump_on_tail_testing.jl` | `growth_rates.csv`, `item24_*`–`item29_*` figures | 37 s |
+| `scripts/bump_on_tail_training.jl` | `<runid>.h5`: the ten training samples | 13 s |
+| `scripts/bump_on_tail_projections.jl` | `<runid>_projections.h5`, `<runid>_vectorfield.h5`, `item11_spectra.png` | 33 s |
+| `scripts/bump_on_tail_testing.jl` | `growth_rates.csv`, `item24_*`–`item29_*` figures | 34 s |
 
 `<runid>` is a name the parameters produce — the particle and cell counts, the timestep, the final
 time and the wave-number range — such as `BoT_np10000_nh16_dt0p1_T25p0_k0p1-0p5`.
@@ -45,7 +45,7 @@ julia --project=scripts scripts/bump_on_tail_training.jl --np 10000 --nh 16 --or
     --dt 0.1 --final-time 25.0
 ```
 
-The default is that command, at about 14 s and a 600 MB file.
+The default is that command, at about 13 s and a 600 MB file.
 
 ### `scripts/bump_on_tail_projections.jl`
 
@@ -63,7 +63,7 @@ two tolerances — it retains `k = 209` particle modes and `k = 250` field modes
 above. It writes the particle basis and the field basis into `<runid>_projections.h5`, the reduced
 positions and accelerations of every saved state into `<runid>_vectorfield.h5`, each with the root
 attributes `commit`, `command` and `seed`, and the particle and field spectra to
-`item11_spectra.png`. The default is the command above, at about 34 s.
+`item11_spectra.png`. The default is the command above, at about 33 s.
 
 ### `scripts/bump_on_tail_testing.jl`
 
@@ -81,7 +81,7 @@ coarsely that its fit turns negative. The script reads the particle basis that
 `bump_on_tail_projections.jl` wrote, so run that script first; it finds it as the runs directory's
 single `*_projections.h5`. It writes `growth_rates.csv` with one `κ, γ_HFM, γ_ROM` row per test
 sample, and the figures `item24_*`, `item25_*`, `item26_*`, `item27_*`, `item28_growth_rate.png`
-and `item29_particles_*.png`. The defaults take about 37 s.
+and `item29_particles_*.png`. The defaults take about 34 s.
 
 ## The analytic quadratic model
 
@@ -102,7 +102,7 @@ julia --project=scripts scripts/analytic_quadratic.jl --final-time 1000 --dt 0.0
 That is `dt = 0.001` for the full model and `dt = 0.0001` for the reduced one, both to `T = 1000`,
 with the reduced runs saved every 1000th step — the 10 000 saved states of the paper. The default
 is smaller, `--final-time 20 --dt 0.001 --dt-reduced 0.001 --nsave 10 --nsave-reduced 10`, at about
-40 s.
+41 s.
 
 It writes `analytic_full.h5`, the closed-form states with a `t` dataset and the root attribute
 `dt`, and `analytic_ode_k5.h5` and `analytic_pode_k20.h5`, the reduced states of the two forms with
