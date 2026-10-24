@@ -97,10 +97,19 @@ function projection(velocities::AbstractVector{VT},
         dist::ParticleDistribution{PT, XD, 1},
         final_dist::SplineDistribution{ST, XD, 1}) where {VT, PT, ST, XD}
     b = final_dist.basis
-    rhs = zeros(VT, nbasis(b))
-    buf = _local_buffers(b, VT)
+    _projection!(zeros(VT, nbasis(b)), _local_buffers(b, VT), velocities, dist, final_dist)
+end
+
+# The projection onto a one-dimensional velocity space against the caller's work arrays: `rhs`
+# of the length of the basis, which takes the load vector, and `buf` of its local width. `rhs`
+# is zeroed before the deposit, so a caller can pass the same arrays to every call.
+function _projection!(rhs::AbstractVector, buf::AbstractVector,
+        velocities::AbstractVector, dist::ParticleDistribution{PT, XD, 1},
+        final_dist::SplineDistribution{ST, XD, 1}) where {PT, ST, XD}
+    b = final_dist.basis
     w = dist.particles.w
 
+    fill!(rhs, zero(eltype(rhs)))
     escaped = 0
     for p in eachindex(velocities)
         if !_in_domain(b, velocities[p])
