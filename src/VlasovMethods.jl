@@ -125,6 +125,7 @@ export run!
 export SplittingMethod
 export GeometricIntegrator
 export Picard_iterate_over_particles
+export Picard_iterate_over_particles!
 
 # Vlasov models
 

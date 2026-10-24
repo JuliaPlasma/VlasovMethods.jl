@@ -1,6 +1,7 @@
 using LinearAlgebra
 using ParticleMethods: ParticleList
-using SimpleSplines: SplineQuadrature
+using SimpleSplines: SplineQuadrature, local_width
+using StableRNGs
 using Test
 using VlasovMethods
 
@@ -21,12 +22,12 @@ abstol_float32() = 3.0e-16 * sqrt(N) * eps(Float32) / eps(Float64)
 
 # The velocity domain is the support of the uniform particle cloud, so the projected
 # distribution stays positive and the entropy derivative is defined everywhere.
-function metriplectic_setup(::Type{T}) where {T}
+function metriplectic_setup(::Type{T}, n::Int = N) where {T}
     vars = (x = 1:1, v = 2:2, z = 1:2, w = 3:3)
-    pdist = ParticleDistribution(1, 1, ParticleList(zeros(T, 3, N); variables = vars))
-    v0 = collect(range(T(-2), T(2); length = N))
+    pdist = ParticleDistribution(1, 1, ParticleList(zeros(T, 3, n); variables = vars))
+    v0 = collect(range(T(-2), T(2); length = n))
     pdist.particles.v[1, :] .= v0
-    pdist.particles.w[1, :] .= T(1) / N
+    pdist.particles.w[1, :] .= T(1) / n
 
     axis = BSplineBasis(UniformMesh(NKNOT - 1, T(-2) .. T(2)), 3, Free())
     sdist = SplineDistribution(1, 1, axis, SplineQuadrature(axis), zeros(T, nbasis(axis)))
@@ -62,6 +63,79 @@ function solve_outcome(args...; kwargs...)
 end
 
 const REFERENCE_V = parse.(Float64, readlines(REFERENCE))
+
+# The in-place step at `t = 0`, from `vn` with a zero history by default.
+function step!(v, vn, mlb, abstol, ::Type{T}; ti::Int = 4, reltol = 1.0e-50,
+        kwargs...) where {T}
+    Picard_iterate_over_particles!(v, vn, vn, zeros(T, length(vn), 2), ti, zero(T), T(ΔT),
+        abstol, reltol, mlb; kwargs...)
+end
+
+# The exception the in-place step throws, or `nothing` when it returns.
+function step_outcome(args...; kwargs...)
+    try
+        Picard_iterate_over_particles!(args...; kwargs...)
+        return nothing
+    catch e
+        return e
+    end
+end
+
+# `@allocated` through a fixed-arity barrier whose arguments have concrete types, so that a Julia
+# 1.11 closure or splat boxing is not counted. The call runs once before it is measured.
+function step_bytes(f::F, v::V, vn::V, vm::V, H::HT, ti::Int, t::S, Δt::S, a::A, r::R,
+        mlb::M) where {F, V, HT, S, A, R, M}
+    f(v, vn, vm, H, ti, t, Δt, a, r, mlb)
+    return @allocated f(v, vn, vm, H, ti, t, Δt, a, r, mlb)
+end
+
+# The wrapper behind the signature of the in-place step: the control, which allocates its result.
+function wrapper_step!(v, vn, vm, H, ti, t, Δt, a, r, mlb)
+    copyto!(v, Picard_iterate_over_particles(v, vn, vm, H, ti, t, Δt, 3, 0.5, a, r, mlb))
+end
+
+# The seeded state of `test/helpers/generate_metriplectic_trajectory.jl`: the cell centres of
+# [-2, 2], each moved by a draw uniform in ±1/64, with weights 1/N.
+function seeded_setup()
+    mlb, _ = metriplectic_setup(Float64)
+    v0 = [-2 + (i - 0.5) * 4 / N for i in 1:N] .+
+         (rand(StableRNG(20261010), N) .- 0.5) ./ 32
+    mlb.dist.particles.v[1, :] .= v0
+    return mlb, v0
+end
+
+# Ten steps, `ti = 1:10` at `t = (ti - 1)·Δt`, from `vn = vn_minus_one = v0` and a zero history;
+# after each step `vn_minus_one` takes `vn`, and `vn` the result of `step(vn, vm, H, ti, t)`.
+function march(step, v0)
+    states = Vector{Float64}[]
+    vn, vm, H = copy(v0), copy(v0), zeros(N, 2)
+    for ti in 1:10
+        v = step(vn, vm, H, ti, (ti - 1) * ΔT)
+        push!(states, copy(v))
+        vm, vn = vn, v
+    end
+    return states
+end
+
+const TRAJECTORY = let
+    stored = parse.(Float64,
+        readlines(joinpath(@__DIR__, "..", "data",
+            "lenard_bernstein_metriplectic_trajectory.txt")))
+    [stored[((k - 1) * N + 1):(k * N)] for k in 1:(length(stored) ÷ N)]
+end
+
+# Julia on macOS aarch64 wrote the stored states, and there the pin is `==`. The last bits of
+# the solve depend on the Julia version, not on OpenBLAS: Julia 1.11 differs from the file by up
+# to 2 ulps, and Julia 1.13 with the OpenBLAS 0.3.27 of Julia 1.11 gives the same bits as the
+# file. Elsewhere each state is compared to `rtol = 64·eps(Float64)`, the tolerance of the pins
+# in `collision_operators.jl`.
+function matches_trajectory(states)
+    if Sys.isapple() && Sys.ARCH === :aarch64
+        return states == TRAJECTORY
+    end
+    length(states) == length(TRAJECTORY) || return false
+    return all(isapprox.(states, TRAJECTORY; rtol = 64 * eps(Float64)))
+end
 
 @testset "Metriplectic Lenard–Bernstein solve" begin
     @testset "Float64" begin
@@ -148,14 +222,186 @@ const REFERENCE_V = parse.(Float64, readlines(REFERENCE))
         @test isnan(parse(Float64, captured.captures[1]))
     end
 
-    # The catch in `Picard_iterate_over_particles` rethrows every exception that is not a
-    # `NonlinearSolverException`. A large collision frequency drives the particles out of the
-    # velocity support, and the projection then throws its own `DomainError` from inside the
-    # solve; it must reach the caller unchanged.
+    # The catch in `Picard_iterate_over_particles!`, which the wrapper calls, rethrows every
+    # exception that is not a `NonlinearSolverException`. A large collision frequency drives the
+    # particles out of the velocity support, and the projection then throws its own `DomainError`
+    # from inside the solve; it must reach the caller unchanged.
     @testset "an exception from the model reaches the caller" begin
         mlb, v0 = metriplectic_setup(Float64)
         fastmlb = MetriplecticLenardBernstein(mlb.dist, mlb.entropy; ν = 1e6)
         caught = solve_outcome(step_args(v0, fastmlb, abstol_float64(), Float64; ti = 4)...)
+        @test caught isa DomainError
+    end
+
+    # The stored states are those of the solve at commit `472dd42`, which
+    # `test/helpers/generate_metriplectic_trajectory.jl` writes. On the configuration that wrote
+    # them the pin is `==`: a change of the arithmetic order in the vector field, the projection
+    # or the solve moves the last bits (`matches_trajectory`).
+    @testset "ten wrapper steps of a seeded state give the stored trajectory" begin
+        @test length(TRAJECTORY) == 10
+        mlb, v0 = seeded_setup()
+        abstol = abstol_float64()
+        wrapper(vn, vm, H, ti, t) = Picard_iterate_over_particles(
+            zeros(N), vn, vm, H, ti, t, ΔT, 3, 0.5, abstol, 1.0e-50, mlb)
+        @test matches_trajectory(march(wrapper, v0))
+    end
+
+    @testset "ten in-place steps of a seeded state give the stored trajectory" begin
+        mlb, v0 = seeded_setup()
+        abstol = abstol_float64()
+        inplace(vn, vm, H, ti, t) = Picard_iterate_over_particles!(
+            similar(vn), vn, vm, H, ti, t, ΔT, abstol, 1.0e-50, mlb)
+        @test matches_trajectory(march(inplace, v0))
+    end
+
+    # The start-up steps `ti < 4` build an `ODEProblem` for their guess and allocate; the claim
+    # covers the Hermite steps `ti ≥ 4`. Each precision and length has its own model.
+    @testset "the in-place step allocates nothing at ti ≥ 4" begin
+        if Base.JLOptions().code_coverage == 0
+            for T in (Float32, Float64), n in (64, 256)
+
+                mlb, v0 = metriplectic_setup(T, n)
+                abstol = 3.0e-16 * sqrt(n) * eps(T) / eps(Float64)
+                @test step_bytes(Picard_iterate_over_particles!, similar(v0), v0, copy(v0),
+                    zeros(T, n, 2), 4, zero(T), T(ΔT), abstol, 1.0e-50, mlb) == 0
+                @test step_bytes(wrapper_step!, similar(v0), v0, copy(v0),
+                    zeros(T, n, 2), 4, zero(T), T(ΔT), abstol, 1.0e-50, mlb) > 0
+            end
+        end
+    end
+
+    @testset "the in-place step and the wrapper give the same step" begin
+        mlb, v0 = metriplectic_setup(Float64)
+        abstol = abstol_float64()
+        for ti in (1, 4)
+            v = step!(similar(v0), v0, mlb, abstol, Float64; ti = ti)
+            @test v != v0
+            @test v == Picard_iterate_over_particles(
+                step_args(v0, mlb, abstol, Float64; ti = ti)...)
+        end
+    end
+
+    @testset "the in-place step in each precision" begin
+        for (T, abstol) in ((Float64, abstol_float64()), (Float32, abstol_float32()))
+            mlb, v0 = metriplectic_setup(T)
+            v = step!(similar(v0), v0, mlb, abstol, T; ti = 1)
+            @test eltype(v) === T
+            @test maximum(abs, v .- T.(REFERENCE_V)) ≤ abstol
+        end
+    end
+
+    # The solver of a model is built once and reused; a call with other options rebuilds it, and a
+    # call with the first options again rebuilds it back.
+    @testset "a change of maxiters rebuilds the solver of the in-place step" begin
+        mlb, v0 = metriplectic_setup(Float64)
+        abstol = abstol_float64()
+        v_default = step!(similar(v0), v0, mlb, abstol, Float64)
+        caught = step_outcome(
+            similar(v0), v0, v0, zeros(N, 2), 4, 0.0, ΔT, abstol, 1.0e-50,
+            mlb; maxiters = 2)
+        @test caught isa ErrorException
+        message = caught === nothing ? "" : sprint(showerror, caught)
+        @test occursin("did not converge", message)
+        @test occursin("iterations = 2", message)
+        @test step!(similar(v0), v0, mlb, abstol, Float64) == v_default
+    end
+
+    # A new model holds a solver of length 1, built at `abstol = reltol = 0` and `maxiters = 1`
+    # for its type. A first call with those options builds a solver of its own length.
+    @testset "the first call builds a solver of its own length" begin
+        mlb, v0 = metriplectic_setup(Float64)
+        caught = step_outcome(similar(v0), v0, v0, zeros(N, 2), 4, 0.0, ΔT, 0.0, 0.0, mlb;
+            maxiters = 1)
+        @test caught isa ErrorException
+        message = caught === nothing ? "" : sprint(showerror, caught)
+        @test occursin("did not converge", message)
+        @test occursin("iterations = 1", message)
+    end
+
+    @testset "a change of abstol or reltol rebuilds the solver of the in-place step" begin
+        mlb, v0 = metriplectic_setup(Float64)
+        abstol = abstol_float64()
+        v_default = step!(similar(v0), v0, mlb, abstol, Float64)
+        @test step!(similar(v0), v0, mlb, 1e-6, Float64) != v_default
+        @test step!(similar(v0), v0, mlb, abstol, Float64) == v_default
+        # `SimpleSolvers` applies `f_reltol` only once the iterate or the residual stops
+        # changing, so a looser `reltol` alone leaves this step as it is. At `abstol = 0` the
+        # solve converges through `reltol = 1e-6` and not at `reltol = 1e-50`.
+        @test step_outcome(similar(v0), v0, v0, zeros(N, 2), 4, 0.0, ΔT, 0.0, 1e-6, mlb) ===
+              nothing
+        caught = step_outcome(
+            similar(v0), v0, v0, zeros(N, 2), 4, 0.0, ΔT, 0.0, 1.0e-50, mlb)
+        @test caught isa ErrorException
+        message = caught === nothing ? "" : sprint(showerror, caught)
+        @test occursin("did not converge", message)
+    end
+
+    @testset "the in-place step refuses a wrong length and an aliased output" begin
+        mlb, v0 = metriplectic_setup(Float64)
+        abstol = abstol_float64()
+        vn, vm, H = copy(v0), copy(v0), zeros(N, 2)
+        outcome(v) = step_outcome(v, vn, vm, H, 4, 0.0, ΔT, abstol, 1.0e-50, mlb)
+
+        caught = outcome(zeros(N - 1))
+        @test caught isa DimensionMismatch
+        @test caught !== nothing &&
+              caught.msg == "the output `v` has 63 entries and `vn` has 64"
+        caught = outcome(vn)
+        @test caught isa ArgumentError
+        @test caught !== nothing && caught.msg == "the output `v` shares memory with `vn`"
+        caught = outcome(vm)
+        @test caught isa ArgumentError
+        @test caught !== nothing &&
+              caught.msg == "the output `v` shares memory with `vn_minus_one`"
+        caught = outcome(view(H, :, 1))
+        @test caught isa ArgumentError
+        @test caught !== nothing &&
+              caught.msg == "the output `v` shares memory with `dv_history`"
+    end
+
+    # A model holds buffers of its particle count and does not rebuild them to another length.
+    @testset "the in-place step refuses a vn of another length than the model's" begin
+        mlb, v0 = metriplectic_setup(Float64)
+        abstol = abstol_float64()
+        v_first = step!(similar(v0), v0, mlb, abstol, Float64)
+        w = v0[1:(N - 1)]
+        caught = step_outcome(
+            zeros(N - 1), w, copy(w), zeros(N - 1, 2), 4, 0.0, ΔT, abstol,
+            1.0e-50, mlb)
+        @test caught isa DimensionMismatch
+        @test caught !== nothing &&
+              caught.msg == "`vn` has 63 entries and the model has 64 particles"
+        @test step!(similar(v0), v0, mlb, abstol, Float64) == v_first
+    end
+
+    # On a `Dirichlet` basis the block of a cell at either end reaches past the basis; those
+    # terms are absent, as in the point evaluation of `SimpleSplines`.
+    @testset "the buffered spline value is the point evaluation" begin
+        for bc in (Free(), Dirichlet())
+            b = BSplineBasis(UniformMesh(NKNOT - 1, -2.0 .. 2.0), 3, bc)
+            c = collect(range(1.0, 2.0; length = nbasis(b)))
+            values = zeros(local_width(b))
+            for x in (-2.0, -1.9, -0.3, 1.95, 2.0)
+                @test VlasovMethods._spline_value!(values, b, c, x) == evaluate(b, c, x)
+            end
+        end
+    end
+
+    @testset "the in-place step passes the failures of the solve to the caller" begin
+        mlb, v0 = metriplectic_setup(Float64)
+        abstol = abstol_float64()
+        nanmlb = MetriplecticLenardBernstein(mlb.dist, mlb.entropy; ν = NaN)
+        caught = step_outcome(
+            similar(v0), v0, v0, zeros(N, 2), 4, 0.0, ΔT, abstol, 1.0e-50,
+            nanmlb)
+        @test caught isa ErrorException
+        message = caught === nothing ? "" : sprint(showerror, caught)
+        @test occursin("did not converge", message)
+        @test occursin("iterations = 1", message)
+        fastmlb = MetriplecticLenardBernstein(mlb.dist, mlb.entropy; ν = 1e6)
+        caught = step_outcome(
+            similar(v0), v0, v0, zeros(N, 2), 4, 0.0, ΔT, abstol, 1.0e-50,
+            fastmlb)
         @test caught isa DomainError
     end
 end

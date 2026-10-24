@@ -122,6 +122,25 @@ their own, except for what they removed and narrowed, which is listed in full be
 - **The docs page "The paper's examples"** says how to run the four scripts, and gives the paper
   command, the measured run time and the files of each.
 
+- **`Picard_iterate_over_particles!`, the metriplectic Picard step in place.**
+  `Picard_iterate_over_particles!(v, vn, vn_minus_one, dv_history, ti, t, Δt, abstol, reltol, mlb;
+  maxiters = 1000)` writes the step into `v` and takes no `dv`, `m` or `β`. The model's cache of
+  the element type keeps the `SimpleSolvers` solver, its state and the work arrays of the vector
+  field: the first call builds the solver, a call with another `abstol`, `reltol` or `maxiters`
+  builds it again, and a step with `ti ≥ 4` allocates nothing when `vn` has the element type of
+  the model's particles, where each step built a new solver and its unused `N×N` Jacobian cache
+  before (K40, removed). The first three steps still allocate
+  for their midpoint guess. `Picard_iterate_over_particles` keeps its signature and calls the
+  in-place form, so its results are the same to the last bit:
+  `test/data/lenard_bernstein_metriplectic_trajectory.txt` holds ten steps of a seeded state from
+  commit `472dd42`, and both forms reproduce them with `==` on macOS aarch64, where the file was
+  written, and to `rtol = 64·eps(Float64)` elsewhere. The in-place form throws a
+  `DimensionMismatch` for a `v` or a `vn` of another length than the model's particle count, and an
+  `ArgumentError` for a `v` that shares memory with `vn`, `vn_minus_one` or `dv_history`. The
+  wrapper therefore refuses a `vn` of another length than the model's particle count too. K42 now
+  names only the wrapper, and K47 counts thirteen lines in four files, because the six
+  commented-out lines of the old step body are gone.
+
 ### Bug Fixes
 
 - **`initialize!(dist, BumpOnTail())` draws.** Both `draw!` methods of the bump-on-tail example
