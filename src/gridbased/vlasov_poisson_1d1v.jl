@@ -1,3 +1,5 @@
+using GeometricBrackets: poisson_apply!
+
 @doc raw"""
     _green_matrix(dist::GridDistribution, potential::Potential)
 
@@ -60,7 +62,42 @@ for a charge of ``+1``, with `G` from [`_green_matrix`](@ref). `params` holds th
 `arakawa`, the velocity nodes `v` and `G`; the state `f` is `vec(dist.values)`. The bracket is
 doubly periodic, so a distribution that reaches the ends of the velocity range wraps mass from
 ``v_b`` to ``v_a`` (see [`VlasovPoisson`](@ref)).
+
+`params` also holds buffers in the element type `T` of the distribution: `kinetic`, the
+``v_j^2 / 2``, and `ρ`, `ϕ` and `h`. A state and a derivative of element type `T` take a method
+that writes into these buffers and allocates nothing. It throws a `DimensionMismatch` before it
+writes any buffer when `f` or `ḟ` does not hold ``n_x n_v`` values, and it requires that `ḟ`
+does not share memory with `f`. A state of another element type, such as the `ForwardDiff.Dual`
+numbers of an autodiff Jacobian, or a `params` without these buffers, takes a method that
+allocates its intermediate arrays. Two concurrent calls on one `params` are unsafe, because they
+share the buffers.
 """
+function _grid_1d1v_rhs!(ḟ::AbstractVector{T}, t, f::AbstractVector{T},
+        params::NamedTuple{(:arakawa, :v, :G, :kinetic, :ρ, :ϕ, :h),
+            <:Tuple{Arakawa{T}, Vararg{Any}}}) where {T}
+    (; arakawa, G, kinetic, ρ, ϕ, h) = params
+    nx, nv = arakawa.nx, arakawa.nv
+    length(f) == length(ḟ) == nx * nv || throw(DimensionMismatch(
+        "_grid_1d1v_rhs! on a $nx × $nv grid takes a state f and a derivative ḟ of nx * nv " *
+        "values each; got $(length(f)) and $(length(ḟ))"))
+
+    fill!(ρ, zero(T))
+    for j in 1:nv, i in 1:nx
+
+        ρ[i] += f[(j - 1) * nx + i]
+    end
+    ρ .*= arakawa.hv
+    mul!(ϕ, G, ρ)
+    for j in 1:nv, i in 1:nx
+
+        h[(j - 1) * nx + i] = ϕ[i] + kinetic[j]
+    end
+    poisson_apply!(ḟ, arakawa, f, h)
+    ḟ ./= arakawa.hx * arakawa.hv
+
+    return ḟ
+end
+
 function _grid_1d1v_rhs!(ḟ, t, f, params)
     (; arakawa, v, G) = params
     ϕ = G * (arakawa.hv .* vec(sum(reshape(f, arakawa.nx, arakawa.nv); dims = 2)))
@@ -85,8 +122,11 @@ dense Newton Jacobian is too large on that script's ``n_v``. The scheme runs in 
 function GeometricIntegrator(model::VlasovPoisson{1, 1, <:GridDistribution}, tspan::Tuple,
         tstep::Real, method = Integrators.ImplicitMidpoint())
     dist = model.distribution
-    params = (arakawa = Arakawa(size(dist.values)..., step(dist.x), step(dist.v)),
-        v = dist.v, G = model.work)
+    T = eltype(dist.values)
+    nx, nv = size(dist.values)
+    params = (arakawa = Arakawa(nx, nv, step(dist.x), step(dist.v)),
+        v = dist.v, G = model.work, kinetic = collect(dist.v) .^ 2 ./ 2,
+        ρ = zeros(T, nx), ϕ = zeros(T, nx), h = zeros(T, nx * nv))
 
     equ = GeometricEquations.ODEProblem(
         _grid_1d1v_rhs!, tspan, tstep, copy(vec(dist.values));

@@ -130,6 +130,18 @@ their own, except for what they removed and narrowed, which is listed in full be
   `ParticleDistribution` of any element type. The importance-sampling method also read a field
   `a` that `BumpOnTail` does not have; it reads the tail share `α`.
 
+- **The grid right-hand side allocates nothing (K53).** `_grid_1d1v_rhs!`, the vector field of the
+  grid 1D1V Vlasov–Poisson model, runs at every stage and every Newton iteration of a step, and it
+  allocated the density, `ϕ`, `h` and the bracket's product on each call. The `params` that
+  `GeometricIntegrator` builds hold buffers for them, in the element type of the distribution, and
+  a state of that type writes into them through GeometricBrackets' `poisson_apply!`: a call
+  allocates 0 bytes. A state of another element type, such as the `ForwardDiff.Dual` numbers of
+  the implicit midpoint's Jacobian, keeps the allocating method. On the two seeded states of the
+  test, in `Float32` and `Float64`, the result equals the allocating form's bit for bit; the test
+  bounds the difference by `8nv·eps(T)` times the largest entry. Two concurrent calls on one
+  `params` are unsafe, because they share the buffers. The bound of `GeometricBrackets` rises from
+  `0.2` to `0.3`, the first release with `poisson_apply!`.
+
 ## [0.3.0] — 2026-10-16
 
 ### Bug Fixes

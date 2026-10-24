@@ -1,3 +1,5 @@
+using ForwardDiff: ForwardDiff
+using GeometricBrackets: poisson_apply
 using GeometricEquations: ntime
 using GeometricIntegrators: GeometricIntegrators
 using HDF5: h5read
@@ -53,6 +55,30 @@ function maxwellian_grid(T, nx, nv, vlim, α; k = T(0.5))
     dist.values .= (1 .+ T(α) .* cos.(k .* dist.x)) .* exp.(-dist.v' .^ 2 ./ 2) ./
                    sqrt(T(2π))
     return dist
+end
+
+# The right-hand side written out with the allocating bracket `poisson_apply`, on the bracket `a`,
+# the velocity nodes `v` and the Green's matrix `G`: `ρ = hv Σⱼ f`, `ϕ = G ρ`, `h = ϕ .+ v²/2`
+# and `ḟ = poisson_apply(a, f, h) / (hx hv)`.
+function allocating_rhs(f, a, v, G)
+    ϕ = G * (a.hv .* vec(sum(reshape(f, a.nx, a.nv); dims = 2)))
+    h = vec(ϕ .+ v' .^ 2 ./ 2)
+    return poisson_apply(a, f, h) ./ (a.hx * a.hv)
+end
+
+# The bytes of one call of `rhs!` after a warm call, through a barrier with concrete arguments.
+function rhs_allocations(rhs!::R, ḟ::D, t::T, f::F, params::P) where {R, D, T, F, P}
+    rhs!(ḟ, t, f, params)
+    return @allocated rhs!(ḟ, t, f, params)
+end
+
+# The model and the problem of the seeded state at `nx, nv = 16, 64`: the perturbed Maxwellian of
+# the `Float32` conservation run, whose density does not vanish, so `ϕ ≠ 0`.
+function seeded_problem(T)
+    nx, nv = 16, 64
+    dist = maxwellian_grid(T, nx, nv, 7.5, 0.5)
+    model = VlasovPoisson(dist, Potential(FFTWBasis((zero(T), T(4π)), nx)))
+    return model, GeometricIntegrator(model, (zero(T), one(T)), T(0.1)).equation
 end
 
 @testset "Grid 1D1V Vlasov–Poisson" begin
@@ -179,6 +205,113 @@ end
         diagnostics = (; T_horizon = tspan[2], n_steps = nsteps, drift, driftₑ, bound,
             minf = minimum(res.minf), negmass = res.negmass[end], edge = maximum(res.edge))
         @info "checks 1 to 3" T diagnostics
+    end
+
+    @testset "the buffers of the right-hand side, $T" for T in (Float32, Float64)
+        model, prob = seeded_problem(T)
+        dist, params = model.distribution, prob.parameters
+        nx, nv = size(dist.values)
+
+        @test params.kinetic isa Vector{T}
+        @test params.kinetic == collect(dist.v) .^ 2 ./ 2
+        @test params.ρ isa Vector{T} && length(params.ρ) == nx
+        @test params.ϕ isa Vector{T} && length(params.ϕ) == nx
+        @test params.h isa Vector{T} && length(params.h) == nx * nv
+    end
+
+    @testset "the in-place right-hand side agrees with the allocating one, $T" for T in (
+        Float32, Float64)
+        # two states of different densities in sequence on one `params`, so that a buffer that
+        # keeps the value of the previous call is seen. The bound is the one of the exact testset.
+        model, prob = seeded_problem(T)
+        params = prob.parameters
+        nv = size(model.distribution.values, 2)
+        q = Vector(prob.ics.q)
+        for f in (q, q .* (1 .+ T(0.25) .* sin.(T.(1:length(q)))))
+            ḟ = similar(f)
+            @test VM._grid_1d1v_rhs!(ḟ, zero(T), f, params) === ḟ
+            ref = allocating_rhs(f, params.arakawa, params.v, params.G)
+            @test maximum(abs, ḟ .- ref) ≤ 8nv * eps(T) * maximum(abs, ref)
+        end
+    end
+
+    @testset "a state of another length, $T" for T in (Float32, Float64)
+        # the guard refuses before any buffer is written; `reshape` and `poisson_apply!` raise
+        # the same type on the same input, so the phrase is the evidence
+        _, prob = seeded_problem(T)
+        params = prob.parameters
+        q = Vector(prob.ics.q)
+        ḟ = similar(q)
+        VM._grid_1d1v_rhs!(ḟ, zero(T), q, params)
+        before = [copy(x) for x in values(params) if x isa Array]
+        ḟ₀ = copy(ḟ)
+
+        short = q[1:(15 * 64)]
+        @test_throws DimensionMismatch("_grid_1d1v_rhs! on a 16 × 64 grid takes a state f " *
+                                       "and a derivative ḟ of nx * nv values each; got 960 and 1024") VM._grid_1d1v_rhs!(
+            ḟ, zero(T), short, params)
+        @test [x for x in values(params) if x isa Array] == before
+        @test ḟ == ḟ₀
+
+        long = similar(q, 17 * 64)
+        @test_throws DimensionMismatch("_grid_1d1v_rhs! on a 16 × 64 grid takes a state f " *
+                                       "and a derivative ḟ of nx * nv values each; got 1024 and 1088") VM._grid_1d1v_rhs!(
+            long, zero(T), q, params)
+        @test [x for x in values(params) if x isa Array] == before
+    end
+
+    @testset "params of another form take the allocating method, $T" for T in (Float32, Float64)
+        # `params` without the buffers, as `(arakawa, v, G)`, has a bracket of element type `T`
+        # but no buffers to write into
+        _, prob = seeded_problem(T)
+        params = prob.parameters
+        base = (; params.arakawa, params.v, params.G)
+        q = Vector(prob.ics.q)
+        ḟ = similar(q)
+        @test VM._grid_1d1v_rhs!(ḟ, zero(T), q, base) === ḟ
+        @test ḟ == allocating_rhs(q, params.arakawa, params.v, params.G)
+    end
+
+    @testset "a Dual state takes the allocating method" begin
+        # the Jacobian of `ImplicitMidpoint`'s Newton solver passes `ForwardDiff.Dual` states,
+        # which the `Float64` buffers cannot hold
+        model, prob = seeded_problem(Float64)
+        params = prob.parameters
+        nv = size(model.distribution.values, 2)
+        q = Vector(prob.ics.q)
+        qd = ForwardDiff.Dual.(q, 1.0)
+        ḟ, ḟd = similar(q), similar(qd)
+
+        @test which(VM._grid_1d1v_rhs!, typeof((ḟ, 0.0, q, params))) !=
+              which(VM._grid_1d1v_rhs!, typeof((ḟd, 0.0, qd, params)))
+        @test @inferred(VM._grid_1d1v_rhs!(ḟd, 0.0, qd, params)) === ḟd
+        @test ḟd == allocating_rhs(qd, params.arakawa, params.v, params.G)
+
+        # `G ρ` takes BLAS in `Float64` and the generic product for `Dual`, so the value parts
+        # agree to the bound of the exact testset, not bit for bit
+        VM._grid_1d1v_rhs!(ḟ, 0.0, q, params)
+        @test maximum(abs, ForwardDiff.value.(ḟd) .- ḟ) ≤
+              8nv * eps(Float64) * maximum(abs, ḟ)
+    end
+
+    @testset "the right-hand side allocates nothing, $T" for T in (Float32, Float64)
+        _, prob = seeded_problem(T)
+        params = prob.parameters
+        q = Vector(prob.ics.q)
+        ḟ = similar(q)
+        # the problem's own state is a wrapper, not a `Vector`, as the integrators' states are
+        qs = copy(prob.ics.q)
+        @test !(qs isa Vector)
+
+        # coverage instrumentation allocates on every counted line, so under it the assertion
+        # does not run rather than being weakened
+        if Base.JLOptions().code_coverage == 0
+            @test rhs_allocations(VM._grid_1d1v_rhs!, ḟ, zero(T), q, params) == 0
+            @test rhs_allocations(VM._grid_1d1v_rhs!, similar(qs), zero(T), qs, params) == 0
+        end
+        # the control: the barrier sees the allocations of the `Dual` method
+        qd = ForwardDiff.Dual.(q, one(T))
+        @test rhs_allocations(VM._grid_1d1v_rhs!, similar(qd), zero(T), qd, params) > 0
     end
 
     @testset "the constructor's guards" for T in (Float32, Float64)
