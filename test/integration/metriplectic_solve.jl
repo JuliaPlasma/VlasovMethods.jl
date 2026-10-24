@@ -1,6 +1,6 @@
 using LinearAlgebra
 using ParticleMethods: ParticleList
-using SimpleSplines: SplineQuadrature
+using SimpleSplines: SplineQuadrature, local_width
 using StableRNGs
 using Test
 using VlasovMethods
@@ -124,6 +124,19 @@ const TRAJECTORY = let
     [stored[((k - 1) * N + 1):(k * N)] for k in 1:(length(stored) ÷ N)]
 end
 
+# Julia on macOS aarch64 wrote the stored states, and there the pin is `==`. The last bits of
+# the solve depend on the Julia version, not on OpenBLAS: Julia 1.11 differs from the file by up
+# to 2 ulps, and Julia 1.13 with the OpenBLAS 0.3.27 of Julia 1.11 gives the same bits as the
+# file. Elsewhere each state is compared to `rtol = 64·eps(Float64)`, the tolerance of the pins
+# in `collision_operators.jl`.
+function matches_trajectory(states)
+    if Sys.isapple() && Sys.ARCH === :aarch64
+        return states == TRAJECTORY
+    end
+    length(states) == length(TRAJECTORY) || return false
+    return all(isapprox.(states, TRAJECTORY; rtol = 64 * eps(Float64)))
+end
+
 @testset "Metriplectic Lenard–Bernstein solve" begin
     @testset "Float64" begin
         mlb, v0 = metriplectic_setup(Float64)
@@ -221,15 +234,16 @@ end
     end
 
     # The stored states are those of the solve at commit `472dd42`, which
-    # `test/helpers/generate_metriplectic_trajectory.jl` writes. The pin is `==`: a change of the
-    # arithmetic order in the vector field, the projection or the solve moves the last bits.
+    # `test/helpers/generate_metriplectic_trajectory.jl` writes. On the configuration that wrote
+    # them the pin is `==`: a change of the arithmetic order in the vector field, the projection
+    # or the solve moves the last bits (`matches_trajectory`).
     @testset "ten wrapper steps of a seeded state give the stored trajectory" begin
         @test length(TRAJECTORY) == 10
         mlb, v0 = seeded_setup()
         abstol = abstol_float64()
         wrapper(vn, vm, H, ti, t) = Picard_iterate_over_particles(
             zeros(N), vn, vm, H, ti, t, ΔT, 3, 0.5, abstol, 1.0e-50, mlb)
-        @test march(wrapper, v0) == TRAJECTORY
+        @test matches_trajectory(march(wrapper, v0))
     end
 
     @testset "ten in-place steps of a seeded state give the stored trajectory" begin
@@ -237,7 +251,7 @@ end
         abstol = abstol_float64()
         inplace(vn, vm, H, ti, t) = Picard_iterate_over_particles!(
             similar(vn), vn, vm, H, ti, t, ΔT, abstol, 1.0e-50, mlb)
-        @test march(inplace, v0) == TRAJECTORY
+        @test matches_trajectory(march(inplace, v0))
     end
 
     # The start-up steps `ti < 4` build an `ODEProblem` for their guess and allocate; the claim
@@ -358,6 +372,19 @@ end
         @test caught !== nothing &&
               caught.msg == "`vn` has 63 entries and the model has 64 particles"
         @test step!(similar(v0), v0, mlb, abstol, Float64) == v_first
+    end
+
+    # On a `Dirichlet` basis the block of a cell at either end reaches past the basis; those
+    # terms are absent, as in the point evaluation of `SimpleSplines`.
+    @testset "the buffered spline value is the point evaluation" begin
+        for bc in (Free(), Dirichlet())
+            b = BSplineBasis(UniformMesh(NKNOT - 1, -2.0 .. 2.0), 3, bc)
+            c = collect(range(1.0, 2.0; length = nbasis(b)))
+            values = zeros(local_width(b))
+            for x in (-2.0, -1.9, -0.3, 1.95, 2.0)
+                @test VlasovMethods._spline_value!(values, b, c, x) == evaluate(b, c, x)
+            end
+        end
     end
 
     @testset "the in-place step passes the failures of the solve to the caller" begin
