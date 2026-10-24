@@ -567,7 +567,7 @@ takes the next `K<n>`.
 - **evidence:** a `ti = 4` call of `Picard_iterate_over_particles` with
   `vn = view(dv_history, :, 1)`, 64 particles on `range(-1.99, 1.99)`, returns, and the history
   update after the solve changes the caller's `vn` by up to `6.628111373904642`, on `3175a68`
-  and on this branch. The step refuses an output `v` that aliases `vn` or `dv_history`, and does
-  not check `vn` against `dv_history`.
+  and through the in-place form. The step refuses an output `v` that aliases `vn` or
+  `dv_history`, and does not check `vn` against `dv_history`.
 - **kind:** found late
 - **found:** 2026-10-24

@@ -127,8 +127,9 @@ their own, except for what they removed and narrowed, which is listed in full be
   maxiters = 1000)` writes the step into `v` and takes no `dv`, `m` or `β`. The model's cache of
   the element type keeps the `SimpleSolvers` solver, its state and the work arrays of the vector
   field: the first call builds the solver, a call with another `abstol`, `reltol` or `maxiters`
-  builds it again, and a step with `ti ≥ 4` allocates nothing, where each step built a new solver
-  and its unused `N×N` Jacobian cache before (K40, removed). The first three steps still allocate
+  builds it again, and a step with `ti ≥ 4` allocates nothing when `vn` has the element type of
+  the model's particles, where each step built a new solver and its unused `N×N` Jacobian cache
+  before (K40, removed). The first three steps still allocate
   for their midpoint guess. `Picard_iterate_over_particles` keeps its signature and calls the
   in-place form, so its results are the same to the last bit:
   `test/data/lenard_bernstein_metriplectic_trajectory.txt` holds ten steps of a seeded state from

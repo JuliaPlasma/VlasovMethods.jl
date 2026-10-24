@@ -377,8 +377,8 @@ takes column 1, and column 1 the vector field at `v`. `abstol`, `reltol` and `ma
 
 The solver, its state and the work arrays of the vector field are kept in the cache of `mlb`
 for the element type of `vn`. The first call builds the solver, and a call with other options
-builds it again. A step with `ti ≥ 4` allocates nothing; the guess of the first three steps
-allocates.
+builds it again. A step with `ti ≥ 4` allocates nothing when `vn` has the element type of the
+particles of `mlb`; the guess of the first three steps allocates.
 
 A solve that does not converge throws an `ErrorException` with the residual and the iteration
 count. An exception of the model, such as the `DomainError` of a particle that leaves the
