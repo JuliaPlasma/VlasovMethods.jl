@@ -132,7 +132,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   for their midpoint guess. `Picard_iterate_over_particles` keeps its signature and calls the
   in-place form, so its results are the same to the last bit:
   `test/data/lenard_bernstein_metriplectic_trajectory.txt` holds ten steps of a seeded state from
-  commit `472dd42`, and both forms reproduce them with `==`. The in-place form throws a
+  commit `472dd42`, and both forms reproduce them with `==` on macOS aarch64, where the file was
+  written, and to `rtol = 64·eps(Float64)` elsewhere. The in-place form throws a
   `DimensionMismatch` for a `v` or a `vn` of another length than the model's particle count, and an
   `ArgumentError` for a `v` that shares memory with `vn`, `vn_minus_one` or `dv_history`. The
   wrapper therefore refuses a `vn` of another length than the model's particle count too. K42 now

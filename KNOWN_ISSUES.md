@@ -560,3 +560,14 @@ takes the next `K<n>`.
   per sample, so at the default of 10 samples no figure of the scripts shows the overflow.
 - **kind:** found late
 - **found:** 2026-10-23
+
+### K74 · The metriplectic Picard step overwrites a `vn` that is a view of `dv_history[:, 1]`.
+
+- **location:** `src/models/lenard_bernstein_metriplectic.jl:431`, `Picard_iterate_over_particles!`
+- **evidence:** a `ti = 4` call of `Picard_iterate_over_particles` with
+  `vn = view(dv_history, :, 1)`, 64 particles on `range(-1.99, 1.99)`, returns, and the history
+  update after the solve changes the caller's `vn` by up to `6.628111373904642`, on `3175a68`
+  and on this branch. The step refuses an output `v` that aliases `vn` or `dv_history`, and does
+  not check `vn` against `dv_history`.
+- **kind:** found late
+- **found:** 2026-10-24

@@ -127,10 +127,10 @@ struct MetriplecticLenardBernstein{
     end
 end
 
-# The value at `x` of the spline with the coefficients `c` on the basis `b`, against the buffer
-# `values` of the basis functions that are non-zero at `x`. This is the sum of `SimpleSplines`'
-# point evaluation in the same order, so the value is the same to the last bit, without the
-# buffer that the point evaluation allocates.
+# The value at `x` of the spline `c` on the basis `b`, with the buffer `values`: the sum of
+# `SimpleSplines._evaluate_block!` in the same order, so the same value to the last bit, without
+# the buffer that the point evaluation allocates. On a `Dirichlet` or `Neumann` basis the block
+# of an end cell reaches past the basis, and those terms are skipped.
 function _spline_value!(values, b, c, x)
     j₀ = evaluate_all!(values, b, x, 0)
     s = zero(eltype(values))
