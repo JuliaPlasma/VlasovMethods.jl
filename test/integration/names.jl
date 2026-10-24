@@ -39,6 +39,7 @@ const BASE_EXPORTS = Symbol[
     :Periodic,
     :PeriodicBSplineBasis,
     :Picard_iterate_over_particles,
+    :Picard_iterate_over_particles!,
     :PoissonField,
     :PotentialReducedTensor,
     :RandomMesh,

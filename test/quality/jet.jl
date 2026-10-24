@@ -1,10 +1,12 @@
 using JET
 using ForwardDiff
 using LinearAlgebra
+using ParticleMethods: ParticleList
 using PoissonSolvers
 using Random
 using ReducedBasisMethods: get_DEIM_indices
 using ReducedComplexityModeling: ParameterSpace, Parameter
+using SimpleSplines: SplineQuadrature
 using VlasovMethods
 using VlasovMethods: AnalyticHamiltonian, DEIMElectricField, IntegratorParameters,
                      ReducedElectricField, ReducedIntegratorCache, SAcceleration,
@@ -188,6 +190,25 @@ if isdefined(JET, :JET_AVAILABLE) ? JET.JET_AVAILABLE : JET.JET_LOADABLE
         @test isempty(JET.get_reports(JET.report_opt(save_full_solution,
             (typeof(SS), typeof(x), typeof(v), typeof(w), typeof(field), Int, T, Int);
             target_modules = (VlasovMethods,))))
+    end
+
+    # test/integration/metriplectic_solve.jl: the in-place metriplectic Picard step, on its
+    # `@allocated` call, at the `Float32` and `Float64` argument types of that test, with the
+    # `Float64` tolerances it passes in both precisions. The guess of the first three steps
+    # builds an `ODEProblem` whose type is not inferred, because the `EquationProblem`
+    # constructor of `GeometricEquations` calls `eval` (KNOWN_ISSUES.md, K70); the dispatch on it
+    # in `_mlb_startup_guess!` is the one report allowed.
+    for T in (Float64, Float32)
+        mpdist = ParticleDistribution(1, 1,
+            ParticleList(zeros(T, 3, 64); variables = (x = 1:1, v = 2:2, z = 1:2, w = 3:3)))
+        maxis = BSplineBasis(UniformMesh(16, T(-2) .. T(2)), 3, Free())
+        msdist = SplineDistribution(1, 1, maxis, SplineQuadrature(maxis),
+            zeros(T, nbasis(maxis)))
+        mlb = MetriplecticLenardBernstein(mpdist, CollisionEntropy(msdist))
+        reports = JET.get_reports(JET.report_opt(Picard_iterate_over_particles!,
+            (Vector{T}, Vector{T}, Vector{T}, Matrix{T}, Int, T, T, Float64, Float64,
+                typeof(mlb)); target_modules = (VlasovMethods,)))
+        @test all(r -> last(r.vst).linfo.def.name === :_mlb_startup_guess!, reports)
     end
 else
     @test_skip "JET does not work on this Julia version"  # aviatesk/JET.jl#681

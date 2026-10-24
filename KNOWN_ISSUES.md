@@ -273,32 +273,19 @@ takes the next `K<n>`.
 
 ### K36 · A metriplectic Picard step whose particles leave the velocity domain stops with the model's `DomainError`.
 
-- **location:** `src/models/lenard_bernstein_metriplectic.jl:300`
+- **location:** `src/models/lenard_bernstein_metriplectic.jl:420`
 - **evidence:** With `ν = 1e6` at `ti = 4`, all 64 particles leave the `-2.0 .. 2.0` velocity
   support and `projection` throws `DomainError: … 64 of 64 particles left the velocity domain …`
-  from inside the solve. The catch at `:300` rethrows it, so the caller sees that `DomainError`
+  from inside the solve. The catch at `:420` rethrows it, so the caller sees that `DomainError`
   and not the residual-and-count `ErrorException` the author decided for a solve that does not
   converge or meets a `NaN`. The error is loud, so the solve never returns in silence.
 - **kind:** found late
 - **found:** 2026-10-04
 
-### K40 · Each metriplectic Picard step builds a fresh `SimpleSolvers` solver and its unused Jacobian cache.
+### K41 · `Picard_iterate_over_particles!` calls two `SimpleSolvers` names that are not public.
 
-- **location:** `src/models/lenard_bernstein_metriplectic.jl:293`
-- **evidence:** `Picard_iterate_over_particles` constructs a fresh
-  `SimpleSolvers.NonlinearSolver(Picard(), …)` on every call. The constructor allocates an `N×N`
-  `solver.cache.j` and a `ForwardDiff.JacobianConfig` the unaccelerated Picard step never reads:
-  measured `126288 B` at `N = 64` and `96629344 B` at `N = 2000` per step. The solver's type also
-  leaves the chunk size open, so `solve_with_status!` is one dynamic dispatch per call. The return
-  type is concrete and `@inferred` passes. Avoiding the allocation needs the solver to be reused
-  across steps (an API change) or an upstream change to the Picard constructor's cache.
-- **kind:** defect
-- **found:** 2026-10-04
-
-### K41 · `Picard_iterate_over_particles` calls two `SimpleSolvers` names that are not public.
-
-- **location:** `src/models/lenard_bernstein_metriplectic.jl:301`
-- **evidence:** `SimpleSolvers.status` (`:301`) and `SimpleSolvers.isconverged` (`:304`) are neither
+- **location:** `src/models/lenard_bernstein_metriplectic.jl:421`
+- **evidence:** `SimpleSolvers.status` (`:421`) and `SimpleSolvers.isconverged` (`:424`) are neither
   exported nor declared `public`; `SimpleSolvers` 0.14.1 keeps them unexported at
   `src/SimpleSolvers.jl:138`. `ExplicitImports.check_all_qualified_accesses_are_public` flags
   exactly these two. The fix is a `public` declaration in `SimpleSolvers`.
@@ -307,8 +294,9 @@ takes the next `K<n>`.
 
 ### K42 · `Picard_iterate_over_particles` takes `dv`, `m` and `β` and ignores them.
 
-- **location:** `src/models/lenard_bernstein_metriplectic.jl:253`
-- **evidence:** The function body does not read `dv`, `m` or `β` after the signature (`:253-256`).
+- **location:** `src/models/lenard_bernstein_metriplectic.jl:441`
+- **evidence:** The wrapper does not read `dv`, `m` or `β` after its signature (`:441-444`); it
+  passes the other arguments to `Picard_iterate_over_particles!`, which takes none of the three.
   They stay so that the call sites do not change, and the CHANGELOG says so. Removing them is an
   API change.
 - **kind:** dead code
@@ -348,16 +336,15 @@ takes the next `K<n>`.
 - **kind:** defect
 - **found:** 2026-10-10
 
-### K47 · Nineteen lines of commented-out code remain in five collision model files.
+### K47 · Thirteen lines of commented-out code remain in four collision model files.
 
 - **location:** `src/models/landau.jl:385`
 - **evidence:** The lines are `src/models/landau.jl:385`; `src/models/lenard_bernstein.jl:57`
   and `:67`; `src/models/lenard_bernstein_conservative.jl:196`, `:206-208` and `:212`;
-  `src/models/lenard_bernstein_metriplectic.jl:259`, `:264-265`, `:267-268` and `:309`;
   `src/models/rescaled_lenard_bernstein_conservative.jl:125`, `:138-140` and `:144`. Each is an
   old assignment, call or `return` behind `#`, such as `# int = Integrators.Integrator(equ,
   Integrators.RK438())`. #69 deleted the other dead code of these files and left these lines,
-  because they are outside its hunks. The fix is to delete the nineteen lines.
+  because they are outside its hunks. The fix is to delete the thirteen lines.
 - **kind:** dead code
 - **found:** #69
 
@@ -376,7 +363,7 @@ takes the next `K<n>`.
 ### K49 · The `which(f!, …)` assertion of the metriplectic collision test cannot fail.
 
 - **location:** `test/integration/collision_operators.jl:94`
-- **evidence:** `f!` has one method, `src/models/lenard_bernstein_metriplectic.jl:240`, and its
+- **evidence:** `f!` has one method, `src/models/lenard_bernstein_metriplectic.jl:339`, and its
   last argument is `mlb::MetriplecticLenardBernstein`. So `which(VlasovMethods.f!, …)` at
   `:94-96` either returns that method, and the `@test` at `:97` passes, or throws a
   `MethodError`. The value pin at `:90` already runs `f!` through the Picard step. Whether to
@@ -427,7 +414,7 @@ takes the next `K<n>`.
 
 ### K54 · Projecting a spline distribution back onto particles is not implemented.
 
-- **location:** `src/projections/distribution.jl:179`
+- **location:** `src/projections/distribution.jl:188`
 - **evidence:** The method raises
   `error("projecting a spline distribution back onto particles is not implemented")`. Two meanings
   are available for the direction and neither is chosen: (a) draw a new particle sample from
@@ -573,3 +560,17 @@ takes the next `K<n>`.
   per sample, so at the default of 10 samples no figure of the scripts shows the overflow.
 - **kind:** found late
 - **found:** 2026-10-23
+
+### K70 · The guess of the first three metriplectic Picard steps is not type-stable.
+
+- **location:** `src/models/lenard_bernstein_metriplectic.jl:355`
+- **evidence:** `_mlb_startup_guess!` builds a `GeometricEquations.ODEProblem` for the midpoint
+  extrapolation of the steps `ti < 4`. The `EquationProblem` constructor sets its first type
+  parameter with `eval(typeof(equ).name.name)` (`src/problems/equation_problem.jl:82` of
+  GeometricEquations 0.21.5), so `Base.infer_return_type` gives `EquationProblem{_A, …} where
+  _A<:GeometricEquation`, and `JET.report_opt(Picard_iterate_over_particles!, …;
+  target_modules = (VlasovMethods,))` reports one runtime dispatch, on `extrapolate!` in
+  `_mlb_startup_guess!`. `test/quality/jet.jl` allows that one report. The steps `ti ≥ 4` do not
+  reach it.
+- **kind:** upstream
+- **found:** 2026-10-24
