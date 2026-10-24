@@ -19,7 +19,6 @@ ReducedComplexityModeling = "0.1.1"
 
 # VlasovMethods is unregistered, so no registry can supply it. `docs/` needs no `[sources]` entry
 # because `Documenter.yml` runs `Pkg.develop` on the parent package before it builds. Nothing does
-# that for `scripts/`, so the path is declared here. `[sources]` needs Julia 1.11 or newer. On
-# 1.10, run `Pkg.develop(path = "..")` in this environment once instead.
+# that for `scripts/`, so the path is declared here. `[sources]` needs Julia 1.11 or newer.
 [sources]
 VlasovMethods = {path = ".."}
