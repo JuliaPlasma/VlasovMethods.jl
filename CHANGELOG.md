@@ -130,6 +130,13 @@ their own, except for what they removed and narrowed, which is listed in full be
   `ParticleDistribution` of any element type. The importance-sampling method also read a field
   `a` that `BumpOnTail` does not have; it reads the tail share `α`.
 
+### Breaking Changes
+
+- **`[compat] julia` rises from 1.11 to 1.12.** Julia 1.11 no longer loads the package. Julia 1.11
+  gives other last bits than Julia 1.12 and later for the same arithmetic, which a test that pins
+  stored states observes, and the floor rises in place of a workaround for it. Nothing in `src/`
+  changes.
+
 ## [0.3.0] — 2026-10-16
 
 ### Bug Fixes
