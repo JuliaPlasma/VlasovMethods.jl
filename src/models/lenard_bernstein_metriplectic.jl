@@ -350,12 +350,14 @@ function f!(f::AbstractArray{T}, vn::AbstractArray{T}, vp, params,
 end
 
 # The guess of the first three steps: a midpoint extrapolation of the vector field from
-# `(t - Δt, vn)` to `t`, written into `v`. It allocates, and the type of its `ODEProblem` is not
-# inferred, because `GeometricEquations`' `EquationProblem` constructor calls `eval`.
+# `(t - Δt, vn)` to `t`, written into `v`. It allocates. The `EquationProblem` constructor of
+# `GeometricEquations` sets the first type parameter of the problem with `eval`, so the
+# assertion `::GeometricEquations.ODEProblem` states it, and the `extrapolate!` call dispatches
+# statically.
 function _mlb_startup_guess!(v, vn, t, Δt, params, mlb)
     problemGNI = GeometricEquations.ODEProblem(
         (v̇, t, v, params) -> collisional_vectorfield!(v̇, v, params, mlb),
-        (t, t+Δt), Δt, vn; parameters = params)
+        (t, t+Δt), Δt, vn; parameters = params)::GeometricEquations.ODEProblem
     extrapolate!(t - Δt, vn, t, v, problemGNI, MidpointExtrapolation(5))
 end
 

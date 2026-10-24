@@ -311,11 +311,15 @@ end
         @test step!(similar(v0), v0, mlb, 1e-6, Float64) != v_default
         @test step!(similar(v0), v0, mlb, abstol, Float64) == v_default
         # `SimpleSolvers` applies `f_reltol` only once the iterate or the residual stops
-        # changing, so a looser `reltol` leaves this step as it is; the solver that the call
-        # leaves in the cache carries it.
-        step!(similar(v0), v0, mlb, abstol, Float64; reltol = 1e-6)
-        solver = mlb.cache[Float64].picard.solver
-        @test VlasovMethods.SimpleSolvers.config(solver).f_reltol == 1e-6
+        # changing, so a looser `reltol` alone leaves this step as it is. At `abstol = 0` the
+        # solve converges through `reltol = 1e-6` and not at `reltol = 1e-50`.
+        @test step_outcome(similar(v0), v0, v0, zeros(N, 2), 4, 0.0, ΔT, 0.0, 1e-6, mlb) ===
+              nothing
+        caught = step_outcome(
+            similar(v0), v0, v0, zeros(N, 2), 4, 0.0, ΔT, 0.0, 1.0e-50, mlb)
+        @test caught isa ErrorException
+        message = caught === nothing ? "" : sprint(showerror, caught)
+        @test occursin("did not converge", message)
     end
 
     @testset "the in-place step refuses a wrong length and an aliased output" begin
