@@ -238,7 +238,7 @@ end
     @testset "a state of another length, $T" for T in (Float32, Float64)
         # the guard refuses before any buffer is written; `reshape` and `poisson_apply!` raise
         # the same type on the same input, so the phrase is the evidence
-        model, prob = seeded_problem(T)
+        _, prob = seeded_problem(T)
         params = prob.parameters
         q = Vector(prob.ics.q)
         ḟ = similar(q)
@@ -295,7 +295,7 @@ end
     end
 
     @testset "the right-hand side allocates nothing, $T" for T in (Float32, Float64)
-        model, prob = seeded_problem(T)
+        _, prob = seeded_problem(T)
         params = prob.parameters
         q = Vector(prob.ics.q)
         ḟ = similar(q)
