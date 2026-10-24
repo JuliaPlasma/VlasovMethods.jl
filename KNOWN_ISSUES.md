@@ -275,7 +275,7 @@ takes the next `K<n>`.
 
 - **location:** `src/models/lenard_bernstein_metriplectic.jl:422`
 - **evidence:** With `ν = 1e6` at `ti = 4`, all 64 particles leave the `-2.0 .. 2.0` velocity
-  support and `projection` throws `DomainError: … 64 of 64 particles left the velocity domain …`
+  support and `_projection!` throws `DomainError: … 64 of 64 particles left the velocity domain …`
   from inside the solve. The catch at `:422` rethrows it, so the caller sees that `DomainError`
   and not the residual-and-count `ErrorException` the author decided for a solve that does not
   converge or meets a `NaN`. The error is loud, so the solve never returns in silence.
