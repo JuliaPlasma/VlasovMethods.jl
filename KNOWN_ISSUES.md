@@ -416,15 +416,6 @@ takes the next `K<n>`.
 - **kind:** upstream
 - **found:** #72
 
-### K53 · `_grid_1d1v_rhs!` allocates its intermediate arrays on every call.
-
-- **location:** `src/gridbased/vlasov_poisson_1d1v.jl:66`
-- **evidence:** The density (`sum`, then `.*`), `ϕ = G * …`, `h = vec(ϕ .+ v' .^ 2 ./ 2)` and the
-  result of `poisson_apply` (`:66-68`) are new arrays on each evaluation of the vector field.
-  Buffers in `params` and `mul!` would avoid them. No measurement compares the two forms.
-- **kind:** not verified
-- **found:** #72
-
 ### K54 · Projecting a spline distribution back onto particles is not implemented.
 
 - **location:** `src/projections/distribution.jl:179`
