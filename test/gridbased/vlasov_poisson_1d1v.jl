@@ -247,29 +247,29 @@ end
         ḟ₀ = copy(ḟ)
 
         short = q[1:(15 * 64)]
-        err = try
-            VM._grid_1d1v_rhs!(ḟ, zero(T), short, params)
-        catch e
-            e
-        end
-        @test err isa DimensionMismatch
-        @test err.msg ==
-              "_grid_1d1v_rhs! on a 16 × 64 grid takes a state f and a " *
-              "derivative ḟ of nx * nv values each; got 960 and 1024"
+        @test_throws DimensionMismatch("_grid_1d1v_rhs! on a 16 × 64 grid takes a state f " *
+                                       "and a derivative ḟ of nx * nv values each; got 960 and 1024") VM._grid_1d1v_rhs!(
+            ḟ, zero(T), short, params)
         @test [x for x in values(params) if x isa Array] == before
         @test ḟ == ḟ₀
 
         long = similar(q, 17 * 64)
-        err = try
-            VM._grid_1d1v_rhs!(long, zero(T), q, params)
-        catch e
-            e
-        end
-        @test err isa DimensionMismatch
-        @test err.msg ==
-              "_grid_1d1v_rhs! on a 16 × 64 grid takes a state f and a " *
-              "derivative ḟ of nx * nv values each; got 1024 and 1088"
+        @test_throws DimensionMismatch("_grid_1d1v_rhs! on a 16 × 64 grid takes a state f " *
+                                       "and a derivative ḟ of nx * nv values each; got 1024 and 1088") VM._grid_1d1v_rhs!(
+            long, zero(T), q, params)
         @test [x for x in values(params) if x isa Array] == before
+    end
+
+    @testset "params of another form take the allocating method, $T" for T in (Float32, Float64)
+        # `params` without the buffers, as `(arakawa, v, G)`, has a bracket of element type `T`
+        # but no buffers to write into
+        _, prob = seeded_problem(T)
+        params = prob.parameters
+        base = (; params.arakawa, params.v, params.G)
+        q = Vector(prob.ics.q)
+        ḟ = similar(q)
+        @test VM._grid_1d1v_rhs!(ḟ, zero(T), q, base) === ḟ
+        @test ḟ == allocating_rhs(q, params.arakawa, params.v, params.G)
     end
 
     @testset "a Dual state takes the allocating method" begin
@@ -299,11 +299,15 @@ end
         params = prob.parameters
         q = Vector(prob.ics.q)
         ḟ = similar(q)
+        # the problem's own state is a wrapper, not a `Vector`, as the integrators' states are
+        qs = copy(prob.ics.q)
+        @test !(qs isa Vector)
 
         # coverage instrumentation allocates on every counted line, so under it the assertion
         # does not run rather than being weakened
         if Base.JLOptions().code_coverage == 0
             @test rhs_allocations(VM._grid_1d1v_rhs!, ḟ, zero(T), q, params) == 0
+            @test rhs_allocations(VM._grid_1d1v_rhs!, similar(qs), zero(T), qs, params) == 0
         end
         # the control: the barrier sees the allocations of the `Dual` method
         qd = ForwardDiff.Dual.(q, one(T))

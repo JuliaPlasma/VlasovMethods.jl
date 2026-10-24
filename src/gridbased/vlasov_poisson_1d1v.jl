@@ -66,13 +66,15 @@ doubly periodic, so a distribution that reaches the ends of the velocity range w
 `params` also holds buffers in the element type `T` of the distribution: `kinetic`, the
 ``v_j^2 / 2``, and `ρ`, `ϕ` and `h`. A state and a derivative of element type `T` take a method
 that writes into these buffers and allocates nothing. It throws a `DimensionMismatch` before it
-writes any buffer when `f` or `ḟ` does not hold ``n_x n_v`` values. A state of another element
-type, such as the `ForwardDiff.Dual` numbers of an autodiff Jacobian, takes a method that
+writes any buffer when `f` or `ḟ` does not hold ``n_x n_v`` values, and it requires that `ḟ`
+does not share memory with `f`. A state of another element type, such as the `ForwardDiff.Dual`
+numbers of an autodiff Jacobian, or a `params` without these buffers, takes a method that
 allocates its intermediate arrays. Two concurrent calls on one `params` are unsafe, because they
 share the buffers.
 """
 function _grid_1d1v_rhs!(ḟ::AbstractVector{T}, t, f::AbstractVector{T},
-        params::NamedTuple{<:Any, <:Tuple{Arakawa{T}, Vararg{Any}}}) where {T}
+        params::NamedTuple{(:arakawa, :v, :G, :kinetic, :ρ, :ϕ, :h),
+            <:Tuple{Arakawa{T}, Vararg{Any}}}) where {T}
     (; arakawa, G, kinetic, ρ, ϕ, h) = params
     nx, nv = arakawa.nx, arakawa.nv
     length(f) == length(ḟ) == nx * nv || throw(DimensionMismatch(

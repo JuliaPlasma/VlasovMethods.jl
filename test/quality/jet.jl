@@ -190,16 +190,19 @@ if isdefined(JET, :JET_AVAILABLE) ? JET.JET_AVAILABLE : JET.JET_LOADABLE
             target_modules = (VlasovMethods,))))
     end
 
-    # test/gridbased/vlasov_poisson_1d1v.jl: the grid right-hand side, on its `@allocated` call,
-    # at the `Float64` and `Float32` argument types of that test.
+    # test/gridbased/vlasov_poisson_1d1v.jl: the grid right-hand side, on its two `@allocated`
+    # calls, a `Vector` state and the problem's own state, at the `Float64` and `Float32` argument
+    # types of that test.
     for T in (Float64, Float32)
         xd = (zero(T), T(4π))
         gdist = GridDistribution(ones(T, 16, 64), xd, (T(-7.5), T(7.5)))
         gmodel = VlasovPoisson(gdist, Potential(FFTWBasis(xd, 16)))
-        gparams = GeometricIntegrator(gmodel, (zero(T), one(T)), T(0.1)).equation.parameters
-        gq = vec(copy(gdist.values))
-        @test isempty(JET.get_reports(JET.report_opt(VlasovMethods._grid_1d1v_rhs!,
-            (typeof(gq), T, typeof(gq), typeof(gparams)); target_modules = (VlasovMethods,))))
+        gprob = GeometricIntegrator(gmodel, (zero(T), one(T)), T(0.1)).equation
+        gparams = gprob.parameters
+        for gq in (vec(copy(gdist.values)), copy(gprob.ics.q))
+            @test isempty(JET.get_reports(JET.report_opt(VlasovMethods._grid_1d1v_rhs!,
+                (typeof(gq), T, typeof(gq), typeof(gparams)); target_modules = (VlasovMethods,))))
+        end
     end
 else
     @test_skip "JET does not work on this Julia version"  # aviatesk/JET.jl#681
