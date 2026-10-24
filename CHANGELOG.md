@@ -132,10 +132,8 @@ their own, except for what they removed and narrowed, which is listed in full be
 
 ### Breaking Changes
 
-- **`[compat] julia` rises from 1.11 to 1.12.** Julia 1.11 no longer loads the package. Julia 1.11
-  gives other last bits than Julia 1.12 and later for the same arithmetic, which a test that pins
-  stored states observes, and the floor rises in place of a workaround for it. Nothing in `src/`
-  changes.
+- **`[compat] julia` rises from 1.11 to 1.12.** Pkg no longer resolves the package on Julia 1.11.
+  Nothing in `src/` changes.
 
 ## [0.3.0] — 2026-10-16
 
