@@ -136,13 +136,14 @@ their own, except for what they removed and narrowed, which is listed in full be
   in-place form, so its results are the same to the last bit:
   `test/data/lenard_bernstein_metriplectic_trajectory.txt` holds ten steps of a seeded state from
   commit `472dd42`, and both forms reproduce them with `==` on macOS aarch64, where the file was
-  written, and to `rtol = 64·eps(Float64)` elsewhere. The in-place form throws a
-  `DimensionMismatch` for a `v` or a `vn` of another length than the model's particle count, and for
-  a `dv_history` that is not `(N, 2)`, with `N` the particle count. It throws an `ArgumentError` for a
-  `v` that shares memory with `vn`, `vn_minus_one` or `dv_history`, and for a `vn` that shares memory
-  with `dv_history`. The wrapper therefore refuses a `vn` of another length than the model's particle count too. K42 now
-  names only the wrapper, and K47 counts thirteen lines in four files, because the six
-  commented-out lines of the old step body are gone.
+  written, and to `rtol = 64·eps(Float64)` elsewhere. The in-place form throws a `DimensionMismatch`
+  for a `v`, a `vn` or a `vn_minus_one` of another length than the model's particle count, and for
+  a `dv_history` that is not `(N, 2)`, with `N` the particle count. It throws an `ArgumentError` for
+  a `v` that shares memory with `vn`, `vn_minus_one` or `dv_history`, and for a `vn` or a
+  `vn_minus_one` that shares memory with `dv_history`. The wrapper therefore refuses a `vn` or a
+  `vn_minus_one` of another length than the model's particle count too. K42 now names only the
+  wrapper, and K47 counts thirteen lines in four files, because the six commented-out lines of the
+  old step body are gone.
 
 ### Bug Fixes
 
@@ -164,13 +165,19 @@ their own, except for what they removed and narrowed, which is listed in full be
   Two concurrent calls on one `params` are unsafe, because they share the buffers. The bound of
   `GeometricBrackets` rises from `0.2` to `0.3`, the first release with `poisson_apply!`.
 
-- **`Picard_iterate_over_particles` checks `dv_history` before it writes.** Before this release, a
+- **`Picard_iterate_over_particles` checks its arguments before it writes.** Before this release, a
   history with one row too few let the solve run, wrote column 2 of the history, and only then
   threw a bare broadcast `DimensionMismatch`. A `vn` that was a view of the history, such as
   `view(dv_history, :, 1)`, was overwritten by the history update after the solve, so the caller's
-  `vn` changed by up to 6.63 in a 64-particle probe. The wrapper now throws a `DimensionMismatch`
-  for a `dv_history` that is not `(N, 2)`, with `N` the model's particle count, and an
-  `ArgumentError` for a `vn` that shares memory with it, both before it writes to any argument.
+  `vn` changed by up to 6.63 in a 64-particle probe. In the Hermite guess of `ti ≥ 4`, a one-entry
+  `vn_minus_one` was broadcast over the particles, the solve wrote `v`, and in a 64-particle probe
+  the call then threw an unrelated `DomainError`; lengths 63 and 65 threw a bare broadcast
+  `DimensionMismatch`. A `vn_minus_one` that was a view of the history, such as
+  `view(dv_history, :, 2)`, was overwritten by the history update at `ti = 1`, so the caller's
+  `vn_minus_one` changed by 2.0 in a 64-particle probe. The wrapper now throws a `DimensionMismatch`
+  for a `dv_history` that is not `(N, 2)`, and for a `vn_minus_one` of another length than the
+  model's particle count, with `N` the model's particle count, and an `ArgumentError` for a `vn` or
+  a `vn_minus_one` that shares memory with `dv_history`, all before it writes to any argument.
 
 ### Breaking Changes
 
