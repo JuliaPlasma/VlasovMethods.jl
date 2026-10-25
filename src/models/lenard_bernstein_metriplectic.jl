@@ -19,40 +19,38 @@ function _mlb_picard_solver(x::Vector{T}, abstol, reltol, maxiters) where {T}
         f_abstol = abstol, f_reltol = reltol, max_iterations = maxiters, verbosity = 0)
 end
 
-# The Picard solver of the steps of one model and its state, and the length and the options they
-# were built for.
+# A Picard solver of iterates of length `n`, its state, and the options it was built for.
 mutable struct MLBPicard{T, ST, SST}
     solver::ST
     state::SST
-    n::Int
     abstol::T
     reltol::T
     maxiters::Int
 end
 
-# The solver here is built on a vector of length 1, for its type, which does not depend on the
-# length. The first step of a model of more than one particle builds a solver of its own length.
-function MLBPicard{T}() where {T}
-    solver = _mlb_picard_solver(zeros(T, 1), zero(T), zero(T), 1)
+function MLBPicard{T}(n, abstol, reltol, maxiters) where {T}
+    solver = _mlb_picard_solver(zeros(T, n), abstol, reltol, maxiters)
     state = SimpleSolvers.SolverState(solver)
-    MLBPicard{T, typeof(solver), typeof(state)}(solver, state, 1, zero(T), zero(T), 1)
+    MLBPicard{T, typeof(solver), typeof(state)}(solver, state, abstol, reltol, maxiters)
 end
 
-# The solver for an iterate of length `n` and these options: the stored one where it was built
-# for them, else a new one, which is then stored.
-function _mlb_picard!(p::MLBPicard{T}, n, abstol, reltol, maxiters) where {T}
-    if p.n != n || !isequal(p.abstol, T(abstol)) || !isequal(p.reltol, T(reltol)) ||
+# The solver of a step of `mlb` at the element type `T` with these options. The model keeps one
+# solver, for the element type of its particles, and builds it again for other options. Another
+# element type gets a new solver on each call.
+function _mlb_picard!(mlb, ::Type{T}, abstol, reltol, maxiters) where {T}
+    p = mlb.picard
+    n = size(mlb.dist.particles.v, 2)
+    p isa MLBPicard{T} || return MLBPicard{T}(n, abstol, reltol, maxiters)
+    if !isequal(p.abstol, T(abstol)) || !isequal(p.reltol, T(reltol)) ||
        p.maxiters != maxiters
         p.solver = _mlb_picard_solver(zeros(T, n), abstol, reltol, maxiters)
         p.state = SimpleSolvers.SolverState(p.solver)
-        p.n, p.abstol, p.reltol, p.maxiters = n, abstol, reltol, maxiters
+        p.abstol, p.reltol, p.maxiters = abstol, reltol, maxiters
     end
     return p
 end
 
-struct MLBCache{
-    T, PT <: ParticleDistribution, ST <: SplineDistribution{T}, PST <: MLBPicard{T}} <:
-       Cache{T}
+struct MLBCache{T, PT <: ParticleDistribution, ST <: SplineDistribution{T}} <: Cache{T}
     pdist::PT
     sdist::ST
 
@@ -69,8 +67,6 @@ struct MLBCache{
     rhs::Vector{T}
     g::Vector{T}
     values::Vector{T}
-
-    picard::PST
 
     function MLBCache{T}(pdist, sdist) where {T}
         M = length(sdist)
@@ -90,10 +86,8 @@ struct MLBCache{
         g = zeros(T, length(quadrature_nodes(sdist.quadrature)))
         values = _local_buffers(sdist.basis, T)
 
-        picard = MLBPicard{T}()
-
-        new{T, typeof(pdist), typeof(sdist), typeof(picard)}(
-            pdist, sdist, v, J, dS, dS_dg, v², rhs, g, values, picard)
+        new{T, typeof(pdist), typeof(sdist)}(
+            pdist, sdist, v, J, dS, dS_dg, v², rhs, g, values)
     end
 end
 
@@ -103,27 +97,30 @@ end
 
 @collision_cache MLBCache
 
-# The type of the Picard solver depends on the element type alone, so a cache of the parent's
-# element type has the parent's solver type. `@collision_cache`'s `CacheType` leaves that
-# parameter open, and a lookup at that element type would not infer concretely.
-function CacheType(::Type{T}, c::MLBCache{T}) where {T}
-    MLBCache{T, typeof(c.pdist), similar_type(T, c.sdist), typeof(c.picard)}
+# The Picard solver of a new model, for the element type and the count of its particles. It is
+# built at `abstol = reltol = 0` and `maxiters = 1`, and the first step builds it again for its
+# own options.
+function _mlb_picard(pdist::ParticleDistribution{T}) where {T}
+    MLBPicard{T}(size(pdist.particles.v, 2), zero(T), zero(T), 1)
 end
 
 struct MetriplecticLenardBernstein{
-    D, XD, VD, DT <: DistributionFunction{<:Any, XD, VD}, ET <: Entropy, CT <: CacheDict} <:
-       VlasovModel
+    D, XD, VD, DT <: DistributionFunction{<:Any, XD, VD}, ET <: Entropy, CT <: CacheDict,
+    PST <: MLBPicard} <: VlasovModel
     dist::DT
     entropy::ET
     ν::D
 
     cache::CT
+    picard::PST
 
     function MetriplecticLenardBernstein(
             dist::DistributionFunction{<:Any, XD, VD}, ent::Entropy; ν::D = 1.0) where {
             D, XD, VD}
         cache = CacheDict(MLBCache(dist, ent.dist))
-        new{D, XD, VD, typeof(dist), typeof(ent), typeof(cache)}(dist, ent, ν, cache)
+        picard = _mlb_picard(dist)
+        new{D, XD, VD, typeof(dist), typeof(ent), typeof(cache), typeof(picard)}(
+            dist, ent, ν, cache, picard)
     end
 end
 
@@ -375,18 +372,21 @@ midpoint extrapolation of the vector field instead. After the solve, column 2 of
 takes column 1, and column 1 the vector field at `v`. `abstol`, `reltol` and `maxiters` are the
 `f_abstol`, `f_reltol` and `max_iterations` of the `SimpleSolvers` solve.
 
-The solver, its state and the work arrays of the vector field are kept in the cache of `mlb`
-for the element type of `vn`. The first call builds the solver, and a call with other options
-builds it again. A step with `ti ≥ 4` allocates nothing when `vn` has the element type of the
-particles of `mlb`; the guess of the first three steps allocates.
+The model `mlb` keeps the solver and its state for the element type of its particles, and the
+cache of `mlb` for the element type of `vn` keeps the work arrays of the vector field. The first
+call builds the solver, and a call with other options builds it again. A step with `ti ≥ 4`
+allocates nothing when `vn` has the element type of the particles of `mlb`; the guess of the
+first three steps allocates, and a `vn` of another element type builds a solver on each call.
 
 A solve that does not converge throws an `ErrorException` with the residual and the iteration
 count. An exception of the model, such as the `DomainError` of a particle that leaves the
 velocity domain, reaches the caller unchanged.
 
-Throws a `DimensionMismatch` when `v` and `vn` differ in length or when `vn` has another length
-than the particle count of `mlb`, and an `ArgumentError` when `v` shares memory with `vn`,
-`vn_minus_one` or `dv_history`.
+Throws a `DimensionMismatch` when `v` and `vn` differ in length, when `vn` has another length
+than the particle count of `mlb`, or when `dv_history` does not have one row per particle and
+two columns. Throws an `ArgumentError` when `v` shares memory with `vn`, `vn_minus_one` or
+`dv_history`, or when `vn` shares memory with `dv_history`. Each check runs before the step
+writes to any argument.
 """
 function Picard_iterate_over_particles!(v::AbstractArray{ST}, vn::AbstractArray{ST},
         vn_minus_one::AbstractArray{ST}, dv_history, ti, t, Δt, abstol, reltol,
@@ -396,13 +396,17 @@ function Picard_iterate_over_particles!(v::AbstractArray{ST}, vn::AbstractArray{
     N = size(mlb.dist.particles.v, 2)
     length(vn) == N || throw(DimensionMismatch(
         "`vn` has $(length(vn)) entries and the model has $(N) particles"))
+    size(dv_history) == (N, 2) || throw(DimensionMismatch(
+        "`dv_history` has size $(size(dv_history)) and the model has $(N) particles"))
     Base.mightalias(v, vn) && throw(ArgumentError("the output `v` shares memory with `vn`"))
     Base.mightalias(v, vn_minus_one) &&
         throw(ArgumentError("the output `v` shares memory with `vn_minus_one`"))
     Base.mightalias(v, dv_history) &&
         throw(ArgumentError("the output `v` shares memory with `dv_history`"))
+    Base.mightalias(vn, dv_history) &&
+        throw(ArgumentError("`vn` shares memory with `dv_history`"))
 
-    picard = _mlb_picard!(mlb.cache[ST].picard, length(v), abstol, reltol, maxiters)
+    picard = _mlb_picard!(mlb, ST, abstol, reltol, maxiters)
     params = (dist = mlb.dist, ent = mlb.entropy, vn = vn, Δt = Δt, mlb = mlb)
 
     # use Hermite extrapolation to get an initial guess

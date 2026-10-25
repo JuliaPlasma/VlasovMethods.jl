@@ -1,3 +1,4 @@
+using ForwardDiff
 using LinearAlgebra
 using ParticleMethods: ParticleList
 using SimpleSplines: SplineQuadrature, local_width
@@ -306,9 +307,9 @@ end
         @test step!(similar(v0), v0, mlb, abstol, Float64) == v_default
     end
 
-    # A new model holds a solver of length 1, built at `abstol = reltol = 0` and `maxiters = 1`
-    # for its type. A first call with those options builds a solver of its own length.
-    @testset "the first call builds a solver of its own length" begin
+    # A new model holds a solver of its particle count, built at `abstol = reltol = 0` and
+    # `maxiters = 1`. A first call with those options solves with it.
+    @testset "a new model holds a solver of its particle count" begin
         mlb, v0 = metriplectic_setup(Float64)
         caught = step_outcome(similar(v0), v0, v0, zeros(N, 2), 4, 0.0, ΔT, 0.0, 0.0, mlb;
             maxiters = 1)
@@ -357,6 +358,53 @@ end
         @test caught isa ArgumentError
         @test caught !== nothing &&
               caught.msg == "the output `v` shares memory with `dv_history`"
+    end
+
+    # The history update after the solve would overwrite a `vn` that is a column of `dv_history`.
+    @testset "the in-place step refuses a vn that shares memory with dv_history" begin
+        mlb, v0 = metriplectic_setup(Float64)
+        H = zeros(N, 2)
+        H[:, 1] .= v0
+        caught = step_outcome(zeros(N), view(H, :, 1), copy(v0), H, 4, 0.0, ΔT,
+            abstol_float64(), 1.0e-50, mlb)
+        @test caught isa ArgumentError
+        @test caught !== nothing && caught.msg == "`vn` shares memory with `dv_history`"
+        @test H[:, 1] == v0
+    end
+
+    # The shape is checked before the solve, so a refused call leaves `v` and `dv_history` as they
+    # were. At `ti = 1` the solve does not read the history, so only the check can refuse it.
+    @testset "the in-place step refuses a dv_history of another shape" begin
+        mlb, v0 = metriplectic_setup(Float64)
+        for H in (ones(N - 1, 2), ones(N, 1), ones(N, 3))
+            v, H₀ = zeros(N), copy(H)
+            caught = step_outcome(
+                v, v0, copy(v0), H, 1, 0.0, ΔT, abstol_float64(), 1.0e-50, mlb)
+            @test caught isa DimensionMismatch
+            @test caught !== nothing &&
+                  caught.msg ==
+                  "`dv_history` has size $(size(H)) and the model has 64 particles"
+            @test iszero(v)
+            @test H == H₀
+        end
+    end
+
+    # The cache of another element type holds work arrays only, so the vector field takes the dual
+    # numbers of a Jacobian. Their values are the field, and their partials its derivative along
+    # the velocities, here against a central difference.
+    @testset "the vector field takes dual numbers" begin
+        mlb, v0 = metriplectic_setup(Float64)
+        function field(v)
+            v̇ = similar(v)
+            VlasovMethods.collisional_vectorfield!(v̇, v, nothing, mlb)
+            return v̇
+        end
+        v = 0.99 .* v0
+        dual = field(ForwardDiff.Dual.(v, v))
+        @test isapprox(ForwardDiff.value.(dual), field(v); rtol = 64 * eps(Float64))
+        h = 1e-6
+        central = (field((1 + h) .* v) .- field((1 - h) .* v)) ./ 2h
+        @test isapprox(ForwardDiff.partials.(dual, 1), central; rtol = 1e-6)
     end
 
     # A model holds buffers of its particle count and does not rebuild them to another length.
