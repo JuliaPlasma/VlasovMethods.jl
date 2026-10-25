@@ -382,11 +382,11 @@ A solve that does not converge throws an `ErrorException` with the residual and 
 count. An exception of the model, such as the `DomainError` of a particle that leaves the
 velocity domain, reaches the caller unchanged.
 
-Throws a `DimensionMismatch` when `v` and `vn` differ in length, when `vn` has another length
-than the particle count of `mlb`, or when `dv_history` does not have one row per particle and
-two columns. Throws an `ArgumentError` when `v` shares memory with `vn`, `vn_minus_one` or
-`dv_history`, or when `vn` shares memory with `dv_history`. Each check runs before the step
-writes to any argument.
+Throws a `DimensionMismatch` when `v` and `vn` differ in length, when `vn` or `vn_minus_one` has
+another length than the particle count of `mlb`, or when `dv_history` does not have one row per
+particle and two columns. Throws an `ArgumentError` when `v` shares memory with `vn`,
+`vn_minus_one` or `dv_history`, or when `vn` or `vn_minus_one` shares memory with `dv_history`.
+Each check runs before the step writes to any argument.
 """
 function Picard_iterate_over_particles!(v::AbstractArray{ST}, vn::AbstractArray{ST},
         vn_minus_one::AbstractArray{ST}, dv_history, ti, t, Δt, abstol, reltol,
@@ -396,6 +396,8 @@ function Picard_iterate_over_particles!(v::AbstractArray{ST}, vn::AbstractArray{
     N = size(mlb.dist.particles.v, 2)
     length(vn) == N || throw(DimensionMismatch(
         "`vn` has $(length(vn)) entries and the model has $(N) particles"))
+    length(vn_minus_one) == N || throw(DimensionMismatch(
+        "`vn_minus_one` has $(length(vn_minus_one)) entries and the model has $(N) particles"))
     size(dv_history) == (N, 2) || throw(DimensionMismatch(
         "`dv_history` has size $(size(dv_history)) and the model has $(N) particles"))
     Base.mightalias(v, vn) && throw(ArgumentError("the output `v` shares memory with `vn`"))
@@ -405,6 +407,8 @@ function Picard_iterate_over_particles!(v::AbstractArray{ST}, vn::AbstractArray{
         throw(ArgumentError("the output `v` shares memory with `dv_history`"))
     Base.mightalias(vn, dv_history) &&
         throw(ArgumentError("`vn` shares memory with `dv_history`"))
+    Base.mightalias(vn_minus_one, dv_history) &&
+        throw(ArgumentError("`vn_minus_one` shares memory with `dv_history`"))
 
     picard = _mlb_picard!(mlb, ST, abstol, reltol, maxiters)
     params = (dist = mlb.dist, ent = mlb.entropy, vn = vn, Δt = Δt, mlb = mlb)

@@ -389,6 +389,41 @@ end
         end
     end
 
+    # The Hermite guess of `ti ≥ 4` broadcasts a one-entry `vn_minus_one` over the particles, so
+    # only the check refuses it there. The check holds at every `ti`.
+    @testset "the in-place step refuses a vn_minus_one of another length" begin
+        mlb, v0 = metriplectic_setup(Float64)
+        for ti in (1, 4), m in (1, N - 1, N + 1)
+
+            v, H = zeros(N), ones(N, 2)
+            H₀ = copy(H)
+            caught = step_outcome(
+                v, v0, fill(0.5, m), H, ti, 0.0, ΔT, abstol_float64(), 1.0e-50, mlb)
+            @test caught isa DimensionMismatch
+            @test caught !== nothing &&
+                  caught.msg ==
+                  "`vn_minus_one` has $m entries and the model has 64 particles"
+            @test iszero(v)
+            @test H == H₀
+        end
+    end
+
+    # The history update after the solve would overwrite a `vn_minus_one` that is a column of
+    # `dv_history`. At `ti = 1` the solve does not read `vn_minus_one`, so only the check
+    # refuses it.
+    @testset "the in-place step refuses a vn_minus_one that shares memory with dv_history" begin
+        mlb, v0 = metriplectic_setup(Float64)
+        v, H = zeros(N), zeros(N, 2)
+        H[:, 2] .= v0
+        caught = step_outcome(v, copy(v0), view(H, :, 2), H, 1, 0.0, ΔT,
+            abstol_float64(), 1.0e-50, mlb)
+        @test caught isa ArgumentError
+        @test caught !== nothing &&
+              caught.msg == "`vn_minus_one` shares memory with `dv_history`"
+        @test iszero(v)
+        @test H[:, 2] == v0
+    end
+
     # The cache of another element type holds work arrays only, so the vector field takes the dual
     # numbers of a Jacobian. Their values are the field, and their partials its derivative along
     # the velocities, here against a central difference.
