@@ -124,10 +124,12 @@ their own, except for what they removed and narrowed, which is listed in full be
 
 - **`Picard_iterate_over_particles!`, the metriplectic Picard step in place.**
   `Picard_iterate_over_particles!(v, vn, vn_minus_one, dv_history, ti, t, Δt, abstol, reltol, mlb;
-  maxiters = 1000)` writes the step into `v` and takes no `dv`, `m` or `β`. The model's cache of
-  the element type keeps the `SimpleSolvers` solver, its state and the work arrays of the vector
-  field: the first call builds the solver, a call with another `abstol`, `reltol` or `maxiters`
-  builds it again, and a step with `ti ≥ 4` allocates nothing when `vn` has the element type of
+  maxiters = 1000)` writes the step into `v` and takes no `dv`, `m` or `β`. The model keeps the
+  `SimpleSolvers` solver and its state for the element type of its particles, built with the model
+  at the particle count, and the model's cache of that element type keeps the work arrays of the
+  vector field. A call with other `abstol`, `reltol` or `maxiters` than those the solver was built
+  for builds it again, a step whose `vn` has another element type than the particles builds a new
+  solver on each call, and a step with `ti ≥ 4` allocates nothing when `vn` has the element type of
   the model's particles, where each step built a new solver and its unused `N×N` Jacobian cache
   before (K40, removed). The first three steps still allocate
   for their midpoint guess. `Picard_iterate_over_particles` keeps its signature and calls the
@@ -135,9 +137,10 @@ their own, except for what they removed and narrowed, which is listed in full be
   `test/data/lenard_bernstein_metriplectic_trajectory.txt` holds ten steps of a seeded state from
   commit `472dd42`, and both forms reproduce them with `==` on macOS aarch64, where the file was
   written, and to `rtol = 64·eps(Float64)` elsewhere. The in-place form throws a
-  `DimensionMismatch` for a `v` or a `vn` of another length than the model's particle count, and an
-  `ArgumentError` for a `v` that shares memory with `vn`, `vn_minus_one` or `dv_history`. The
-  wrapper therefore refuses a `vn` of another length than the model's particle count too. K42 now
+  `DimensionMismatch` for a `v` or a `vn` of another length than the model's particle count, and for
+  a `dv_history` that is not `(N, 2)`, with `N` the particle count. It throws an `ArgumentError` for a
+  `v` that shares memory with `vn`, `vn_minus_one` or `dv_history`, and for a `vn` that shares memory
+  with `dv_history`. The wrapper therefore refuses a `vn` of another length than the model's particle count too. K42 now
   names only the wrapper, and K47 counts thirteen lines in four files, because the six
   commented-out lines of the old step body are gone.
 
@@ -160,6 +163,14 @@ their own, except for what they removed and narrowed, which is listed in full be
   the `ForwardDiff.Dual` numbers of the implicit midpoint's Jacobian, keeps the allocating method.
   Two concurrent calls on one `params` are unsafe, because they share the buffers. The bound of
   `GeometricBrackets` rises from `0.2` to `0.3`, the first release with `poisson_apply!`.
+
+- **`Picard_iterate_over_particles` checks `dv_history` before it writes.** Before this release, a
+  history with one row too few let the solve run, wrote column 2 of the history, and only then
+  threw a bare broadcast `DimensionMismatch`. A `vn` that was a view of the history, such as
+  `view(dv_history, :, 1)`, was overwritten by the history update after the solve, so the caller's
+  `vn` changed by up to 6.63 in a 64-particle probe. The wrapper now throws a `DimensionMismatch`
+  for a `dv_history` that is not `(N, 2)`, with `N` the model's particle count, and an
+  `ArgumentError` for a `vn` that shares memory with it, both before it writes to any argument.
 
 ### Breaking Changes
 
