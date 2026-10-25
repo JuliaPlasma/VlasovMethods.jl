@@ -66,8 +66,8 @@ doubly periodic, so a distribution that reaches the ends of the velocity range w
 `params` also holds buffers in the element type `T` of the distribution: `kinetic`, the
 ``v_j^2 / 2``, and `ρ`, `ϕ` and `h`. A state and a derivative of element type `T` take a method
 that writes into these buffers and allocates nothing. It throws a `DimensionMismatch` before it
-writes any buffer when `f` or `ḟ` does not hold ``n_x n_v`` values, and it requires that `ḟ`
-does not share memory with `f`. A state of another element type, such as the `ForwardDiff.Dual`
+writes any buffer when `f` or `ḟ` does not hold ``n_x n_v`` values. It throws an `ArgumentError`
+when `ḟ` shares memory with `f`. A state of another element type, such as the `ForwardDiff.Dual`
 numbers of an autodiff Jacobian, or a `params` without these buffers, takes a method that
 allocates its intermediate arrays. Two concurrent calls on one `params` are unsafe, because they
 share the buffers.
@@ -82,15 +82,13 @@ function _grid_1d1v_rhs!(ḟ::AbstractVector{T}, t, f::AbstractVector{T},
         "values each; got $(length(f)) and $(length(ḟ))"))
 
     fill!(ρ, zero(T))
-    for j in 1:nv, i in 1:nx
-
-        ρ[i] += f[(j - 1) * nx + i]
+    for j in 1:nv
+        ρ .+= view(f, ((j - 1) * nx + 1):(j * nx))
     end
     ρ .*= arakawa.hv
     mul!(ϕ, G, ρ)
-    for j in 1:nv, i in 1:nx
-
-        h[(j - 1) * nx + i] = ϕ[i] + kinetic[j]
+    for j in 1:nv
+        view(h, ((j - 1) * nx + 1):(j * nx)) .= ϕ .+ kinetic[j]
     end
     poisson_apply!(ḟ, arakawa, f, h)
     ḟ ./= arakawa.hx * arakawa.hv

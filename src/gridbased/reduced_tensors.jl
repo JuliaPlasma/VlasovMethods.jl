@@ -8,8 +8,9 @@ its entry at the nodes `(I, J, K)` is `a(I, J, K)`. The grid is read from `a`, s
 cannot be on another grid than its bracket. This is the tensor that `PotentialReducedTensor`,
 `VelocityReducedMatrix` and `FullyReducedTensor` take.
 
-`bracket_tensor` is a bridge until VlasovMethods requires GeometricBrackets 0.3, whose
-four-argument `PoissonTensor(DT, nx, nv, f)` builds the same tensor and checks the grid.
+GeometricBrackets' four-argument `PoissonTensor(DT, nx, nv, f)` builds the same tensor and checks
+the grid, but it returns a bracket that wraps the tensor, and these three take the `GridTensor`
+itself.
 
 ```julia
 julia> using GeometricBrackets: Arakawa
@@ -19,7 +20,7 @@ julia> size(bracket_tensor(Arakawa(3, 4, 0.5, 0.5)))
 ```
 """
 function bracket_tensor(a::Arakawa{DT}) where {DT}
-    # GeometricBrackets 0.2 has no public accessor of the grid an `Arakawa` is built on
+    # GeometricBrackets has no public accessor of the grid an `Arakawa` is built on
     g = MultiIndexAxis(a.nx, a.nv)
     # `MultiIndexLazyArray` refuses a callable struct, so the coefficients go through a closure
     return GridTensor(MultiIndexLazyArray(DT, (I, J, K) -> a(I, J, K), g, g, g), 1)
