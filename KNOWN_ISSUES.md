@@ -273,10 +273,10 @@ takes the next `K<n>`.
 
 ### K36 · A metriplectic Picard step whose particles leave the velocity domain stops with the model's `DomainError`.
 
-- **location:** `src/models/lenard_bernstein_metriplectic.jl:426`
+- **location:** `src/models/lenard_bernstein_metriplectic.jl:430`
 - **evidence:** With `ν = 1e6` at `ti = 4`, all 64 particles leave the `-2.0 .. 2.0` velocity
   support and `_projection!` throws `DomainError: … 64 of 64 particles left the velocity domain …`
-  from inside the solve. The catch at `:426` rethrows it, so the caller sees that `DomainError`
+  from inside the solve. The catch at `:430` rethrows it, so the caller sees that `DomainError`
   and not the residual-and-count `ErrorException` the author decided for a solve that does not
   converge or meets a `NaN`. The error is loud, so the solve never returns in silence.
 - **kind:** found late
@@ -284,8 +284,8 @@ takes the next `K<n>`.
 
 ### K41 · `Picard_iterate_over_particles!` calls two `SimpleSolvers` names that are not public.
 
-- **location:** `src/models/lenard_bernstein_metriplectic.jl:427`
-- **evidence:** `SimpleSolvers.status` (`:427`) and `SimpleSolvers.isconverged` (`:430`) are neither
+- **location:** `src/models/lenard_bernstein_metriplectic.jl:431`
+- **evidence:** `SimpleSolvers.status` (`:431`) and `SimpleSolvers.isconverged` (`:434`) are neither
   exported nor declared `public`; `SimpleSolvers` 0.14.1 keeps them unexported at
   `src/SimpleSolvers.jl:138`. `ExplicitImports.check_all_qualified_accesses_are_public` flags
   exactly these two. The fix is a `public` declaration in `SimpleSolvers`.
@@ -294,8 +294,8 @@ takes the next `K<n>`.
 
 ### K42 · `Picard_iterate_over_particles` takes `dv`, `m` and `β` and ignores them.
 
-- **location:** `src/models/lenard_bernstein_metriplectic.jl:447`
-- **evidence:** The wrapper does not read `dv`, `m` or `β` after its signature (`:447-450`); it
+- **location:** `src/models/lenard_bernstein_metriplectic.jl:451`
+- **evidence:** The wrapper does not read `dv`, `m` or `β` after its signature (`:451-454`); it
   passes the other arguments to `Picard_iterate_over_particles!`, which takes none of the three.
   They stay so that the call sites do not change, and the CHANGELOG says so. Removing them is an
   API change.
