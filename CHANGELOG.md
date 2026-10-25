@@ -142,6 +142,11 @@ their own, except for what they removed and narrowed, which is listed in full be
   `params` are unsafe, because they share the buffers. The bound of `GeometricBrackets` rises from
   `0.2` to `0.3`, the first release with `poisson_apply!`.
 
+### Breaking Changes
+
+- **`[compat] julia` rises from 1.11 to 1.12.** Pkg no longer resolves the package on Julia 1.11.
+  Nothing in `src/` changes.
+
 ## [0.3.0] — 2026-10-16
 
 ### Bug Fixes
