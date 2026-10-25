@@ -42,7 +42,7 @@ ElectromagneticFields = "0.9.1"
 # 0.15.1 is the first GeometricBase whose `State` keeps the vector field of an empty state
 # variable, which the vacuum run of `VlasovWithExternalFields` needs.
 GeometricBase = "0.15.1"
-GeometricBrackets = "0.2"
+GeometricBrackets = "0.2, 0.3"
 GeometricEquations = "0.21.5"
 GeometricIntegrators = "0.18.6"
 HDF5 = "0.17"
