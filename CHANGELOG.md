@@ -184,6 +184,17 @@ their own, except for what they removed and narrowed, which is listed in full be
 - **`[compat] julia` rises from 1.11 to 1.12.** Pkg no longer resolves the package on Julia 1.11.
   Nothing in `src/` changes.
 
+### Internal
+
+- **`KNOWN_ISSUES.md` K44 leaves the file.** The reference generators stay in `test/helpers/`.
+  Three of them write `test/data/` — `generate_collision_reference.jl`,
+  `generate_metriplectic_reference.jl` and `generate_metriplectic_trajectory.jl`, each through
+  a path relative to its own file, `joinpath(@__DIR__, "..", "data", …)`. A generator moved to
+  `scripts/` would resolve that to `<root>/data/<name>`, where no `data/` directory exists, so
+  `open` would throw a `SystemError`: it creates no intermediate directory.
+  `vlasov_ode_reference.jl` writes nothing and stays because
+  `test/particles/reduced_equations.jl` includes it.
+
 ## [0.3.0] — 2026-10-16
 
 ### Bug Fixes

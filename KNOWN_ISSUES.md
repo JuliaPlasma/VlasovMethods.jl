@@ -311,16 +311,6 @@ takes the next `K<n>`.
 - **kind:** defect
 - **found:** 2026-10-04
 
-### K44 · The reference generator of the metriplectic test is in `test/helpers/`.
-
-- **location:** `test/helpers/generate_metriplectic_reference.jl`
-- **evidence:** The file is a script that a person runs to write the reference data, and not a
-  helper that a test loads. A script of this kind belongs in `scripts/`.
-  `test-layout.jl --check` passes with the file where it is, and
-  `test/integration/metriplectic_solve.jl` names this path.
-- **kind:** docs
-- **found:** 2026-10-04
-
 ### K45 · Three collision caches have no `eltype`, so `CacheDict` builds their first cache twice.
 
 - **location:** `src/cache.jl:12`
@@ -551,3 +541,27 @@ takes the next `K<n>`.
   per sample, so at the default of 10 samples no figure of the scripts shows the overflow.
 - **kind:** found late
 - **found:** 2026-10-23
+
+### K75 · `scripts/electric_field_timing.jl` ignores its second positional argument.
+
+- **location:** `scripts/electric_field_timing.jl:94`
+- **evidence:** only `ARGS[1]` reaches `measure`, so
+  `julia --project=scripts scripts/electric_field_timing.jl reduced deim` times the reduced path,
+  prints one path's median as a bare number and exits 0, and the `deim` half of the command is
+  dropped in silence. The number is not a figure another reader can check: it is the median of
+  five runs of 200 field evaluations, so it moves with the machine's load. The drivers that
+  include `options.jl` refuse an argument they do not know, and this one includes no parser:
+  `ARGS` longer than one entry is accepted.
+- **kind:** defect
+- **found:** 2026-10-26
+
+### K76 · A numeric flag of `scripts/options.jl` is taken as given, so a bad value fails inside the run.
+
+- **location:** `scripts/options.jl:48`
+- **evidence:** a numeric default is read with `parse(T, value)` and never range-checked, so
+  `julia --project=scripts scripts/vlasov_poisson.jl --tstep 0` exits 1 on `ArgumentError: range
+  step cannot be zero`, raised by `Base`'s `(::Colon)` from `src/methods/splitting.jl:47`, and the
+  message names neither the flag nor the value. The drivers that parse a `--tstep` are
+  `lenard_bernstein.jl`, `lenard_bernstein_metriplectic.jl`, `profile.jl` and `vlasov_poisson.jl`.
+- **kind:** defect
+- **found:** 2026-10-26
