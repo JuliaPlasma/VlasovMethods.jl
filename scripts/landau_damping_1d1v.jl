@@ -1,13 +1,19 @@
 # The linear Landau damping rate of the grid 1D1V Vlasov–Poisson scheme, and its stability under
 # refinement. Run from the repository root:
 #
-#   julia --project=scripts scripts/landau_damping_1d1v.jl [--runs-dir dir] [--results-dir dir]
+#   julia --project=scripts scripts/landau_damping_1d1v.jl [--nv 1025,2049] \
+#       [--tstep 0.05,0.025] [--runs-dir dir] [--results-dir dir]
 #
 # The rate is fitted to the peaks of log|E₁(t)| and checked against the textbook value
 # γ ≈ −0.1533 for k = 0.5 and unit thermal velocity, to 1%. The second run halves h_v and dt, and
 # its rate must agree with the first to 1.5e-4: that is the reason the 1% tolerance is defensible,
 # and the run is what shows it. The stepper is RK4 — the implicit midpoint's dense Newton Jacobian
 # at n_x·n_v = 64·2049 would need 137 GB.
+#
+# `--nv` and `--tstep` name the two runs of that pair, one entry each, and the command above is
+# the default spelled out. A smaller velocity grid does not shorten the check but breaks it:
+# `--nv 513,1025` fails the 1.5e-4 agreement, because halving dt alone is not a refinement of the
+# velocity grid.
 #
 # Each run's own series goes to `--runs-dir`, the figure with both fitted rates to
 # `--results-dir`, and the script fails when the two conditions above do not hold.
@@ -22,7 +28,14 @@ using PoissonSolvers
 using Statistics: cov, var
 using VlasovMethods
 
-parse_arguments(ARGS)
+const OPT = parse_arguments(ARGS; nv = [1025, 2049], tstep = [0.05, 0.025])
+
+# The fit compares the second run against the first alone, and the figure draws the two in their
+# own colours, so the flags name exactly two runs each. `zip` stops at the shorter of the two
+# lists, so a mistyped command would run a pair it did not name.
+2 == length(OPT.nv) == length(OPT.tstep) || throw(ArgumentError(
+    "--nv and --tstep name the two runs of the refinement pair, got $(length(OPT.nv)) " *
+    "and $(length(OPT.tstep))"))
 
 const K = 0.5
 const ALPHA = 0.01
@@ -32,7 +45,7 @@ const VDOMAIN = (-8.6, 8.6)
 const TSPAN = (0.0, 40.0)
 
 # The two runs of the refinement pair, and what the fit has to satisfy.
-const RUNS = ((1025, 0.05), (2049, 0.025))
+const RUNS = Tuple(zip(OPT.nv, OPT.tstep))
 const TEXTBOOK = -0.1533
 
 # |E₁(t)| = k·(2/nx)·|Σᵢ ϕᵢ e^{−ikxᵢ}|, with ϕ the field of the density ρᵢ = h_v Σⱼ f_ij. The

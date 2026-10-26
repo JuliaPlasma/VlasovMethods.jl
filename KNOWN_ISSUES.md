@@ -311,16 +311,6 @@ takes the next `K<n>`.
 - **kind:** defect
 - **found:** 2026-10-04
 
-### K44 · The reference generator of the metriplectic test is in `test/helpers/`.
-
-- **location:** `test/helpers/generate_metriplectic_reference.jl`
-- **evidence:** The file is a script that a person runs to write the reference data, and not a
-  helper that a test loads. A script of this kind belongs in `scripts/`.
-  `test-layout.jl --check` passes with the file where it is, and
-  `test/integration/metriplectic_solve.jl` names this path.
-- **kind:** docs
-- **found:** 2026-10-04
-
 ### K45 · Three collision caches have no `eltype`, so `CacheDict` builds their first cache twice.
 
 - **location:** `src/cache.jl:12`
