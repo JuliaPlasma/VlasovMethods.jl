@@ -541,3 +541,14 @@ takes the next `K<n>`.
   per sample, so at the default of 10 samples no figure of the scripts shows the overflow.
 - **kind:** found late
 - **found:** 2026-10-23
+
+### K70 · `scripts/electric_field_timing.jl` ignores its second positional argument.
+
+- **location:** `scripts/electric_field_timing.jl:94`
+- **evidence:** only `ARGS[1]` reaches `measure`, so
+  `julia --project=scripts scripts/electric_field_timing.jl reduced deim` times the reduced path,
+  prints `2.210752915` and exits 0, and the `deim` half of the command is dropped in silence. The
+  drivers that include `options.jl` refuse an argument they do not know, and this one includes no
+  parser: `ARGS` longer than one entry is accepted.
+- **kind:** defect
+- **found:** 2026-10-26
