@@ -187,9 +187,13 @@ their own, except for what they removed and narrowed, which is listed in full be
 ### Internal
 
 - **`KNOWN_ISSUES.md` K44 leaves the file.** The reference generators stay in `test/helpers/`.
-  Each of the three writes `test/data/` through a path relative to its own file,
-  `joinpath(@__DIR__, "..", "data", …)`, so a move to `scripts/` would point the write at the
-  repository root's `data/` instead of the tests'.
+  Three of them write `test/data/` — `generate_collision_reference.jl`,
+  `generate_metriplectic_reference.jl` and `generate_metriplectic_trajectory.jl`, each through
+  a path relative to its own file, `joinpath(@__DIR__, "..", "data", …)`. A generator moved to
+  `scripts/` would resolve that to `<root>/data/<name>`, where no `data/` directory exists, so
+  `open` would throw a `SystemError`: it creates no intermediate directory.
+  `vlasov_ode_reference.jl` writes nothing and stays because
+  `test/particles/reduced_equations.jl` includes it.
 
 ## [0.3.0] — 2026-10-16
 
