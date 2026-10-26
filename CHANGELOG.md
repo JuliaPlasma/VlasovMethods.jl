@@ -186,16 +186,6 @@ their own, except for what they removed and narrowed, which is listed in full be
 
 ### Internal
 
-- **`scripts/landau_damping_1d1v.jl` takes the two runs of its refinement pair from the command
-  line.** `--nv` and `--tstep` hold one entry per run, `1025,2049` and `0.05,0.025` at the
-  defaults, so a coarser or a finer pair is a command rather than an edit of the file; a list that
-  names other than two runs throws an `ArgumentError` naming both counts. The default pair is the
-  one 0.3.0 records, and the two fitted rates at it are unchanged: `--nv 1025,2049 --tstep
-  0.05,0.025` measures the same `-0.153534` and `-0.153474`. A velocity grid below the default
-  does not shorten the check but breaks it: `--nv 513,1025` measures `-0.153774` and `-0.153534`,
-  which fails the `1.5e-4` agreement, because halving `dt` alone is not a refinement of the
-  velocity grid.
-
 - **`KNOWN_ISSUES.md` K44 leaves the file.** The reference generators stay in `test/helpers/`.
   Each of the three writes `test/data/` through a path relative to its own file,
   `joinpath(@__DIR__, "..", "data", …)`, so a move to `scripts/` would point the write at the

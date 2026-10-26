@@ -542,13 +542,26 @@ takes the next `K<n>`.
 - **kind:** found late
 - **found:** 2026-10-23
 
-### K70 · `scripts/electric_field_timing.jl` ignores its second positional argument.
+### K75 · `scripts/electric_field_timing.jl` ignores its second positional argument.
 
 - **location:** `scripts/electric_field_timing.jl:94`
 - **evidence:** only `ARGS[1]` reaches `measure`, so
   `julia --project=scripts scripts/electric_field_timing.jl reduced deim` times the reduced path,
-  prints `2.210752915` and exits 0, and the `deim` half of the command is dropped in silence. The
-  drivers that include `options.jl` refuse an argument they do not know, and this one includes no
-  parser: `ARGS` longer than one entry is accepted.
+  prints one path's median as a bare number and exits 0, and the `deim` half of the command is
+  dropped in silence. The number is not a figure another reader can check: it is the median of
+  five runs of 200 field evaluations, so it moves with the machine's load. The drivers that
+  include `options.jl` refuse an argument they do not know, and this one includes no parser:
+  `ARGS` longer than one entry is accepted.
+- **kind:** defect
+- **found:** 2026-10-26
+
+### K76 · A numeric flag of `scripts/options.jl` is taken as given, so a bad value fails inside the run.
+
+- **location:** `scripts/options.jl:48`
+- **evidence:** a numeric default is read with `parse(T, value)` and never range-checked, so
+  `julia --project=scripts scripts/vlasov_poisson.jl --tstep 0` exits 1 on `ArgumentError: range
+  step cannot be zero`, raised by `Base`'s `(::Colon)` from `src/methods/splitting.jl:47`, and the
+  message names neither the flag nor the value. The drivers that parse a `--tstep` are
+  `lenard_bernstein.jl`, `lenard_bernstein_metriplectic.jl`, `profile.jl` and `vlasov_poisson.jl`.
 - **kind:** defect
 - **found:** 2026-10-26
