@@ -97,8 +97,8 @@ end
     h5open(RECORD, "r") do io
         attributes_ = attributes(io)
         m = read(attributes_["dimension"])
-        # the width the clause and this test are written for: at a larger width the run's loss
-        # leaves the `1e-8` bound of the record's curve in the last few hundred epochs
+        # the width the clause and this test are written for: a larger width leaves the `1e-8` bound
+        # below in its last few hundred epochs
         @test m == 6
         epochs = read(attributes_["epochs"])
         batchsize = read(attributes_["batchsize"])
