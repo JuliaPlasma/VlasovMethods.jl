@@ -288,7 +288,7 @@ end
     page = read(joinpath(REPOSITORY, "docs", "src", "paper.md"), String)
     sections = split(page, r"^#+ "m)
     for f in ("bump_on_tail_training.jl", "bump_on_tail_projections.jl",
-        "bump_on_tail_testing.jl", "analytic_quadratic.jl")
+        "bump_on_tail_testing.jl", "bump_on_tail_train_hnn.jl", "analytic_quadratic.jl")
         section = only(s for s in sections if startswith(s, "`$f`"))
         @test occursin("julia --project=scripts scripts/$f", section)
         @test occursin(r"\*\*Measured run time:\*\* \d+ s", section)

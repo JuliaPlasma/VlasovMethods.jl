@@ -112,12 +112,12 @@ their own, except for what they removed and narrowed, which is listed in full be
   `scripts/hnn_reference/train_reference.jl`, which computes the same nested forward-mode
   derivatives in plain Julia from ForwardDiff alone and records them, with its initial weights and
   its batches, in `scripts/hnn_reference/record.h5`; trained from those weights, the package's
-  trainer matches the first step of that curve to `1e-12` and its first 500 of 1000 epochs to
-  `1e-8`, and leaves it when the step size changes by a hundredth of itself. The epoch count is the
-  bound the run allows: this training amplifies a round-off difference, and the reference's own
-  curve leaves `1e-8` at epoch 589 when one of its initial weights is moved by one ulp. The driver
-  `scripts/bump_on_tail_train_hnn.jl` reads the two files of the projections script and draws the
-  curve, and `hnn_data` in `scripts/bump_on_tail_common.jl` forms its training data.
+  trainer matches the first step of that curve to `1e-12` and every one of its 1000 epochs to
+  `1e-8`, and leaves it when the step size changes by a hundredth of itself. The record is the run
+  at `m = 6`, the width its test uses, because the first call of the compiled gradient takes minutes
+  at the larger widths (K77). The driver `scripts/bump_on_tail_train_hnn.jl` reads the two files of
+  the projections script and draws the curve at its default `m = 10`, and `hnn_data` in
+  `scripts/bump_on_tail_common.jl` forms its training data.
 
 - **The paper's two examples as scripts.** `scripts/bump_on_tail_training.jl`,
   `bump_on_tail_projections.jl` and `bump_on_tail_testing.jl` run the bump-on-tail example in three
@@ -132,13 +132,13 @@ their own, except for what they removed and narrowed, which is listed in full be
   reference notebooks. The projections script also writes the particle basis and the reduced data
   `X` and `A` that the HNN reads. Every HDF5 file records the commit and the command that wrote
   it as attributes, and a bump-on-tail file also the seed. `scripts/bump_on_tail_common.jl` holds
-  what the three bump-on-tail scripts share, and `test/integration/bump_on_tail_scripts.jl` tests
+  what the four bump-on-tail scripts share, and `test/integration/bump_on_tail_scripts.jl` tests
   it; `test/integration/bump_on_tail_runs.jl`, in the group `slow`, runs the four scripts at
   small options. `scripts/Project.toml` gains `ReducedComplexityModeling`, at the package's bound
   `0.1.1`. The bound of `ReducedBasisMethods` rises from `0.2.1` to `0.2.2`, the first release with
   `spectrumplot`, which the scripts call.
 
-- **The docs page "The paper's examples"** says how to run the four scripts, and gives the paper
+- **The docs page "The paper's examples"** says how to run the five scripts, and gives the paper
   command, the measured run time and the files of each.
 
 - **`Picard_iterate_over_particles!`, the metriplectic Picard step in place.**

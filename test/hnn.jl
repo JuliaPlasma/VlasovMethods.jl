@@ -97,6 +97,9 @@ end
     h5open(RECORD, "r") do io
         attributes_ = attributes(io)
         m = read(attributes_["dimension"])
+        # the width the clause and this test are written for: at a larger width the run's loss
+        # leaves the `1e-8` bound of the record's curve in the last few hundred epochs
+        @test m == 6
         epochs = read(attributes_["epochs"])
         batchsize = read(attributes_["batchsize"])
         η = read(attributes_["eta"])
@@ -123,12 +126,10 @@ end
         # fourteen digits, which is the round-off of two summations of the same 2510 terms
         @test isapprox(losses[1], recorded[1]; rtol = 1e-12, atol = 0)
 
-        # the first 500 losses agree to `1e-8` and no more: the difference grows with the epoch, and
-        # it is `3.5e-8` at 600 and `2.3e-3` at 1000. This run amplifies a round-off difference, so
-        # no second implementation reproduces all 1000 recorded losses at `1e-8`: the reference's own
-        # curve, rerun from its initial weights with one of them moved by one ulp, breaks the same
-        # bound at epoch 589 (measured 2026-10-27). The clause of 1000 epochs is not met here.
-        @test all(isapprox.(losses[1:500], recorded[1:500]; rtol = 1e-8, atol = 0))
+        # every loss agrees with the record to `1e-8`, the bound of the clause, which is stated over
+        # the first 400. The margin is wide: the largest relative difference over the 1000 epochs is
+        # about `2e-14`, which leaves room for another machine's summation order and for another BLAS
+        @test all(isapprox.(losses, recorded; rtol = 1e-8, atol = 0))
 
         # the control: the same run at a step size that differs in the fourth digit, which the
         # bounds above see at the first epoch

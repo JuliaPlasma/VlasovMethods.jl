@@ -565,3 +565,17 @@ takes the next `K<n>`.
   `lenard_bernstein.jl`, `lenard_bernstein_metriplectic.jl`, `profile.jl` and `vlasov_poisson.jl`.
 - **kind:** defect
 - **found:** 2026-10-26
+
+### K77 · The first call of the HNN's compiled gradient is compiled at run time, and it takes 762 s at `m = 10`.
+
+- **location:** `ext/VlasovMethodsHNNExt.jl:67`
+- **evidence:** `SymbolicNeuralNetworks.build_nn_function` returns a function that the process
+  compiles at its first call, and the function is built while the process runs, so no precompiled
+  image holds that code and every process pays for it again. At the record's width `m = 6` that
+  call takes `11.6 s`, and the two builds together, `TrainingState`, `12.5 s` (measured 2026-10-28,
+  Darwin arm64, Julia 1.13.3, SymbolicNeuralNetworks 0.9.1); the cost grows about `10×` per two
+  added to the width, and the call takes `762 s` at the default `m = 10` (measured 2026-10-27). The
+  driver at its default therefore compiles the gradient for about thirteen minutes before its first
+  epoch, and `test/hnn.jl`'s curve testset pays `11.6 s` of it on every cold run.
+- **kind:** upstream
+- **found:** 2026-10-27

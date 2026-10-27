@@ -1,7 +1,7 @@
 # Reproducing the paper's examples
 
 The reduced-order paper has two examples: the analytic quadratic model, whose solution has a closed
-form, and the self-consistent bump-on-tail problem. Four scripts in `scripts/` compute both. This
+form, and the self-consistent bump-on-tail problem. Five scripts in `scripts/` compute both. This
 page says how to run them and what each one writes. It runs no script, and it shows no figure: the
 figures are files that the scripts write.
 
@@ -23,15 +23,15 @@ root of the repository, which git ignores. A flag that a script does not know st
 julia --project=scripts scripts/bump_on_tail_training.jl --runs-dir /tmp/runs --results-dir /tmp/results
 ```
 
-Each figure is a PNG named `item<NN>_<what>.png`, after the item of the paper that it draws. A
-figure plots the quantity of its item at the script's parameters. It does not reproduce the
-paper's numbers: the paper's draws ran on Julia 1.3.1, and no value is pinned against them. Every
-HDF5 file carries the root attributes `commit`, the commit of VlasovMethods that wrote it, and
-`command`, the script and its arguments.
+Each figure is a PNG named `item<NN>_<what>.png`, after the item of the paper that it draws, except
+the Hamiltonian network's loss curve, which is `hnn_loss.png`. A figure plots the quantity of its
+item at the script's parameters. It does not reproduce the paper's numbers: the paper's draws ran
+on Julia 1.3.1, and no value is pinned against them. Every HDF5 file carries the root attributes
+`commit`, the commit of VlasovMethods that wrote it, and `command`, the script and its arguments.
 
 ## The bump-on-tail problem
 
-Three scripts run in this order, each with the same options, because the options set the name of
+Four scripts run in this order, each with the same options, because the options set the name of
 the files that the next script reads. Each takes the options of the paper's training run: `--dt`
 (`0.1`), `--final-time` (`25.0`), `--particles` (`10000`), `--cells` of the spline potential
 (`16`), `--degree` of the spline (`3`) and `--seed` (`1234`). The particles are drawn once, at the
@@ -95,6 +95,21 @@ field of the lifted particles, which the reference keeps commented out beside it
   and item 26 ranks only the samples that have one.
   The errors and the field energy are drawn on log axes, as the reference draws them; the errors
   from the first save on, because at `t = 0` they are those of the projection alone.
+
+### `bump_on_tail_train_hnn.jl`
+
+The Hamiltonian neural network of the reduced field: the loss curve of a three-layer `tanh` network
+trained on the leading coefficients of the projections, whose gradient comes from
+SymbolicNeuralNetworks and whose step from GeometricOptimizers. `--m` (`10`) is the number of
+coefficients the network trains on, and `--epochs` (`1000`), `--batchsize` (`100`) and `--eta`
+(`1e-4`) set the run; `--seed` sets the draw of its batches.
+
+- **Paper command:** `julia --project=scripts scripts/bump_on_tail_train_hnn.jl`
+- **Measured run time:** 57 s at `--m 6`, the width of the record and of its test. At the default
+  `m = 10` the first call of the compiled gradient alone takes 762 s, before the first epoch
+  (`KNOWN_ISSUES.md`, K77).
+- **Writes:** in the results directory, `hnn_loss.png`, the loss over the whole training set after
+  each epoch, against the epoch on a log axis.
 
 ## The analytic quadratic model
 
