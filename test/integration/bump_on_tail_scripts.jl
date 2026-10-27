@@ -34,7 +34,7 @@ end
     @test !occursin(r"^\s*(using|import)\b.*Makie"m,
         read(joinpath(SCRIPTS, "bump_on_tail_common.jl"), String))
     for f in ("bump_on_tail_training.jl", "bump_on_tail_projections.jl",
-        "bump_on_tail_testing.jl", "analytic_quadratic.jl")
+        "bump_on_tail_testing.jl", "bump_on_tail_train_hnn.jl", "analytic_quadratic.jl")
         @test isfile(joinpath(SCRIPTS, f))
     end
 end
