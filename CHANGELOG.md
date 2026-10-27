@@ -100,6 +100,25 @@ their own, except for what they removed and narrowed, which is listed in full be
 - The `plot_particles` method on a `Snapshots` draws one saved state,
   `SS.X[1, :, ts, p]` against `SS.V[1, :, ts, p]`, so one frame of a march is one call.
 
+- **`train_hnn`, the HNN of the reduced field.** `train_hnn(model, ps₀, data, target; η, epochs,
+  batchsize, rng, batches = nothing)` trains a three-layer Hamiltonian network on the reduced
+  positions and accelerations that `bump_on_tail_projections.jl` writes, with the parameter
+  gradient of the loss from `SymbolicNeuralNetworks` and the step from `GeometricOptimizers`
+  (`GradientMethod()`, `linesearch = η`), and returns the parameters and the loss of every epoch.
+  It is a package extension on `SymbolicNeuralNetworks`, `GeometricOptimizers` and
+  `AbstractNeuralNetworks`, three weak dependencies bounded `0.9.1`, `0.9.1` and `0.9.3`: loading
+  this package loads neither the symbolic engine nor the machine-learning stack, and `train_hnn`
+  has no method until all three are loaded. The curve is checked against a reference trainer,
+  `scripts/hnn_reference/train_reference.jl`, which computes the same nested forward-mode
+  derivatives in plain Julia from ForwardDiff alone and records them, with its initial weights and
+  its batches, in `scripts/hnn_reference/record.h5`; trained from those weights, the package's
+  trainer matches the first step of that curve to `1e-12` and its first 500 of 1000 epochs to
+  `1e-8`, and leaves it when the step size changes by a hundredth of itself. The epoch count is the
+  bound the run allows: this training amplifies a round-off difference, and the reference's own
+  curve leaves `1e-8` at epoch 589 when one of its initial weights is moved by one ulp. The driver
+  `scripts/bump_on_tail_train_hnn.jl` reads the two files of the projections script and draws the
+  curve, and `hnn_data` in `scripts/bump_on_tail_common.jl` forms its training data.
+
 - **The paper's two examples as scripts.** `scripts/bump_on_tail_training.jl`,
   `bump_on_tail_projections.jl` and `bump_on_tail_testing.jl` run the bump-on-tail example in three
   steps: the full-order training sweep of ten wave numbers, the cotangent-lift basis of the

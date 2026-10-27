@@ -1,6 +1,8 @@
 [deps]
+AbstractNeuralNetworks = "60874f82-5ada-4c70-bd1c-fa6be7711c8a"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 GeometricIntegrators = "dcce2d33-59f6-5b8d-9047-0defad88ae06"
+GeometricOptimizers = "fc236c15-5557-4942-aa65-b650f329279e"
 HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 PoissonSolvers = "8f9e8900-be71-40de-a258-603fdc860a2d"
@@ -11,6 +13,7 @@ Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 ReducedBasisMethods = "91da5cd7-58ae-4d67-87db-f03d1c8da121"
 ReducedComplexityModeling = "abb4722c-1d8e-48eb-a3bd-45b3116bfaba"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+SymbolicNeuralNetworks = "aed23131-dcd0-47ca-8090-d21e605652e3"
 VlasovMethods = "4a954452-39e6-424b-ae51-38fc4bbc42ef"
 
 [compat]

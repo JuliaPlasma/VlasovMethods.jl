@@ -265,7 +265,7 @@ function main(args)
     # the run trains on the inputs scaled by the square root of the spectrum, and on the raw
     # accelerations
     data = inputs ./ sqrt.(λ)
-    p, losses = train(data, targets, initial, o.eta, batches)
+    _, losses = train(data, targets, initial, o.eta, batches)
 
     write_record(o.out, o, inputs, targets, λ, initial, losses, reduce(hcat, batches),
         join([basename(PROGRAM_FILE); args], " "))

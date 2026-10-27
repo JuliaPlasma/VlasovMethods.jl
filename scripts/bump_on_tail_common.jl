@@ -156,6 +156,16 @@ function reduced_data(basis::ReducedBasis, SS::Snapshots)
 end
 
 """
+    hnn_data(X, A, Λ) -> (data, target)
+
+The training data of the HNN from the reduced positions `X`, the reduced accelerations `A` and the
+leading values `Λ` of the particle spectrum: each column of `X` divided by the square root of its
+value of `Λ`, and `A` as it is. A network trained on the two maps a reduced position to its
+acceleration, and the division gives the coefficients one scale.
+"""
+hnn_data(X::AbstractMatrix, A::AbstractMatrix, Λ::AbstractVector) = (X ./ sqrt.(Λ), A)
+
+"""
     write_p39_files(projections, vectorfield, basis, X, A; commit, command, seed,
                     field_basis = nothing)
 
