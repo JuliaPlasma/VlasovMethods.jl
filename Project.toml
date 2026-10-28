@@ -72,7 +72,7 @@ Random = "1"
 # first with `spectrumplot`, which the scripts call and the test of the scripts runs.
 ReducedBasisMethods = "0.2.2"
 # ReducedComplexityModeling provides `ParameterSpace` and its HDF5 generics for the bases.
-ReducedComplexityModeling = "0.1.1"
+ReducedComplexityModeling = "0.1.1, 0.3"
 SimpleSolvers = "0.14.1"
 SimpleSplines = "0.3.1"
 Sobol = "1.5"
