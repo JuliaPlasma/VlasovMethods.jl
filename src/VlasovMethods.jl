@@ -223,4 +223,11 @@ include("particles/reduced_equations.jl")
 
 export AnalyticHamiltonian, lift_solution
 
+# The HNN of the reduced field: the trainer is a package extension, so this declares it and exports
+# it, and nothing here loads the machine-learning packages.
+
+include("hnn.jl")
+
+export train_hnn
+
 end

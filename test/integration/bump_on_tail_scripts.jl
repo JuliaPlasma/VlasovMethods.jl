@@ -2,8 +2,8 @@
 # holds so that this file can include it: the field of a march, the sweeps and the step count, the
 # growth-rate fit of the reference, and the writer of the two files that the HNN reads. It also
 # reads the drivers and the docs as text, for what no function of theirs can show: the one place a
-# scaled field is built, the output paths, and the docs page. No driver runs here:
-# `bump_on_tail_runs.jl` runs them, in the group `slow`.
+# scaled field is built, the output paths, the seed of the trainer script's draw, and the docs page.
+# No driver runs here: `bump_on_tail_runs.jl` runs them, in the group `slow`.
 
 using HDF5
 using PoissonSolvers
@@ -34,7 +34,7 @@ end
     @test !occursin(r"^\s*(using|import)\b.*Makie"m,
         read(joinpath(SCRIPTS, "bump_on_tail_common.jl"), String))
     for f in ("bump_on_tail_training.jl", "bump_on_tail_projections.jl",
-        "bump_on_tail_testing.jl", "analytic_quadratic.jl")
+        "bump_on_tail_testing.jl", "bump_on_tail_train_hnn.jl", "analytic_quadratic.jl")
         @test isfile(joinpath(SCRIPTS, f))
     end
 end
@@ -95,6 +95,26 @@ end
         @test !occursin("../runs", line)
         @test !occursin("/toks/", line)
     end
+end
+
+@testset "the trainer script draws from its seed" begin
+    # the initial weights and the batches come from `--seed`, so two runs at the same options are
+    # one run: a `NeuralNetwork` built without a generator draws its weights from the global one,
+    # which a fresh process seeds from the system's entropy
+    text = read(joinpath(SCRIPTS, "bump_on_tail_train_hnn.jl"), String)
+    networks = collect(eachmatch(r"NeuralNetwork\((.*?)\)", text))
+    @test !isempty(networks)
+    for network in networks
+        @test occursin("rng =", network.captures[1])
+    end
+end
+
+@testset "the training data of the HNN" begin
+    # each row, one coefficient, is divided by the square root of its value of the spectrum
+    X, A = [1.0 2.0; 3.0 4.0], [5.0 6.0; 7.0 8.0]
+    data, target = hnn_data(X, A, [4.0, 9.0])
+    @test data ≈ [0.5 1.0; 1.0 4 / 3]
+    @test target == A
 end
 
 @testset "sweeps" begin
@@ -288,7 +308,7 @@ end
     page = read(joinpath(REPOSITORY, "docs", "src", "paper.md"), String)
     sections = split(page, r"^#+ "m)
     for f in ("bump_on_tail_training.jl", "bump_on_tail_projections.jl",
-        "bump_on_tail_testing.jl", "analytic_quadratic.jl")
+        "bump_on_tail_testing.jl", "bump_on_tail_train_hnn.jl", "analytic_quadratic.jl")
         section = only(s for s in sections if startswith(s, "`$f`"))
         @test occursin("julia --project=scripts scripts/$f", section)
         @test occursin(r"\*\*Measured run time:\*\* \d+ s", section)

@@ -15,6 +15,9 @@ using VlasovMethods: AnalyticHamiltonian, DEIMElectricField, IntegratorParameter
                      energy, full_leapfrog_step!, leapfrog_step!, s_drift!, s_lorentz!,
                      save_full_solution, save_solution, update!
 using ElectromagneticFields
+# the two packages of the HNN extension, which the last block below analyses
+using AbstractNeuralNetworks: AbstractNeuralNetworks, Chain, Dense, NeuralNetwork, params
+using GeometricOptimizers: GradientMethod, TrainingOptimizer
 using Test
 
 include("../helpers/external_fields.jl")
@@ -220,6 +223,22 @@ if isdefined(JET, :JET_AVAILABLE) ? JET.JET_AVAILABLE : JET.JET_LOADABLE
         @test isempty(JET.get_reports(JET.report_opt(Picard_iterate_over_particles!,
             (Vector{T}, Vector{T}, Vector{T}, Matrix{T}, Int, T, T, Float64, Float64,
                 typeof(mlb)); target_modules = (VlasovMethods,))))
+    end
+
+    # test/hnn.jl: the epoch of the HNN extension, at the argument types of that file's allocation
+    # test. It is the one method a training run reaches a thousand times.
+    let extension = Base.get_extension(VlasovMethods, :VlasovMethodsHNNExt)
+        @test extension !== nothing
+        m, samples, batchsize = 3, 20, 4
+        model = Chain(Dense(m, m, tanh), Dense(m, m, tanh),
+            Dense(m, 1, identity; use_bias = false))
+        ps = deepcopy(params(NeuralNetwork(model)))
+        state = extension.TrainingState(model, ps, randn(Xoshiro(4), m, samples),
+            randn(Xoshiro(5), m, samples), batchsize)
+        opt = TrainingOptimizer(ps; algorithm = GradientMethod(), linesearch = 1e-2)
+        @test isempty(JET.get_reports(JET.report_opt(extension.epoch!,
+            (typeof(state), typeof(opt), Vector{Int}, Int, Vector{Float64});
+            target_modules = (extension,))))
     end
 else
     @test_skip "JET does not work on this Julia version"  # aviatesk/JET.jl#681
