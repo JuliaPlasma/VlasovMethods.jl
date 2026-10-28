@@ -82,8 +82,8 @@ end
     @test isapprox(losses[1], reference[1]; rtol = 1e-12, atol = 0)
 
     # every loss agrees with the reference to `1e-8`. The margin is wide: the largest relative
-    # difference over the 1000 epochs is below `1e-15`. At ten times this step size the run is
-    # unstable, and the two curves part at the round-off of either
+    # difference over the 1000 epochs is below `1e-15`. At ten times this step size the run
+    # amplifies the round-off of either, and the two curves part by `5e-3`
     @test all(isapprox.(losses, reference; rtol = 1e-8, atol = 0))
 
     # the control: the same run at a step size that differs in the third digit, which the bound

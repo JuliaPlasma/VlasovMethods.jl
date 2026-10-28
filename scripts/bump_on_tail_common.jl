@@ -1,7 +1,7 @@
 # The parts that the four bump-on-tail drivers share: their options and run id, the domain, the
 # draw of the particles, the field of a march, the sweeps, the accelerations of a training sweep,
-# the reduced data and the writer of the two files that the HNN reads, and the growth-rate fit of
-# the reference.
+# the reduced data and the writer of the two files that the HNN reads, the training data of the
+# HNN, and the growth-rate fit of the reference.
 #
 # The bump-on-tail problem at the wave number `κ` runs on the domain of the reference wave number
 # `κ₀ = 0.3`, rescaled by `χ = κ/κ₀`, so that one draw of the particles serves every sample of a

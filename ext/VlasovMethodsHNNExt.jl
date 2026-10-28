@@ -2,7 +2,8 @@ module VlasovMethodsHNNExt
 
 using AbstractNeuralNetworks: AbstractNeuralNetworks, Chain, Dense, IdentityActivation,
                               TanhActivation, input_dimension, output_dimension
-using GeometricOptimizers
+using GeometricOptimizers: GradientMethod, NetworkParameters, TrainingOptimizer,
+                           optimization_step!
 using LinearAlgebra: mul!
 using Random: rand!
 
@@ -24,7 +25,8 @@ layers. With `aₗ = σ(zₗ)`, `zₗ = Wₗ aₗ₋₁ + bₗ`, `sₗ = σ'(z�
 `gₗ₋₁ = Wₗᵀ dₗ`, `dₗ = sₗ ⊙ gₗ`, from `g_L = 1`: `a` and `g` hold `L + 1` arrays, `a[1]` the
 samples and `g[1]` the input gradient of the Hamiltonian, and `z`, `s` and `d` hold `L`. The
 adjoints of the gradient pass are `ḡ`, of `L + 1` arrays like `g`, and `z̄` and `ā`, of `L` arrays
-like `z` and the first `L` of `a`.
+like `z` and the first `L` of `a`. `ā[1]`, the adjoint of the samples, keeps the indices of `a` and
+is not written.
 """
 struct Passes{T}
     z::Vector{Matrix{T}}
@@ -152,7 +154,8 @@ function gradient!(state::TrainingState)
         l < L && (p.z̄[l] .+= p.ā[l + 1] .* p.s[l])
         mul!(state.dW[l], p.z̄[l], p.a[l]', true, true)
         isempty(state.db[l]) || sum!(state.db[l], p.z̄[l])
-        mul!(p.ā[l], state.W[l]', p.z̄[l])
+        # the samples are not parameters, so the first layer passes no adjoint back
+        l > 1 && mul!(p.ā[l], state.W[l]', p.z̄[l])
     end
     return state.dp
 end

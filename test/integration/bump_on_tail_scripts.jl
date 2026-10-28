@@ -1,9 +1,10 @@
 # The functions of the bump-on-tail drivers in `scripts/`, which `scripts/bump_on_tail_common.jl`
 # holds so that this file can include it: the field of a march, the sweeps and the step count, the
-# growth-rate fit of the reference, and the writer of the two files that the HNN reads. It also
-# reads the drivers and the docs as text, for what no function of theirs can show: the one place a
-# scaled field is built, the output paths, the seed of the trainer script's draw, and the docs page.
-# No driver runs here: `bump_on_tail_runs.jl` runs them, in the group `slow`.
+# growth-rate fit of the reference, the writer of the two files that the HNN reads, and the
+# training data of the HNN. It also reads the drivers and the docs as text, for what no function of
+# theirs can show: the one place a scaled field is built, the output paths, the seed of the trainer
+# script's draw, and the docs page. No driver runs here: `bump_on_tail_runs.jl` runs all of them
+# but the trainer script, in the group `slow`.
 
 using HDF5
 using PoissonSolvers

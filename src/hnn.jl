@@ -14,7 +14,7 @@ Defined in a package extension: load `GeometricOptimizers` and `AbstractNeuralNe
 available.
 
 ```julia
-using VlasovMethods, GeometricOptimizers, AbstractNeuralNetworks
+using VlasovMethods, GeometricOptimizers, AbstractNeuralNetworks, Random
 m = 10
 model = Chain(Dense(m, m, tanh), Dense(m, m, tanh), Dense(m, 1, identity; use_bias = false))
 ps, losses = train_hnn(model, params(NeuralNetwork(model)), data, target;
@@ -27,14 +27,15 @@ ps, losses = train_hnn(model, params(NeuralNetwork(model)), data, target;
 coefficients of the particle basis divided by the square root of their values of its spectrum, and
 `target` the matching accelerations, of the same size. The loss of a sample is
 ``||\nabla_x H(x) - y||^2``: the gradient of the Hamiltonian with respect to its input against the
-acceleration. The loss of an epoch is the sum of that over the samples of the batch it steps on,
-and `losses[j]` is the loss over all `n` samples after the step of epoch `j`.
+acceleration. The step of an epoch descends the sum of that over the samples of its batch, and
+`losses[j]` is the sum over all `n` samples after the step of epoch `j`.
 
 Epoch `j` forms the gradient of the loss over its batch with respect to the parameters, takes one
 `GeometricOptimizers.optimization_step!` of a `TrainingOptimizer` built with
 `GradientMethod()` and `linesearch = η`, and records the loss over all samples. `batches` holds
-one batch per epoch as the indices of the samples it steps on, its batches drawing with
-replacement; without it, epoch `j` draws its batch as `rand(rng, 1:n, batchsize)`.
+one batch per epoch, as the indices of the samples that the epoch steps on, and an index may repeat
+in a batch. Without it, epoch `j` draws its batch with replacement, as
+`rand(rng, 1:n, batchsize)`.
 
 `ps₀` is a `NetworkParameters` of `model`, and the trainer copies it: the returned parameters are
 a new set, and `ps₀` holds the values it held at the call. `data`, `target` and `ps₀` are of one

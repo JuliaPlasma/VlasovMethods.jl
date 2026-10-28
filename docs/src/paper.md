@@ -98,19 +98,19 @@ field of the lifted particles, which the reference keeps commented out beside it
 
 ### `bump_on_tail_train_hnn.jl`
 
-The Hamiltonian neural network of the reduced field: the loss curve of a three-layer `tanh` network
-trained on the leading coefficients of the projections, whose step comes from GeometricOptimizers.
-`--m` (`10`) is the number of
-coefficients the network trains on, and `--epochs` (`1000`), `--batchsize` (`100`) and `--eta`
-(`1e-4`) set the run; `--seed` sets the draw of its initial weights and of its batches. It is part
-of the name of the run, as `--dt`, `--final-time`, `--particles`, `--cells` and `--degree` are, so
-it also selects the input files: another seed reads another run's. `--m`, `--epochs`, `--batchsize`
-and `--eta` are not part of the name.
+The Hamiltonian neural network of the reduced field: the loss curve of a three-layer network, two
+`tanh` layers and a linear output, trained on the leading coefficients of the projections with the
+step of GeometricOptimizers. `--m` (`10`) is the number of coefficients the network trains on, and
+`--epochs` (`1000`), `--batchsize` (`100`) and `--eta` (`1e-4`) set the run; `--seed` sets the
+draw of its initial weights and of its batches. It is part of the name of the run, as `--dt`,
+`--final-time`, `--particles`, `--cells` and `--degree` are, so it also selects the input files:
+another seed reads another run's. `--m`, `--epochs`, `--batchsize` and `--eta` are not part of the
+name.
 
 - **Paper command:** `julia --project=scripts scripts/bump_on_tail_train_hnn.jl`
-- **Measured run time:** 22 s, with the defaults (`m = 10`), measured 2026-10-28 on Julia 1.13.3.
+- **Measured run time:** 22 s, with the defaults (`m = 10`), on Julia 1.13.3.
 - **Writes:** in the results directory, `hnn_loss.png`, the loss over the whole training set after
-  each epoch, against the epoch on a log axis.
+  each epoch, on a log axis, against the epoch.
 
 ## The analytic quadratic model
 
