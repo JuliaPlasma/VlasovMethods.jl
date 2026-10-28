@@ -27,14 +27,20 @@ StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 TerminalLoggers = "5d786b92-1e48-4d6f-9151-6b4477ca9bed"
 
 [weakdeps]
+AbstractNeuralNetworks = "60874f82-5ada-4c70-bd1c-fa6be7711c8a"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 ElectromagneticFields = "d6c1ba6f-ee03-53af-b876-68cefeb88ec8"
+GeometricOptimizers = "fc236c15-5557-4942-aa65-b650f329279e"
 
 [extensions]
 VlasovMethodsElectromagneticFieldsExt = "ElectromagneticFields"
+VlasovMethodsHNNExt = ["AbstractNeuralNetworks", "GeometricOptimizers"]
 VlasovMethodsMakieExt = "CairoMakie"
 
 [compat]
+# The two packages of the HNN extension, at the releases the trainer is checked against; each
+# takes `julia = "1.12"`, the floor of this package.
+AbstractNeuralNetworks = "0.9.3"
 CairoMakie = "0.15"
 # 0.9.1 is the first ElectromagneticFields on GeometricBase 0.15, which `GeometricIntegrators`
 # 0.18.6 requires; 0.9.0 pins GeometricBase 0.14.
@@ -45,6 +51,7 @@ GeometricBase = "0.15.1"
 GeometricBrackets = "0.3"
 GeometricEquations = "0.21.5"
 GeometricIntegrators = "0.18.6"
+GeometricOptimizers = "0.9.1"
 HDF5 = "0.17"
 LinearAlgebra = "1"
 Logging = "1"

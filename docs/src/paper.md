@@ -1,7 +1,7 @@
 # Reproducing the paper's examples
 
 The reduced-order paper has two examples: the analytic quadratic model, whose solution has a closed
-form, and the self-consistent bump-on-tail problem. Four scripts in `scripts/` compute both. This
+form, and the self-consistent bump-on-tail problem. Five scripts in `scripts/` compute both. This
 page says how to run them and what each one writes. It runs no script, and it shows no figure: the
 figures are files that the scripts write.
 
@@ -23,15 +23,15 @@ root of the repository, which git ignores. A flag that a script does not know st
 julia --project=scripts scripts/bump_on_tail_training.jl --runs-dir /tmp/runs --results-dir /tmp/results
 ```
 
-Each figure is a PNG named `item<NN>_<what>.png`, after the item of the paper that it draws. A
-figure plots the quantity of its item at the script's parameters. It does not reproduce the
-paper's numbers: the paper's draws ran on Julia 1.3.1, and no value is pinned against them. Every
-HDF5 file carries the root attributes `commit`, the commit of VlasovMethods that wrote it, and
-`command`, the script and its arguments.
+Each figure is a PNG named `item<NN>_<what>.png`, after the item of the paper that it draws, except
+the Hamiltonian network's loss curve, which is `hnn_loss.png`. A figure plots the quantity of its
+item at the script's parameters. It does not reproduce the paper's numbers: the paper's draws ran
+on Julia 1.3.1, and no value is pinned against them. Every HDF5 file carries the root attributes
+`commit`, the commit of VlasovMethods that wrote it, and `command`, the script and its arguments.
 
 ## The bump-on-tail problem
 
-Three scripts run in this order, each with the same options, because the options set the name of
+Four scripts run in this order, each with the same options, because the options set the name of
 the files that the next script reads. Each takes the options of the paper's training run: `--dt`
 (`0.1`), `--final-time` (`25.0`), `--particles` (`10000`), `--cells` of the spline potential
 (`16`), `--degree` of the spline (`3`) and `--seed` (`1234`). The particles are drawn once, at the
@@ -96,6 +96,22 @@ field of the lifted particles, which the reference keeps commented out beside it
   The errors and the field energy are drawn on log axes, as the reference draws them; the errors
   from the first save on, because at `t = 0` they are those of the projection alone.
 
+### `bump_on_tail_train_hnn.jl`
+
+The Hamiltonian neural network of the reduced field: the loss curve of a three-layer network, two
+`tanh` layers and a linear output, trained on the leading coefficients of the projections with the
+step of GeometricOptimizers. `--m` (`10`) is the number of coefficients the network trains on, and
+`--epochs` (`1000`), `--batchsize` (`100`) and `--eta` (`1e-4`) set the run; `--seed` sets the
+draw of its initial weights and of its batches. It is part of the name of the run, as `--dt`,
+`--final-time`, `--particles`, `--cells` and `--degree` are, so it also selects the input files:
+another seed reads another run's. `--m`, `--epochs`, `--batchsize` and `--eta` are not part of the
+name.
+
+- **Paper command:** `julia --project=scripts scripts/bump_on_tail_train_hnn.jl`
+- **Measured run time:** 22 s, with the defaults (`m = 10`), on Julia 1.13.3.
+- **Writes:** in the results directory, `hnn_loss.png`, the loss over the whole training set after
+  each epoch, on a log axis, against the epoch.
+
 ## The analytic quadratic model
 
 ### `analytic_quadratic.jl`
@@ -124,5 +140,6 @@ IIIA–IIIB(2). `--final-time` and `--saves` set the final time and the number o
 
 Each time is one run of the script with its defaults, in a new Julia process, after
 `Pkg.instantiate()` and `Pkg.precompile()` of the scripts environment: Julia 1.13.2 on an Apple
-silicon Mac, with other jobs running beside it. The time includes the load of the packages and the
-compilation of the script's own calls.
+silicon Mac, except where a script's own line names another version, with other jobs running
+beside it. The time includes the load of the packages and the compilation of the script's own
+calls.

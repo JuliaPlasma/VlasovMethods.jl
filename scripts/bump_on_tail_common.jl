@@ -1,7 +1,7 @@
-# The parts that the three bump-on-tail drivers share: their options and run id, the domain, the
+# The parts that the four bump-on-tail drivers share: their options and run id, the domain, the
 # draw of the particles, the field of a march, the sweeps, the accelerations of a training sweep,
-# the reduced data and the writer of the two files that the HNN reads, and the growth-rate fit of
-# the reference.
+# the reduced data and the writer of the two files that the HNN reads, the training data of the
+# HNN, and the growth-rate fit of the reference.
 #
 # The bump-on-tail problem at the wave number `κ` runs on the domain of the reference wave number
 # `κ₀ = 0.3`, rescaled by `χ = κ/κ₀`, so that one draw of the particles serves every sample of a
@@ -26,10 +26,10 @@ using VlasovMethods: efield!, update!
 const KAPPA_REFERENCE = 0.3
 
 """
-The options that the three bump-on-tail drivers share, with the values of ReducedBasisMethods'
+The options that the four bump-on-tail drivers share, with the values of ReducedBasisMethods'
 `scripts/bump_on_tail_1_training.jl`: the timestep `dt`, the final time, the number of particles,
 the number of spline cells of the potential, the spline degree and the seed of the draw. Every
-driver takes all of them, so that the three agree on the run id.
+driver takes all of them, so that the four agree on the run id.
 """
 const BUMP_ON_TAIL = (
     dt = 0.1, final_time = 25.0, particles = 10_000, cells = 16, degree = 3, seed = 1234)
@@ -154,6 +154,16 @@ function reduced_data(basis::ReducedBasis, SS::Snapshots)
     end
     return X, A
 end
+
+"""
+    hnn_data(X, A, Λ) -> (data, target)
+
+The training data of the HNN from the reduced positions `X`, the reduced accelerations `A` and the
+leading values `Λ` of the particle spectrum: each row of `X` divided by the square root of its
+value of `Λ`, and `A` as it is. A network trained on the two maps a reduced position to its
+acceleration, and the division gives the coefficients one scale.
+"""
+hnn_data(X::AbstractMatrix, A::AbstractMatrix, Λ::AbstractVector) = (X ./ sqrt.(Λ), A)
 
 """
     write_p39_files(projections, vectorfield, basis, X, A; commit, command, seed,

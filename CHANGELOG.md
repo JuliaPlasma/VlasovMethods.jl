@@ -100,6 +100,23 @@ their own, except for what they removed and narrowed, which is listed in full be
 - The `plot_particles` method on a `Snapshots` draws one saved state,
   `SS.X[1, :, ts, p]` against `SS.V[1, :, ts, p]`, so one frame of a march is one call.
 
+- **`train_hnn`, the HNN of the reduced field.** `train_hnn(model, ps₀, data, target; η, epochs,
+  batchsize, rng, batches = nothing)` trains a three-layer Hamiltonian network on the reduced
+  positions and accelerations that `bump_on_tail_projections.jl` writes, with the step from
+  `GeometricOptimizers` (`GradientMethod()`, `linesearch = η`), and returns the parameters and the
+  loss of every epoch. The parameter gradient of the loss is written out by hand, as reverse mode
+  through the network's input gradient, for `Chain`s of `Dense` layers of `tanh` or `identity`; an
+  epoch allocates nothing, and the first call compiles in about a second at any width. It is a
+  package extension on `GeometricOptimizers` and `AbstractNeuralNetworks`, two weak dependencies
+  bounded `0.9.1` and `0.9.3`: loading this package loads neither, and `train_hnn` has no method
+  until both are loaded. The curve is checked against a reference trainer in
+  `test/helpers/hnn_reference.jl`, which computes the same loss with nested forward-mode
+  derivatives from ForwardDiff: from the same weights and batches at `m = 10`, the trainer matches
+  its first epoch to `1e-12` and every one of its 1000 epochs to `1e-8`, and leaves it when the step
+  size changes by a hundredth of itself. The driver `scripts/bump_on_tail_train_hnn.jl` reads the
+  two files of the projections script and draws the curve at its default `m = 10`, and `hnn_data`
+  in `scripts/bump_on_tail_common.jl` forms its training data.
+
 - **The paper's two examples as scripts.** `scripts/bump_on_tail_training.jl`,
   `bump_on_tail_projections.jl` and `bump_on_tail_testing.jl` run the bump-on-tail example in three
   steps: the full-order training sweep of ten wave numbers, the cotangent-lift basis of the
@@ -113,13 +130,13 @@ their own, except for what they removed and narrowed, which is listed in full be
   reference notebooks. The projections script also writes the particle basis and the reduced data
   `X` and `A` that the HNN reads. Every HDF5 file records the commit and the command that wrote
   it as attributes, and a bump-on-tail file also the seed. `scripts/bump_on_tail_common.jl` holds
-  what the three bump-on-tail scripts share, and `test/integration/bump_on_tail_scripts.jl` tests
-  it; `test/integration/bump_on_tail_runs.jl`, in the group `slow`, runs the four scripts at
-  small options. `scripts/Project.toml` gains `ReducedComplexityModeling`, at the package's bound
-  `0.1.1`. The bound of `ReducedBasisMethods` rises from `0.2.1` to `0.2.2`, the first release with
-  `spectrumplot`, which the scripts call.
+  what the four bump-on-tail scripts share, and `test/integration/bump_on_tail_scripts.jl` tests
+  it; `test/integration/bump_on_tail_runs.jl`, in the group `slow`, runs the three bump-on-tail
+  scripts and the analytic model at small options. `scripts/Project.toml` gains
+  `ReducedComplexityModeling`, at the package's bound `0.1.1`. The bound of `ReducedBasisMethods`
+  rises from `0.2.1` to `0.2.2`, the first release with `spectrumplot`, which the scripts call.
 
-- **The docs page "The paper's examples"** says how to run the four scripts, and gives the paper
+- **The docs page "The paper's examples"** says how to run the five scripts, and gives the paper
   command, the measured run time and the files of each.
 
 - **`Picard_iterate_over_particles!`, the metriplectic Picard step in place.**

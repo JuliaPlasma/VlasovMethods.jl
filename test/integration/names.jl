@@ -132,6 +132,7 @@ const NEW_EXPORTS = Symbol[
     :plot_series,
     :potential_error,
     :saved_indices,
+    :train_hnn,
     :trajectory_errors
 ]
 
