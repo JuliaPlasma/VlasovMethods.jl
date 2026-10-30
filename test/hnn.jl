@@ -13,7 +13,7 @@ using VlasovMethods
 # weights, on the same data and the same batches, the two must produce one loss curve.
 #
 # The other half of the split is the fresh-environment testset below, which runs in a subprocess
-# whose own manifest names neither of the two packages, so no check here can see it.
+# whose own manifest does not name `GeometricOptimizers`, so no check here can see it.
 
 # the reference trainer, in a module of its own: it shares no name and no code with the package
 module Reference

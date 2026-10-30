@@ -110,8 +110,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   package extension on `GeometricOptimizers` and `AbstractNeuralNetworks`, two weak dependencies
   bounded `0.9.1` and `0.9.3`: loading this package does not load `GeometricOptimizers`, and
   `train_hnn` has no method until both are loaded. `AbstractNeuralNetworks` is loaded with
-  `ReducedComplexityModeling`, which depends on it. The curve is checked against a reference trainer in
-  `test/helpers/hnn_reference.jl`, which computes the same loss with nested forward-mode
+  `ReducedComplexityModeling`, which depends on it. The curve is checked against a reference
+  trainer in `test/helpers/hnn_reference.jl`, which computes the same loss with nested forward-mode
   derivatives from ForwardDiff: from the same weights and batches at `m = 10`, the trainer matches
   its first epoch to `1e-12` and every one of its 1000 epochs to `1e-8`, and leaves it when the step
   size changes by a hundredth of itself. The driver `scripts/bump_on_tail_train_hnn.jl` reads the
@@ -134,8 +134,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   what the four bump-on-tail scripts share, and `test/integration/bump_on_tail_scripts.jl` tests
   it; `test/integration/bump_on_tail_runs.jl`, in the group `slow`, runs the three bump-on-tail
   scripts and the analytic model at small options. `scripts/Project.toml` gains
-  `ReducedComplexityModeling`, at the package's bound `0.1.1`. The bound of `ReducedBasisMethods`
-  rises from `0.2.1` to `0.2.2`, the first release with `spectrumplot`, which the scripts call.
+  `ReducedComplexityModeling`, at the package's bound `0.5`. The scripts call `spectrumplot` of
+  `ReducedBasisMethods`, which every release in the package's bound `0.4` has.
 
 - **The docs page "The paper's examples"** says how to run the five scripts, and gives the paper
   command, the measured run time and the files of each.
@@ -203,12 +203,17 @@ their own, except for what they removed and narrowed, which is listed in full be
   Nothing in `src/` changes.
 
 - **`[compat] ReducedComplexityModeling` is `"0.5"`, from `"0.1.1"`, and `ReducedBasisMethods` is
-  `"0.4"`, from `"0.2.2"`.** ReducedBasisMethods 0.4 is the first release that binds
-  ReducedComplexityModeling 0.5; every earlier one binds 0.1, so the two bounds move together, in
-  the package and in `scripts/Project.toml`. `ParameterSpace`, `h5save` and `h5load` are
+  `"0.4"`, from `"0.2.1"`.** ReducedBasisMethods 0.4 is the first release that binds
+  ReducedComplexityModeling 0.5; 0.2 and 0.3 bind 0.1, so the two bounds move together, in the
+  package and in `scripts/Project.toml`. `ParameterSpace`, `h5save` and `h5load` are
   ReducedComplexityModeling's, so a caller moves across its breaking releases 0.2 to 0.5. An HDF5
-  round trip of a `ReducedBasis` keeps the written order of its parameters now, where
-  ReducedComplexityModeling 0.1 returned them in alphabetical order.
+  round trip of a `ReducedBasis` or of `Snapshots` keeps the written order of its parameters now,
+  where ReducedComplexityModeling 0.1 returned them in alphabetical order.
+
+- **`[compat] SimpleSolvers` rises from `0.14.1` to `0.14.2`.** SimpleSolvers 0.14.1 bounds
+  `NeuralNetworkParameters` to 0.4, and ReducedComplexityModeling 0.5 requires 0.5, so the old
+  floors could not be resolved together. GeometricOptimizers 0.9, the HNN extension's, requires
+  SimpleSolvers 0.14.2 as well.
 
 ### Internal
 

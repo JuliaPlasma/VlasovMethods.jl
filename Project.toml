@@ -55,8 +55,8 @@ GeometricOptimizers = "0.9.1"
 HDF5 = "0.17"
 LinearAlgebra = "1"
 Logging = "1"
-# `GridTensor` and ReducedBasisMethods 0.2 require MultiIndexArrays 0.1.2 or newer.
-# 0.1.2 is the floor ReducedBasisMethods 0.2 needs; the Downgrade job cannot resolve 0.1.1.
+# `GridTensor` and ReducedBasisMethods 0.4 require MultiIndexArrays 0.1.2 or newer.
+# 0.1.2 is the floor ReducedBasisMethods 0.4 needs; the Downgrade job cannot resolve 0.1.1.
 MultiIndexArrays = "0.1.2"
 Parameters = "0.12, 0.13"
 ParticleMethods = "0.1.2"
@@ -72,7 +72,9 @@ Random = "1"
 ReducedBasisMethods = "0.4"
 # ReducedComplexityModeling provides `ParameterSpace` and its HDF5 generics for the bases.
 ReducedComplexityModeling = "0.5"
-SimpleSolvers = "0.14.1"
+# 0.14.2 is the first SimpleSolvers that admits NeuralNetworkParameters 0.5, which
+# ReducedComplexityModeling 0.5 requires; GeometricOptimizers 0.9 requires it too.
+SimpleSolvers = "0.14.2"
 SimpleSplines = "0.3.1"
 Sobol = "1.5"
 SpecialFunctions = "2"
