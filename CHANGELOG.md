@@ -205,10 +205,11 @@ their own, except for what they removed and narrowed, which is listed in full be
 - **`[compat] ReducedComplexityModeling` is `"0.5"`, from `"0.1.1"`, and `ReducedBasisMethods` is
   `"0.4"`, from `"0.2.1"`.** ReducedBasisMethods 0.4 is the first release that binds
   ReducedComplexityModeling 0.5; 0.2 and 0.3 bind 0.1, so the two bounds move together, and
-  `scripts/Project.toml` takes ReducedComplexityModeling `0.5` with them. `ParameterSpace`, `h5save` and `h5load` are
-  ReducedComplexityModeling's, so a caller moves across its breaking releases 0.2 to 0.5. An HDF5
-  round trip of a `ReducedBasis` or of `Snapshots` keeps the written order of its parameters now,
-  where ReducedComplexityModeling 0.1 returned them in alphabetical order.
+  `scripts/Project.toml` takes ReducedComplexityModeling `0.5` with them. `ParameterSpace`,
+  `h5save` and `h5load` are ReducedComplexityModeling's, so a caller moves across its breaking
+  releases 0.2 to 0.5. An HDF5 round trip of a `ReducedBasis` or of `Snapshots` keeps the written
+  order of its parameters now, where ReducedComplexityModeling 0.1 returned them in alphabetical
+  order.
 
 - **`[compat] SimpleSolvers` rises from `0.14.1` to `0.14.2`.** SimpleSolvers 0.14.1 bounds
   `NeuralNetworkParameters` to 0.4, and ReducedComplexityModeling 0.5 requires 0.5, so the old
