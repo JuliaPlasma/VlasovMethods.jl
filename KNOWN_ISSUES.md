@@ -422,11 +422,11 @@ takes the next `K<n>`.
 
 ### K56 · `Parameter` of `ReducedComplexityModeling` rejects distinct bounds for a one-sample range.
 
-- **location:** `ReducedComplexityModeling` v0.1.1, `src/parameters/parameter.jl:33`
+- **location:** `ReducedComplexityModeling` v0.5.0, `src/parameters/parameter.jl:55`
 - **evidence:** `Parameter(name, minimum::DT, maximum::DT, n::Int)` builds
   `LinRange(minimum, maximum, n)`, which throws for `n == 1` when the endpoints differ:
   `julia --startup-file=no --project -e 'using ReducedComplexityModeling; Parameter(:β, 5.95, 6.05, 1)'`
-  prints `ArgumentError: range(5.95, stop=6.05, length=1): endpoints differ` on the RCM 0.1.1 this
+  prints `ArgumentError: range(5.95, stop=6.05, length=1): endpoints differ` on the RCM 0.5.0 this
   package resolves, while `Parameter(:β, 5.95, 6.05, 2)` gives
   `Parameter{Float64, Vector{Float64}}(:β, 5.95, 6.05, [5.95, 6.05])`. A one-sample sweep is
   supported through `Parameter(:β, [6.0])` or equal bounds, `Parameter(:β, 6.0, 6.0, 1)`:
