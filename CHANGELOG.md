@@ -108,8 +108,9 @@ their own, except for what they removed and narrowed, which is listed in full be
   through the network's input gradient, for `Chain`s of `Dense` layers of `tanh` or `identity`; an
   epoch allocates nothing, and the first call compiles in about a second at any width. It is a
   package extension on `GeometricOptimizers` and `AbstractNeuralNetworks`, two weak dependencies
-  bounded `0.9.1` and `0.9.3`: loading this package loads neither, and `train_hnn` has no method
-  until both are loaded. The curve is checked against a reference trainer in
+  bounded `0.9.1` and `0.9.3`: loading this package does not load `GeometricOptimizers`, and
+  `train_hnn` has no method until both are loaded. `AbstractNeuralNetworks` is loaded with
+  `ReducedComplexityModeling`, which depends on it. The curve is checked against a reference trainer in
   `test/helpers/hnn_reference.jl`, which computes the same loss with nested forward-mode
   derivatives from ForwardDiff: from the same weights and batches at `m = 10`, the trainer matches
   its first epoch to `1e-12` and every one of its 1000 epochs to `1e-8`, and leaves it when the step

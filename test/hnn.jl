@@ -358,21 +358,20 @@ end
     end
 end
 
-@testset "a fresh environment without the two packages" begin
+@testset "a fresh environment without GeometricOptimizers" begin
     program = """
         import Pkg
         Pkg.activate(; temp = true, io = devnull)
         Pkg.develop(path = $(repr(pkgdir(VlasovMethods))); io = devnull)
 
-        # a weak dependency of the package is not in the manifest of an environment that names
-        # neither it nor a package that depends on it
+        # GeometricOptimizers, a weak dependency of the package, is not in the manifest of an
+        # environment that names neither it nor a package that depends on it.
+        # AbstractNeuralNetworks is there, because ReducedComplexityModeling depends on it, so
+        # GeometricOptimizers alone keeps the extension unloaded.
         dependencies = Pkg.dependencies()
-        for (uuid, name) in (
-            ("fc236c15-5557-4942-aa65-b650f329279e", "GeometricOptimizers"),
-            ("60874f82-5ada-4c70-bd1c-fa6be7711c8a", "AbstractNeuralNetworks"))
-            @assert !haskey(dependencies, Base.UUID(uuid)) "\$(name) is in the environment"
-            @assert !any(info.name == name for info in values(dependencies)) "\$(name) is in the environment"
-        end
+        uuid = Base.UUID("fc236c15-5557-4942-aa65-b650f329279e")
+        @assert !haskey(dependencies, uuid) "GeometricOptimizers is in the environment"
+        @assert !any(info.name == "GeometricOptimizers" for info in values(dependencies)) "GeometricOptimizers is in the environment"
 
         using VlasovMethods
 
@@ -387,7 +386,7 @@ end
         end
         @assert exception isa MethodError "an unloaded train_hnn threw \$(typeof(exception))"
 
-        print("no network package in the environment: the extension is not loaded and train_hnn has no method")
+        print("no GeometricOptimizers in the environment: the extension is not loaded and train_hnn has no method")
         """
 
     # `JULIA_LOAD_PATH` without `@v1.x`, so that a package of the shared environment cannot satisfy
