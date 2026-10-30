@@ -201,6 +201,14 @@ their own, except for what they removed and narrowed, which is listed in full be
 - **`[compat] julia` rises from 1.11 to 1.12.** Pkg no longer resolves the package on Julia 1.11.
   Nothing in `src/` changes.
 
+- **`[compat] ReducedComplexityModeling` is `"0.5"`, from `"0.1.1"`, and `ReducedBasisMethods` is
+  `"0.4"`, from `"0.2.2"`.** ReducedBasisMethods 0.4 is the first release that binds
+  ReducedComplexityModeling 0.5; every earlier one binds 0.1, so the two bounds move together, in
+  the package and in `scripts/Project.toml`. `ParameterSpace`, `h5save` and `h5load` are
+  ReducedComplexityModeling's, so a caller moves across its breaking releases 0.2 to 0.5. An HDF5
+  round trip of a `ReducedBasis` keeps the written order of its parameters now, where
+  ReducedComplexityModeling 0.1 returned them in alphabetical order.
+
 ### Internal
 
 - **`KNOWN_ISSUES.md` K44 leaves the file.** The reference generators stay in `test/helpers/`.
