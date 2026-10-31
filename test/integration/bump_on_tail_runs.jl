@@ -123,6 +123,26 @@ mktempdir() do dir
                 @test all(isfinite, read(io["H"]))
             end
         end
+        # check 3's report on each reduced file: the bound `(β·dt)²` of the test `β = 6` and the
+        # reduced step `0.0001`, the largest `|ΔH/H|` of the saves after `t = 0`, and the first save
+        # whose `|ΔH/H|` is not `≤ bound`, `0` where none is. The full model, the closed form, has
+        # no report.
+        for name in ("analytic_ode_k5", "analytic_pode_k20")
+            h5open(joinpath(runs, name * ".h5")) do io
+                H = read(io["H"])
+                drift = abs.((H[2:end] .- H[1]) ./ H[1])
+                bound = read(attributes(io)["bound"])
+                @test bound == (6.0 * 0.0001)^2
+                @test read(attributes(io)["max_drift"]) == maximum(drift)
+                @test something(findfirst(d -> !(d ≤ bound), drift), 0) ==
+                      read(attributes(io)["first_exceedance"])
+                @test read(attributes(io)["first_exceedance"]) isa Integer
+            end
+        end
+        h5open(joinpath(runs, "analytic_full.h5")) do io
+            @test !any(k -> haskey(attributes(io), k),
+                ("bound", "max_drift", "first_exceedance"))
+        end
         @test length(pngs(results, "item11_analytic_")) == 2
         @test length(pngs(results, "item24_analytic_")) == 2
         @test length(pngs(results, "item27_analytic_")) == 1

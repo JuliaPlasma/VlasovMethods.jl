@@ -125,13 +125,20 @@ IIIA–IIIB(2). `--final-time` and `--saves` set the final time and the number o
 
 - **Paper command:**
   `julia --project=scripts scripts/analytic_quadratic.jl --final-time 1000 --saves 10000`.
-  The default is `--final-time 100 --saves 1000`, a tenth of the paper's steps.
+  The default is `--final-time 100 --saves 1000`, a tenth of the paper's steps. The paper command
+  is check 3 of the test suite, the bound on the energy drift of the PODE form, at `T = 1000`. The
+  test suite runs check 3 to `T = 100`, on a training set of its own; the paper command runs the
+  PODE form to `T = 1000` with the same basis size, integrator and step, and the ODE form beside it.
 - **Measured run time:** 135 s, with the defaults.
 - **Writes:** in the runs directory, `analytic_full.h5`, `analytic_ode_k5.h5` and
   `analytic_pode_k20.h5`, each with the saved times `t`, the positions `q`, the velocities `p` and
   the Hamiltonian `H` of every saved state, and the root attributes `dt` and `nsave`; the two
-  reduced files also hold the reduced states `z`. In the results directory, the two spectra of the
-  training set, `item11_analytic_pod_spectrum.png` and `item11_analytic_cotangent_spectrum.png`;
+  reduced files also hold the reduced states `z`, and check 3's report of their energy drift as
+  the root attributes `bound`, the bound `(β·dt)² = 3.6e-7` of the reduced step, `max_drift`, the
+  largest `|ΔH/H|` of the saves after `t = 0`, and `first_exceedance`, the first save whose
+  `|ΔH/H|` exceeds the bound, or `0` where none does. The script prints the three numbers of each
+  reduced form. In the results directory, the two spectra of the training set,
+  `item11_analytic_pod_spectrum.png` and `item11_analytic_cotangent_spectrum.png`;
   the errors of both reduced forms against the closed form, `item24_analytic_x.png` and
   `item24_analytic_v.png`; and their energy drift, `item27_analytic_energy_drift.png`. A reduced
   state that is not finite stops the run with an error.
