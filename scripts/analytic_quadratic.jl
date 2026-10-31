@@ -12,14 +12,17 @@
 # condition on the step 0.0001: the ODE form in the POD basis of k = 5 with RK4, and the PODE form
 # in the cotangent-lift basis of k = 20 with Lobatto IIIA–IIIB(2). Each saves `--saves` states after
 # t = 0, evenly spaced to the final time. The paper command runs to T = 1000 with 10 000 saved
-# states; the default runs to T = 100 with 1000:
+# states, and is check 3 of the test suite at T = 1000, on this script's training set; the default
+# runs to T = 100 with 1000:
 #
 #     julia --project=scripts scripts/analytic_quadratic.jl --final-time 1000 --saves 10000
 #
 # Writes into `runs_path`: `analytic_full.h5`, `analytic_ode_k5.h5` and `analytic_pode_k20.h5`,
 # each with the saved times `t`, the positions `q` and the velocities `p` of every saved state, and
 # its Hamiltonian `H`; the reduced files also hold the reduced states `z`. Each has the root
-# attributes `dt`, `nsave`, `commit` and `command`. Draws into `results_path` the two spectra of
+# attributes `dt`, `nsave`, `commit` and `command`, and each reduced file also check 3's report of
+# its energy drift, `bound`, `max_drift` and `first_exceedance` (`drift_report`), which the script
+# prints as well. Draws into `results_path` the two spectra of
 # the training set (item 11), the errors of the two reduced forms against the closed form (item
 # 24) and their energy drift (item 27).
 
@@ -100,14 +103,33 @@ end
 "The Hamiltonian `h` of every column of the stacked states `x`."
 energies(h, x) = [h(0.0, c, NamedTuple()) for c in eachcol(x)]
 
-"Write one result: the times, the lifted states, the Hamiltonian, and any other dataset."
-function write_result(file, t, x, h; dt, nsave, datasets...)
+"""
+Check 3's report of a reduced form, from the Hamiltonian `H` of its saved states: the `bound`
+`(TEST_β·DT_REDUCED)²`, the leading Verlet error of the test `β` on the reduced step; `max_drift`,
+the largest `|ΔH/H|` of the saves after `t = 0`; and `first_exceedance`, the first save whose
+`|ΔH/H|` is not `≤ bound`, counted from `1`, and `0` where none is.
+"""
+function drift_report(H)
+    bound = (TEST_β * DT_REDUCED)^2
+    drift = abs.(energy_drift(H)[2:end])
+    j = findfirst(d -> !(d ≤ bound), drift)
+    return (; bound, max_drift = maximum(drift), first_exceedance = something(j, 0))
+end
+
+"""
+Write one result: the times, the lifted states, the Hamiltonian, and any other dataset. With
+`report = true`, also check 3's report of the Hamiltonian, `drift_report`, as root attributes, and
+print it after the file's name.
+"""
+function write_result(file, t, x, h; dt, nsave, report = false, datasets...)
     n = size(x, 1) ÷ 2
+    H = energies(h, x)
+    r = report ? drift_report(H) : (;)
     h5open(file, "w") do io
         io["t"] = collect(t)
         io["q"] = x[1:n, :]
         io["p"] = x[(n + 1):end, :]
-        io["H"] = energies(h, x)
+        io["H"] = H
         for (name, value) in pairs(datasets)
             io[string(name)] = value
         end
@@ -115,8 +137,14 @@ function write_result(file, t, x, h; dt, nsave, datasets...)
         attributes(io)["nsave"] = nsave
         attributes(io)["commit"] = readchomp(`git -C $(dirname(@__DIR__)) rev-parse HEAD`)
         attributes(io)["command"] = join([basename(PROGRAM_FILE); ARGS], " ")
+        for (name, value) in pairs(r)
+            attributes(io)[string(name)] = value
+        end
     end
     println("wrote ", file)
+    for (name, value) in pairs(r)
+        println("  ", name, " = ", value)
+    end
 end
 
 "The axis of a figure of `plot_series`, on a log scale."
@@ -156,7 +184,7 @@ function main(o)
     Z = march(ode, project(pod, x₀), o.saves)
     x_ode = lift(pod, Z)
     write_result(runs_path("analytic_ode_k5.h5"), t, x_ode, h;
-        dt = DT_REDUCED, nsave = nsave, z = Z)
+        dt = DT_REDUCED, nsave = nsave, report = true, z = Z)
 
     function pode(z)
         sol = integrate(
@@ -167,7 +195,7 @@ function main(o)
     Z = march(pode, project(cotangent, x₀), o.saves)
     x_pode = lift(cotangent, Z)
     write_result(runs_path("analytic_pode_k20.h5"), t, x_pode, h;
-        dt = DT_REDUCED, nsave = nsave, z = Z)
+        dt = DT_REDUCED, nsave = nsave, report = true, z = Z)
 
     # Items 24 and 27 from the first save on, on log axes: at t = 0 the errors are those of the
     # projection alone, and the drift is zero, which a log axis cannot draw.
