@@ -227,6 +227,12 @@ their own, except for what they removed and narrowed, which is listed in full be
   `vlasov_ode_reference.jl` writes nothing and stays because
   `test/particles/reduced_equations.jl` includes it.
 
+- **`KNOWN_ISSUES.md` states which number a new entry takes.** It is the number after the highest
+  `K<n>` that the file, `CHANGELOG.md` or their history has ever named, so the ID of an entry that
+  has left the file, or that lived only on a merged branch, is not given again.
+  "The next `K<n>`" read as the next number after the highest one left in the file, and that
+  reuses a deleted ID.
+
 ## [0.3.0] — 2026-10-16
 
 ### Bug Fixes

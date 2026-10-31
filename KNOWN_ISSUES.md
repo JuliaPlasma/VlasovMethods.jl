@@ -1,8 +1,10 @@
 # Known issues
 
 What is known to be wrong in VlasovMethods and is not fixed. An entry leaves this file when its
-fix merges, and the CHANGELOG entry of that fix names its ID. IDs are never reused; a new entry
-takes the next `K<n>`.
+fix merges, and the CHANGELOG entry of that fix names its ID. IDs are never reused: a new entry
+takes the number after the highest `K<n>` that this file, `CHANGELOG.md` or their history has
+ever named, which `git log -p -- KNOWN_ISSUES.md CHANGELOG.md` shows, so the ID of an entry that
+has left the file, or that lived only on a merged branch, stays taken.
 
 ### K1 · `src/particles/poisson.jl` is present but not included.
 
