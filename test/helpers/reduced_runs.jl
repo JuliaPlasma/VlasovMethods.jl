@@ -1,6 +1,5 @@
-# The helpers of the reduced-form runs: the timespan of a chunk, the solver tolerance of the
-# Lobatto IIIA–IIIB(2) runs, and the comparator that finds the first save at which a drift exceeds
-# its bound. It is included by `test/particles/reduced_equations.jl` and
+# The helpers of the reduced-form runs: the timespan of a chunk and the solver tolerance of the
+# Lobatto IIIA–IIIB(2) runs. It is included by `test/particles/reduced_equations.jl` and
 # `test/verification/reduced_equations.jl`, and is listed in no `runtests.jl`.
 
 """
@@ -23,18 +22,3 @@ The solver tolerance of a Lobatto IIIA–IIIB(2) run in a basis of size `k`: `1e
 """
 lobatto_abstol(::Type{Float64}, k) = 1e-14
 lobatto_abstol(::Type{T}, k) where {T} = max(8, 2k) * eps(T)
-
-"""
-    first_exceedance(r, bound)
-
-The 1-based position of the first entry of `r` whose relative drift is not `≤ bound`, and `nothing`
-if every entry is. The test is written `value ≤ bound || return i` and never `value > bound`, so
-that a `NaN` counts as an exceedance instead of being dropped in silence: a state that has
-overflowed, or a ratio of a `NaN` Hamiltonian, must end the run rather than pass it.
-"""
-function first_exceedance(r, bound)
-    for (i, value) in enumerate(r)
-        value ≤ bound || return i
-    end
-    return nothing
-end

@@ -13,13 +13,6 @@ include("../helpers/analytic_vlasov.jl")
 include("../helpers/reduced_runs.jl")
 include("../helpers/vlasov_ode_reference.jl")
 
-@testset "the t_sep comparator counts a NaN as an exceedance" begin
-    # `NaN` is neither `≤` nor `>` a bound, and it counts as an exceedance
-    @test first_exceedance([0.0, NaN, 1.0], 0.5) == 2
-    @test first_exceedance([0.0, 0.25], 0.5) === nothing
-    @test first_exceedance([0.0, 0.5, 0.75], 0.5) == 3
-end
-
 @testset "check 4: the POD form is the reference's Galerkin form, $T" for T in (Float64, Float32)
     n, k, nsteps = 200, 5, 1000
     dt = T(1e-4)

@@ -581,3 +581,18 @@ has left the file, or that lived only on a merged branch, stays taken.
   job cannot see this before the test step.
 - **kind:** upstream
 - **found:** #96
+
+### K78 · No test or run sees a wrong count of a non-zero `first_exceedance` of the analytic script.
+
+- **location:** `scripts/analytic_quadratic.jl:114`
+- **evidence:** `drift_report` counts the saves from the one after `t = 0`,
+  `abs.(energy_drift(H)[2:end])`. With `[1:end]` the drift at `t = 0` is `0`, so `max_drift` stays
+  the same and only a non-zero `first_exceedance` moves up by one. No save of any run exceeds the
+  bound: the testset `"analytic"` of `test/integration/bump_on_tail_runs.jl` compares
+  `first_exceedance` with the count it takes from `H`, on a smoke run where neither reduced form
+  leaves the bound, and the paper command
+  `--final-time 1000 --saves 10000` on commit `be39325` (2026-10-31, Julia 1.13.3, Darwin arm64)
+  writes `first_exceedance = 0` on both, where no entry of either `H` dataset has
+  `|ΔH/H| > 3.6e-7`. So the mutant `[2:end]` → `[1:end]` gives the same attributes on every run.
+- **kind:** missing test
+- **found:** 2026-10-31

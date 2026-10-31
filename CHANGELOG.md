@@ -140,6 +140,20 @@ their own, except for what they removed and narrowed, which is listed in full be
 - **The docs page "The paper's examples"** says how to run the five scripts, and gives the paper
   command, the measured run time and the files of each.
 
+- **Check 3 runs to `T = 100` in the suite and to `T = 1000` from `scripts/analytic_quadratic.jl`.**
+  The testset `"Reduced Equations at T = 100"`, in the group `slow`, marches the PODE form, the
+  `k = 20` cotangent basis by `LobattoIIIAIIIB(2)` at `dt = 1e-4`, over `10^3` chunks of `1000`
+  steps and asserts `maximum(drift) ≤ (β·dt)² = 3.6e-7`. It marched the ODE form too and ran to
+  `T = 1000`, which took 68 of the 112 minutes of the job `Julia min - windows-latest` on PR #96
+  (run 41179693589), whose limit is 120. The script now writes the root attributes `bound`,
+  `max_drift` and `first_exceedance` on `analytic_ode_k5.h5` and `analytic_pode_k20.h5`, and prints
+  them. Its paper command, `--final-time 1000 --saves 10000`, run on commit `be39325` on 2026-10-31
+  with Julia 1.13.3 on Darwin arm64 (Apple M4 Max), gives `bound = 3.6e-7` for both forms, the ODE
+  form (POD `k = 5`, `RK4`) `max_drift = 2.7063313296820274e-11` and `first_exceedance = 0`, and
+  the PODE form `max_drift = 8.978506025917879e-8` and `first_exceedance = 0`. The script trains on
+  the closed form at its own 10 001 saved times, spacing `0.1`, and the test on 1001 times, spacing
+  `1`, so these are the paper command's numbers and not the test's to the bit.
+
 - **`Picard_iterate_over_particles!`, the metriplectic Picard step in place.**
   `Picard_iterate_over_particles!(v, vn, vn_minus_one, dv_history, ti, t, Δt, abstol, reltol, mlb;
   maxiters = 1000)` writes the step into `v` and takes no `dv`, `m` or `β`. The model keeps the
