@@ -1,7 +1,7 @@
 # The trainer of the reduced field is a package extension. This file declares the function and
 # documents it; `ext/VlasovMethodsHNNExt.jl` holds its only method, so that loading the package
-# loads none of the machine-learning packages, and `train_hnn` is a function with no methods until
-# the extension loads.
+# does not load `GeometricOptimizers`, and `train_hnn` is a function with no methods until the
+# extension loads.
 
 @doc raw"""
     train_hnn(model, ps₀, data, target; η, epochs, batchsize, rng, batches = nothing)

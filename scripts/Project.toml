@@ -17,7 +17,7 @@ VlasovMethods = "4a954452-39e6-424b-ae51-38fc4bbc42ef"
 
 [compat]
 CairoMakie = "0.15"
-ReducedComplexityModeling = "0.1.1"
+ReducedComplexityModeling = "0.5"
 
 # VlasovMethods is unregistered, so no registry can supply it. `docs/` needs no `[sources]` entry
 # because `Documenter.yml` runs `Pkg.develop` on the parent package before it builds. Nothing does

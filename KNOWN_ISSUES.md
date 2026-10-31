@@ -422,11 +422,11 @@ takes the next `K<n>`.
 
 ### K56 · `Parameter` of `ReducedComplexityModeling` rejects distinct bounds for a one-sample range.
 
-- **location:** `ReducedComplexityModeling` v0.1.1, `src/parameters/parameter.jl:33`
+- **location:** `ReducedComplexityModeling` v0.5.0, `src/parameters/parameter.jl:55`
 - **evidence:** `Parameter(name, minimum::DT, maximum::DT, n::Int)` builds
   `LinRange(minimum, maximum, n)`, which throws for `n == 1` when the endpoints differ:
   `julia --startup-file=no --project -e 'using ReducedComplexityModeling; Parameter(:β, 5.95, 6.05, 1)'`
-  prints `ArgumentError: range(5.95, stop=6.05, length=1): endpoints differ` on the RCM 0.1.1 this
+  prints `ArgumentError: range(5.95, stop=6.05, length=1): endpoints differ` on the RCM 0.5.0 this
   package resolves, while `Parameter(:β, 5.95, 6.05, 2)` gives
   `Parameter{Float64, Vector{Float64}}(:β, 5.95, 6.05, [5.95, 6.05])`. A one-sample sweep is
   supported through `Parameter(:β, [6.0])` or equal bounds, `Parameter(:β, 6.0, 6.0, 1)`:
@@ -565,3 +565,17 @@ takes the next `K<n>`.
   `lenard_bernstein.jl`, `lenard_bernstein_metriplectic.jl`, `profile.jl` and `vlasov_poisson.jl`.
 - **kind:** defect
 - **found:** 2026-10-26
+
+### K77 · The Downgrade job cannot add CairoMakie to the manifest that its floor resolve leaves.
+
+- **location:** `.github/workflows/CI.yml`, the `Downgrade - ubuntu-latest` job
+- **evidence:** the `forcedeps` step passes every direct floor and freezes a manifest in which
+  `ReducedComplexityModeling` 0.5 brings `KernelAbstractions` 0.9.45, LLVM 10.4.2 and `CEnum`
+  1.0.0. The test step then adds the test-only `CairoMakie` with `ALLOW_RERESOLVE: false` and stops
+  on `Unsatisfiable requirements detected for package FreeType`: `CEnum` 1.0.0 admits only FreeType
+  2.1, and `CairoMakie` 0.15 needs FreeType 3.0–4.1.1 (PR #96, run 41146492438, job
+  124372699434). The resolve of the test environment with CairoMakie in it has a solution: every
+  other CI job resolves and passes. The test-only dependencies are not in the floor resolve, so the
+  job cannot see this before the test step.
+- **kind:** upstream
+- **found:** #96
