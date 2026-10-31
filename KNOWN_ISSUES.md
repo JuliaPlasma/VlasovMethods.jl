@@ -565,3 +565,17 @@ takes the next `K<n>`.
   `lenard_bernstein.jl`, `lenard_bernstein_metriplectic.jl`, `profile.jl` and `vlasov_poisson.jl`.
 - **kind:** defect
 - **found:** 2026-10-26
+
+### K77 · The Downgrade job cannot add CairoMakie to the manifest that its floor resolve leaves.
+
+- **location:** `.github/workflows/CI.yml`, the `Downgrade - ubuntu-latest` job
+- **evidence:** the `forcedeps` step passes every direct floor and freezes a manifest in which
+  `ReducedComplexityModeling` 0.5 brings `KernelAbstractions` 0.9.45, LLVM 10.4.2 and `CEnum`
+  1.0.0. The test step then adds the test-only `CairoMakie` with `ALLOW_RERESOLVE: false` and stops
+  on `Unsatisfiable requirements detected for package FreeType`: `CEnum` 1.0.0 admits only FreeType
+  2.1, and `CairoMakie` 0.15 needs FreeType 3.0–4.1.1 (PR #96, run 41146492438, job
+  124372699434). The resolve of the test environment with CairoMakie in it has a solution: every
+  other CI job resolves and passes. The test-only dependencies are not in the floor resolve, so the
+  job cannot see this before the test step.
+- **kind:** upstream
+- **found:** #96
