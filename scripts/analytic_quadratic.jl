@@ -22,9 +22,9 @@
 # its Hamiltonian `H`; the reduced files also hold the reduced states `z`. Each has the root
 # attributes `dt`, `nsave`, `commit` and `command`, and each reduced file also check 3's report of
 # its energy drift, `bound`, `max_drift` and `first_exceedance` (`drift_report`), which the script
-# prints as well. Draws into `results_path` the two spectra of
-# the training set (item 11), the errors of the two reduced forms against the closed form (item
-# 24) and their energy drift (item 27).
+# prints as well. Draws into `results_path` the two spectra of the training set (item 11), the
+# errors of the two reduced forms against the closed form (item 24) and their energy drift (item
+# 27).
 
 include("options.jl")
 

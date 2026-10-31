@@ -126,9 +126,9 @@ IIIA–IIIB(2). `--final-time` and `--saves` set the final time and the number o
 - **Paper command:**
   `julia --project=scripts scripts/analytic_quadratic.jl --final-time 1000 --saves 10000`.
   The default is `--final-time 100 --saves 1000`, a tenth of the paper's steps. The paper command
-  is check 3 at `T = 1000`: the test suite runs check 3 to `T = 100`, with the PODE form alone and
-  on a training set of its own, and the paper command runs both reduced forms to `T = 1000` with
-  the same integrators, basis sizes and step.
+  is check 3 of the test suite, the bound on the energy drift of the PODE form, at `T = 1000`. The
+  test suite runs check 3 to `T = 100`, on a training set of its own; the paper command runs the
+  PODE form to `T = 1000` with the same basis size, integrator and step, and the ODE form beside it.
 - **Measured run time:** 135 s, with the defaults.
 - **Writes:** in the runs directory, `analytic_full.h5`, `analytic_ode_k5.h5` and
   `analytic_pode_k20.h5`, each with the saved times `t`, the positions `q`, the velocities `p` and

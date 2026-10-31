@@ -125,8 +125,8 @@ mktempdir() do dir
         end
         # check 3's report on each reduced file: the bound `(β·dt)²` of the test `β = 6` and the
         # reduced step `0.0001`, the largest `|ΔH/H|` of the saves after `t = 0`, and the first save
-        # whose `|ΔH/H|` is not `≤ bound`, `0` where none is. The closed form has no step and no
-        # report.
+        # whose `|ΔH/H|` is not `≤ bound`, `0` where none is. The full model, the closed form, has
+        # no report.
         for name in ("analytic_ode_k5", "analytic_pode_k20")
             h5open(joinpath(runs, name * ".h5")) do io
                 H = read(io["H"])
