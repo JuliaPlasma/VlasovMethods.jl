@@ -596,3 +596,20 @@ has left the file, or that lived only on a merged branch, stays taken.
   `|ΔH/H| > 3.6e-7`. So the mutant `[2:end]` → `[1:end]` gives the same attributes on every run.
 - **kind:** missing test
 - **found:** 2026-10-31
+
+### K79 · `GeometricIntegrator(model, tspan, tstep, method)` for a 1D1V grid model does not infer a concrete type.
+
+- **location:** `src/gridbased/vlasov_poisson_1d1v.jl:125`
+- **evidence:** the constructor builds its `ODEProblem` from the parameter `NamedTuple` `params`
+  (`src/gridbased/vlasov_poisson_1d1v.jl:125-131` on `8937e91`). `Base.return_types` of
+  `GeometricIntegrator(model, tspan, 0.05, RK4())` on a 64 × 128 linear Landau model gives a
+  `Union` of two `UnionAll` types, whose `ODE` type parameter holds
+  `@NamedTuple{arakawa::DataType, v::DataType, G::DataType, …}`. The object built at run time has
+  concrete field types, so a caller that steps it behind a function barrier runs at full speed. A
+  step loop in the same function as the call dispatches at run time: on 64 × 128 one `RK4()` step
+  takes 2.72–2.76e-4 s, and of the 10.7 kB that a step allocates, about 2 kB is boxing and
+  dynamic dispatch. A function barrier around the step loop changes the time per step by a factor
+  of 0.99–1.06, within the noise of the machine. Measured in the experiment
+  VlasovReductionBenchmark, which records it as its K4.
+- **kind:** defect
+- **found:** 2026-10-31
