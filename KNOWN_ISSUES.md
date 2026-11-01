@@ -599,17 +599,20 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K79 · `GeometricIntegrator(model, tspan, tstep, method)` for a 1D1V grid model does not infer a concrete type.
 
-- **location:** `src/gridbased/vlasov_poisson_1d1v.jl:125`
-- **evidence:** the constructor builds its `ODEProblem` from the parameter `NamedTuple` `params`
-  (`src/gridbased/vlasov_poisson_1d1v.jl:125-131` on `8937e91`). `Base.return_types` of
-  `GeometricIntegrator(model, tspan, 0.05, RK4())` on a 64 × 128 linear Landau model gives a
-  `Union` of two `UnionAll` types, whose `ODE` type parameter holds
-  `@NamedTuple{arakawa::DataType, v::DataType, G::DataType, …}`. The object built at run time has
+- **location:** `GeometricEquations` v0.21.6, `src/problems/equation_problem.jl:82`
+- **evidence:** the constructor builds its `ODEProblem` with GeometricEquations
+  (`src/gridbased/vlasov_poisson_1d1v.jl:129-131` on `8937e91`). `EquationProblem` sets its first
+  type parameter with `superType = eval(typeof(equ).name.name)`, which inference does not see
+  through. `Base.return_types` of `GeometricIntegrator(model, tspan, 0.05, RK4())` on a 64 × 128
+  linear Landau model gives a `Union` of two `UnionAll` types over
+  `EquationProblem{_A, …} where _A<:GeometricEquation`. An `ODEProblem` with no parameters infers
+  `EquationProblem{_A, …}` too. The `@NamedTuple{arakawa::DataType, …}` in the `ODE` type
+  parameter is also the run-time type, so it is not the cause. The object built at run time has
   concrete field types, so a caller that steps it behind a function barrier runs at full speed. A
   step loop in the same function as the call dispatches at run time: on 64 × 128 one `RK4()` step
   takes 2.72–2.76e-4 s, and of the 10.7 kB that a step allocates, about 2 kB is boxing and
   dynamic dispatch. A function barrier around the step loop changes the time per step by a factor
   of 0.99–1.06, within the noise of the machine. Measured in the experiment
   VlasovReductionBenchmark, which records it as its K4.
-- **kind:** defect
+- **kind:** upstream
 - **found:** 2026-10-31
