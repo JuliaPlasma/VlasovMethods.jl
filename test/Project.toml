@@ -39,5 +39,4 @@ ForwardDiff = "0.10, 1"
 GeometricSolutions = "0.6.6"
 
 [sources]
-SimpleSplines = {url = "https://github.com/JuliaDEC/SimpleSplines.jl", rev = "alloc/part-a1"}
 VlasovMethods = {path = ".."}

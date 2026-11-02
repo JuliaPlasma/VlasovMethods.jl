@@ -11,7 +11,6 @@ VlasovMethods = "4a954452-39e6-424b-ae51-38fc4bbc42ef"
 # examples run against the registered VlasovMethods rather than the tree they document.
 [sources]
 VlasovMethods = {path = ".."}
-SimpleSplines = {url = "https://github.com/JuliaDEC/SimpleSplines.jl", rev = "alloc/part-a1"}
 
 [compat]
 Documenter = "1.19.0"
