@@ -163,26 +163,26 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** dead code
 - **found:** #61
 
-### K24 · The Lenard-Bernstein right-hand sides keep an indirection and two plotting copies.
+### K24 · The Lenard-Bernstein right-hand sides keep an uncalled `LB_rhs!` and two plotting copies.
 
-- **location:** `src/models/lenard_bernstein.jl:33`
+- **location:** `src/models/lenard_bernstein.jl:61`
 - **evidence:** `LB_rhs!(v̇, v, params, t)` keeps the argument order of an ODE solver that the
-  package does not use; its one caller is the wrapper `LB_rhs_GI!` at `:44-46`.
-  `LB_rhs` (`:49`) and `CLB_rhs` (`src/models/lenard_bernstein_conservative.jl:184`) repeat the
-  bodies of their `_GI!` functions, and neither has a caller: `grep -rn -E '\bC?LB_rhs\b' src
-  test scripts` finds them at those two definitions alone, the `LB_rhs!` definition of
-  `src/models/lenard_bernstein.jl:33` with its one call at `:45`, and the `LB_rhs!` call of the
-  collision-operator test and of its reference generator.
+  package does not use, and nothing in `src/` calls it: `LB_rhs_GI!` (`:75`) computes the same
+  right-hand side on the buffers of the model's cache. `LB_rhs` (`:88`) and `CLB_rhs`
+  (`src/models/lenard_bernstein_conservative.jl:201`) repeat the formulas of their `_GI!`
+  functions, and neither has a caller: in `src/`, `grep -rn -E '\bC?LB_rhs\b' src` finds the two
+  definitions, the `LB_rhs!` definition and the comment of `LB_rhs_GI!` that names it. Outside
+  `src/`, `test/integration/names.jl` lists the two names, and the tests and the reference
+  generator call `LB_rhs!`.
 - **kind:** dead code
 - **found:** #61
 
 ### K26 · The `LB_rhs!` docstring and comment describe past code.
 
-- **location:** `src/models/lenard_bernstein.jl:26`
-- **evidence:** The admonition "The division by `f_s` was missing" (`:26-31`) says what "both
-  right-hand sides computed", and only one right-hand side is in the file. The comment at
-  `:34-35` explains a line that "threw". The facts belong in the present tense, and the history
-  in `CHANGELOG.md`.
+- **location:** `src/models/lenard_bernstein.jl:54`
+- **evidence:** The admonition "The division by `f_s` was missing" (`:54-59`) says what "both
+  right-hand sides computed" in an earlier version of the code. The comment at `:62-63` explains
+  a line that "threw". The facts belong in the present tense, and the history in `CHANGELOG.md`.
 - **kind:** docs
 - **found:** #61
 
@@ -313,27 +313,12 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** defect
 - **found:** 2026-10-04
 
-### K45 · Three collision caches have no `eltype`, so `CacheDict` builds their first cache twice.
-
-- **location:** `src/cache.jl:12`
-- **evidence:** `CacheDict(p)` stores its parent under `_cachehash(eltype(p))`. Only `LandauCache`
-  defines `Base.eltype` (`src/models/landau.jl:53`); for `CLBCache`, `MLBCache` and `RCLBCache`,
-  `which(eltype, Tuple{C}).module` is `Base`, whose fallback returns `Any`. The first
-  `cache[Float64]` then misses and builds a new cache with `Cache(Float64, parent)`. The result is
-  correct, but the gap decides which spline an operator overwrites. Landau's `cache[Float64]` is
-  the parent, so it projects into `entropy.dist`. The three Lenard–Bernstein operators project
-  into the new cache's own copy of the spline. An `eltype` for the three caches therefore changes
-  what they write, not only how often a cache is built: for each, `model.cache[Float64] ===
-  parent(model.cache)` is `false`, and for Landau it is `true`.
-- **kind:** defect
-- **found:** 2026-10-10
-
 ### K47 · Thirteen lines of commented-out code remain in four collision model files.
 
 - **location:** `src/models/landau.jl:385`
-- **evidence:** The lines are `src/models/landau.jl:385`; `src/models/lenard_bernstein.jl:57`
-  and `:67`; `src/models/lenard_bernstein_conservative.jl:196`, `:206-208` and `:212`;
-  `src/models/rescaled_lenard_bernstein_conservative.jl:125`, `:138-140` and `:144`. Each is an
+- **evidence:** The lines are `src/models/landau.jl:385`; `src/models/lenard_bernstein.jl:96`
+  and `:106`; `src/models/lenard_bernstein_conservative.jl:215`, `:225-227` and `:231`;
+  `src/models/rescaled_lenard_bernstein_conservative.jl:140`, `:153-155` and `:159`. Each is an
   old assignment, call or `return` behind `#`, such as `# int = Integrators.Integrator(equ,
   Integrators.RK438())`. #69 deleted the other dead code of these files and left these lines,
   because they are outside its hunks. The fix is to delete the thirteen lines.
@@ -495,7 +480,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K62 · A comment says that the clamped cubic basis reproduces 1, v and v² to 1e-14, and v² is measured at 2.8e-14.
 
-- **location:** `src/models/lenard_bernstein_conservative.jl:39`
+- **location:** `src/models/lenard_bernstein_conservative.jl:46`
 - **evidence:** `julia --startup-file=no --project=scripts scripts/verify_conservation.jl` measures
   the cubic basis on `(-8.0, 8.0)` with 31 knots and prints, under Claim 2,
   `Free()  3  6.661e-16  1.776e-15  2.842e-14` for `f = 1`, `f = v` and `f = v²`. The other
@@ -616,3 +601,26 @@ has left the file, or that lived only on a merged branch, stays taken.
   VlasovReductionBenchmark, which records it as its K4.
 - **kind:** upstream
 - **found:** 2026-10-31
+
+### K81 · The Lenard-Bernstein right-hand sides of a `Float32` state differ from those of a `Float64` state by 1.6e-5 to 3.6e-5 on 2000 particles, and no cause is located.
+
+- **location:** `src/projections/distribution.jl:28`
+- **evidence:** the deposit `_deposit!` adds into the load vector with a plain sum in the state's
+  element type: `rhs[j] += w * buf[t]` (`:28`) in one velocity dimension and
+  `rhs[idx...] += val` (`:55`) in several, once per particle. The particle sums of
+  `compute_coefficients` and `compute_coefficients_rclb` use compensated summation, and the
+  right-hand sides did not change with it. Probe on `32dbd62`, Julia 1.13, 17 cubic `Free`
+  basis functions on `(-2, 2)`, velocities uniform on `(-2, 2)` from `StableRNG(20261102)`, equal
+  weights `1/N`, a `Float64` model: `max|v̇32 − v̇64| / max|v̇64|` of the `Float32` state against
+  the `Float64` state is 2.7e-6 (`LenardBernstein`), 3.2e-6 (`ConservativeLenardBernstein`) and
+  3.1e-6 (`RescaledConservativeLenardBernstein`) at N = 256, and 1.6e-5, 2.3e-5 and 3.6e-5 at
+  N = 2000. The `Float64` state against a `BigFloat` state is 2.2e-15 to 5.6e-14 at those sizes.
+  `LenardBernstein` has no coefficient sums and shows the same gap. Replacing the plain sum at
+  `:28` with Kahan summation changes the `Float32` gaps by less than 1e-9 and leaves their
+  digits as above, so the deposit of the one-dimensional case is not the cause. The gap stays
+  when the `Float64` evaluation takes the velocities rounded to `Float32` (1.3e-6 to 1.4e-6 at
+  N = 256, 1.4e-5 to 3.2e-5 at N = 2000), so the rounding of the input is not the cause either.
+  The multi-dimensional deposit at `:55` is not probed. Which `Float32` step sets the gap is
+  not measured.
+- **kind:** not verified
+- **found:** #101

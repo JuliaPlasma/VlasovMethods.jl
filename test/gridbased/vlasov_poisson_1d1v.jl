@@ -3,7 +3,7 @@ using GeometricBrackets: poisson_apply
 using GeometricEquations: ntime
 using GeometricIntegrators: GeometricIntegrators
 using HDF5: h5read
-using LinearAlgebra: dot, issymmetric
+using LinearAlgebra: dot, issymmetric, norm
 using PoissonSolvers: FFTWBasis, FiniteDifferenceBasis, PeriodicBasisSpline, Potential,
                       PoissonSolverFFT, PoissonSolverMatrixFree, solve
 using Test
@@ -72,10 +72,31 @@ function rhs_allocations(rhs!::R, ḟ::D, t::T, f::F, params::P) where {R, D, T,
     return @allocated rhs!(ḟ, t, f, params)
 end
 
-# The model and the problem of the seeded state at `nx, nv = 16, 64`: the perturbed Maxwellian of
-# the `Float32` conservation run, whose density does not vanish, so `ϕ ≠ 0`.
-function seeded_problem(T)
-    nx, nv = 16, 64
+# A `Dual{Nothing, T, 12}` copy of `q`, the chunk of the Jacobian of `ImplicitMidpoint`.
+function dual12(q::AbstractVector{T}) where {T}
+    ForwardDiff.Dual{Nothing}.(q, ntuple(_ -> one(T), 12)...)
+end
+
+# The Jacobian of `allocating_rhs` at `f`, column by column. The bracket is bilinear and `h` is
+# affine in `f`, so the column of the unit vector `e` is
+# `(poisson_apply(a, e, h(f)) + poisson_apply(a, f, δh(e))) / (hx hv)`, with
+# `h(f) = vec(G ρ(f) .+ v'.^2 / 2)`, `δh(e) = vec(G ρ(e) .+ 0 .* v')` and `ρ(f) = hv Σⱼ f`.
+function reference_jacobian(f, a, v, G)
+    ρ(g) = a.hv .* vec(sum(reshape(g, a.nx, a.nv); dims = 2))
+    h = vec(G * ρ(f) .+ v' .^ 2 ./ 2)
+    J = similar(f, length(f), length(f))
+    for k in eachindex(f)
+        e = zero(f)
+        e[k] = one(eltype(f))
+        δh = vec(G * ρ(e) .+ zero(eltype(f)) .* v')
+        J[:, k] .= (poisson_apply(a, e, h) .+ poisson_apply(a, f, δh)) ./ (a.hx * a.hv)
+    end
+    return J
+end
+
+# The model and the problem of the seeded state, at `nx, nv = 16, 64` unless named: the perturbed
+# Maxwellian of the `Float32` conservation run, whose density does not vanish, so `ϕ ≠ 0`.
+function seeded_problem(T; nx = 16, nv = 64)
     dist = maxwellian_grid(T, nx, nv, 7.5, 0.5)
     model = VlasovPoisson(dist, Potential(FFTWBasis((zero(T), T(4π)), nx)))
     return model, GeometricIntegrator(model, (zero(T), one(T)), T(0.1)).equation
@@ -272,7 +293,7 @@ end
         @test ḟ == allocating_rhs(q, params.arakawa, params.v, params.G)
     end
 
-    @testset "a Dual state takes the allocating method" begin
+    @testset "a Dual state takes the buffers of its own cache" begin
         # the Jacobian of `ImplicitMidpoint`'s Newton solver passes `ForwardDiff.Dual` states,
         # which the `Float64` buffers cannot hold
         model, prob = seeded_problem(Float64)
@@ -284,14 +305,52 @@ end
 
         @test which(VM._grid_1d1v_rhs!, typeof((ḟ, 0.0, q, params))) !=
               which(VM._grid_1d1v_rhs!, typeof((ḟd, 0.0, qd, params)))
+        @test !haskey(params.cache.caches, VM._cachehash(eltype(qd)))
         @test @inferred(VM._grid_1d1v_rhs!(ḟd, 0.0, qd, params)) === ḟd
-        @test ḟd == allocating_rhs(qd, params.arakawa, params.v, params.G)
+        # the first call of the type builds the cache of that type, in that type
+        cache = params.cache[eltype(qd)]
+        @test cache.ρ isa Vector{eltype(qd)} && length(cache.ρ) == length(params.ρ)
+        @test cache.ϕ isa Vector{eltype(qd)} && length(cache.ϕ) == length(params.ϕ)
+        @test cache.h isa Vector{eltype(qd)} && length(cache.h) == length(params.h)
+        # the state's own type holds the buffers of `params`
+        @test params.cache[Float64].ρ === params.ρ
 
-        # `G ρ` takes BLAS in `Float64` and the generic product for `Dual`, so the value parts
-        # agree to the bound of the exact testset, not bit for bit
+        # `G ρ` takes BLAS in `Float64` and the generic product for `Dual`, and the allocating
+        # form sums `ρ` in another order, so the parts agree to the bound of the exact testset,
+        # not bit for bit
         VM._grid_1d1v_rhs!(ḟ, 0.0, q, params)
         @test maximum(abs, ForwardDiff.value.(ḟd) .- ḟ) ≤
               8nv * eps(Float64) * maximum(abs, ḟ)
+        ref = ForwardDiff.partials.(allocating_rhs(qd, params.arakawa, params.v, params.G), 1)
+        @test maximum(abs, ForwardDiff.partials.(ḟd, 1) .- ref) ≤
+              8nv * eps(Float64) * maximum(abs, ref)
+    end
+
+    @testset "a Dual state allocates nothing, $T, $nx × $nv" for T in (Float32, Float64),
+        (nx, nv) in ((16, 64), (64, 256))
+
+        _, prob = seeded_problem(T; nx, nv)
+        params = prob.parameters
+        qd = dual12(Vector(prob.ics.q))
+        @test eltype(qd) === ForwardDiff.Dual{Nothing, T, 12}
+        ḟd = similar(qd)
+        if Base.JLOptions().code_coverage == 0
+            @test rhs_allocations(VM._grid_1d1v_rhs!, ḟd, zero(T), qd, params) == 0
+        end
+        # the control: `params` without the cache take the allocating method
+        base = (; params.arakawa, params.v, params.G)
+        @test rhs_allocations(VM._grid_1d1v_rhs!, similar(qd), zero(T), qd, base) > 0
+    end
+
+    @testset "the Jacobian of the right-hand side, $T" for T in (Float32, Float64)
+        _, prob = seeded_problem(T)
+        params = prob.parameters
+        q = Vector(prob.ics.q)
+        J = ForwardDiff.jacobian((ḟ, f) -> VM._grid_1d1v_rhs!(ḟ, zero(T), f, params),
+            similar(q), q)
+        Jref = reference_jacobian(q, params.arakawa, params.v, params.G)
+        @test eltype(J) === T
+        @test norm(J - Jref) ≤ 8 * eps(T) * norm(Jref)
     end
 
     @testset "the right-hand side allocates nothing, $T" for T in (Float32, Float64)
@@ -305,13 +364,16 @@ end
 
         # coverage instrumentation allocates on every counted line, so under it the assertion
         # does not run rather than being weakened
+        qd = ForwardDiff.Dual.(q, one(T))
         if Base.JLOptions().code_coverage == 0
             @test rhs_allocations(VM._grid_1d1v_rhs!, ḟ, zero(T), q, params) == 0
             @test rhs_allocations(VM._grid_1d1v_rhs!, similar(qs), zero(T), qs, params) == 0
+            @test rhs_allocations(VM._grid_1d1v_rhs!, similar(qd), zero(T), qd, params) == 0
         end
-        # the control: the barrier sees the allocations of the `Dual` method
-        qd = ForwardDiff.Dual.(q, one(T))
-        @test rhs_allocations(VM._grid_1d1v_rhs!, similar(qd), zero(T), qd, params) > 0
+        # the control: the barrier sees the allocations of the method of `params` without
+        # buffers
+        base = (; params.arakawa, params.v, params.G)
+        @test rhs_allocations(VM._grid_1d1v_rhs!, similar(q), zero(T), q, base) > 0
     end
 
     @testset "the constructor's guards" for T in (Float32, Float64)
