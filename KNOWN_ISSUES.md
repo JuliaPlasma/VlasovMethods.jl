@@ -373,7 +373,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K54 · Projecting a spline distribution back onto particles is not implemented.
 
-- **location:** `src/projections/distribution.jl:188`
+- **location:** `src/projections/distribution.jl:200`
 - **evidence:** The method raises
   `error("projecting a spline distribution back onto particles is not implemented")`. Two meanings
   are available for the direction and neither is chosen: (a) draw a new particle sample from
