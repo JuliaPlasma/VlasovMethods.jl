@@ -232,12 +232,11 @@ goes through `basis_index`, which is periodic-aware, so the gradient is evaluate
 wrap as the spline it differentiates.
 
 The evaluation buffers are those of `landau.cache[T]`, with `T` the element type of
-`v_array`, so a call allocates nothing. An `sdist` whose quadrature is not that of the cache's
-spline distribution raises an `ArgumentError`, as in [`compute_L!`](@ref).
+`v_array`, so a call allocates nothing. They depend only on the order of the basis, and no
+quadrature is read, so the result is exact on any `sdist` of the cache's basis order.
 """
 function compute_K!(K1, K2, v_array::AbstractArray{T}, sdist, landau::Landau) where {T}
     cache = landau.cache[T]
-    sdist.quadrature === cache.sdist.quadrature || _throw_foreign_quadrature(:compute_K!)
 
     fill!(K1, zero(eltype(K1)))
     fill!(K2, zero(eltype(K2)))

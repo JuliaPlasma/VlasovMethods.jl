@@ -264,7 +264,7 @@ their own, except for what they removed and narrowed, which is listed in full be
   cache with the pivoted QR. Where the number of particles is the number of basis functions
   (Np == M), `K` is square: `\` took an LU factorisation there and the solve now takes the pivoted
   QR, and the bound "no more than its two least-squares solves" holds only for Np ≠ M. Because
-  `compute_J!`, `compute_K!` and `compute_L!` read the buffers and tabulations stored in the cache,
+  `compute_J!` and `compute_L!` read the buffers and tabulations of the cache's quadrature grid,
   each raises an `ArgumentError` for an `sdist` whose quadrature is not the cache's, where it built
   its result on that distribution's grid before. The Picard step takes its iterate from the cache,
   keeps its guess and its five iterates in histories of fixed length, and writes the residual of
@@ -278,10 +278,11 @@ their own, except for what they removed and narrowed, which is listed in full be
   entries of `D` straight into `L`, and the coupled term multiplies the sparse factors with the
   kernel block column by column, so the cache holds no dense `M × Q` factor and no `M × M` block
   for them. VlasovMethods now depends on the standard library `SparseArrays`. At `M = 361`,
-  `compute_L!` takes 1.25 s, against 4.97 s and 126 MB per call at the base of the branch; it now
-  allocates nothing, and its results agree with the base to about `1e-15` relative. The timing is
+  `compute_L!` takes 1.27 s, against 3.50 s and 126 MB per call at the base of the branch; it now
+  allocates nothing, and its results agree with the base to about `1e-15` relative. Each timing is
   the median of nine calls in a cold process on Julia 1.13.3, `--check-bounds=auto`, with a cubic
-  clamped basis and 24 × 24 particles, on a machine at load average 5 to 7.
+  clamped basis and 24 × 24 particles; the two processes ran one after the other, on a machine at
+  load average 10 to 13.
   A `Landau` on a velocity space of one dimension, which no method of `compute_L!` accepted, now
   raises a `MethodError` at construction. The vector field matches its reference at the
   tolerance of the collision tests, `64 * eps`. Bytes of one call after a warm call, in a cold
@@ -293,7 +294,7 @@ their own, except for what they removed and narrowed, which is listed in full be
   | `collisional_vectorfield!` | `Float64` | 256, 576 | 23 141 840, 24 497 616 | 894 368, 1 627 552 | 1 418 816, 2 774 592 |
   | `collisional_vectorfield!` | `Float32` | 256, 576 | 13 506 368, 14 203 648 | 450 112, 819 712 | 712 416, 1 409 696 |
   | `Picard_iterate_Landau_nls!`, `ti = 4` | `Float64`, `Float32` | 256 | 138 938 784, 81 083 264 | 5 416 544, 2 726 432 | |
-  | `Picard_iterate_Landau_nls!`, `ti = 1` | `Float64`, `Float32` | 256 | 999 217 984, 580 885 296 | 38 591 216, 19 431 984 | |
+  | `Picard_iterate_Landau_nls!`, `ti = 1` | `Float64`, `Float32` | 256 | 995 285 824, 580 885 296 | 38 591 216, 19 431 984 | |
 
   A step from the fourth on allocates its six vector fields, its histories of 49 920 bytes
   (`Float64`) and 416 bytes more.
