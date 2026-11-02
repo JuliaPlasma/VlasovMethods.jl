@@ -123,19 +123,18 @@ spline basis.
 Written as a projection rather than as one quadrature per coefficient. The integrand is
 sampled once on the tensor-product Gauß-Legendre grid the basis already carries and contracted
 against the one-dimensional tabulations, so the cost is the grid size rather than the grid size
-times the number of coefficients. The earlier version called a `gauss_quad_2d` that looped over
-**every** cell pair for **each** of the ``M`` coefficients, and took the quadrature domain from
-a hard-coded `knots[3:(end-1)]` slice — asymmetric, independent of the spline order and of the
-boundary condition, and a different subrange from the one the mass matrix was assembled on, so
-the two halves of `eq:defn_Lk` were not computed over the same domain.
+times the number of coefficients. The quadrature is the one the mass matrix is assembled on, so
+the two halves of `eq:defn_Lk` are computed over the same domain.
 
 The sample, the evaluation buffers and the projection's workspace are those of
 `landau.cache[T]`, the `LandauCache` of the element type of `sdist`, so a call allocates
-nothing.
+nothing. An `sdist` whose quadrature is not that of the cache's spline distribution raises an
+`ArgumentError`, as in [`compute_L!`](@ref).
 """
 function compute_J!(J, sdist::SplineDistribution{T, XD, VD}, landau::Landau) where {
         T, XD, VD}
     cache = landau.cache[T]
+    sdist.quadrature === cache.sdist.quadrature || _throw_foreign_quadrature(:compute_J!)
     q = sdist.quadrature
     fs = sdist.spline
     X = quadrature_nodes(q)
@@ -227,13 +226,17 @@ Every index is bounded **per component** before being flattened. Testing only th
 does not bound the components: with `i = 0`, `j = 3`, `M = 10` the flat index
 `(j-1)M + i = 20` passes a `1 ≤ k ≤ M²` test and decodes to `(10, 2)`, so an out-of-support
 contribution is aliased onto an unrelated basis function instead of being discarded. Wrapping
-goes through `basis_index`, which is periodic-aware, so the gradient is now evaluated with the
-same wrap as the spline it differentiates — the two disagreed before.
+goes through `basis_index`, which is periodic-aware, so the gradient is evaluated with the same
+wrap as the spline it differentiates.
 
 The evaluation buffers are those of `landau.cache[T]`, with `T` the element type of
-`v_array`, so a call allocates nothing.
+`v_array`, so a call allocates nothing. An `sdist` whose quadrature is not that of the cache's
+spline distribution raises an `ArgumentError`, as in [`compute_L!`](@ref).
 """
 function compute_K!(K1, K2, v_array::AbstractArray{T}, sdist, landau::Landau) where {T}
+    cache = landau.cache[T]
+    sdist.quadrature === cache.sdist.quadrature || _throw_foreign_quadrature(:compute_K!)
+
     fill!(K1, zero(eltype(K1)))
     fill!(K2, zero(eltype(K2)))
 
@@ -242,7 +245,6 @@ function compute_K!(K1, K2, v_array::AbstractArray{T}, sdist, landau::Landau) wh
     lin = LinearIndices(B)
     w = landau.dist.particles.w
 
-    cache = landau.cache[T]
     vals = cache.vals
     ders = cache.ders
 
@@ -289,9 +291,9 @@ function gradient_tabulations(sdist::SplineDistribution{T, XD, 2}) where {T, XD}
     return kron(Φ2, dΦ1), kron(dΦ2, Φ1)
 end
 
-@noinline function _throw_foreign_quadrature()
-    throw(ArgumentError("compute_L!: `sdist` does not share the quadrature of the spline " *
-                        "distribution of `landau`'s cache, whose gradient tabulations it reads"))
+@noinline function _throw_foreign_quadrature(f::Symbol)
+    throw(ArgumentError("$(f): `sdist` does not share the quadrature of the spline " *
+                        "distribution of `landau`'s cache, whose buffers it uses"))
 end
 
 @doc raw"""
@@ -343,7 +345,7 @@ evaluations, two sweeps of the grid pairs in total: one for ``A^{cd}`` and one f
 """
 function compute_L!(L, sdist::SplineDistribution{T, XD, 2}, landau::Landau) where {T, XD}
     cache = landau.cache[T]
-    sdist.quadrature === cache.sdist.quadrature || _throw_foreign_quadrature()
+    sdist.quadrature === cache.sdist.quadrature || _throw_foreign_quadrature(:compute_L!)
     q = sdist.quadrature
     X = quadrature_nodes(q)
     W = quadrature_weights(q)

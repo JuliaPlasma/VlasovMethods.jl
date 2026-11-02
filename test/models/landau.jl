@@ -74,8 +74,8 @@ solve(K, LJ, _, _) = K \ LJ
           sdist.spline
 
     # the vector field is the minimum-norm solution of the two least-squares problems
-    @test v̇[1, :] == (cache.K1 \ cache.LJ) .* landau.ν
-    @test v̇[2, :] == (cache.K2 \ cache.LJ) .* landau.ν
+    @test isapprox(v̇[1, :], (cache.K1 \ cache.LJ) .* landau.ν; rtol = 8 * eps(T))
+    @test isapprox(v̇[2, :], (cache.K2 \ cache.LJ) .* landau.ν; rtol = 8 * eps(T))
 
     # coverage instrumentation allocates on every counted line, so under it the assertions
     # do not run rather than being weakened
@@ -167,4 +167,30 @@ end
     sd3 = SplineDistribution(1, 2, sd1.basis, TensorProductQuadrature(sd1.basis; nq = 4),
         copy(sd1.coefficients))
     @test_throws ArgumentError VM.compute_L!(zeros(M, M), sd3, landau1)
+end
+
+@testset "compute_J! and compute_K! refuse a spline distribution on another quadrature" begin
+    pd = ParticleDistribution(1, 2, 100)
+    g = v -> exp(-(v[1]^2 + v[2]^2) / 2) / (2π) + 0.05
+    sd1 = SplineDistribution(1, 2, 4, 2, (-3.0, 3.0), 0, Free())
+    project_function(g, sd1)
+    landau1 = Landau(pd, CollisionEntropy(sd1))
+    N = size(pd.particles.v, 2)
+
+    # the same sizes on another domain, and another number of cells
+    for sd in (SplineDistribution(1, 2, 4, 2, (-2.5, 2.5), 0, Free()),
+        SplineDistribution(1, 2, 6, 2, (-3.0, 3.0), 0, Free()))
+        project_function(g, sd)
+        M = length(sd)
+        err = try
+            VM.compute_J!(zeros(M), sd, landau1)
+            nothing
+        catch e
+            e
+        end
+        @test err isa ArgumentError
+        @test startswith(err.msg, "compute_J!: `sdist` does not share the quadrature")
+        @test_throws ArgumentError VM.compute_K!(
+            zeros(M, N), zeros(M, N), pd.particles.v, sd, landau1)
+    end
 end

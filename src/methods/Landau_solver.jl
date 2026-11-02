@@ -41,7 +41,7 @@ and the problem it is given. `test/integration/landau_solver.jl` asserts both bo
 """
 function Picard_iterate_Landau_nls!(
         landau, tol, ftol, β, Δt, ti, t, v_prev, v_prev_2, rhs_prev, m, chunksize)
-    # β is the damping parameter for damped Picard iterations, with β = 1 yielding regular Picard iterations
+    # β, the damping parameter of a damped Picard iteration (β = 1 is plain Picard), is not read
     # ti is the time index at which v_new is being computed, i.e. for t = ti * Δt
     # v_prev is v at the previous timestep
     # v_prev_2 is v at two timesteps prior to t
