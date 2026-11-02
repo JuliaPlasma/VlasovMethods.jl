@@ -6,7 +6,7 @@ using PoissonSolvers
 using Random
 using ReducedBasisMethods: get_DEIM_indices
 using ReducedComplexityModeling: ParameterSpace, Parameter
-using SimpleSplines: SplineQuadrature
+using SimpleSplines: SplineQuadrature, TensorProductQuadrature
 using VlasovMethods
 using VlasovMethods: AnalyticHamiltonian, DEIMElectricField, IntegratorParameters,
                      ReducedElectricField, ReducedIntegratorCache, SAcceleration,
@@ -223,6 +223,26 @@ if isdefined(JET, :JET_AVAILABLE) ? JET.JET_AVAILABLE : JET.JET_LOADABLE
         @test isempty(JET.get_reports(JET.report_opt(Picard_iterate_over_particles!,
             (Vector{T}, Vector{T}, Vector{T}, Matrix{T}, Int, T, T, Float64, Float64,
                 typeof(mlb)); target_modules = (VlasovMethods,))))
+    end
+
+    # test/integration/landau_solver.jl: the Landau Picard step, on its `@allocated` calls at
+    # `ti = 1` and `ti = 4`, which take the two branches of the guess, at the `Float32` and
+    # `Float64` argument types of that test, with the `Float64` tolerances it passes in both.
+    # `ti` is an `Int` in both, so one analysis covers the two branches.
+    for T in (Float64, Float32)
+        npart = 16
+        lpdist = ParticleDistribution(1, 2,
+            ParticleList(zeros(T, 4, npart); variables = (
+                x = 1:1, v = 2:3, z = 1:3, w = 4:4)))
+        laxis = BSplineBasis(UniformMesh(8, T(-2) .. T(2)), 3, Free())
+        lB = TensorProductBasis((laxis, laxis))
+        lsdist = SplineDistribution(
+            1, 2, lB, TensorProductQuadrature(lB), zeros(T, size(lB)...))
+        landau = Landau(lpdist, CollisionEntropy(lsdist))
+        @test isempty(JET.get_reports(JET.report_opt(
+            VlasovMethods.Picard_iterate_Landau_nls!,
+            (typeof(landau), Float64, Float64, Float64, T, Int, T, Matrix{T}, Matrix{T},
+                Array{T, 3}, Int, Int); target_modules = (VlasovMethods,))))
     end
 
     # test/hnn.jl: the epoch of the HNN extension, at the argument types of that file's allocation

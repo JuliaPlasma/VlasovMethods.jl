@@ -1,3 +1,22 @@
+# The number of rows of the kernel blocks of `compute_L!`: the `Q × Q` kernel is built and
+# consumed `_LANDAU_CHUNK` rows at a time.
+const _LANDAU_CHUNK = 256
+
+# The cache of the Landau operator on a two-dimensional velocity space. Beside the operator's
+# own arrays (`J`, `L`, `LJ`, `K1`, `K2`) it holds every buffer of one vector-field evaluation,
+# so that the projection, `compute_K!`, `compute_J!` and `compute_L!` allocate nothing:
+#
+# - `D`: the gradient tabulations of `sdist`'s quadrature grid, built once here, dense;
+# - `pts`, `s`, `A11`, `A12`, `A22`, `sA`: the grid points, the weighted density and the
+#   kernel sums of `compute_L!`, one entry per grid point;
+# - `X`, `U11`, `U12`, `U22`, `XU`, `block`: the factors and the kernel blocks of its coupled
+#   term;
+# - `g`, `Jc`: the sample of `1 + log f_s` on the grid and its projection, of `compute_J!`;
+# - `rhs`: the load array of the particle projection;
+# - `vals`, `ders`: the per-axis buffers of `evaluate!` and `evaluate_all!`;
+# - `work`, `mwork`: the contraction and mass-solve workspaces of SimpleSplines;
+# - `Kc`: the copy of `K1` or `K2` that the least-squares solve factorises in place;
+# - `guess`: the Picard iterate of `Picard_iterate_Landau_nls!`.
 struct LandauCache{T, PT <: ParticleDistribution, ST <: SplineDistribution{T}} <: Cache{T}
     pdist::PT
     sdist::ST
@@ -11,9 +30,37 @@ struct LandauCache{T, PT <: ParticleDistribution, ST <: SplineDistribution{T}} <
     K1::Matrix{T}
     K2::Matrix{T}
 
+    D::NTuple{2, Matrix{T}}
+    pts::Vector{SVector{2, T}}
+    s::Vector{T}
+    A11::Vector{T}
+    A12::Vector{T}
+    A22::Vector{T}
+    sA::Vector{T}
+    X::NTuple{2, Matrix{T}}
+    U11::Matrix{T}
+    U12::Matrix{T}
+    U22::Matrix{T}
+    XU::Matrix{T}
+    block::Matrix{T}
+
+    g::Matrix{T}
+    Jc::Matrix{T}
+    rhs::Matrix{T}
+    vals::NTuple{2, Vector{T}}
+    ders::NTuple{2, Vector{T}}
+    work::SimpleSplines.ContractWorkspace{T, SimpleSplines.KroneckerMassWorkspace{T, 2}}
+    mwork::SimpleSplines.KroneckerMassWorkspace{T, 2}
+
+    Kc::Matrix{T}
+    guess::Matrix{T}
+
     function LandauCache{T}(pdist, sdist) where {T}
         M = length(sdist)
         N = size(pdist.particles.v, 2)
+        q = sdist.quadrature
+        Q = prod(quadrature_grid_size(q))
+        nblk = min(_LANDAU_CHUNK, Q)
 
         v = zero(pdist.particles.v)
         v̇ = zero(pdist.particles.v)
@@ -24,7 +71,17 @@ struct LandauCache{T, PT <: ParticleDistribution, ST <: SplineDistribution{T}} <
         K1 = zeros(T, (M, N))
         K2 = zeros(T, (M, N))
 
-        new{T, typeof(pdist), typeof(sdist)}(pdist, sdist, v, v̇, J, L, LJ, K1, K2)
+        D = map(d -> Matrix{T}(d), gradient_tabulations(sdist))
+        X = (Matrix{T}(undef, M, Q), Matrix{T}(undef, M, Q))
+        U = ntuple(_ -> Matrix{T}(undef, nblk, Q), 3)
+        bufs = () -> _local_buffers(sdist.basis, T)
+
+        new{T, typeof(pdist), typeof(sdist)}(pdist, sdist, v, v̇, J, L, LJ, K1, K2,
+            D, Vector{SVector{2, T}}(undef, Q), ntuple(_ -> Vector{T}(undef, Q), 5)...,
+            X, U..., Matrix{T}(undef, M, Q), Matrix{T}(undef, M, M),
+            Matrix{T}(undef, quadrature_grid_size(q)...), zeros(T, size(sdist)),
+            zeros(T, size(sdist)), bufs(), bufs(), contract_workspace(q, T),
+            mass_workspace(mass_operator(sdist), T), zeros(T, (M, N)), zero(v))
     end
 end
 
@@ -50,10 +107,8 @@ struct Landau{
     end
 end
 
-Base.eltype(::LandauCache{T}) where {T} = T
-
 @doc raw"""
-    compute_J!(J, sdist, ::Landau)
+    compute_J!(J, sdist, landau::Landau)
 
 The vector
 
@@ -73,15 +128,21 @@ times the number of coefficients. The earlier version called a `gauss_quad_2d` t
 a hard-coded `knots[3:(end-1)]` slice — asymmetric, independent of the spline order and of the
 boundary condition, and a different subrange from the one the mass matrix was assembled on, so
 the two halves of `eq:defn_Lk` were not computed over the same domain.
+
+The sample, the evaluation buffers and the projection's workspace are those of
+`landau.cache[T]`, the `LandauCache` of the element type of `sdist`, so a call allocates
+nothing.
 """
-function compute_J!(J, sdist::SplineDistribution{T, XD, VD}, ::Landau) where {T, XD, VD}
+function compute_J!(J, sdist::SplineDistribution{T, XD, VD}, landau::Landau) where {
+        T, XD, VD}
+    cache = landau.cache[T]
     q = sdist.quadrature
     fs = sdist.spline
     X = quadrature_nodes(q)
 
-    g = Array{T, VD}(undef, quadrature_grid_size(q)...)
+    g = cache.g
     for (r, pt) in enumerate(Iterators.product(X...))
-        f = fs(pt)
+        f = evaluate!(cache.vals, fs.basis, fs.coefficients, pt)
         # The manuscript's own appendix opens with a commented-out section titled
         # "Positivity-preserving projections", stating that f_s "has to be non-negative
         # everywhere", and does not solve it. Writing this as 0.5*log(f^2) — which an earlier
@@ -96,7 +157,8 @@ function compute_J!(J, sdist::SplineDistribution{T, XD, VD}, ::Landau) where {T,
         g[r] = 1 + log(f)
     end
 
-    l2_projection!(reshape(J, size(sdist)), q, g)
+    l2_projection!(cache.Jc, q, g, cache.work)
+    copyto!(J, cache.Jc)
     return J
 end
 
@@ -167,6 +229,9 @@ does not bound the components: with `i = 0`, `j = 3`, `M = 10` the flat index
 contribution is aliased onto an unrelated basis function instead of being discarded. Wrapping
 goes through `basis_index`, which is periodic-aware, so the gradient is now evaluated with the
 same wrap as the spline it differentiates — the two disagreed before.
+
+The evaluation buffers are those of `landau.cache[T]`, with `T` the element type of
+`v_array`, so a call allocates nothing.
 """
 function compute_K!(K1, K2, v_array::AbstractArray{T}, sdist, landau::Landau) where {T}
     fill!(K1, zero(eltype(K1)))
@@ -177,8 +242,9 @@ function compute_K!(K1, K2, v_array::AbstractArray{T}, sdist, landau::Landau) wh
     lin = LinearIndices(B)
     w = landau.dist.particles.w
 
-    vals = ntuple(k -> zeros(T, local_width(bs[k])), 2)
-    ders = ntuple(k -> zeros(T, local_width(bs[k])), 2)
+    cache = landau.cache[T]
+    vals = cache.vals
+    ders = cache.ders
 
     for α in axes(v_array, 2)
         v = view(v_array, :, α)
@@ -224,7 +290,7 @@ function gradient_tabulations(sdist::SplineDistribution{T, XD, 2}) where {T, XD}
 end
 
 @doc raw"""
-    compute_L!(L, sdist, landau; chunk = 256)
+    compute_L!(L, sdist, landau)
 
 The symmetric matrix
 
@@ -250,19 +316,27 @@ second and third are equal, so the factor of one half cancels and
 \qquad A^{cd}_a = \sum_b s_b \, U^{cd}_{ab} ,
 ```
 
-with ``s_a = w_a f_s(v_a)`` and ``D^c`` the sparse gradient tables above. This is an identity,
-not an approximation: the same quadrature sum, rearranged.
+with ``s_a = w_a f_s(v_a)`` and ``D^c`` the gradient tables above. This is an identity, not
+an approximation: the same quadrature sum, rearranged.
 
-Both terms are sparse-times-dense products. The first is a single pass over the grid; the
-second is the genuinely coupled one, and its ``Q \times Q`` kernel is built and consumed in
-row blocks of `chunk` so that nothing of that size is ever held.
+Both terms are products of dense ``M \times Q`` factors. The first is a single pass over the
+grid; the second is the genuinely coupled one, and its ``Q \times Q`` kernel is built and
+consumed in row blocks of 256 so that nothing of that size is ever held.
+
+# Buffers
+
+Every array of the assembly is a buffer of `landau.cache[T]`, the `LandauCache` of the element
+type of `sdist`, and the gradient tables are the ones that `LandauCache` builds once from its
+own spline distribution, so a call allocates nothing. `sdist` must therefore share the basis and
+the quadrature of the cache's spline distribution, as it does in `collisional_vectorfield!`,
+which passes that distribution itself.
 
 ``U^{cd}`` is symmetric in ``(c,d)``, so each block is swept once and its three independent
 components serve all four contractions. The whole assembly therefore costs ``O(Q^2)`` kernel
 evaluations, two sweeps of the grid pairs in total: one for ``A^{cd}`` and one for the blocks.
 """
-function compute_L!(L, sdist::SplineDistribution{T, XD, 2}, landau::Landau;
-        chunk::Int = 256) where {T, XD}
+function compute_L!(L, sdist::SplineDistribution{T, XD, 2}, landau::Landau) where {T, XD}
+    cache = landau.cache[T]
     q = sdist.quadrature
     X = quadrature_nodes(q)
     W = quadrature_weights(q)
@@ -273,23 +347,24 @@ function compute_L!(L, sdist::SplineDistribution{T, XD, 2}, landau::Landau;
 
     # The grid, enumerated with the first axis fastest -- the same order the Kronecker
     # products in `gradient_tabulations` produce for their columns.
-    pts = Vector{SVector{2, T}}(undef, Q)
-    s = Vector{T}(undef, Q)
+    pts = cache.pts
+    s = cache.s
     r = 0
     for a2 in 1:Q2, a1 in 1:Q1
 
         r += 1
         p = SVector(X[1][a1], X[2][a2])
         pts[r] = p
-        s[r] = W[1][a1] * W[2][a2] * fs(p)
+        s[r] = W[1][a1] * W[2][a2] * evaluate!(cache.vals, fs.basis, fs.coefficients, p)
     end
 
-    D = gradient_tabulations(sdist)
+    # The tabulations of the cache's quadrature grid, which `LandauCache` builds once.
+    D = cache.D
 
     # A^{cd}_a = Σ_b s_b U^{cd}(v_a, v_b). Symmetric in (c,d), so three components.
-    A11 = zeros(T, Q)
-    A12 = zeros(T, Q)
-    A22 = zeros(T, Q)
+    A11 = cache.A11
+    A12 = cache.A12
+    A22 = cache.A22
     for a in 1:Q
         t11 = zero(T)
         t12 = zero(T)
@@ -310,32 +385,35 @@ function compute_L!(L, sdist::SplineDistribution{T, XD, 2}, landau::Landau;
 
     fill!(L, zero(T))
 
-    # First term: a diagonal weighting of the grid, one sparse contraction per component pair.
+    # Scratch for the products: the M×Q intermediate and the M×M block that is added to or
+    # subtracted from L.
+    XU = cache.XU
+    block = cache.block
+
+    # First term: a diagonal weighting of the grid, one contraction per component pair.
+    sA = cache.sA
     for c in 1:2, d in 1:2
 
-        L .+= D[c] * Diagonal(s .* Acd[c][d]) * D[d]'
+        sA .= s .* Acd[c][d]
+        XU .= D[c] .* transpose(sA)
+        mul!(block, XU, transpose(D[d]))
+        L .+= block
     end
 
     # Second term: the coupled one. Xc = D^c diag(s), and the Q×Q kernel is built in row
-    # blocks so that only `chunk × Q` of it exists at a time. One sweep per block fills all
-    # three independent components -- the kernel is symmetric in (c,d) -- and the four
-    # contractions are read off them. Calling `kernel` inside the (c,d) loop instead would
-    # sweep the Q² pairs four more times and discard three components of every result.
-    Xs = (D[1] * Diagonal(s), D[2] * Diagonal(s))
-    nblk = min(chunk, Q)
-    U11 = Matrix{T}(undef, nblk, Q)
-    U12 = Matrix{T}(undef, nblk, Q)
-    U22 = Matrix{T}(undef, nblk, Q)
-
-    # Scratch for the two products, allocated once: the M×Q intermediate and the M×M block
-    # that is subtracted from L. Writing the chained product as an expression instead would
-    # allocate both afresh on each of the 4 × ceil(Q/chunk) passes.
-    XU = Matrix{T}(undef, M, Q)
-    block = Matrix{T}(undef, M, M)
-
-    # The right factor is contracted over Q on every pass, so it is worth one dense copy:
-    # `mul!` against a sparse adjoint goes through the generic path, while this is gemm.
-    Xsd = (Matrix(Xs[1]), Matrix(Xs[2]))
+    # blocks so that only `chunk × Q` of it exists at a time, with `chunk` the number of rows
+    # of the cache's blocks. One sweep per block fills all three independent components --
+    # the kernel is symmetric in (c,d) -- and the four contractions are read off them. Calling
+    # `kernel` inside the (c,d) loop instead would sweep the Q² pairs four more times and
+    # discard three components of every result.
+    Xs = cache.X
+    for c in 1:2
+        Xs[c] .= D[c] .* transpose(s)
+    end
+    U11 = cache.U11
+    U12 = cache.U12
+    U22 = cache.U22
+    chunk = size(U11, 1)
 
     for lo in 1:chunk:Q
         hi = min(lo + chunk - 1, Q)
@@ -358,7 +436,7 @@ function compute_L!(L, sdist::SplineDistribution{T, XD, 2}, landau::Landau;
 
             # (M × nb) * (nb × Q) * (Q × M), through the scratch above.
             mul!(XU, view(Xs[c], :, lo:hi), Ucd[c][d])
-            mul!(block, XU, Xsd[d]')
+            mul!(block, XU, transpose(Xs[d]))
             L .-= block
         end
     end
@@ -382,8 +460,7 @@ function collisional_vectorfield!(v̇::AbstractArray{ST}, v::AbstractArray{ST}, 
     # project v onto the cache's spline distribution
     sdist = cache.sdist
 
-    # println("projection")
-    projection(v, landau.dist, sdist)
+    _projection!(cache.rhs, cache.vals, cache.mwork, v, landau.dist, sdist)
 
     # compute K matrices
     compute_K!(cache.K1, cache.K2, v, sdist, landau)
@@ -407,8 +484,13 @@ function collisional_vectorfield!(v̇::AbstractArray{ST}, v::AbstractArray{ST}, 
     # K to have full row rank. That hypothesis is not checked here: a rank check costs two SVDs
     # of an M×N matrix per vector-field evaluation, and there is nothing this function could do
     # with the answer other than proceed anyway. It belongs in a diagnostic script.
-    v̇[1, :] .= cache.K1 \ cache.LJ
-    v̇[2, :] .= cache.K2 \ cache.LJ
+    #
+    # `K \ LJ` factorises a copy of `K`; here that copy is the cache's `Kc`, factorised in
+    # place by `qr!`, which is the same factorisation and the same solve. The pivots and the
+    # reflectors of the factorisation, the workspace of the solve and its result still
+    # allocate.
+    v̇[1, :] .= qr!(copyto!(cache.Kc, cache.K1), ColumnNorm()) \ cache.LJ
+    v̇[2, :] .= qr!(copyto!(cache.Kc, cache.K2), ColumnNorm()) \ cache.LJ
 
     # Scale by the collision frequency, as every other collision model here does.
     v̇ .*= landau.ν
