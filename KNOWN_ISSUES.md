@@ -34,10 +34,10 @@ has left the file, or that lived only on a merged branch, stays taken.
 ### K5 · The Landau Picard solver does not iterate to convergence.
 
 - **location:** `Landau_solver.jl`
-- **evidence:** `Landau_solver.jl` runs exactly five iterations and prints the residual without
-  testing it. `tol`, `ftol`, `β`, `m` and `chunksize` are accepted and unused. Every conservation
-  property in the appendix is a property of the *exactly* solved implicit system, so momentum and
-  energy drift at the size of that printed residual.
+- **evidence:** `Landau_solver.jl` runs exactly five iterations and reports the residual as a
+  `@debug` message without testing it. `tol`, `ftol`, `β`, `m` and `chunksize` are accepted and
+  unused. Every conservation property in the appendix is a property of the *exactly* solved
+  implicit system, so momentum and energy drift at the size of that reported residual.
 - **kind:** defect
 - **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
   migration. None of these are regressions; each is either a numerical-methods decision or work
@@ -95,9 +95,9 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 - **location:** `scripts/verify_conservation.jl`
 - **evidence:** `git grep -in 'landau' scripts/verify_conservation.jl` returns nothing, so the
-  script exercises the conservative Lenard-Bernstein operator only. The one `Landau` testset under
-  `test/` is `test/distributions/spline_distribution.jl:277`, "Landau: K, J and L assemble": it
-  asserts assembly, not a conservation invariant.
+  script exercises the conservative Lenard-Bernstein operator only. The `Landau` testsets under
+  `test/` assert assembly, allocations, refusals, type parameters, a reference value and the Picard
+  step, not a conservation invariant.
 - **kind:** missing test
 - **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
   migration. None of these are regressions; each is either a numerical-methods decision or work
@@ -304,24 +304,15 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** dead code
 - **found:** 2026-10-04
 
-### K43 · `Picard_iterate_Landau_nls!` prints from library code.
+### K47 · Twelve lines of commented-out code remain in three collision model files.
 
-- **location:** `src/methods/Landau_solver.jl:35`
-- **evidence:** The calls at `:35`, `:47` and `:55` print the residual of each iteration and an
-  empty line. They are the only residual report of the function (K5), so removing them removes
-  the one output that shows the drift.
-- **kind:** defect
-- **found:** 2026-10-04
-
-### K47 · Thirteen lines of commented-out code remain in four collision model files.
-
-- **location:** `src/models/landau.jl:385`
-- **evidence:** The lines are `src/models/landau.jl:385`; `src/models/lenard_bernstein.jl:96`
-  and `:106`; `src/models/lenard_bernstein_conservative.jl:215`, `:225-227` and `:231`;
-  `src/models/rescaled_lenard_bernstein_conservative.jl:140`, `:153-155` and `:159`. Each is an
+- **location:** `src/models/lenard_bernstein.jl:96`
+- **evidence:** The lines are `src/models/lenard_bernstein.jl:96` and `:106`;
+  `src/models/lenard_bernstein_conservative.jl:228`, `:238-240` and `:244`;
+  `src/models/rescaled_lenard_bernstein_conservative.jl:149`, `:162-164` and `:168`. Each is an
   old assignment, call or `return` behind `#`, such as `# int = Integrators.Integrator(equ,
   Integrators.RK438())`. #69 deleted the other dead code of these files and left these lines,
-  because they are outside its hunks. The fix is to delete the thirteen lines.
+  because they are outside its hunks. The fix is to delete the twelve lines.
 - **kind:** dead code
 - **found:** #69
 
@@ -382,7 +373,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K54 · Projecting a spline distribution back onto particles is not implemented.
 
-- **location:** `src/projections/distribution.jl:188`
+- **location:** `src/projections/distribution.jl:200`
 - **evidence:** The method raises
   `error("projecting a spline distribution back onto particles is not implemented")`. Two meanings
   are available for the direction and neither is chosen: (a) draw a new particle sample from

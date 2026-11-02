@@ -253,6 +253,57 @@ their own, except for what they removed and narrowed, which is listed in full be
   returns the parent, so they project into the spline of the entropy, as `Landau` does. The
   `evaluate!` of SimpleSplines is new in SimpleSplines 0.4.
 
+- **The Landau vector field allocates only its two least-squares solves, and
+  `Picard_iterate_Landau_nls!` no longer prints (K43).** `LandauCache` now holds every buffer of
+  one evaluation of `collisional_vectorfield!`: the gradient tabulations of its quadrature grid,
+  which it builds once where `compute_L!` built them on every call, the kernel blocks and the
+  factors of `compute_L!`, the sample and the workspace of `compute_J!`, the evaluation buffers
+  of `compute_K!`, and the load array and the mass workspace of the particle projection, which
+  runs through a new in-place `_projection!` for a velocity space of more than one dimension.
+  Each point evaluation goes through SimpleSplines' `evaluate!`. `compute_L!`, `compute_J!`,
+  `compute_K!` and the projection then allocate nothing. The two solves `K1 \ LJ` and `K2 \ LJ`
+  keep LAPACK's pivots, reflectors, workspace and result, and factorise a copy of `K` held in the
+  cache with the pivoted QR. Where the number of particles is the number of basis functions
+  (Np == M), `K` is square: `\` took an LU factorisation there and the solve now takes the pivoted
+  QR, and the bound "no more than its two least-squares solves" holds only for Np ≠ M. Because
+  `compute_J!` and `compute_L!` read the buffers and tabulations of the cache's quadrature grid,
+  each raises an `ArgumentError` for an `sdist` whose quadrature is not the cache's, where it built
+  its result on that distribution's grid before. The Picard step takes its iterate from the cache,
+  keeps its guess and its five iterates in histories of fixed length, and writes the residual of
+  each iterate as a `@debug` message rather than to `stdout`; K43 is removed. The guess of its first
+  three steps asserts the type of its `ODEProblem`, as `_mlb_startup_guess!` does, so `extrapolate!`
+  no longer dispatches at run time. `compute_L!` loses its `chunk` keyword: the kernel blocks are
+  the cache's, `_LANDAU_CHUNK = 256` rows high, or `Q` where `Q < 256`.
+  The gradient tabulations are `SparseMatrixCSC`, with a few stored entries per grid point, and so
+  are the factors `X = D diag(s)` of `compute_L!`, which have the pattern of `D`: `compute_L!`
+  rescales their stored values in place. The first term of `L` is accumulated from the stored
+  entries of `D` straight into `L`, and the coupled term multiplies the sparse factors with the
+  kernel block column by column, so the cache holds no dense `M × Q` factor and no `M × M` block
+  for them. VlasovMethods now depends on the standard library `SparseArrays`. At `M = 361`,
+  `compute_L!` takes 1.27 s, against 3.50 s and 126 MB per call at the base of the branch; it now
+  allocates nothing, and its results agree with the base to about `1e-15` relative. Each timing is
+  the median of nine calls in a cold process on Julia 1.13.3, `--check-bounds=auto`, with a cubic
+  clamped basis and 24 × 24 particles; the two processes ran one after the other, on a machine at
+  load average 10 to 13.
+  A `Landau` on a velocity space of one dimension, which no method of `compute_L!` accepted, now
+  raises a `MethodError` at construction. The vector field matches its reference at the
+  tolerance of the collision tests, `64 * eps`. Bytes of one call after a warm call, in a cold
+  process on Julia 1.13.3, on a cubic clamped basis of 8 × 8 cells, at `b512046` and with this
+  change; the solves column is the bytes of `K1 \ LJ` plus `K2 \ LJ` on the same matrices:
+
+  | call | type | particles | `b512046` | now | solves |
+  |:--|:--|:--|--:|--:|--:|
+  | `collisional_vectorfield!` | `Float64` | 256, 576 | 23 141 840, 24 497 616 | 894 368, 1 627 552 | 1 418 816, 2 774 592 |
+  | `collisional_vectorfield!` | `Float32` | 256, 576 | 13 506 368, 14 203 648 | 450 112, 819 712 | 712 416, 1 409 696 |
+  | `Picard_iterate_Landau_nls!`, `ti = 4` | `Float64`, `Float32` | 256 | 138 938 784, 81 083 264 | 5 416 544, 2 726 432 | |
+  | `Picard_iterate_Landau_nls!`, `ti = 1` | `Float64`, `Float32` | 256 | 995 285 824, 580 885 296 | 38 591 216, 19 431 984 | |
+
+  A step from the fourth on allocates its six vector fields, its histories of 49 920 bytes
+  (`Float64`) and 416 bytes more.
+
+  The commented-out `# println("projection")` of `collisional_vectorfield!` goes with the call
+  it named, so K47 counts twelve such lines in three files.
+
 - **`Picard_iterate_over_particles` checks its arguments before it writes.** Before this release, a
   history with one row too few let the solve run, wrote column 2 of the history, and only then
   threw a bare broadcast `DimensionMismatch`. A `vn` that was a view of the history, such as

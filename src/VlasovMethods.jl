@@ -15,6 +15,7 @@ using ProgressMeter
 using Random
 using ReducedBasisMethods: ReducedTensor
 using Sobol
+using SparseArrays: SparseMatrixCSC, nonzeros, nzrange, rowvals
 using SpecialFunctions
 using StaticArrays
 

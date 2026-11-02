@@ -18,6 +18,7 @@ if "core" in GROUPS
     @safetestset "Metriplectic Solve" include("integration/metriplectic_solve.jl")
     @safetestset "Collision Operators" include("integration/collision_operators.jl")
     @safetestset "Lenard–Bernstein Buffers" include("models/lenard_bernstein_buffers.jl")
+    @safetestset "Landau Buffers" include("models/landau.jl")
     @safetestset "Cache Dict" include("cache.jl")
     @safetestset "Vlasov–Poisson" include("integration/vlasov_poisson.jl")
     @safetestset "Vlasov with External Fields" include("models/vlasov_with_external_fields.jl")
