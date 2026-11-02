@@ -106,6 +106,18 @@ end
         @test isapprox(vec(v̇), reference("collision_landau_reference.txt"); rtol = rtol(Float64))
     end
 
+    # The Lenard–Bernstein models are 1D1V: the integrator of a 2D velocity space is a `MethodError`.
+    @testset "GeometricIntegrator is 1D1V" begin
+        pdist2, sdist2 = setup_1d2v(Float64)
+        @testset "$(nameof(M))" for M in (LenardBernstein, ConservativeLenardBernstein,
+            RescaledConservativeLenardBernstein)
+            @test_throws MethodError VlasovMethods.GeometricIntegrator(
+                M(pdist2, CollisionEntropy(sdist2)), (0.0, ΔT), ΔT)
+            @test VlasovMethods.GeometricIntegrator(
+                M(pdist, CollisionEntropy(sdist)), (0.0, ΔT), ΔT) isa Any
+        end
+    end
+
     # The pins run in the parent's element type, where a re-type that kept the parent's spline
     # would pass. This re-types each cache that `@collision_cache` covers to `Float32`;
     # `CacheDict`'s `getindex` asserts the `CacheType`, and the tests assert the new spline's

@@ -208,7 +208,9 @@ function CLB_rhs(v::AbstractVector{ST}, params, fs::Spline) where {ST}
     return -params.ν .* (dfdv.(v) ./ fs.(v) .+ (A[1] .+ A[2] .* v))
 end
 
-function GeometricIntegrator(model::ConservativeLenardBernstein, tspan::Tuple, tstep::Real)
+# The model is 1D1V: a scalar velocity and one weight per particle.
+function GeometricIntegrator(
+        model::ConservativeLenardBernstein{1, 1}, tspan::Tuple, tstep::Real)
     # collect parameters
     # params = (ϕ = model.potential, model = model)
     params = (ν = model.ν, idist = model.dist, fdist = model.ent.dist, model = model)
