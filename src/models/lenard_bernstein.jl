@@ -3,16 +3,17 @@
 # basis functions that are non-zero at one point, which the projection and each point
 # evaluation of the spline use in turn. A cache belongs to one task: two tasks that evaluate at
 # once on one cache share its buffers.
-struct LBCache{T, PT <: ParticleDistribution, ST <: SplineDistribution{T}} <: Cache{T}
+struct LBCache{T, PT <: ParticleDistribution, ST <: SplineDistribution{T}, VT} <: Cache{T}
     pdist::PT
     sdist::ST
 
     rhs::Vector{T}
-    values::Vector{T}
+    values::VT
 
     function LBCache{T}(pdist, sdist) where {T}
-        new{T, typeof(pdist), typeof(sdist)}(
-            pdist, sdist, zeros(T, nbasis(sdist.basis)), _local_buffers(sdist.basis, T))
+        values = _local_buffers(sdist.basis, T)
+        new{T, typeof(pdist), typeof(sdist), typeof(values)}(
+            pdist, sdist, zeros(T, nbasis(sdist.basis)), values)
     end
 end
 
@@ -20,7 +21,7 @@ function LBCache(pdist::ParticleDistribution{T}, sdist::SplineDistribution{T}) w
     LBCache{T}(pdist, sdist)
 end
 
-@collision_cache LBCache
+@collision_cache LBCache buffers
 
 struct LenardBernstein{
     XD, VD, DT <: DistributionFunction{<:Any, XD, VD}, ET <: Entropy, T, CT <: CacheDict} <:

@@ -1,15 +1,16 @@
 # The particles, the spline and the work arrays of a conservative Lenard–Bernstein right-hand
 # side in the element type `T` of a state, as `LBCache` holds them. A cache belongs to one task.
-struct CLBCache{T, PT <: ParticleDistribution, ST <: SplineDistribution{T}} <: Cache{T}
+struct CLBCache{T, PT <: ParticleDistribution, ST <: SplineDistribution{T}, VT} <: Cache{T}
     pdist::PT
     sdist::ST
 
     rhs::Vector{T}
-    values::Vector{T}
+    values::VT
 
     function CLBCache{T}(pdist, sdist) where {T}
-        new{T, typeof(pdist), typeof(sdist)}(
-            pdist, sdist, zeros(T, nbasis(sdist.basis)), _local_buffers(sdist.basis, T))
+        values = _local_buffers(sdist.basis, T)
+        new{T, typeof(pdist), typeof(sdist), typeof(values)}(
+            pdist, sdist, zeros(T, nbasis(sdist.basis)), values)
     end
 end
 
@@ -17,7 +18,7 @@ function CLBCache(pdist::ParticleDistribution{T}, sdist::SplineDistribution{T}) 
     CLBCache{T}(pdist, sdist)
 end
 
-@collision_cache CLBCache
+@collision_cache CLBCache buffers
 
 struct ConservativeLenardBernstein{
     XD, VD, DT <: DistributionFunction{<:Any, XD, VD}, ET <: Entropy, T, CT <: CacheDict} <:

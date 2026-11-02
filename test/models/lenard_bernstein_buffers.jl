@@ -1,6 +1,7 @@
 using ForwardDiff: ForwardDiff
 using ParticleMethods: ParticleList
-using SimpleSplines: BSplineBasis, UniformMesh, Free, SplineQuadrature, nbasis
+using SimpleSplines: BSplineBasis, UniformMesh, Free, SplineQuadrature, nbasis,
+                     TensorProductBasis, TensorProductQuadrature
 using StableRNGs
 using Test
 using VlasovMethods
@@ -156,6 +157,23 @@ const COEFFICIENTS = ((ConservativeLenardBernstein, VM.compute_coefficients),
             1, 1, sdist.basis, sdist.quadrature, zeros(nbasis(sdist.basis)))
         projection(q, pdist, ref)
         @test cache.sdist.coefficients == ref.coefficients
+    end
+
+    @testset "$(nameof(M)) builds its cache on a tensor-product basis" for (M, _) in MODELS
+        # the buffers of a tensor-product basis are one vector per axis, not one vector
+        T = Float64
+        vars = (x = 1:1, v = 2:3, z = 1:3, w = 4:4)
+        pdist = ParticleDistribution(
+            1, 2, ParticleList(zeros(T, 4, 16); variables = vars))
+        axis = BSplineBasis(UniformMesh(5, T(-2) .. T(2)), 2, Free())
+        B = TensorProductBasis((axis, axis))
+        sdist = SplineDistribution(
+            1, 2, B, TensorProductQuadrature(B), zeros(T, size(B)...))
+        model = M(pdist, CollisionEntropy(sdist))
+        cache = model.cache[T]
+        @test cache.values isa NTuple{2, Vector{T}}
+        @test length.(cache.values) == ntuple(_ -> local_width(axis), 2)
+        @test length(cache.rhs) == nbasis(B)
     end
 
     @testset "no particle and one particle, $(nameof(M))" for (M, rhs!) in MODELS

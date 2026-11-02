@@ -31,14 +31,21 @@ end
 # is the element type, which is that of the cache's spline: `CacheDict(p)` stores its parent `p`
 # under `eltype(p)`, so that a lookup of the parent's type finds the parent. It is defined on the
 # type, which `eltype` of an instance reads, so a cache may also define it on an instance.
-macro collision_cache(CacheT)
+#
+# A cache with a fourth type parameter, the type of its `values` buffers, passes the word `buffers`.
+macro collision_cache(CacheT, buffers = nothing)
+    celltype = if buffers === :buffers
+        :($CacheT{AT, PT, similar_type(AT, c.sdist), _buffer_type(AT, c.sdist)})
+    else
+        :($CacheT{AT, PT, similar_type(AT, c.sdist)})
+    end
     esc(quote
         Base.eltype(::Type{<:$CacheT{T}}) where {T} = T
         function Cache(AT, c::$CacheT)
             $CacheT{AT}(c.pdist, similar(AT, c.sdist))
         end
         function CacheType(AT, c::$CacheT{<:Any, PT}) where {PT}
-            $CacheT{AT, PT, similar_type(AT, c.sdist)}
+            $celltype
         end
     end)
 end
