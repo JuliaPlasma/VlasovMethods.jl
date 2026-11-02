@@ -162,4 +162,9 @@ end
     sd1b.coefficients .= sd1.coefficients
     @test VM.compute_L!(zeros(M, M), sd1b, landau1) ==
           VM.compute_L!(zeros(M, M), sd1, landau1)
+
+    # the same basis with another quadrature: sharing the basis is not enough
+    sd3 = SplineDistribution(1, 2, sd1.basis, TensorProductQuadrature(sd1.basis; nq = 4),
+        copy(sd1.coefficients))
+    @test_throws ArgumentError VM.compute_L!(zeros(M, M), sd3, landau1)
 end

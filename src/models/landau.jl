@@ -289,6 +289,11 @@ function gradient_tabulations(sdist::SplineDistribution{T, XD, 2}) where {T, XD}
     return kron(Φ2, dΦ1), kron(dΦ2, Φ1)
 end
 
+@noinline function _throw_foreign_quadrature()
+    throw(ArgumentError("compute_L!: `sdist` does not share the quadrature of the spline " *
+                        "distribution of `landau`'s cache, whose gradient tabulations it reads"))
+end
+
 @doc raw"""
     compute_L!(L, sdist, landau)
 
@@ -336,11 +341,6 @@ distribution itself, and `similar` keeps the quadrature.
 components serve all four contractions. The whole assembly therefore costs ``O(Q^2)`` kernel
 evaluations, two sweeps of the grid pairs in total: one for ``A^{cd}`` and one for the blocks.
 """
-@noinline function _throw_foreign_quadrature()
-    throw(ArgumentError("compute_L!: `sdist` does not share the quadrature of the spline " *
-                        "distribution of `landau`'s cache, whose gradient tabulations it reads"))
-end
-
 function compute_L!(L, sdist::SplineDistribution{T, XD, 2}, landau::Landau) where {T, XD}
     cache = landau.cache[T]
     sdist.quadrature === cache.sdist.quadrature || _throw_foreign_quadrature()
