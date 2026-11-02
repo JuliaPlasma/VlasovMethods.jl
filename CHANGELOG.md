@@ -210,8 +210,14 @@ their own, except for what they removed and narrowed, which is listed in full be
   of a state of another element type than the distribution's, such as the `ForwardDiff.Dual`
   numbers of the implicit midpoint's Jacobian, takes its buffers from `params.cache`, a
   `CacheDict` that builds them on the first call of a type. `LB_rhs!` keeps the allocating path.
-  Bytes of one call after a warm call, in a cold process on Julia 1.13.3, at `5d3c427` and with
-  this change:
+  Two results change outside the model's own element type. `LenardBernstein` on particles and a
+  spline of different element types, such as `Float32` particles and a `Float64` spline, raises a
+  `MethodError` at construction, as the two conservative models already did; at `5d3c427` it
+  built. A state of another element type than the model's, such as a `Float32` state on a
+  `Float64` model, is projected and evaluated in the state's type, where `5d3c427` promoted to the
+  model's; on 256 particles the right-hand sides then differ by at most 1e-6 of their largest
+  value. Bytes of one call after a warm call, in a cold process on Julia 1.13.3, at `5d3c427`
+  and with this change:
 
   | right-hand side | state | size | `5d3c427` | now |
   |:--|:--|:--|--:|--:|

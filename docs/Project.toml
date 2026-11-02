@@ -10,8 +10,8 @@ VlasovMethods = "4a954452-39e6-424b-ae51-38fc4bbc42ef"
 # machine-local path in its place — do not let it. Without this entry the projection page's
 # examples run against the registered VlasovMethods rather than the tree they document.
 [sources]
-SimpleSplines = {url = "https://github.com/JuliaDEC/SimpleSplines.jl", rev = "alloc/part-a1"}
 VlasovMethods = {path = ".."}
+SimpleSplines = {url = "https://github.com/JuliaDEC/SimpleSplines.jl", rev = "alloc/part-a1"}
 
 [compat]
 Documenter = "1.19.0"
