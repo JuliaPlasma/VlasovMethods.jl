@@ -165,11 +165,11 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K24 · The Lenard-Bernstein right-hand sides keep an uncalled `LB_rhs!` and two plotting copies.
 
-- **location:** `src/models/lenard_bernstein.jl:60`
+- **location:** `src/models/lenard_bernstein.jl:61`
 - **evidence:** `LB_rhs!(v̇, v, params, t)` keeps the argument order of an ODE solver that the
-  package does not use, and nothing in `src/` calls it: `LB_rhs_GI!` (`:74`) computes the same
-  right-hand side on the buffers of the model's cache. `LB_rhs` (`:87`) and `CLB_rhs`
-  (`src/models/lenard_bernstein_conservative.jl:200`) repeat the formulas of their `_GI!`
+  package does not use, and nothing in `src/` calls it: `LB_rhs_GI!` (`:75`) computes the same
+  right-hand side on the buffers of the model's cache. `LB_rhs` (`:88`) and `CLB_rhs`
+  (`src/models/lenard_bernstein_conservative.jl:201`) repeat the formulas of their `_GI!`
   functions, and neither has a caller: in `src/`, `grep -rn -E '\bC?LB_rhs\b' src` finds the two
   definitions, the `LB_rhs!` definition and the comment of `LB_rhs_GI!` that names it. Outside
   `src/`, `test/integration/names.jl` lists the two names, and the tests and the reference
@@ -179,9 +179,9 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K26 · The `LB_rhs!` docstring and comment describe past code.
 
-- **location:** `src/models/lenard_bernstein.jl:53`
-- **evidence:** The admonition "The division by `f_s` was missing" (`:53-58`) says what "both
-  right-hand sides computed" in an earlier version of the code. The comment at `:61-62` explains
+- **location:** `src/models/lenard_bernstein.jl:54`
+- **evidence:** The admonition "The division by `f_s` was missing" (`:54-59`) says what "both
+  right-hand sides computed" in an earlier version of the code. The comment at `:62-63` explains
   a line that "threw". The facts belong in the present tense, and the history in `CHANGELOG.md`.
 - **kind:** docs
 - **found:** #61
@@ -316,9 +316,9 @@ has left the file, or that lived only on a merged branch, stays taken.
 ### K47 · Thirteen lines of commented-out code remain in four collision model files.
 
 - **location:** `src/models/landau.jl:385`
-- **evidence:** The lines are `src/models/landau.jl:385`; `src/models/lenard_bernstein.jl:95`
-  and `:105`; `src/models/lenard_bernstein_conservative.jl:212`, `:222-224` and `:228`;
-  `src/models/rescaled_lenard_bernstein_conservative.jl:137`, `:150-152` and `:156`. Each is an
+- **evidence:** The lines are `src/models/landau.jl:385`; `src/models/lenard_bernstein.jl:96`
+  and `:106`; `src/models/lenard_bernstein_conservative.jl:215`, `:225-227` and `:231`;
+  `src/models/rescaled_lenard_bernstein_conservative.jl:140`, `:153-155` and `:159`. Each is an
   old assignment, call or `return` behind `#`, such as `# int = Integrators.Integrator(equ,
   Integrators.RK438())`. #69 deleted the other dead code of these files and left these lines,
   because they are outside its hunks. The fix is to delete the thirteen lines.
@@ -480,7 +480,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K62 · A comment says that the clamped cubic basis reproduces 1, v and v² to 1e-14, and v² is measured at 2.8e-14.
 
-- **location:** `src/models/lenard_bernstein_conservative.jl:45`
+- **location:** `src/models/lenard_bernstein_conservative.jl:46`
 - **evidence:** `julia --startup-file=no --project=scripts scripts/verify_conservation.jl` measures
   the cubic basis on `(-8.0, 8.0)` with 31 knots and prints, under Claim 2,
   `Free()  3  6.661e-16  1.776e-15  2.842e-14` for `f = 1`, `f = v` and `f = v²`. The other
