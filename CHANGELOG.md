@@ -223,9 +223,9 @@ their own, except for what they removed and narrowed, which is listed in full be
   `MethodError` at construction, as the two conservative models already did; at `5d3c427` it
   built. A state of another element type than the model's, such as a `Float32` state on a
   `Float64` model, is projected and evaluated in the state's type, where `5d3c427` promoted to the
-  model's; on 256 particles the right-hand sides then differ by at most 1e-6 of their largest
-  value. Bytes of one call after a warm call, in a cold process on Julia 1.13.3, at `5d3c427`
-  and with this change:
+  model's; the right-hand sides then differ by at most 2.1e-6 of their largest value on 256
+  particles and by at most 3.4e-5 on 2000. Bytes of one call after a warm call, in a cold process
+  on Julia 1.13.3, at `5d3c427` and with this change:
 
   | right-hand side | state | size | `5d3c427` | this change |
   |:--|:--|:--|--:|--:|
@@ -239,7 +239,12 @@ their own, except for what they removed and narrowed, which is listed in full be
 
   A `Float32` state on a `Float64` model allocates 0 bytes per call in `CLB_rhs_GI!` and
   `RCLB_rhs_GI!`. `compute_coefficients` and `compute_coefficients_rclb` convert each weight to the
-  state's element type, so they return `Float32` coefficients, inferred concretely.
+  state's element type, so they return `Float32` coefficients, inferred concretely. Their particle
+  sums use compensated summation (`GeometricBase.Utils.compensated_summation`) in that type, so
+  that on 2000 particles of equal weight the coefficients of a `Float32` state differ from sums in
+  `BigFloat` by at most 8 ulp of `Float32`, where plain sums differ by 2e-5; the right-hand sides
+  of a `Float64` state differ from those of a `BigFloat` state by at most 6e-14 of their largest
+  value.
 
   `@collision_cache` gives every cache it generates the element type of its spline (K45).
   `CacheDict` stores its parent under that type, and `CLBCache`, `RCLBCache` and `MLBCache` had

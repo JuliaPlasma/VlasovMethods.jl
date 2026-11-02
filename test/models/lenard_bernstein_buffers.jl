@@ -1,7 +1,7 @@
 using ForwardDiff: ForwardDiff
 using ParticleMethods: ParticleList
 using SimpleSplines: BSplineBasis, UniformMesh, Free, SplineQuadrature, nbasis,
-                     TensorProductBasis, TensorProductQuadrature
+                     TensorProductBasis, TensorProductQuadrature, evaluate!
 using StableRNGs
 using Test
 using VlasovMethods
@@ -53,6 +53,35 @@ const CONSERVATIVE = MODELS[2:3]
 const COEFFICIENTS = ((ConservativeLenardBernstein, VM.compute_coefficients),
     (RescaledConservativeLenardBernstein, VM.compute_coefficients_rclb))
 
+# The five particle sums of a coefficient function in `BigFloat`, over the same terms in the type
+# of the state: the weights, the velocities and the values of the spline at them. The sums are
+# `n`, `nu`, `neps` and the two sums of `w g` and `w v g` with `g = f_s' / f_s`.
+function particle_sums(sdist, pdist, q::AbstractVector{VT}, values) where {VT}
+    w = pdist.particles.w
+    n = nu = neps = G1 = G2 = big(0.0)
+    for α in eachindex(q)
+        wα, vα = big(VT(w[1, α])), big(q[α])
+        g = big(evaluate!(values, sdist.spline, q[α], 1) /
+                evaluate!(values, sdist.spline, q[α]))
+        n += wα
+        nu += wα * vα
+        neps += wα * vα^2
+        G1 += wα * g
+        G2 += wα * vα * g
+    end
+    return n, nu, neps, G1, G2
+end
+
+# The coefficients of the two systems from those sums, as the functions solve them
+function conservative_solve(n, nu, neps, G1, G2)
+    Δ = n * neps - nu^2
+    return (nu * G2 - neps * G1) / Δ, (nu * G1 - n * G2) / Δ
+end
+function rescaled_solve(n, nu, neps, G1, G2)
+    den = nu * G1 - n * G2
+    return (n * neps - nu^2) / den, (nu * G2 - neps * G1) / den
+end
+
 @testset "Lenard–Bernstein buffers" begin
     @testset "$(nameof(M)) allocates nothing, $T, N = $N" for (M, rhs!) in MODELS,
         T in (Float32, Float64), N in (256, 2000)
@@ -89,6 +118,29 @@ const COEFFICIENTS = ((ConservativeLenardBernstein, VM.compute_coefficients),
         # the control: the three-argument form allocates its own buffer
         @test coefficient_bytes((s, p, q, _) -> f(s, p, q), cache.sdist, pdist, q,
             cache.values) > 0
+    end
+
+    @testset "$(nameof(f)) sums compensated, $T" for (M, f, solve) in (
+            (ConservativeLenardBernstein, VM.compute_coefficients, conservative_solve),
+            (RescaledConservativeLenardBernstein, VM.compute_coefficients_rclb,
+            rescaled_solve)),
+        T in (Float32, Float64)
+        # 2000 uniform weights of 1/2000: a plain sum of a constant term loses the same rounding
+        # error at every step, and the coefficients carry that error, 2e-5 in `Float32` and
+        # 6e-14 in `Float64`. The compensated sums stay within a few ulp of the exact ones.
+        pdist, sdist = setup(T, 2000)
+        model = M(pdist, CollisionEntropy(sdist))
+        cache = model.cache[T]
+        q = copy(pdist.particles.v[1, :])
+        projection(q, pdist, cache.sdist)
+
+        A = @inferred f(cache.sdist, pdist, q, cache.values)
+        @test A isa Tuple{T, T}
+        R = solve(particle_sums(cache.sdist, pdist, q, cache.values)...)
+        @test all(i -> abs(A[i] - R[i]) <= 8 * eps(T) * abs(R[i]), 1:2)
+        if Base.JLOptions().code_coverage == 0
+            @test coefficient_bytes(f, cache.sdist, pdist, q, cache.values) == 0
+        end
     end
 
     @testset "$(nameof(M)), Dual state, N = $N" for (M, rhs!) in CONSERVATIVE,
