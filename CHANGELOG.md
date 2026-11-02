@@ -230,7 +230,25 @@ their own, except for what they removed and narrowed, which is listed in full be
   floors could not be resolved together. GeometricOptimizers 0.9, the HNN extension's, requires
   SimpleSolvers 0.14.2 as well.
 
+- **`[compat] PoissonSolvers` rises from `0.6` to `0.6.1`, and `SimpleSplines` from `0.3.1` to
+  `0.3.5`.** At PoissonSolvers 0.6.0 the FFT solver's call to `plan_rfft` is ambiguous between
+  FFTW 1.10 and FFTA 0.3.2, which CairoMakie brings in through KernelDensity, so every grid
+  Vlasov–Poisson test throws a `MethodError` when both are loaded. SimpleSplines up to 0.3.4 makes
+  the same call in its periodic mass operator, which `Potential(PeriodicBasisSpline(…))` reaches.
+  PoissonSolvers 0.6.1 and SimpleSplines 0.3.5 plan the transform by `invoke` on FFTW's method.
+
 ### Internal
+
+- **The test project's bounds hold at the merged downgrade check.** The CI Downgrade job resolves
+  `Project.toml` and `test/Project.toml` together at their lower bounds and runs the tests there.
+  `test/Project.toml` raises `ForwardDiff` from `"0.10, 1"` to `"0.10.36, 1"`, the floor that
+  Symbolics 7, a dependency of ElectromagneticFields 0.9, sets. It adds a bound for each test
+  dependency that had none, because without one the check takes the oldest release:
+  `Aqua = "0.8.14"`, the first Aqua whose piracy check runs on Julia 1.12;
+  `JET = "0.10.1, 0.11, 0.12, 0.13"`, because JET 0.10.0 errors with `unhandled LimitedAccuracy`
+  in the analysis of `Picard_iterate_over_particles!`; `OffsetArrays = "1.14"`, because 1.13.0
+  redefines `Base.fill` on Julia 1.12 and the packages that load it fail to precompile;
+  `SafeTestsets = "0.1"`; and `StableRNGs = "0.1, 1"`.
 
 - **`KNOWN_ISSUES.md` K44 leaves the file.** The reference generators stay in `test/helpers/`.
   Three of them write `test/data/` — `generate_collision_reference.jl`,
