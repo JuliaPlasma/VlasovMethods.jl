@@ -601,3 +601,26 @@ has left the file, or that lived only on a merged branch, stays taken.
   VlasovReductionBenchmark, which records it as its K4.
 - **kind:** upstream
 - **found:** 2026-10-31
+
+### K81 · The Lenard-Bernstein right-hand sides of a `Float32` state differ from those of a `Float64` state by 1.6e-5 to 3.6e-5 on 2000 particles, and no cause is located.
+
+- **location:** `src/projections/distribution.jl:28`
+- **evidence:** the deposit `_deposit!` adds into the load vector with a plain sum in the state's
+  element type: `rhs[j] += w * buf[t]` (`:28`) in one velocity dimension and
+  `rhs[idx...] += val` (`:55`) in several, once per particle. The particle sums of
+  `compute_coefficients` and `compute_coefficients_rclb` use compensated summation, and the
+  right-hand sides did not change with it. Probe on `32dbd62`, Julia 1.13, 17 cubic `Free`
+  basis functions on `(-2, 2)`, velocities uniform on `(-2, 2)` from `StableRNG(20261102)`, equal
+  weights `1/N`, a `Float64` model: `max|v̇32 − v̇64| / max|v̇64|` of the `Float32` state against
+  the `Float64` state is 2.7e-6 (`LenardBernstein`), 3.2e-6 (`ConservativeLenardBernstein`) and
+  3.1e-6 (`RescaledConservativeLenardBernstein`) at N = 256, and 1.6e-5, 2.3e-5 and 3.6e-5 at
+  N = 2000. The `Float64` state against a `BigFloat` state is 2.2e-15 to 5.6e-14 at those sizes.
+  `LenardBernstein` has no coefficient sums and shows the same gap. Replacing the plain sum at
+  `:28` with Kahan summation changes the `Float32` gaps by less than 1e-9 and leaves their
+  digits as above, so the deposit of the one-dimensional case is not the cause. The gap stays
+  when the `Float64` evaluation takes the velocities rounded to `Float32` (1.3e-6 to 1.4e-6 at
+  N = 256, 1.4e-5 to 3.2e-5 at N = 2000), so the rounding of the input is not the cause either.
+  The multi-dimensional deposit at `:55` is not probed. Which `Float32` step sets the gap is
+  not measured.
+- **kind:** not verified
+- **found:** #101
