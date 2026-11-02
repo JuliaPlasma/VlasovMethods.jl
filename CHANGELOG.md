@@ -179,6 +179,13 @@ their own, except for what they removed and narrowed, which is listed in full be
 
 ### Bug Fixes
 
+- **`GeometricIntegrator` of a 2D conservative Lenard–Bernstein model is refused.** The
+  `GeometricIntegrator(model, tspan, tstep)` methods of `ConservativeLenardBernstein` and of
+  `RescaledConservativeLenardBernstein` now dispatch on `{1, 1}`, as `LenardBernstein{1, 1}` does.
+  For a 2D velocity space they built a 1D ODE on `v[1, :]` and silently ignored the second velocity
+  component, so the run finished with a wrong answer and no error. A 2D velocity space now raises a
+  `MethodError`. A 1D1V model is unchanged.
+
 - **`initialize!(dist, BumpOnTail())` draws.** Both `draw!` methods of the bump-on-tail example
   bound `ParticleDistribution{1, 1}`, whose first parameter is the element type, so no 1D1V
   distribution matched them and the call raised a `MethodError`. They now take a 1D1V
