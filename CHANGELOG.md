@@ -259,6 +259,16 @@ their own, except for what they removed and narrowed, which is listed in full be
   three steps asserts the type of its `ODEProblem`, as `_mlb_startup_guess!` does, so `extrapolate!`
   no longer dispatches at run time. `compute_L!` loses its `chunk` keyword: the kernel blocks are
   the cache's, `_LANDAU_CHUNK = 256` rows high, or `Q` where `Q < 256`.
+  The gradient tabulations are `SparseMatrixCSC`, with a few stored entries per grid point, and so
+  are the factors `X = D diag(s)` of `compute_L!`, which have the pattern of `D`: `compute_L!`
+  rescales their stored values in place. The first term of `L` is accumulated from the stored
+  entries of `D` straight into `L`, and the coupled term multiplies the sparse factors with the
+  kernel block column by column, so the cache holds no dense `M × Q` factor and no `M × M` block
+  for them. VlasovMethods now depends on the standard library `SparseArrays`. At `M = 361`,
+  `compute_L!` takes 1.25 s, against 4.97 s and 126 MB per call at the base of the branch; it now
+  allocates nothing, and its results agree with the base to about `1e-15` relative. The timing is
+  the median of nine calls in a cold process on Julia 1.13.3, `--check-bounds=auto`, with a cubic
+  clamped basis and 24 × 24 particles, on a machine at load average 5 to 7.
   A `Landau` on a velocity space of one dimension, which no method of `compute_L!` accepted, now
   raises a `MethodError` at construction. The vector field matches its reference at the
   tolerance of the collision tests, `64 * eps`. Bytes of one call after a warm call, in a cold

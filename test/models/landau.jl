@@ -128,6 +128,34 @@ end
     @test VM.compute_L!(zeros(121, 121), sdist, landau) == L
 end
 
+@testset "compute_L! rescales the values of X in place and keeps its sparsity pattern" begin
+    landau, pdist = landau_setup(Float64, 16)
+    cache = landau.cache[Float64]
+    sdist = cache.sdist
+    projection(pdist.particles.v, pdist, sdist)
+    D = map(copy, cache.D)
+
+    VM.compute_L!(zeros(121, 121), sdist, landau)
+    for c in 1:2
+        # the same structure as `D`, and the values of `D` scaled by the weighted density
+        @test cache.X[c].colptr == D[c].colptr
+        @test cache.X[c].rowval == D[c].rowval
+        @test cache.D[c] == D[c]
+        @test cache.X[c] == D[c] * Diagonal(cache.s)
+    end
+
+    # a second call with a different density rescales the values again, on the same pattern
+    colptr = map(X -> copy(X.colptr), cache.X)
+    rowval = map(X -> copy(X.rowval), cache.X)
+    sdist.coefficients .*= 2
+    VM.compute_L!(zeros(121, 121), sdist, landau)
+    for c in 1:2
+        @test cache.X[c].colptr == colptr[c]
+        @test cache.X[c].rowval == rowval[c]
+        @test cache.X[c] == D[c] * Diagonal(cache.s)
+    end
+end
+
 @testset "a Landau on a one-dimensional velocity space does not build" begin
     # `LandauCache` builds the buffers of a two-dimensional velocity space, and no method of
     # `compute_L!` takes another, so the constructor raises a `MethodError`

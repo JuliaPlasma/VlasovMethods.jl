@@ -6,11 +6,13 @@ const _LANDAU_CHUNK = 256
 # own arrays (`J`, `L`, `LJ`, `K1`, `K2`) it holds every buffer of one vector-field evaluation,
 # so that the projection, `compute_K!`, `compute_J!` and `compute_L!` allocate nothing:
 #
-# - `D`: the gradient tabulations of `sdist`'s quadrature grid, built once here, dense;
+# - `D`: the gradient tabulations of `sdist`'s quadrature grid, built once here, sparse;
 # - `pts`, `s`, `A11`, `A12`, `A22`, `sA`: the grid points, the weighted density and the
 #   kernel sums of `compute_L!`, one entry per grid point;
-# - `X`, `U11`, `U12`, `U22`, `XU`, `block`: the factors and the kernel blocks of its coupled
-#   term;
+# - `X`, `U11`, `U12`, `U22`, `XUt`, `XU`: the factors, the kernel blocks (one row per grid
+#   point, one column per row of the block) and the product of the two, `Q × M` and then
+#   transposed, of its coupled term; `X` has the sparsity pattern of `D`, and `compute_L!`
+#   rescales its stored values;
 # - `g`, `Jc`: the sample of `1 + log f_s` on the grid and its projection, of `compute_J!`;
 # - `rhs`: the load array of the particle projection;
 # - `vals`, `ders`: the per-axis buffers of `evaluate!` and `evaluate_all!`;
@@ -30,19 +32,19 @@ struct LandauCache{T, PT <: ParticleDistribution, ST <: SplineDistribution{T}} <
     K1::Matrix{T}
     K2::Matrix{T}
 
-    D::NTuple{2, Matrix{T}}
+    D::NTuple{2, SparseMatrixCSC{T, Int}}
     pts::Vector{SVector{2, T}}
     s::Vector{T}
     A11::Vector{T}
     A12::Vector{T}
     A22::Vector{T}
     sA::Vector{T}
-    X::NTuple{2, Matrix{T}}
+    X::NTuple{2, SparseMatrixCSC{T, Int}}
     U11::Matrix{T}
     U12::Matrix{T}
     U22::Matrix{T}
     XU::Matrix{T}
-    block::Matrix{T}
+    XUt::Matrix{T}
 
     g::Matrix{T}
     Jc::Matrix{T}
@@ -71,14 +73,14 @@ struct LandauCache{T, PT <: ParticleDistribution, ST <: SplineDistribution{T}} <
         K1 = zeros(T, (M, N))
         K2 = zeros(T, (M, N))
 
-        D = map(d -> Matrix{T}(d), gradient_tabulations(sdist))
-        X = (Matrix{T}(undef, M, Q), Matrix{T}(undef, M, Q))
-        U = ntuple(_ -> Matrix{T}(undef, nblk, Q), 3)
+        D = map(d -> SparseMatrixCSC{T, Int}(d), gradient_tabulations(sdist))
+        X = map(copy, D)
+        U = ntuple(_ -> Matrix{T}(undef, Q, nblk), 3)
         bufs = () -> _local_buffers(sdist.basis, T)
 
         new{T, typeof(pdist), typeof(sdist)}(pdist, sdist, v, v̇, J, L, LJ, K1, K2,
             D, Vector{SVector{2, T}}(undef, Q), ntuple(_ -> Vector{T}(undef, Q), 5)...,
-            X, U..., Matrix{T}(undef, M, Q), Matrix{T}(undef, M, M),
+            X, U..., Matrix{T}(undef, M, Q), Matrix{T}(undef, Q, M),
             Matrix{T}(undef, quadrature_grid_size(q)...), zeros(T, size(sdist)),
             zeros(T, size(sdist)), bufs(), bufs(), contract_workspace(q, T),
             mass_workspace(mass_operator(sdist), T), zeros(T, (M, N)), zero(v))
@@ -326,10 +328,10 @@ second and third are equal, so the factor of one half cancels and
 with ``s_a = w_a f_s(v_a)`` and ``D^c`` the gradient tables above. This is an identity, not
 an approximation: the same quadrature sum, rearranged.
 
-Both terms are products of dense ``M \times Q`` factors. The first is a single pass over the
-grid; the second is the genuinely coupled one, and its ``Q \times Q`` kernel is built and
-consumed in row blocks of `_LANDAU_CHUNK = 256` rows, or `Q` where `Q < 256`, so that nothing
-of that size is ever held.
+Both terms are products of sparse ``M \times Q`` factors, which hold a few stored entries per
+grid point. The first is a single pass over the grid; the second is the genuinely coupled one,
+and its ``Q \times Q`` kernel is built and consumed in row blocks of `_LANDAU_CHUNK = 256`
+rows, or `Q` where `Q < 256`, so that nothing of that size is ever held.
 
 # Buffers
 
@@ -394,59 +396,88 @@ function compute_L!(L, sdist::SplineDistribution{T, XD, 2}, landau::Landau) wher
 
     fill!(L, zero(T))
 
-    # Scratch for the products: the M×Q intermediate and the M×M block that is added to or
-    # subtracted from L.
-    XU = cache.XU
-    block = cache.block
-
-    # First term: a diagonal weighting of the grid, one contraction per component pair.
+    # First term: a diagonal weighting of the grid, one contraction per component pair. Each
+    # grid point a adds the outer product of the stored entries of column a of D^c and D^d.
     sA = cache.sA
     for c in 1:2, d in 1:2
 
         sA .= s .* Acd[c][d]
-        XU .= D[c] .* transpose(sA)
-        mul!(block, XU, transpose(D[d]))
-        L .+= block
+        Dc, Dd = D[c], D[d]
+        for a in 1:Q, kd in nzrange(Dd, a)
+
+            j = rowvals(Dd)[kd]
+            w = sA[a] * nonzeros(Dd)[kd]
+            for kc in nzrange(Dc, a)
+                L[rowvals(Dc)[kc], j] += nonzeros(Dc)[kc] * w
+            end
+        end
     end
 
-    # Second term: the coupled one. Xc = D^c diag(s), and the Q×Q kernel is built in row
-    # blocks so that only `chunk × Q` of it exists at a time, with `chunk` the number of rows
-    # of the cache's blocks. One sweep per block fills all three independent components --
-    # the kernel is symmetric in (c,d) -- and the four contractions are read off them. Calling
-    # `kernel` inside the (c,d) loop instead would sweep the Q² pairs four more times and
-    # discard three components of every result.
+    # Second term: the coupled one. Xc = D^c diag(s) has the sparsity pattern of D^c, so its
+    # stored values are rescaled in place. The Q×Q kernel is built in row blocks so that only
+    # `chunk × Q` of it exists at a time, with `chunk` the number of rows of the cache's
+    # blocks. One sweep per block fills all three independent components -- the kernel is
+    # symmetric in (c,d) -- and the four contractions are read off them. Calling `kernel`
+    # inside the (c,d) loop instead would sweep the Q² pairs four more times and discard
+    # three components of every result.
     Xs = cache.X
     for c in 1:2
-        Xs[c] .= D[c] .* transpose(s)
+        Dc, Xc = D[c], Xs[c]
+        for a in 1:Q, k in nzrange(Dc, a)
+
+            nonzeros(Xc)[k] = nonzeros(Dc)[k] * s[a]
+        end
     end
     U11 = cache.U11
     U12 = cache.U12
     U22 = cache.U22
-    chunk = size(U11, 1)
+    XU = cache.XU
+    XUt = cache.XUt
+    chunk = size(U11, 2)
 
     for lo in 1:chunk:Q
         hi = min(lo + chunk - 1, Q)
         nb = hi - lo + 1
 
-        Ub11 = view(U11, 1:nb, :)
-        Ub12 = view(U12, 1:nb, :)
-        Ub22 = view(U22, 1:nb, :)
+        Ub11 = view(U11, :, 1:nb)
+        Ub12 = view(U12, :, 1:nb)
+        Ub22 = view(U22, :, 1:nb)
         for (ii, a) in enumerate(lo:hi)
             @inbounds for b in 1:Q
                 U = kernel(pts[a], pts[b], landau)
-                Ub11[ii, b] = U[1, 1]
-                Ub12[ii, b] = U[1, 2]
-                Ub22[ii, b] = U[2, 2]
+                Ub11[b, ii] = U[1, 1]
+                Ub12[b, ii] = U[1, 2]
+                Ub22[b, ii] = U[2, 2]
             end
         end
         Ucd = ((Ub11, Ub12), (Ub12, Ub22))
 
         for c in 1:2, d in 1:2
 
-            # (M × nb) * (nb × Q) * (Q × M), through the scratch above.
-            mul!(XU, view(Xs[c], :, lo:hi), Ucd[c][d])
-            mul!(block, XU, transpose(Xs[d]))
-            L .-= block
+            # (M × nb) * (nb × Q) * (Q × M). The sparse X^c[:, lo:hi] adds, for each of its
+            # entries, a column of the block to a column of XUt = (X^c[:, lo:hi] U^{cd})ᵀ, so
+            # that every pass runs along a column; X^d then spreads the columns of XU over
+            # those of L.
+            Xc, Xd = Xs[c], Xs[d]
+            Ub = Ucd[c][d]
+            fill!(XUt, zero(T))
+            for ii in 1:nb, k in nzrange(Xc, lo + ii - 1)
+
+                r = rowvals(Xc)[k]
+                x = nonzeros(Xc)[k]
+                @inbounds @simd for b in 1:Q
+                    XUt[b, r] += x * Ub[b, ii]
+                end
+            end
+            transpose!(XU, XUt)
+            for b in 1:Q, k in nzrange(Xd, b)
+
+                j = rowvals(Xd)[k]
+                x = nonzeros(Xd)[k]
+                @inbounds @simd for i in 1:M
+                    L[i, j] -= x * XU[i, b]
+                end
+            end
         end
     end
 
