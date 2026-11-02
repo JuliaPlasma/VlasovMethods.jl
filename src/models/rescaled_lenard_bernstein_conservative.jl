@@ -1,16 +1,17 @@
 # The particles, the spline and the work arrays of a rescaled conservative Lenard–Bernstein
 # right-hand side in the element type `T` of a state, as `LBCache` holds them. A cache belongs
 # to one task.
-struct RCLBCache{T, PT <: ParticleDistribution, ST <: SplineDistribution{T}} <: Cache{T}
+struct RCLBCache{T, PT <: ParticleDistribution, ST <: SplineDistribution{T}, VT} <: Cache{T}
     pdist::PT
     sdist::ST
 
     rhs::Vector{T}
-    values::Vector{T}
+    values::VT
 
     function RCLBCache{T}(pdist, sdist) where {T}
-        new{T, typeof(pdist), typeof(sdist)}(
-            pdist, sdist, zeros(T, nbasis(sdist.basis)), _local_buffers(sdist.basis, T))
+        values = _local_buffers(sdist.basis, T)
+        new{T, typeof(pdist), typeof(sdist), typeof(values)}(
+            pdist, sdist, zeros(T, nbasis(sdist.basis)), values)
     end
 end
 
@@ -18,7 +19,7 @@ function RCLBCache(pdist::ParticleDistribution{T}, sdist::SplineDistribution{T})
     RCLBCache{T}(pdist, sdist)
 end
 
-@collision_cache RCLBCache
+@collision_cache RCLBCache buffers
 
 struct RescaledConservativeLenardBernstein{
     XD, VD, DT <: DistributionFunction{<:Any, XD, VD}, ET <: Entropy, T, CT <: CacheDict} <:
@@ -71,7 +72,7 @@ function compute_coefficients_rclb(
     B2 = zero(VT)
 
     for α in eachindex(vp)
-        wα = w[1, α]
+        wα = VT(w[1, α])
         vα = vp[α]
         fα = evaluate!(values, fs, vα)
 

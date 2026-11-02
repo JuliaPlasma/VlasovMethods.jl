@@ -62,6 +62,18 @@ function _local_buffers(B::TensorProductBasis{T, D}, ::Type{VT}) where {T, D, VT
     ntuple(k -> zeros(VT, local_width(bases(B)[k])), Val(D))
 end
 
+# The concrete type of `_local_buffers(basis, VT)`, from the types alone, so that the cache
+# lookup in `CacheDict` stays inferable for a cache that holds those buffers.
+_buffer_type(::Type{VT}, ::Type{<:AbstractBSplineBasis}) where {VT} = Vector{VT}
+function _buffer_type(::Type{VT}, ::Type{<:TensorProductBasis{T, D}}) where {VT, T, D}
+    NTuple{D, Vector{VT}}
+end
+function _buffer_type(::Type{VT}, ::SplineDistribution{
+        DT, XD, VD, ST, BT}) where {
+        VT, DT, XD, VD, ST, BT}
+    _buffer_type(VT, BT)
+end
+
 # Whether a point lies in the domain the basis resolves. A periodic axis has no outside: an
 # argument is reduced onto the domain before evaluation, so every particle contributes.
 _axis_in_domain(b::PeriodicBSplineBasis, x) = true

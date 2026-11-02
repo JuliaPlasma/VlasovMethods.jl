@@ -1,6 +1,7 @@
 using ForwardDiff: ForwardDiff
 using ParticleMethods: ParticleList
-using SimpleSplines: BSplineBasis, UniformMesh, Free, SplineQuadrature, nbasis
+using SimpleSplines: BSplineBasis, UniformMesh, Free, SplineQuadrature, nbasis,
+                     TensorProductBasis, TensorProductQuadrature
 using StableRNGs
 using Test
 using VlasovMethods
@@ -126,8 +127,38 @@ const COEFFICIENTS = ((ConservativeLenardBernstein, VM.compute_coefficients),
         q = copy(pdist.particles.v[1, :])
         projection(q, pdist, sdist)
         q32 = Float32.(q)
-        @test f(sdist, pdist, q32) == f(sdist, pdist, q32, zeros(Float64, 4))
-        @test f(sdist, pdist, q32) != f(sdist, pdist, q32, zeros(Float32, 4))
+        width = local_width(sdist.basis)
+        @test f(sdist, pdist, q32) == f(sdist, pdist, q32, zeros(Float64, width))
+        @test f(sdist, pdist, q32) != f(sdist, pdist, q32, zeros(Float32, width))
+    end
+
+    @testset "$(nameof(f)), a Float32 state on a Float64 model" for (M, f) in COEFFICIENTS
+        # the sums run in the type of the state, with the weights converted to it
+        pdist, sdist = setup(Float64, 256)
+        model = M(pdist, CollisionEntropy(sdist))
+        cache = model.cache[Float32]
+        q32 = Float32.(pdist.particles.v[1, :])
+        projection(q32, pdist, cache.sdist)
+
+        A = @inferred f(cache.sdist, pdist, q32, cache.values)
+        @test A isa Tuple{Float32, Float32}
+        if Base.JLOptions().code_coverage == 0
+            @test coefficient_bytes(f, cache.sdist, pdist, q32, cache.values) == 0
+        end
+    end
+
+    @testset "$(nameof(rhs!)), a Float32 state on a Float64 model" for (M, rhs!) in CONSERVATIVE
+        pdist, sdist = setup(Float64, 256)
+        model = M(pdist, CollisionEntropy(sdist))
+        params = lb_params(model)
+        q32 = Float32.(pdist.particles.v[1, :])
+        v̇ = similar(q32)
+
+        @test @inferred(rhs!(v̇, 0.0f0, q32, params)) === v̇
+        @test eltype(v̇) === Float32
+        if Base.JLOptions().code_coverage == 0
+            @test rhs_bytes(rhs!, v̇, 0.0f0, q32, params) == 0
+        end
     end
 
     @testset "LB_rhs_GI! agrees with LB_rhs!, $T" for T in (Float32, Float64)
@@ -150,11 +181,28 @@ const COEFFICIENTS = ((ConservativeLenardBernstein, VM.compute_coefficients),
         cache = parent(model.cache)
         @test cache.sdist === model.ent.dist
         @test length(cache.rhs) == nbasis(sdist.basis)
-        @test length(cache.values) == 4
+        @test length(cache.values) == local_width(sdist.basis)
         ref = SplineDistribution(
             1, 1, sdist.basis, sdist.quadrature, zeros(nbasis(sdist.basis)))
         projection(q, pdist, ref)
         @test cache.sdist.coefficients == ref.coefficients
+    end
+
+    @testset "$(nameof(M)) builds its cache on a tensor-product basis" for (M, _) in MODELS
+        # the buffers of a tensor-product basis are one vector per axis, not one vector
+        T = Float64
+        vars = (x = 1:1, v = 2:3, z = 1:3, w = 4:4)
+        pdist = ParticleDistribution(
+            1, 2, ParticleList(zeros(T, 4, 16); variables = vars))
+        axis = BSplineBasis(UniformMesh(5, T(-2) .. T(2)), 2, Free())
+        B = TensorProductBasis((axis, axis))
+        sdist = SplineDistribution(
+            1, 2, B, TensorProductQuadrature(B), zeros(T, size(B)...))
+        model = M(pdist, CollisionEntropy(sdist))
+        cache = model.cache[T]
+        @test cache.values isa NTuple{2, Vector{T}}
+        @test length.(cache.values) == ntuple(_ -> local_width(axis), 2)
+        @test length(cache.rhs) == nbasis(B)
     end
 
     @testset "no particle and one particle, $(nameof(M))" for (M, rhs!) in MODELS

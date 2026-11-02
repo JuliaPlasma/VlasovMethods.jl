@@ -229,6 +229,12 @@ their own, except for what they removed and narrowed, which is listed in full be
   | `_grid_1d1v_rhs!` | `Dual{Nothing, Float64, 12}` | 16 × 64, 64 × 256 | 235 120, 3 429 792 | 0, 0 |
   | `_grid_1d1v_rhs!` | `Dual{Nothing, Float32, 12}` | 16 × 64, 64 × 256 | 134 080, 1 715 104 | 0, 0 |
 
+  A `Float32` state on a `Float64` model allocated 96 bytes a call in `CLB_rhs_GI!` and
+  `RCLB_rhs_GI!`, because the sums in `compute_coefficients` and `compute_coefficients_rclb` were
+  inferred as a Union of `Float32` and `Float64`. Each weight is now converted to the state's
+  element type, so those functions return `Float32` coefficients, inferred concretely, and both
+  calls allocate 0 bytes for it, which closes K80.
+
   `@collision_cache` now gives every cache it generates the element type of its spline (K45).
   `CacheDict` stores its parent under that type, and `CLBCache`, `RCLBCache` and `MLBCache` had
   none, so the first lookup of the parent's type built a second cache, and the three
