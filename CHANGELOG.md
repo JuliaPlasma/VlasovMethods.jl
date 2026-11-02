@@ -251,9 +251,7 @@ their own, except for what they removed and narrowed, which is listed in full be
   none, so the first lookup of the parent's type built a second cache, and the three
   Lenard–Bernstein operators projected into that cache's copy of the spline. The lookup
   returns the parent, so they project into the spline of the entropy, as `Landau` does. The
-  `evaluate!` of SimpleSplines is not released yet: `Project.toml`, `test/Project.toml` and
-  `docs/Project.toml` take SimpleSplines from the branch of JuliaDEC/SimpleSplines.jl#41 through
-  `[sources]`.
+  `evaluate!` of SimpleSplines is new in SimpleSplines 0.4.
 
 - **The Landau vector field allocates only its two least-squares solves, and
   `Picard_iterate_Landau_nls!` no longer prints (K43).** `LandauCache` now holds every buffer of
@@ -338,6 +336,13 @@ their own, except for what they removed and narrowed, which is listed in full be
   `NeuralNetworkParameters` to 0.4, and ReducedComplexityModeling 0.5 requires 0.5, so the old
   floors could not be resolved together. GeometricOptimizers 0.9, the HNN extension's, requires
   SimpleSolvers 0.14.2 as well.
+
+- **`[compat] SimpleSplines` is `"0.4"`, from `"0.3.1"`; `PoissonSolvers` rises from `"0.6"` to
+  `"0.6.2"`, and `GeometricBrackets` from `"0.3"` to `"0.3.2"`.** SimpleSplines 0.4 is the first
+  release with the caller-buffer `evaluate!`, and PoissonSolvers 0.6.2 and GeometricBrackets 0.3.2
+  are the first releases of theirs that admit it. In SimpleSplines 0.4 a `Float64` spline
+  evaluated at a `Float32` point returns a `Float32`; a caller that evaluates a spline of this
+  package's results at a narrower point gets the precision of the point.
 
 ### Internal
 
