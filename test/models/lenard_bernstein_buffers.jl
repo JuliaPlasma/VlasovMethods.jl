@@ -126,8 +126,9 @@ const COEFFICIENTS = ((ConservativeLenardBernstein, VM.compute_coefficients),
         q = copy(pdist.particles.v[1, :])
         projection(q, pdist, sdist)
         q32 = Float32.(q)
-        @test f(sdist, pdist, q32) == f(sdist, pdist, q32, zeros(Float64, 4))
-        @test f(sdist, pdist, q32) != f(sdist, pdist, q32, zeros(Float32, 4))
+        width = local_width(sdist.basis)
+        @test f(sdist, pdist, q32) == f(sdist, pdist, q32, zeros(Float64, width))
+        @test f(sdist, pdist, q32) != f(sdist, pdist, q32, zeros(Float32, width))
     end
 
     @testset "LB_rhs_GI! agrees with LB_rhs!, $T" for T in (Float32, Float64)
@@ -150,7 +151,7 @@ const COEFFICIENTS = ((ConservativeLenardBernstein, VM.compute_coefficients),
         cache = parent(model.cache)
         @test cache.sdist === model.ent.dist
         @test length(cache.rhs) == nbasis(sdist.basis)
-        @test length(cache.values) == 4
+        @test length(cache.values) == local_width(sdist.basis)
         ref = SplineDistribution(
             1, 1, sdist.basis, sdist.quadrature, zeros(nbasis(sdist.basis)))
         projection(q, pdist, ref)
