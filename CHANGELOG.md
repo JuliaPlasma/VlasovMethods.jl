@@ -255,8 +255,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   `sdist` whose quadrature is not the cache's, where it built `L` on that distribution's grid
   before. The Picard step takes its iterate from the cache, keeps its guess and its five iterates
   in histories of fixed length, and writes the residual of each iterate as a `@debug` message
-  rather than to `stdout`; K43 is removed. The guess of its first three steps asserts the type of its
-  `ODEProblem`, as `_mlb_startup_guess!` does, so `extrapolate!` no longer dispatches at run
+  rather than to `stdout`; K43 is removed. The guess of its first three steps asserts the type of
+  its `ODEProblem`, as `_mlb_startup_guess!` does, so `extrapolate!` no longer dispatches at run
   time. `compute_L!` loses its `chunk` keyword: the kernel blocks are the cache's,
   `_LANDAU_CHUNK = 256` rows high, or `Q` where `Q < 256`.
   A `Landau` on a velocity space of one dimension, which no method of `compute_L!` accepted, now
