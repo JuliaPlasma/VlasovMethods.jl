@@ -127,3 +127,11 @@ end
     foreach(D -> D ./= 2, cache.D)
     @test VM.compute_L!(zeros(121, 121), sdist, landau) == L
 end
+
+@testset "a Landau on a one-dimensional velocity space does not build" begin
+    # `LandauCache` builds the buffers of a two-dimensional velocity space, and no method of
+    # `compute_L!` takes another, so the constructor raises a `MethodError`
+    pdist1 = ParticleDistribution(1, 1, 10)
+    sdist1 = SplineDistribution(1, 1, 21, 4, (-6.0, 6.0), 0, Free())
+    @test_throws MethodError Landau(pdist1, CollisionEntropy(sdist1))
+end
