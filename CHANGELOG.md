@@ -248,11 +248,17 @@ their own, except for what they removed and narrowed, which is listed in full be
   Each point evaluation goes through SimpleSplines' `evaluate!`. `compute_L!`, `compute_J!`,
   `compute_K!` and the projection then allocate nothing. The two solves `K1 \ LJ` and `K2 \ LJ`
   keep LAPACK's pivots, reflectors, workspace and result, and factorise a copy of `K` held in the
-  cache. The Picard step takes its iterate from the cache, keeps its guess and its five iterates
+  cache with the pivoted QR. Where the number of particles is the number of basis functions
+  (Np == M), `K` is square: `\` took an LU factorisation there and the solve now takes the pivoted
+  QR, and the bound "no more than its two least-squares solves" holds only for Np ≠ M. Because
+  `compute_L!` reads the tabulations stored in the cache, it raises an `ArgumentError` for an
+  `sdist` whose quadrature is not the cache's, where it built `L` on that distribution's grid
+  before. The Picard step takes its iterate from the cache, keeps its guess and its five iterates
   in histories of fixed length, and writes the residual of each iterate as a `@debug` message
   rather than to `stdout`; K43 is removed. The guess of its first three steps asserts the type of its
   `ODEProblem`, as `_mlb_startup_guess!` does, so `extrapolate!` no longer dispatches at run
-  time. `compute_L!` loses its `chunk` keyword: the kernel blocks are the cache's, 256 rows high.
+  time. `compute_L!` loses its `chunk` keyword: the kernel blocks are the cache's,
+  `_LANDAU_CHUNK = 256` rows high, or `Q` where `Q < 256`.
   A `Landau` on a velocity space of one dimension, which no method of `compute_L!` accepted, now
   raises a `MethodError` at construction. The vector field matches its reference at the
   tolerance of the collision tests, `64 * eps`. Bytes of one call after a warm call, in a cold

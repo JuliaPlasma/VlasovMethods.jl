@@ -60,12 +60,9 @@ end
 "One Landau Picard step of the two-dimensional setup."
 function step_landau(landau, v_prev, ti)
     rhs_prev = zeros(2, size(v_prev, 2), 2)
-    # `Picard_iterate_Landau_nls!` prints and reports its own convergence; K43 records that.
-    redirect_stdout(devnull) do
-        VlasovMethods.Picard_iterate_Landau_nls!(
-            landau, TOL, FTOL, BETA, TSTEP, ti, 0.0, v_prev, copy(v_prev), rhs_prev,
-            DEPTH, CHUNKSIZE)
-    end
+    VlasovMethods.Picard_iterate_Landau_nls!(
+        landau, TOL, FTOL, BETA, TSTEP, ti, 0.0, v_prev, copy(v_prev), rhs_prev,
+        DEPTH, CHUNKSIZE)
 
     return nothing
 end

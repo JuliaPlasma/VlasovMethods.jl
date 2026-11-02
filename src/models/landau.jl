@@ -321,22 +321,29 @@ an approximation: the same quadrature sum, rearranged.
 
 Both terms are products of dense ``M \times Q`` factors. The first is a single pass over the
 grid; the second is the genuinely coupled one, and its ``Q \times Q`` kernel is built and
-consumed in row blocks of 256 so that nothing of that size is ever held.
+consumed in row blocks of `_LANDAU_CHUNK = 256` rows, or `Q` where `Q < 256`, so that nothing
+of that size is ever held.
 
 # Buffers
 
 Every array of the assembly is a buffer of `landau.cache[T]`, the `LandauCache` of the element
 type of `sdist`, and the gradient tables are the ones that `LandauCache` builds once from its
-own spline distribution, so a call allocates nothing. `sdist` must therefore share the basis and
-the quadrature of the cache's spline distribution, as it does in `collisional_vectorfield!`,
-which passes that distribution itself.
+own spline distribution, so a call allocates nothing. An `sdist` whose quadrature is not that
+same object raises an `ArgumentError`; `collisional_vectorfield!` passes the cache's
+distribution itself, and `similar` keeps the quadrature.
 
 ``U^{cd}`` is symmetric in ``(c,d)``, so each block is swept once and its three independent
 components serve all four contractions. The whole assembly therefore costs ``O(Q^2)`` kernel
 evaluations, two sweeps of the grid pairs in total: one for ``A^{cd}`` and one for the blocks.
 """
+@noinline function _throw_foreign_quadrature()
+    throw(ArgumentError("compute_L!: `sdist` does not share the quadrature of the spline " *
+                        "distribution of `landau`'s cache, whose gradient tabulations it reads"))
+end
+
 function compute_L!(L, sdist::SplineDistribution{T, XD, 2}, landau::Landau) where {T, XD}
     cache = landau.cache[T]
+    sdist.quadrature === cache.sdist.quadrature || _throw_foreign_quadrature()
     q = sdist.quadrature
     X = quadrature_nodes(q)
     W = quadrature_weights(q)
@@ -486,9 +493,10 @@ function collisional_vectorfield!(v̇::AbstractArray{ST}, v::AbstractArray{ST}, 
     # with the answer other than proceed anyway. It belongs in a diagnostic script.
     #
     # `K \ LJ` factorises a copy of `K`; here that copy is the cache's `Kc`, factorised in
-    # place by `qr!`, which is the same factorisation and the same solve. The pivots and the
-    # reflectors of the factorisation, the workspace of the solve and its result still
-    # allocate.
+    # place by `qr!`. For Np ≠ M this is the factorisation and the solve that `\` takes. For a
+    # square `K` (Np == M), `\` takes an LU factorisation instead, and this takes the pivoted
+    # QR. The pivots and the reflectors of the factorisation, the workspace of the solve and
+    # its result still allocate.
     v̇[1, :] .= qr!(copyto!(cache.Kc, cache.K1), ColumnNorm()) \ cache.LJ
     v̇[2, :] .= qr!(copyto!(cache.Kc, cache.K2), ColumnNorm()) \ cache.LJ
 

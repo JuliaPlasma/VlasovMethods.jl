@@ -33,7 +33,9 @@ a `@debug` message; nothing is written to `stdout`.
 From the fourth step on, a call allocates at most the bytes of its six vector-field
 evaluations, plus the `Base.summarysize` of the histories it returns, plus 1 KiB. A
 vector-field evaluation allocates no more than its two least-squares solves `K1 \\ LJ` and
-`K2 \\ LJ`. The guess of the first three steps allocates at most the bytes of its 37
+`K2 \\ LJ` where the number of particles is not the number of basis functions (Np ≠ M); for a
+square `K` (Np == M) it takes the pivoted QR, where `\\` takes LU, and that bound does not
+hold. The guess of the first three steps allocates at most the bytes of its 37
 vector-field evaluations plus 200 kB, for the arrays of GeometricIntegrators' extrapolation
 and the problem it is given. `test/integration/landau_solver.jl` asserts both bounds.
 """

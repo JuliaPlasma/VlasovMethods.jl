@@ -135,3 +135,31 @@ end
     sdist1 = SplineDistribution(1, 1, 21, 4, (-6.0, 6.0), 0, Free())
     @test_throws MethodError Landau(pdist1, CollisionEntropy(sdist1))
 end
+
+@testset "compute_L! refuses a spline distribution on another quadrature" begin
+    pd = ParticleDistribution(1, 2, 100)
+    g = v -> exp(-(v[1]^2 + v[2]^2) / 2) / (2π) + 0.05
+    sd1 = SplineDistribution(1, 2, 4, 2, (-3.0, 3.0), 0, Free())
+    sd2 = SplineDistribution(1, 2, 4, 2, (-2.5, 2.5), 0, Free())
+    project_function(g, sd1)
+    project_function(g, sd2)
+    landau1 = Landau(pd, CollisionEntropy(sd1))
+    M = length(sd1)
+    @test length(sd2) == M
+
+    # the same sizes on another domain: the stored tabulations are not those of `sd2`'s grid
+    err = try
+        VM.compute_L!(zeros(M, M), sd2, landau1)
+        nothing
+    catch e
+        e
+    end
+    @test err isa ArgumentError
+    @test startswith(err.msg, "compute_L!: `sdist` does not share the quadrature")
+
+    # `similar` keeps the quadrature, so a copy of the cache's distribution is accepted
+    sd1b = similar(Float64, sd1)
+    sd1b.coefficients .= sd1.coefficients
+    @test VM.compute_L!(zeros(M, M), sd1b, landau1) ==
+          VM.compute_L!(zeros(M, M), sd1, landau1)
+end
