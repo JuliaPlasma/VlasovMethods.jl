@@ -118,6 +118,26 @@ end
         end
     end
 
+    # The conservative models restrict the velocity space to 1D and the spatial dimension not at
+    # all: a 0D1V model, with no spatial dimension, builds its integrator.
+    @testset "Conservative GeometricIntegrator is 0D1V" begin
+        rng = StableRNG(SEED)
+        vars = (x = 1:0, v = 1:1, z = 1:1, w = 2:2)
+        pdist0 = ParticleDistribution(0, 1, ParticleList(zeros(2, N); variables = vars))
+        pdist0.particles.v[1, :] .= (4 .* rand(rng, N)) .- 2
+        pdist0.particles.w[1, :] .= 1 / N
+        _, sdist1 = setup_1d1v(Float64)
+        sdist0 = SplineDistribution(
+            0, 1, sdist1.basis, sdist1.quadrature, zero(sdist1.coefficients))
+        @testset "$(nameof(M))" for M in (ConservativeLenardBernstein,
+            RescaledConservativeLenardBernstein)
+            model = M(pdist0, CollisionEntropy(sdist0))
+            @test VlasovMethods.xdim(model.dist) == 0
+            @test VlasovMethods.GeometricIntegrator(model, (0.0, ΔT), ΔT) isa
+                  VlasovMethods.GeometricIntegrator
+        end
+    end
+
     # The pins run in the parent's element type, where a re-type that kept the parent's spline
     # would pass. This re-types each cache that `@collision_cache` covers to `Float32`;
     # `CacheDict`'s `getindex` asserts the `CacheType`, and the tests assert the new spline's

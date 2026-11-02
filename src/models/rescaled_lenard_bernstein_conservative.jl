@@ -68,8 +68,17 @@ function compute_coefficients_rclb(
     n = zero(VT)
     nu = zero(VT)
     neps = zero(VT)
-    B1 = zero(VT)
-    B2 = zero(VT)
+    # the sums of `f_s'/f_s` take the type of the buffer where it is wider than that of the state
+    BT = promote_type(VT, eltype(values))
+    B1 = zero(BT)
+    B2 = zero(BT)
+
+    # the error carried by each running sum, in the type of the sum
+    εn = zero(VT)
+    εnu = zero(VT)
+    εneps = zero(VT)
+    εB1 = zero(BT)
+    εB2 = zero(BT)
 
     for α in eachindex(vp)
         wα = VT(w[1, α])
@@ -80,13 +89,13 @@ function compute_coefficients_rclb(
             "the projected distribution is non-positive at v = $(vα); see " *
             "the positivity note in `compute_coefficients`"))
 
-        n += wα
-        nu += wα * vα
-        neps += wα * vα^2
+        n, εn = compensated_summation(n, wα, εn)
+        nu, εnu = compensated_summation(nu, wα * vα, εnu)
+        neps, εneps = compensated_summation(neps, wα * vα^2, εneps)
 
         g = evaluate!(values, fs, vα, 1) / fα
-        B1 += wα * g
-        B2 += wα * vα * g
+        B1, εB1 = compensated_summation(B1, wα * g, εB1)
+        B2, εB2 = compensated_summation(B2, wα * vα * g, εB2)
     end
 
     den = nu * B1 - n * B2
@@ -133,9 +142,9 @@ function RCLB_rhs(v::AbstractVector{ST}, params, fs::Spline) where {ST}
     return -params.ν .* (A[1] .* dfdv.(v) ./ fs.(v) .+ (A[2] .+ v))
 end
 
-# The model is 1D1V: a scalar velocity and one weight per particle.
+# The velocity space is 1D, in any spatial dimension: a scalar velocity and one weight per particle.
 function GeometricIntegrator(
-        model::RescaledConservativeLenardBernstein{1, 1}, tspan::Tuple, tstep::Real)
+        model::RescaledConservativeLenardBernstein{<:Any, 1}, tspan::Tuple, tstep::Real)
     # collect parameters
     # params = (ϕ = model.potential, model = model)
     params = (ν = model.ν, idist = model.dist, fdist = model.ent.dist, model = model)

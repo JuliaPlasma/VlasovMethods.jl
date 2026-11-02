@@ -165,11 +165,11 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K24 · The Lenard-Bernstein right-hand sides keep an uncalled `LB_rhs!` and two plotting copies.
 
-- **location:** `src/models/lenard_bernstein.jl:60`
+- **location:** `src/models/lenard_bernstein.jl:61`
 - **evidence:** `LB_rhs!(v̇, v, params, t)` keeps the argument order of an ODE solver that the
-  package does not use, and nothing in `src/` calls it: `LB_rhs_GI!` (`:74`) computes the same
-  right-hand side on the buffers of the model's cache. `LB_rhs` (`:87`) and `CLB_rhs`
-  (`src/models/lenard_bernstein_conservative.jl:200`) repeat the formulas of their `_GI!`
+  package does not use, and nothing in `src/` calls it: `LB_rhs_GI!` (`:75`) computes the same
+  right-hand side on the buffers of the model's cache. `LB_rhs` (`:88`) and `CLB_rhs`
+  (`src/models/lenard_bernstein_conservative.jl:201`) repeat the formulas of their `_GI!`
   functions, and neither has a caller: in `src/`, `grep -rn -E '\bC?LB_rhs\b' src` finds the two
   definitions, the `LB_rhs!` definition and the comment of `LB_rhs_GI!` that names it. Outside
   `src/`, `test/integration/names.jl` lists the two names, and the tests and the reference
@@ -179,9 +179,9 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K26 · The `LB_rhs!` docstring and comment describe past code.
 
-- **location:** `src/models/lenard_bernstein.jl:53`
-- **evidence:** The admonition "The division by `f_s` was missing" (`:53-58`) says what "both
-  right-hand sides computed" in an earlier version of the code. The comment at `:61-62` explains
+- **location:** `src/models/lenard_bernstein.jl:54`
+- **evidence:** The admonition "The division by `f_s` was missing" (`:54-59`) says what "both
+  right-hand sides computed" in an earlier version of the code. The comment at `:62-63` explains
   a line that "threw". The facts belong in the present tense, and the history in `CHANGELOG.md`.
 - **kind:** docs
 - **found:** #61
@@ -306,10 +306,10 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K47 · Twelve lines of commented-out code remain in three collision model files.
 
-- **location:** `src/models/lenard_bernstein.jl:95`
-- **evidence:** The lines are `src/models/lenard_bernstein.jl:95` and `:105`;
-  `src/models/lenard_bernstein_conservative.jl:212`, `:222-224` and `:228`;
-  `src/models/rescaled_lenard_bernstein_conservative.jl:137`, `:150-152` and `:156`. Each is an
+- **location:** `src/models/lenard_bernstein.jl:96`
+- **evidence:** The lines are `src/models/lenard_bernstein.jl:96` and `:106`;
+  `src/models/lenard_bernstein_conservative.jl:228`, `:238-240` and `:244`;
+  `src/models/rescaled_lenard_bernstein_conservative.jl:149`, `:162-164` and `:168`. Each is an
   old assignment, call or `return` behind `#`, such as `# int = Integrators.Integrator(equ,
   Integrators.RK438())`. #69 deleted the other dead code of these files and left these lines,
   because they are outside its hunks. The fix is to delete the twelve lines.
@@ -471,7 +471,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K62 · A comment says that the clamped cubic basis reproduces 1, v and v² to 1e-14, and v² is measured at 2.8e-14.
 
-- **location:** `src/models/lenard_bernstein_conservative.jl:45`
+- **location:** `src/models/lenard_bernstein_conservative.jl:46`
 - **evidence:** `julia --startup-file=no --project=scripts scripts/verify_conservation.jl` measures
   the cubic basis on `(-8.0, 8.0)` with 31 knots and prints, under Claim 2,
   `Free()  3  6.661e-16  1.776e-15  2.842e-14` for `f = 1`, `f = v` and `f = v²`. The other
@@ -592,3 +592,26 @@ has left the file, or that lived only on a merged branch, stays taken.
   VlasovReductionBenchmark, which records it as its K4.
 - **kind:** upstream
 - **found:** 2026-10-31
+
+### K81 · The Lenard-Bernstein right-hand sides of a `Float32` state differ from those of a `Float64` state by 1.6e-5 to 3.6e-5 on 2000 particles, and no cause is located.
+
+- **location:** `src/projections/distribution.jl:28`
+- **evidence:** the deposit `_deposit!` adds into the load vector with a plain sum in the state's
+  element type: `rhs[j] += w * buf[t]` (`:28`) in one velocity dimension and
+  `rhs[idx...] += val` (`:55`) in several, once per particle. The particle sums of
+  `compute_coefficients` and `compute_coefficients_rclb` use compensated summation, and the
+  right-hand sides did not change with it. Probe on `32dbd62`, Julia 1.13, 17 cubic `Free`
+  basis functions on `(-2, 2)`, velocities uniform on `(-2, 2)` from `StableRNG(20261102)`, equal
+  weights `1/N`, a `Float64` model: `max|v̇32 − v̇64| / max|v̇64|` of the `Float32` state against
+  the `Float64` state is 2.7e-6 (`LenardBernstein`), 3.2e-6 (`ConservativeLenardBernstein`) and
+  3.1e-6 (`RescaledConservativeLenardBernstein`) at N = 256, and 1.6e-5, 2.3e-5 and 3.6e-5 at
+  N = 2000. The `Float64` state against a `BigFloat` state is 2.2e-15 to 5.6e-14 at those sizes.
+  `LenardBernstein` has no coefficient sums and shows the same gap. Replacing the plain sum at
+  `:28` with Kahan summation changes the `Float32` gaps by less than 1e-9 and leaves their
+  digits as above, so the deposit of the one-dimensional case is not the cause. The gap stays
+  when the `Float64` evaluation takes the velocities rounded to `Float32` (1.3e-6 to 1.4e-6 at
+  N = 256, 1.4e-5 to 3.2e-5 at N = 2000), so the rounding of the input is not the cause either.
+  The multi-dimensional deposit at `:55` is not probed. Which `Float32` step sets the gap is
+  not measured.
+- **kind:** not verified
+- **found:** #101

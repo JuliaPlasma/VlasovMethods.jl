@@ -181,10 +181,11 @@ their own, except for what they removed and narrowed, which is listed in full be
 
 - **`GeometricIntegrator` of a 2D conservative Lenard–Bernstein model is refused.** The
   `GeometricIntegrator(model, tspan, tstep)` methods of `ConservativeLenardBernstein` and of
-  `RescaledConservativeLenardBernstein` now dispatch on `{1, 1}`, as `LenardBernstein{1, 1}` does.
-  For a 2D velocity space they built a 1D ODE on `v[1, :]` and silently ignored the second velocity
-  component, so the run finished with a wrong answer and no error. A 2D velocity space now raises a
-  `MethodError`. A 1D1V model is unchanged.
+  `RescaledConservativeLenardBernstein` dispatch on `{<:Any, 1}`: a 1D velocity space and any
+  spatial dimension, so a 0D1V model builds its integrator. For a 2D velocity space they built a
+  1D ODE on `v[1, :]` and silently ignored the second velocity component, so the run finished with
+  a wrong answer and no error. A 2D velocity space raises a `MethodError`. A 1D1V model is
+  unchanged.
 
 - **`initialize!(dist, BumpOnTail())` draws.** Both `draw!` methods of the bump-on-tail example
   bound `ParticleDistribution{1, 1}`, whose first parameter is the element type, so no 1D1V
@@ -209,7 +210,7 @@ their own, except for what they removed and narrowed, which is listed in full be
   nothing (K45).** `LB_rhs_GI!`, `CLB_rhs_GI!` and `RCLB_rhs_GI!` projected the particles with the
   allocating `projection`, and evaluated `f_s` and `f_s'` with the allocating point evaluation of
   SimpleSplines: two evaluations per particle in `LB_rhs_GI!`, four in the other two, of which
-  `compute_coefficients` and `compute_coefficients_rclb` made two. The cache of each model now
+  `compute_coefficients` and `compute_coefficients_rclb` made two. The cache of each model
   holds the load vector and the evaluation buffer in the element type of the state, the projection
   runs through `_projection!`, and each evaluation through SimpleSplines' `evaluate!`.
   `LenardBernstein` gets a cache of the same form, and the two coefficient functions take the
@@ -222,11 +223,11 @@ their own, except for what they removed and narrowed, which is listed in full be
   `MethodError` at construction, as the two conservative models already did; at `5d3c427` it
   built. A state of another element type than the model's, such as a `Float32` state on a
   `Float64` model, is projected and evaluated in the state's type, where `5d3c427` promoted to the
-  model's; on 256 particles the right-hand sides then differ by at most 1e-6 of their largest
-  value. Bytes of one call after a warm call, in a cold process on Julia 1.13.3, at `5d3c427`
-  and with this change:
+  model's; the right-hand sides then differ by at most 2.1e-6 of their largest value on 256
+  particles and by at most 3.4e-5 on 2000. Bytes of one call after a warm call, in a cold process
+  on Julia 1.13.3, at `5d3c427` and with this change:
 
-  | right-hand side | state | size | `5d3c427` | now |
+  | right-hand side | state | size | `5d3c427` | this change |
   |:--|:--|:--|--:|--:|
   | `LB_rhs_GI!` | `Float64` | N = 256, 2000 | 49 472, 384 320 | 0, 0 |
   | `LB_rhs_GI!` | `Float32` | N = 256, 2000 | 41 184, 320 224 | 0, 0 |
@@ -236,16 +237,19 @@ their own, except for what they removed and narrowed, which is listed in full be
   | `_grid_1d1v_rhs!` | `Dual{Nothing, Float64, 12}` | 16 × 64, 64 × 256 | 235 120, 3 429 792 | 0, 0 |
   | `_grid_1d1v_rhs!` | `Dual{Nothing, Float32, 12}` | 16 × 64, 64 × 256 | 134 080, 1 715 104 | 0, 0 |
 
-  A `Float32` state on a `Float64` model allocated 96 bytes a call in `CLB_rhs_GI!` and
-  `RCLB_rhs_GI!`, because the sums in `compute_coefficients` and `compute_coefficients_rclb` were
-  inferred as a Union of `Float32` and `Float64`. Each weight is now converted to the state's
-  element type, so those functions return `Float32` coefficients, inferred concretely, and both
-  calls allocate 0 bytes for it, which closes K80.
+  A `Float32` state on a `Float64` model allocates 0 bytes per call in `CLB_rhs_GI!` and
+  `RCLB_rhs_GI!`. `compute_coefficients` and `compute_coefficients_rclb` convert each weight to the
+  state's element type, so they return `Float32` coefficients, inferred concretely. Their particle
+  sums use compensated summation (`GeometricBase.Utils.compensated_summation`) in that type, so
+  that on 2000 particles of equal weight the coefficients of a `Float32` state differ from sums in
+  `BigFloat` by at most 8 ulp of `Float32`, where plain sums differ by 2e-5; the right-hand sides
+  of a `Float64` state differ from those of a `BigFloat` state by at most 6e-14 of their largest
+  value.
 
-  `@collision_cache` now gives every cache it generates the element type of its spline (K45).
+  `@collision_cache` gives every cache it generates the element type of its spline (K45).
   `CacheDict` stores its parent under that type, and `CLBCache`, `RCLBCache` and `MLBCache` had
   none, so the first lookup of the parent's type built a second cache, and the three
-  Lenard–Bernstein operators projected into that cache's copy of the spline. The lookup now
+  Lenard–Bernstein operators projected into that cache's copy of the spline. The lookup
   returns the parent, so they project into the spline of the entropy, as `Landau` does. The
   `evaluate!` of SimpleSplines is not released yet: `Project.toml`, `test/Project.toml` and
   `docs/Project.toml` take SimpleSplines from the branch of JuliaDEC/SimpleSplines.jl#41 through

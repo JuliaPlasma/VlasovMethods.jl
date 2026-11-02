@@ -92,6 +92,10 @@ of an element type that holds the evaluations, such as the `values` of the model
 the element type of `vp`. With it the call allocates nothing; without it, the call allocates
 one. A buffer belongs to one task.
 
+The sums run in the element type of `vp`, or in the wider type of `values` where it is wider,
+with compensated summation, so that a `Float32` state with `Float32` buffers returns `Float32`
+coefficients whose sums are exact to a few ulp of that type.
+
 !!! note "The particle weights belong in every sum"
     They were absent from all five of them. Both the matrix and the right-hand side are linear
     in ``w``, so for **uniform** weights the factor cancels and ``A_1, A_2`` come out
@@ -112,8 +116,17 @@ function compute_coefficients(
     n = zero(VT)
     nu = zero(VT)
     neps = zero(VT)
-    B1 = zero(VT)
-    B2 = zero(VT)
+    # the sums of `f_s'/f_s` take the type of the buffer where it is wider than that of the state
+    BT = promote_type(VT, eltype(values))
+    B1 = zero(BT)
+    B2 = zero(BT)
+
+    # the error carried by each running sum, in the type of the sum
+    εn = zero(VT)
+    εnu = zero(VT)
+    εneps = zero(VT)
+    εB1 = zero(BT)
+    εB2 = zero(BT)
 
     for α in eachindex(vp)
         wα = VT(w[1, α])
@@ -136,13 +149,13 @@ function compute_coefficients(
             "distribution undershoots where the sampling is thin. Use more particles, a " *
             "coarser spline basis, or a positivity-preserving projection."))
 
-        n += wα
-        nu += wα * vα
-        neps += wα * vα^2
+        n, εn = compensated_summation(n, wα, εn)
+        nu, εnu = compensated_summation(nu, wα * vα, εnu)
+        neps, εneps = compensated_summation(neps, wα * vα^2, εneps)
 
         g = evaluate!(values, fs, vα, 1) / fα
-        B1 -= wα * g
-        B2 -= wα * vα * g
+        B1, εB1 = compensated_summation(B1, -(wα * g), εB1)
+        B2, εB2 = compensated_summation(B2, -(wα * vα * g), εB2)
     end
 
     Δ = n * neps - nu^2
@@ -208,9 +221,9 @@ function CLB_rhs(v::AbstractVector{ST}, params, fs::Spline) where {ST}
     return -params.ν .* (dfdv.(v) ./ fs.(v) .+ (A[1] .+ A[2] .* v))
 end
 
-# The model is 1D1V: a scalar velocity and one weight per particle.
+# The velocity space is 1D, in any spatial dimension: a scalar velocity and one weight per particle.
 function GeometricIntegrator(
-        model::ConservativeLenardBernstein{1, 1}, tspan::Tuple, tstep::Real)
+        model::ConservativeLenardBernstein{<:Any, 1}, tspan::Tuple, tstep::Real)
     # collect parameters
     # params = (ϕ = model.potential, model = model)
     params = (ν = model.ν, idist = model.dist, fdist = model.ent.dist, model = model)

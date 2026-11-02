@@ -19,6 +19,10 @@ using SparseArrays: SparseMatrixCSC, nonzeros, nzrange, rowvals
 using SpecialFunctions
 using StaticArrays
 
+# The particle sums of the Lenard-Bernstein coefficients add one term at a time to a running sum
+# and its error, which keeps the sum in the type of the state to a few ulp.
+using GeometricBase.Utils: compensated_summation
+
 using SimpleSplines
 import SimpleSplines: basis, coefficients, derivative, evaluate, mass_matrix, mass_operator
 
