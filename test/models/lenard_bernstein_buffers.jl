@@ -132,6 +132,35 @@ const COEFFICIENTS = ((ConservativeLenardBernstein, VM.compute_coefficients),
         @test f(sdist, pdist, q32) != f(sdist, pdist, q32, zeros(Float32, width))
     end
 
+    @testset "$(nameof(f)), a Float32 state on a Float64 model" for (M, f) in COEFFICIENTS
+        # the sums run in the type of the state, with the weights converted to it
+        pdist, sdist = setup(Float64, 256)
+        model = M(pdist, CollisionEntropy(sdist))
+        cache = model.cache[Float32]
+        q32 = Float32.(pdist.particles.v[1, :])
+        projection(q32, pdist, cache.sdist)
+
+        A = @inferred f(cache.sdist, pdist, q32, cache.values)
+        @test A isa Tuple{Float32, Float32}
+        if Base.JLOptions().code_coverage == 0
+            @test coefficient_bytes(f, cache.sdist, pdist, q32, cache.values) == 0
+        end
+    end
+
+    @testset "$(nameof(rhs!)), a Float32 state on a Float64 model" for (M, rhs!) in CONSERVATIVE
+        pdist, sdist = setup(Float64, 256)
+        model = M(pdist, CollisionEntropy(sdist))
+        params = lb_params(model)
+        q32 = Float32.(pdist.particles.v[1, :])
+        v̇ = similar(q32)
+
+        @test @inferred(rhs!(v̇, 0.0f0, q32, params)) === v̇
+        @test eltype(v̇) === Float32
+        if Base.JLOptions().code_coverage == 0
+            @test rhs_bytes(rhs!, v̇, 0.0f0, q32, params) == 0
+        end
+    end
+
     @testset "LB_rhs_GI! agrees with LB_rhs!, $T" for T in (Float32, Float64)
         pdist, sdist = setup(T, 256)
         model = LenardBernstein(pdist, CollisionEntropy(sdist))

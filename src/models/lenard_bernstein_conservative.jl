@@ -116,7 +116,7 @@ function compute_coefficients(
     B2 = zero(VT)
 
     for α in eachindex(vp)
-        wα = w[1, α]
+        wα = VT(w[1, α])
         vα = vp[α]
         fα = evaluate!(values, fs, vα)
 
