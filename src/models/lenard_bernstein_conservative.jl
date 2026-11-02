@@ -1,9 +1,15 @@
+# The particles, the spline and the work arrays of a conservative Lenard–Bernstein right-hand
+# side in the element type `T` of a state, as `LBCache` holds them. A cache belongs to one task.
 struct CLBCache{T, PT <: ParticleDistribution, ST <: SplineDistribution{T}} <: Cache{T}
     pdist::PT
     sdist::ST
 
+    rhs::Vector{T}
+    values::Vector{T}
+
     function CLBCache{T}(pdist, sdist) where {T}
-        new{T, typeof(pdist), typeof(sdist)}(pdist, sdist)
+        new{T, typeof(pdist), typeof(sdist)}(
+            pdist, sdist, zeros(T, nbasis(sdist.basis)), _local_buffers(sdist.basis, T))
     end
 end
 
@@ -59,7 +65,7 @@ struct ConservativeLenardBernstein{
 end
 
 @doc raw"""
-    compute_coefficients(distribution, particle_dist, vp)
+    compute_coefficients(distribution, particle_dist, vp[, values])
 
 The coefficients ``A_1``, ``A_2`` of the conservative Lenard-Bernstein drift, from the
 requirement that the operator conserve momentum and energy:
@@ -80,6 +86,11 @@ n_h \varepsilon_h &= \textstyle\sum_\alpha w_\alpha v_\alpha^2 ,
 solved by Cramer's rule. This is `eq:coefficient_lin_system` of the Lenard-Bernstein
 manuscript.
 
+`values` is the buffer of the point evaluations of ``f_s`` and ``f_s'``: `local_width` entries
+of an element type that holds the evaluations, such as the `values` of the model's cache of
+the element type of `vp`. With it the call allocates nothing; without it, the call allocates
+one. A buffer belongs to one task.
+
 !!! note "The particle weights belong in every sum"
     They were absent from all five of them. Both the matrix and the right-hand side are linear
     in ``w``, so for **uniform** weights the factor cancels and ``A_1, A_2`` come out
@@ -91,10 +102,11 @@ manuscript.
 """
 function compute_coefficients(
         distribution::SplineDistribution, particle_dist::ParticleDistribution,
-        vp::AbstractArray{VT}) where {VT}
+        vp::AbstractArray{VT},
+        values::AbstractVector = _local_buffers(
+            distribution.basis, promote_type(eltype(distribution.spline), VT))) where {VT}
     w = particle_dist.particles.w
     fs = distribution.spline
-    dfs = derivative(fs)
 
     n = zero(VT)
     nu = zero(VT)
@@ -105,7 +117,7 @@ function compute_coefficients(
     for α in eachindex(vp)
         wα = w[1, α]
         vα = vp[α]
-        fα = fs(vα)
+        fα = evaluate!(values, fs, vα)
 
         # f_s is an L² projection of a particle distribution, so it undershoots into negative
         # values where the sampling is thin and is exactly zero in cells with no particles.
@@ -127,7 +139,7 @@ function compute_coefficients(
         nu += wα * vα
         neps += wα * vα^2
 
-        g = dfs(vα) / fα
+        g = evaluate!(values, fs, vα, 1) / fα
         B1 -= wα * g
         B2 -= wα * vα * g
     end
@@ -170,14 +182,18 @@ which is `eq:velocity_ode` of the Lenard-Bernstein manuscript **with the opposit
     time.
 """
 function CLB_rhs_GI!(v, t, q::AbstractArray{ST}, params) where {ST}
-    dist = params.model.cache[ST].sdist
+    (; sdist, rhs, values) = params.model.cache[ST]
 
-    fs = projection(q, params.idist, dist)
-    dfdv = derivative(fs)
+    fs = _projection!(rhs, values, q, params.idist, sdist)
 
-    A = compute_coefficients(dist, params.idist, q)
+    A1, A2 = compute_coefficients(sdist, params.idist, q, values)
 
-    v .= -params.ν .* (dfdv.(q) ./ fs.(q) .+ (A[1] .+ A[2] .* q))
+    for α in eachindex(v, q)
+        qα = q[α]
+        v[α] = -params.ν *
+               (evaluate!(values, fs, qα, 1) / evaluate!(values, fs, qα) + (A1 + A2 * qα))
+    end
+    return v
 end
 
 # used for plotting

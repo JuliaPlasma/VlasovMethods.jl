@@ -27,9 +27,13 @@ end
 
 # Every collision cache is a particle/spline pair with operator-specific buffers added by its
 # own inner constructor. The two methods that re-type a cache for a new element type are
-# identical for every cache, so they are generated once rather than repeated per cache.
+# identical for every cache, so they are generated once rather than repeated per cache, and so
+# is the element type, which is that of the cache's spline: `CacheDict(p)` stores its parent `p`
+# under `eltype(p)`, so that a lookup of the parent's type finds the parent. It is defined on the
+# type, which `eltype` of an instance reads, so a cache may also define it on an instance.
 macro collision_cache(CacheT)
     esc(quote
+        Base.eltype(::Type{<:$CacheT{T}}) where {T} = T
         function Cache(AT, c::$CacheT)
             $CacheT{AT}(c.pdist, similar(AT, c.sdist))
         end

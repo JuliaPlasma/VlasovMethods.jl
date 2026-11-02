@@ -193,9 +193,44 @@ their own, except for what they removed and narrowed, which is listed in full be
   allocates 0 bytes, where the allocating form allocated 8 800 bytes (Float32, 16 × 64 grid) up to
   264 096 bytes (Float64, 64 × 256). Per call it is as fast as or faster than the allocating form
   at every measured size, and the results do not change. A state of another element type, such as
-  the `ForwardDiff.Dual` numbers of the implicit midpoint's Jacobian, keeps the allocating method.
-  Two concurrent calls on one `params` are unsafe, because they share the buffers. The bound of
-  `GeometricBrackets` rises from `0.2` to `0.3`, the first release with `poisson_apply!`.
+  the `ForwardDiff.Dual` numbers of the implicit midpoint's Jacobian, takes buffers of its own
+  type, as the next entry says. Two concurrent calls on one `params` are unsafe, because they share
+  the buffers. The bound of `GeometricBrackets` rises from `0.2` to `0.3`, the first release with
+  `poisson_apply!`.
+
+- **The Lenard–Bernstein right-hand sides and the grid right-hand side of a `Dual` state allocate
+  nothing (K45).** `LB_rhs_GI!`, `CLB_rhs_GI!` and `RCLB_rhs_GI!` projected the particles with the
+  allocating `projection`, and evaluated `f_s` and `f_s'` with the allocating point evaluation of
+  SimpleSplines: two evaluations per particle in `LB_rhs_GI!`, four in the other two, of which
+  `compute_coefficients` and `compute_coefficients_rclb` made two. The cache of each model now
+  holds the load vector and the evaluation buffer in the element type of the state, the projection
+  runs through `_projection!`, and each evaluation through SimpleSplines' `evaluate!`.
+  `LenardBernstein` gets a cache of the same form, and the two coefficient functions take the
+  buffer as an optional fourth argument; without it, they allocate one. The grid right-hand side
+  of a state of another element type than the distribution's, such as the `ForwardDiff.Dual`
+  numbers of the implicit midpoint's Jacobian, takes its buffers from `params.cache`, a
+  `CacheDict` that builds them on the first call of a type. `LB_rhs!` keeps the allocating path.
+  Bytes of one call after a warm call, in a cold process on Julia 1.13.3, at `5d3c427` and with
+  this change:
+
+  | right-hand side | state | size | `5d3c427` | now |
+  |:--|:--|:--|--:|--:|
+  | `LB_rhs_GI!` | `Float64` | N = 256, 2000 | 49 472, 384 320 | 0, 0 |
+  | `LB_rhs_GI!` | `Float32` | N = 256, 2000 | 41 184, 320 224 | 0, 0 |
+  | `CLB_rhs_GI!`, `RCLB_rhs_GI!` | `Float64` | N = 256, 2000 | 98 624, 768 320 | 0, 0 |
+  | `CLB_rhs_GI!`, `RCLB_rhs_GI!` | `Float32` | N = 256, 2000 | 82 144, 640 224 | 0, 0 |
+  | `CLB_rhs_GI!`, `RCLB_rhs_GI!` | `Dual{Nothing, Float64, 12}` | N = 256, 2000 | 494 624, 3 843 104 | 0, 0 |
+  | `_grid_1d1v_rhs!` | `Dual{Nothing, Float64, 12}` | 16 × 64, 64 × 256 | 235 120, 3 429 792 | 0, 0 |
+  | `_grid_1d1v_rhs!` | `Dual{Nothing, Float32, 12}` | 16 × 64, 64 × 256 | 134 080, 1 715 104 | 0, 0 |
+
+  `@collision_cache` now gives every cache it generates the element type of its spline (K45).
+  `CacheDict` stores its parent under that type, and `CLBCache`, `RCLBCache` and `MLBCache` had
+  none, so the first lookup of the parent's type built a second cache, and the three
+  Lenard–Bernstein operators projected into that cache's copy of the spline. The lookup now
+  returns the parent, so they project into the spline of the entropy, as `Landau` does. The
+  `evaluate!` of SimpleSplines is not released yet: `Project.toml`, `test/Project.toml` and
+  `docs/Project.toml` take SimpleSplines from the branch of JuliaDEC/SimpleSplines.jl#41 through
+  `[sources]`.
 
 - **`Picard_iterate_over_particles` checks its arguments before it writes.** Before this release, a
   history with one row too few let the solve run, wrote column 2 of the history, and only then

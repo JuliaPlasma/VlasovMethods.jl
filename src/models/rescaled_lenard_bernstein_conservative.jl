@@ -1,9 +1,16 @@
+# The particles, the spline and the work arrays of a rescaled conservative Lenard–Bernstein
+# right-hand side in the element type `T` of a state, as `LBCache` holds them. A cache belongs
+# to one task.
 struct RCLBCache{T, PT <: ParticleDistribution, ST <: SplineDistribution{T}} <: Cache{T}
     pdist::PT
     sdist::ST
 
+    rhs::Vector{T}
+    values::Vector{T}
+
     function RCLBCache{T}(pdist, sdist) where {T}
-        new{T, typeof(pdist), typeof(sdist)}(pdist, sdist)
+        new{T, typeof(pdist), typeof(sdist)}(
+            pdist, sdist, zeros(T, nbasis(sdist.basis)), _local_buffers(sdist.basis, T))
     end
 end
 
@@ -31,7 +38,7 @@ struct RescaledConservativeLenardBernstein{
 end
 
 @doc raw"""
-    compute_coefficients_rclb(distribution, particle_dist, vp)
+    compute_coefficients_rclb(distribution, particle_dist, vp[, values])
 
 The coefficients of the **rescaled** parametrisation, in which the coefficient of ``v`` is
 normalised to one:
@@ -47,14 +54,15 @@ fixed-coefficient cumulant-scaling experiment of the manuscript appendix, which 
 coefficients by hand rather than solving for them.
 
 The particle weights appear in every sum, for the reason given at
-[`compute_coefficients`](@ref).
+[`compute_coefficients`](@ref), and `values` is the buffer of the point evaluations as there.
 """
 function compute_coefficients_rclb(
         distribution::SplineDistribution, particle_dist::ParticleDistribution,
-        vp::AbstractArray{VT}) where {VT}
+        vp::AbstractArray{VT},
+        values::AbstractVector = _local_buffers(
+            distribution.basis, promote_type(eltype(distribution.spline), VT))) where {VT}
     w = particle_dist.particles.w
     fs = distribution.spline
-    dfs = derivative(fs)
 
     n = zero(VT)
     nu = zero(VT)
@@ -65,7 +73,7 @@ function compute_coefficients_rclb(
     for α in eachindex(vp)
         wα = w[1, α]
         vα = vp[α]
-        fα = fs(vα)
+        fα = evaluate!(values, fs, vα)
 
         fα > 0 || throw(DomainError(fα,
             "the projected distribution is non-positive at v = $(vα); see " *
@@ -75,7 +83,7 @@ function compute_coefficients_rclb(
         nu += wα * vα
         neps += wα * vα^2
 
-        g = dfs(vα) / fα
+        g = evaluate!(values, fs, vα, 1) / fα
         B1 += wα * g
         B2 += wα * vα * g
     end
@@ -99,14 +107,18 @@ end
 # was being used as the multiplier of f'/f and A₂ᶜᵒⁿˢ = 1/σ² as the constant drift, giving a
 # vector field with no conservation property at all.
 function RCLB_rhs_GI!(v, t, q::AbstractArray{ST}, params) where {ST}
-    dist = params.model.cache[ST].sdist
+    (; sdist, rhs, values) = params.model.cache[ST]
 
-    fs = projection(q, params.idist, dist)
-    dfdv = derivative(fs)
+    fs = _projection!(rhs, values, q, params.idist, sdist)
 
-    A = compute_coefficients_rclb(dist, params.idist, q)
+    A1, A2 = compute_coefficients_rclb(sdist, params.idist, q, values)
 
-    v .= -params.ν .* (A[1] .* dfdv.(q) ./ fs.(q) .+ (A[2] .+ q))
+    for α in eachindex(v, q)
+        qα = q[α]
+        v[α] = -params.ν *
+               (A1 * evaluate!(values, fs, qα, 1) / evaluate!(values, fs, qα) + (A2 + qα))
+    end
+    return v
 end
 
 # used for plotting

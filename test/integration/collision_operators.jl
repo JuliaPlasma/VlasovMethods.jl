@@ -112,7 +112,8 @@ end
     # element type and the shared particles.
     @testset "Re-type a collision cache to Float32" begin
         pdist2, sdist2 = setup_1d2v(Float64)
-        models = (ConservativeLenardBernstein(pdist, CollisionEntropy(sdist)),
+        models = (LenardBernstein(pdist, CollisionEntropy(sdist)),
+            ConservativeLenardBernstein(pdist, CollisionEntropy(sdist)),
             RescaledConservativeLenardBernstein(pdist, CollisionEntropy(sdist)),
             MetriplecticLenardBernstein(pdist, CollisionEntropy(sdist)),
             Landau(pdist2, CollisionEntropy(sdist2)))
