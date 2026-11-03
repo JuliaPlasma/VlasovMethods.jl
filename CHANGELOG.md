@@ -223,8 +223,9 @@ their own, except for what they removed and narrowed, which is listed in full be
   `MethodError` at construction, as the two conservative models already did; at `5d3c427` it
   built. A state of another element type than the model's, such as a `Float32` state on a
   `Float64` model, is projected and evaluated in the state's type, where `5d3c427` promoted to the
-  model's; the right-hand sides then differ by at most 2.1e-6 of their largest value on 256
-  particles and by at most 3.4e-5 on 2000. Bytes of one call after a warm call, in a cold process
+  model's; the right-hand sides then differ from those of a `Float64` state by 2.7e-6 to 3.2e-6 of
+  their largest value on 256 particles and by 1.6e-5 to 3.6e-5 on 2000, a gap whose cause is not
+  located (K81). Bytes of one call after a warm call, in a cold process
   on Julia 1.13.3, at `5d3c427` and with this change:
 
   | right-hand side | state | size | `5d3c427` | this change |
@@ -252,6 +253,12 @@ their own, except for what they removed and narrowed, which is listed in full be
   Lenard–Bernstein operators projected into that cache's copy of the spline. The lookup
   returns the parent, so they project into the spline of the entropy, as `Landau` does. The
   `evaluate!` of SimpleSplines is new in SimpleSplines 0.4.
+
+  `CacheDict` keys its caches by the element type alone. It keyed them by the thread id and the
+  type, so a model built on one thread and evaluated on another, as under `Threads.@spawn` with
+  two threads, built a cache of its own there and projected into that copy of the spline, not
+  into the spline of the entropy. A model and its caches belong to one task: two tasks that
+  evaluate one model at once share its buffers.
 
 - **The Landau vector field allocates only its two least-squares solves, and
   `Picard_iterate_Landau_nls!` no longer prints (K43).** `LandauCache` now holds every buffer of

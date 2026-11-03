@@ -1,15 +1,15 @@
 
 abstract type Cache{T} end
 
-_cachehash(T) = hash(Threads.threadid(), hash(T))
-
+# The caches of one model, keyed by element type. Like each cache, the dictionary belongs to one
+# task: a model evaluated on several threads at once shares its buffers and the dictionary.
 struct CacheDict{parentType}
     parent::parentType
-    caches::Dict{UInt64, Cache}
+    caches::Dict{DataType, Cache}
 
     function CacheDict(p)
-        caches = Dict{UInt64, Cache}()
-        caches[_cachehash(eltype(p))] = p
+        caches = Dict{DataType, Cache}()
+        caches[eltype(p)] = p
         new{typeof(p)}(p, caches)
     end
 end
@@ -17,11 +17,10 @@ end
 Base.parent(cd::CacheDict) = cd.parent
 
 @inline function Base.getindex(c::CacheDict, T::DataType)
-    key = _cachehash(T)
-    if haskey(c.caches, key)
-        c.caches[key]
+    if haskey(c.caches, T)
+        c.caches[T]
     else
-        c.caches[key] = Cache(T, parent(c))
+        c.caches[T] = Cache(T, parent(c))
     end::CacheType(T, parent(c))
 end
 
