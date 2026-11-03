@@ -270,28 +270,27 @@ function (H::KruskalObermanFreeEnergy)(C::AbstractMatrix)
                                 "got $(size(C))"))
     ρ = vec(sum(C; dims = 2)) .* H.Δv
     Φ = ρ ./ H.k .^ 2
-    value = (H.Δv * sum(abs2.(C) .* H.w0') + dot(ρ, Φ)) / 2
+    kinetic = H.Δv * sum(q -> H.w0[q] * sum(abs2, view(C, :, q)), axes(C, 2))
+    value = (kinetic + dot(ρ, Φ)) / 2
     # δH/δf = w₀ δf + Φ, the gradient with respect to `C` divided by the node weight
     U = C .* H.w0' .+ Φ
     gradient = H.Δv .* U
     # The skew operator [0 𝒜; 𝒜 0] on the parity parts of δH/δf: 𝒜 = f₀' ∂ₓ maps the odd part
-    # to the rate of δf⁺ and the even part to the rate of δf⁻, since f₀' is odd.
-    J = size(C, 2):-1:1
-    Up = (U .+ U[:, J]) ./ 2
-    Um = (U .- U[:, J]) ./ 2
-    rhs = _advect(H, Um) .+ _advect(H, Up)
+    # to the rate of δf⁺ and the even part to the rate of δf⁻, since f₀' is odd. 𝒜 is linear, so
+    # the rate of δf = δf⁺ + δf⁻ is 𝒜 applied to the whole of δH/δf.
+    rhs = _advect(H, U)
     return (value = value, gradient = gradient, rhs = rhs)
 end
 
 # 𝒜 U = f₀'(v) ∂ₓ U on the rows cos kx, sin kx: ∂ₓ takes the pair (a, b) to (k b, -k a).
 function _advect(H::KruskalObermanFreeEnergy, U::AbstractMatrix)
     dU = similar(U)
-    for i in 1:2:size(U, 1)
+    @views for i in 1:2:size(U, 1)
         k = H.k[i]
-        dU[i, :] .= k .* U[i + 1, :]
-        dU[i + 1, :] .= -k .* U[i, :]
+        dU[i, :] .= k .* U[i + 1, :] .* H.df0
+        dU[i + 1, :] .= -k .* U[i, :] .* H.df0
     end
-    return dU .* H.df0'
+    return dU
 end
 
 end

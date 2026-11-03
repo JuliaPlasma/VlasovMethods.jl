@@ -641,11 +641,11 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **evidence:** `BilinearStiefelLayer` and `LowRankStiefelLayer` share one velocity basis between
   the even and the odd coordinates, and the spline factor applies `R⁺` to the even half and `R⁻`
   to the odd half, with `R⁺ ≠ R⁻` near `v = 0`. `tie_continuum_frontends!` therefore ties the
-  velocity bases through the even modes. Probe at `p = 3`, `V = 8`, with the modes of the clause-2
-  test and `f = (1 + 0.1 cos x) v M(v)`: `‖p_spline − p_grid‖` is 2.8e-2, 7.8e-3, 2.0e-3 and
-  5.1e-4 at `N = 17, 33, 65, 129`, an order of 2, where the even coordinates of
-  `(1 + 0.1 cos x) M(v)` reach a fitted order of 4.3. A tie of both parities needs a velocity
-  basis per parity in the layers.
+  velocity bases through the even modes. Probe at `p = 3`, `V = 8`, with the modes of
+  `tie_errors` in `test/rom/multimodal_vlasov_frontends.jl` and `f = (1 + 0.1 cos x) v M(v)`:
+  `‖p_spline − p_grid‖` is 2.8e-2, 7.8e-3, 2.0e-3 and 5.1e-4 at `N = 17, 33, 65, 129`, an order
+  of 2, where the even coordinates of `(1 + 0.1 cos x) M(v)` reach a fitted order of 4.3. A tie
+  of both parities needs a velocity basis per parity in the layers.
 - **kind:** found late
 - **found:** 2026-11-03
 

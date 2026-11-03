@@ -385,11 +385,11 @@ end
 
 # The spline machinery of the oracle, in Float64: the quadrature tables of both bases, their
 # mass matrices, and the projection, evaluation and bracket of coefficient matrices.
-struct Discretisation
-    bx::Any
-    bv::Any
-    qx::Any
-    qv::Any
+struct Discretisation{BX, BV, QX, QV}
+    bx::BX
+    bv::BV
+    qx::QX
+    qv::QV
     Mx::Matrix{Float64}
     Mv::Matrix{Float64}
 end
