@@ -1,11 +1,13 @@
 using GeometricIntegrators: GeometricIntegrators
 using HDF5: h5read
 using LinearAlgebra: ⋅
+using Random
 using StaticArrays
 using Test
 using VlasovMethods
 using VlasovMethods: electric_field, magnetic_field, s_drift!, s_lorentz!
 
+include("../helpers/allocation_barriers.jl")
 include("../helpers/external_fields.jl")
 
 # A constant `B = B₀ ẑ` and no electric field. The arguments are the ones every test below uses;
@@ -205,6 +207,31 @@ end
 
     @testset "the push does not allocate" begin
         test_push_does_not_allocate(T, field)
+    end
+
+    @testset "the two vector fields do not allocate" begin
+        # `N = 256` particles in a field with `E` and `B` both nonzero. Each reading follows a
+        # warm call and an `@inferred` call at the same argument types, and is the minimum of
+        # three readings through the barrier of four arguments.
+        local field = UniformField(SVector{3, T}(0.2, -0.1, 0.3), SVector{3, T}(0, 0, B₀))
+        dist = particle_distribution(T, 256)
+        dist.particles.z .= randn(Xoshiro(4), T, 6, 256)
+        model = VlasovWithExternalFields(dist, field; charge = T(2), mass = m)
+        params = SplittingMethod(model, (zero(T), T(1)), T(0.1)).equation.parameters
+        z = copy(model.distribution.particles.z)
+        ż = similar(z)
+        t = T(0.4)
+
+        v_drift!(ż, t, z, params)
+        v_lorentz!(ż, t, z, params)
+        @test @inferred(v_drift!(ż, t, z, params)) === nothing
+        @test @inferred(v_lorentz!(ż, t, z, params)) === nothing
+        if Base.JLOptions().code_coverage == 0
+            @test minimum(_ -> _alloc4(v_drift!, ż, t, z, params), 1:3) == 0
+            @test minimum(_ -> _alloc4(v_lorentz!, ż, t, z, params), 1:3) == 0
+        end
+        # the control: the barrier sees an allocation
+        @test _alloc4((ż, t, z, p) -> copy(z), ż, t, z, params) > 0
     end
 
     @testset "the field of another precision" begin

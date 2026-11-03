@@ -134,3 +134,21 @@ end
     end
     @test _alloc4((g, t, x, params) -> similar(g), gd, zero(T), xd, NamedTuple()) > 0
 end
+
+# The value `h(t, x, params)` at `N = 256`, a state of `2N` entries. The reading follows a warm
+# call and an `@inferred` call at the same argument types, and is the minimum of three readings
+# through the barrier of three arguments.
+@testset "the value is inferred and allocates nothing, $T" for T in (Float32, Float64)
+    h = AnalyticHamiltonian(T(ANALYTIC_β))
+    x = randn(Xoshiro(6), T, 2 * 256)
+    t = zero(T)
+
+    h(t, x, NamedTuple())
+    @test @inferred(h(t, x, NamedTuple())) isa T
+
+    if Base.JLOptions().code_coverage == 0
+        @test minimum(_ -> _alloc_efield(h, t, x, NamedTuple()), 1:3) == 0
+    end
+    # the control: the barrier sees an allocation
+    @test _alloc_efield((t, x, params) -> copy(x), t, x, NamedTuple()) > 0
+end
