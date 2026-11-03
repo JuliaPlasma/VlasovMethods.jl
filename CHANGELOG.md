@@ -375,10 +375,13 @@ their own, except for what they removed and narrowed, which is listed in full be
   - `Landau` on a velocity space of one dimension raises a `MethodError` at construction, where it
     built.
   - `Picard_iterate_over_particles` throws an `ArgumentError` for a `vn` or `vn_minus_one` that
-    shares memory with `dv_history`, where it returned and overwrote the caller's array.
+    shares memory with `dv_history`, where it returned and overwrote the caller's array. It throws
+    a `DimensionMismatch` for a `vn_minus_one` of another length than the particle count at any
+    `ti`, and for a `dv_history` that is not `(N, 2)`, where a call with `ti < 4` or a wider
+    history returned.
   - A model and its caches, and the `params` of the grid model, belong to one task. Two threads
-    that evaluate one of them at once share its buffers and get wrong results with no error, where
-    `v0.3.0` kept a collision cache per thread and the grid right-hand side allocated.
+    that evaluate one of them at once share its buffers and can get wrong results with no error,
+    where `v0.3.0` kept a collision cache per thread and the grid right-hand side allocated.
 
 ### Internal
 
