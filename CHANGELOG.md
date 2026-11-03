@@ -69,6 +69,19 @@ return, so loading the package alone does not load `GeometricMachineLearning`.
 
 ### Internal
 
+- **The test project's bounds hold at the merged downgrade check.** The CI Downgrade job resolves
+  `Project.toml` and `test/Project.toml` together at their lower bounds and runs the tests there.
+  `test/Project.toml` raises `ForwardDiff` from `"0.10, 1"` to `"0.10.36, 1"`, the floor that
+  Symbolics 7, a dependency of ElectromagneticFields 0.9, sets. It adds a bound for each test
+  dependency that had none, because without one the check takes the oldest release:
+  `Aqua = "0.8.18"`, because before 0.8.14 the piracy check does not run on Julia 1.12, before
+  0.8.17 the persistent-tasks check resolves its subprocess's environment anew and gets newer
+  versions than the tests load, and 0.8.17 fails where the manifest lists a weak dependency that
+  is not installed; `JET = "0.10.1, 0.11, 0.12, 0.13"`, because JET 0.10.0 errors with
+  `unhandled LimitedAccuracy` in the analysis of `Picard_iterate_over_particles!`;
+  `OffsetArrays = "1.14"`, because 1.13.0 redefines `Base.fill` on Julia 1.12 and the packages
+  that load it fail to precompile; `SafeTestsets = "0.1"`; and `StableRNGs = "0.1, 1"`.
+
 - **ExplicitImports joins the suite.** `test/quality/explicit_imports.jl` checks that the
   package lists no stale explicit import, and that the extension `MultiModalAutoEncoderExt`
   imports every name explicitly, from its owner, and none it does not use. The implicit and
