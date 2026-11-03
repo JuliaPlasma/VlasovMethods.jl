@@ -631,7 +631,7 @@ has left the file, or that lived only on a merged branch, stays taken.
   `TanhActivation` of `ext/VlasovMethodsHNNExt.jl`. `test/quality/explicit_imports.jl` checks
   the stale imports and the owners of the package, and the implicit, stale, owner and public
   checks of `MultiModalAutoEncoderExt`, and leaves the implicit and public checks of the package
-  out.
+  out, with a comment that names this entry.
 - **kind:** defect
 - **found:** 2026-11-03
 

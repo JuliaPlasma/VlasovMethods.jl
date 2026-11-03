@@ -45,7 +45,7 @@ function _check_symmetric(points::AbstractVector{T}, what::AbstractString) where
 end
 
 function build_spline_parity_factors(basis_x::AbstractBSplineBasis{T},
-        basis_v::AbstractBSplineBasis{T}, mx::Integer, mv::Integer) where {T}
+        basis_v::BSplineBasis{T}, mx::Integer, mv::Integer) where {T}
     _check_symmetric(knotvector(basis_v), "knot vector")
     nv = nbasis(basis_v)
     iseven(nv) ||
@@ -112,6 +112,12 @@ function tie_continuum_frontends!(spline::Tuple{BilinearStiefelLayer, NamedTuple
     # even ones, which the layer's parity split reaches through the top half of `S`.
     Φx = _polar(Wx * (E_x * (Rx \ Matrix(ps_spline.Φx))))
     Φv = _polar(Sg * (Wv * (E_v * (Rv \ (Sv' * Matrix(ps_spline.Φv))))))
+    for (name, ps) in (("ps_grid", ps_grid), ("ps_dlra", ps_dlra)),
+        (f, Φ) in ((:Φx, Φx), (:Φv, Φv))
+
+        size(ps[f]) == size(Φ) ||
+            throw(DimensionMismatch("$(name).$(f) must have size $(size(Φ)); got $(size(ps[f]))"))
+    end
     for ps in (ps_grid, ps_dlra)
         _copy_basis!(ps.Φx, Φx)
         _copy_basis!(ps.Φv, Φv)
@@ -135,7 +141,9 @@ function dual_parity_modes(x_modes::AbstractVector{<:Spline},
                             "$(length(even_v)) and $(length(odd_v)): they must be equal"))
     bx, Φx = _modes(x_modes, "x")
     bv, Ψp = _modes(even_v, "even velocity")
-    _, Ψm = _modes(odd_v, "odd velocity")
+    bm, Ψm = _modes(odd_v, "odd velocity")
+    bm == bv ||
+        throw(ArgumentError("the odd velocity modes must share the basis of the even ones"))
     T = eltype(Φx)
     qx = SplineQuadrature(bx)
     Mx = Φx' * mass_matrix(qx) * Φx
@@ -153,7 +161,7 @@ function dual_parity_modes(x_modes::AbstractVector{<:Spline},
     minimum(svdvals(Dx)) > 100 * eps(T) * sqrt(opnorm(Kx) * opnorm(Mx)) ||
         throw(ArgumentError("∂x is singular on the x space: each cos mx needs its sin mx"))
     qv = SplineQuadrature(bv; nq = nq)
-    Kv = Ψp' * weighted_matrix(qv, df0, 0, 0) * Ψm
+    Kv = Ψp' * weighted_matrix(qv, v -> T(df0(v)), 0, 0) * Ψm
     cond(Kv) ≤ inv(100 * eps(T)) ||
         throw(ArgumentError("K_v = ∫ f₀' ψ⁺ ψ⁻ is numerically singular: " *
                             "cond(K_v) > 1/(100 eps)"))
@@ -240,6 +248,9 @@ function kruskal_oberman_free_energy(df0, grid_v::AbstractRange{T},
     any(iszero, wavenumbers) &&
         throw(ArgumentError("the x space holds the constant mode k = 0, which has no " *
                             "conjugate: pass the wavenumbers k ≠ 0 only"))
+    allunique(abs.(wavenumbers)) ||
+        throw(ArgumentError("the wavenumbers repeat a mode: k and -k give the same modes " *
+                            "cos kx, sin kx, so each |k| may occur once"))
     _check_symmetric(grid_v, "grid")
     iseven(length(grid_v)) ||
         throw(ArgumentError("the velocity grid has $(length(grid_v)) points, an odd " *
@@ -247,8 +258,8 @@ function kruskal_oberman_free_energy(df0, grid_v::AbstractRange{T},
     v = collect(grid_v)
     f = T.(df0.(v))
     all(q -> v[q] ≤ 0 || f[q] < 0, eachindex(v)) ||
-        throw(ArgumentError("f₀' ≥ 0 at a node v > 0: f₀ is not monotone, and the " *
-                            "free energy is not defined; use dual_parity_modes for this case"))
+        throw(ArgumentError("f₀' ≥ 0 at a node v > 0, where the weight -v/f₀' of the free " *
+                            "energy must be positive; for a non-monotone f₀ use dual_parity_modes"))
     k = T.(repeat(wavenumbers; inner = 2))
     return KruskalObermanFreeEnergy(k, v, T(step(grid_v)), f, -v ./ f)
 end

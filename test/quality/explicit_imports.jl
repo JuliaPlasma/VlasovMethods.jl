@@ -14,6 +14,10 @@ const EXT = Base.get_extension(VlasovMethods, :MultiModalAutoEncoderExt)
     @test check_no_stale_explicit_imports(VlasovMethods) === nothing
     @test check_all_explicit_imports_via_owners(VlasovMethods) === nothing
     @test check_all_qualified_accesses_via_owners(VlasovMethods) === nothing
+    # `check_no_implicit_imports`, `check_all_explicit_imports_are_public` and
+    # `check_all_qualified_accesses_are_public` fail for the package module and are left out:
+    # it relies on implicit imports and takes names that their modules do not declare public
+    # (K82 in KNOWN_ISSUES.md).
 
     # The multi-modal extension imports each name explicitly, from the module that owns it and
     # declares it public, and imports nothing it does not use.

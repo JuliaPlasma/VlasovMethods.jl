@@ -35,6 +35,12 @@ project both onto ``L^2``-orthonormal bases ``\Phi_x \otimes \Phi_v``. The coord
 The velocity basis needs an even number of functions. A clamped spline basis of degree ``p`` on
 ``N`` cells has ``N + p`` functions, so ``N + p`` must be even.
 
+```@docs
+build_spline_parity_factors
+build_grid_parity_factors
+tie_continuum_frontends!
+```
+
 ## Canonical coordinates of the linearised bracket
 
 The ``L^2``-orthonormal coordinates are not canonical for the Vlasov bracket. Linearised at a
@@ -45,6 +51,10 @@ of the velocity modes weighted with ``f_0'``. [`dual_parity_modes`](@ref) return
 construction needs an invertible ``B``: no constant spatial mode, every ``\cos mx`` with its
 ``\sin mx``, as many even as odd velocity modes, and an invertible ``K_v``. It does not need a
 monotone ``f_0``, so it serves the two-stream equilibrium too.
+
+```@docs
+dual_parity_modes
+```
 
 ## The particle bridge
 
@@ -59,6 +69,11 @@ observables up to the truncation error of the spline space, which falls with the
 is not a Poisson bracket: it fails the Jacobi identity at every fixed mesh, by a defect that
 decreases under refinement.
 
+```@docs
+klimontovich_deposition
+klimontovich_bridge_loss
+```
+
 ## The Kruskal–Oberman free energy
 
 For a monotone equilibrium, ``f_0'(v) < 0`` for ``v > 0``,
@@ -69,3 +84,7 @@ Hamiltonian vector field. The vector field is that of the skew operator
 ``\mathcal{A} = f_0'(v)\, \partial_x``, and it equals the linearised Vlasov–Poisson right-hand
 side, so the free energy is conserved. For a non-monotone ``f_0`` the free energy is not defined,
 and the canonical coordinates are those of [`dual_parity_modes`](@ref).
+
+```@docs
+kruskal_oberman_free_energy
+```

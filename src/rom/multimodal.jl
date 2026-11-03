@@ -9,7 +9,8 @@
 Return the `BilinearStiefelLayer` of `GeometricMachineLearning` that encodes the coefficients
 of a tensor-product spline on `basis_x ⊗ basis_v` with ``m_x`` spatial and ``m_v`` velocity
 modes, with `metric_factors = (R_x, R_v)`, ``M_x = R_x^\mathsf{T} R_x`` and
-``M_v = R_v^\mathsf{T} R_v`` for the mass matrices of the two bases.
+``M_v = R_v^\mathsf{T} R_v`` for the mass matrices of the two bases. `basis_v` is a clamped
+`BSplineBasis`: the mirror of its function ``j`` is the function ``N_v + 1 - j``.
 
 Defined in a package extension: load `GeometricMachineLearning` to make it available.
 
@@ -93,7 +94,8 @@ than the quadrature error of the even ones.
 # Throws
 
 - `ArgumentError` when `dlra_layer` does not carry the metric factors of `grid_layer`.
-- `DimensionMismatch` when `E_x` or `E_v` does not map the spline basis to the grid.
+- `DimensionMismatch` when `E_x` or `E_v` does not map the spline basis to the grid, and when
+  a Stiefel basis of `ps_grid` or `ps_dlra` does not have the size of the basis it receives.
 """
 function tie_continuum_frontends! end
 
@@ -110,8 +112,9 @@ Defined in a package extension: load `GeometricMachineLearning` to make it avail
 
 `x_modes` is a vector of `Spline`s on one periodic basis, `even_v` and `odd_v` vectors of
 `Spline`s on one velocity basis, even and odd in ``v``, and `df0` the derivative
-``f_0'(v)``. The odd product modes are ``e_c = \varphi_k \psi^-_l``, and
-``B = -D_x \otimes K_v`` with ``(D_x)_{ik} = \int \varphi_i' \varphi_k \,\mathrm{d}x`` and
+``f_0'(v)``, whose values are converted to the element type of `x_modes`. The odd product
+modes are ``e_c = \varphi_k \psi^-_l``, and ``B = -D_x \otimes K_v`` with
+``(D_x)_{ik} = \int \varphi_i' \varphi_k \,\mathrm{d}x`` and
 ``(K_v)_{jl} = \int f_0'(v)\, \psi^+_j \psi^-_l \,\mathrm{d}v``. The product index runs over
 ``x`` fastest, the order of `vec(Q_red)` in `BilinearStiefelLayer`. Column ``b`` of the result is ``h_b``,
 the coefficients on the tensor basis, again ``x`` fastest. ``K_v`` is assembled with `nq`
@@ -124,7 +127,8 @@ holds for the two-stream equilibrium ``f_0 = v^2 M(v)`` as for the Maxwellian ``
 # Throws
 
 - `ArgumentError` when the splines of `x_modes`, of `even_v` or of `odd_v` do not share one
-  basis, when `even_v` and `odd_v` differ in length, when an `x` mode is constant,
+  basis, when `odd_v` is on another basis than `even_v`, when `even_v` and `odd_v` differ in
+  length, when an `x` mode is constant,
   when ``D_x`` is singular because a ``\cos mx`` lacks its ``\sin mx``, and when ``K_v`` is
   numerically singular, ``\mathrm{cond}(K_v) > 1/(100\,\mathrm{eps}(T))``. Each message
   names its condition.
@@ -221,9 +225,10 @@ canonical coordinates of that case are those of [`dual_parity_modes`](@ref).
 
 # Throws
 
-- `ArgumentError` when a wavenumber is zero (the constant mode has no conjugate), when
-  `grid_v` is not symmetric or has an odd number of nodes, and when ``f_0'(v) \ge 0`` at a
-  node ``v > 0``, which names [`dual_parity_modes`](@ref).
+- `ArgumentError` when a wavenumber is zero (the constant mode has no conjugate), when two
+  wavenumbers have the same ``|k|`` (they give the same modes), when `grid_v` is not symmetric
+  or has an odd number of nodes, and when ``f_0'(v) \ge 0`` at a node ``v > 0``, which names
+  [`dual_parity_modes`](@ref).
 - `DimensionMismatch` when `C` does not have one row per mode and one column per node.
 """
 function kruskal_oberman_free_energy end

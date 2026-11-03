@@ -29,9 +29,9 @@ return, so loading the package alone does not load `GeometricMachineLearning`.
   in the mass matrices, with `metric_factors = (R_x, R_v)`. `R_x` is the upper Cholesky factor of
   `M_x`; `R_v = Sᵀ(R⁺ ⊕ R⁻)S` is a square-root factor of `M_v` built from the Cholesky factors of
   its two parity blocks, because a triangular factor of the whole `M_v` does not commute with the
-  velocity reflection, and an even latent state would decode to a function that is not even. A
-  velocity basis that is not symmetric about `v = 0`, or that has an odd number `N + p` of
-  functions, is refused with an `ArgumentError`.
+  velocity reflection, and an even latent state would decode to a function that is not even. The
+  velocity basis is a clamped `BSplineBasis`. A velocity basis that is not symmetric about
+  `v = 0`, or that has an odd number `N + p` of functions, is refused with an `ArgumentError`.
 
 - **`build_grid_parity_factors`.** `build_grid_parity_factors(grid_x, grid_v, mx, mv)` returns
   the layer of a uniform phase-space grid, with the factors `√Δx` and `√Δv`, so that each value
@@ -48,9 +48,9 @@ return, so loading the package alone does not load `GeometricMachineLearning`.
 - **`dual_parity_modes`.** `dual_parity_modes(x_modes, even_v, odd_v, df0)` returns the odd
   modes `h = e B⁻¹`, `B = -D_x ⊗ K_v`, for which the Vlasov bracket linearised at `f₀(v)` is
   canonical on the even and odd coordinates. It holds for the Maxwellian and for the two-stream
-  equilibrium `v² M(v)`. A constant spatial mode, a `cos mx` without its `sin mx`, unequal even
-  and odd dimensions and a numerically singular `K_v` each raise an `ArgumentError` that names
-  the condition.
+  equilibrium `v² M(v)`. Odd modes on another basis than the even ones, a constant spatial mode,
+  a `cos mx` without its `sin mx`, unequal even and odd dimensions and a numerically singular
+  `K_v` each raise an `ArgumentError` that names the condition.
 
 - **`klimontovich_deposition`.** Deposits weighted particles on a tensor-product spline space
   and returns the coefficients `M_x⁻¹ c M_v⁻¹` of the `L²` projection of the Klimontovich
@@ -63,15 +63,16 @@ return, so loading the package alone does not load `GeometricMachineLearning`.
   returns the Kruskal–Oberman free energy of the linearised Vlasov–Poisson equations at a
   monotone `f₀`, on spatial Fourier modes and a symmetric velocity grid, with its gradient and the
   vector field of the skew operator `[0 𝒜; 𝒜 0]`, `𝒜 = f₀' ∂ₓ`, which is the linearised
-  Vlasov–Poisson right-hand side. A wavenumber `0` and an `f₀` with `f₀' ≥ 0` at a node `v > 0`
-  are refused; the second message names `dual_parity_modes`, the construction for a non-monotone
-  `f₀`.
+  Vlasov–Poisson right-hand side. A wavenumber `0`, two wavenumbers of the same `|k|` and an
+  `f₀` with `f₀' ≥ 0` at a node `v > 0` are refused; the last message names `dual_parity_modes`,
+  the construction for a non-monotone `f₀`.
 
 ### Internal
 
 - **ExplicitImports joins the suite.** `test/quality/explicit_imports.jl` checks that the
   package lists no stale explicit import, and that the extension `MultiModalAutoEncoderExt`
-  imports every name explicitly, from its owner, and none it does not use.
+  imports every name explicitly, from its owner, and none it does not use. The implicit and
+  public checks of the package itself fail and are left out (K82).
 
 ## [0.4.0] — 2026-11-03
 

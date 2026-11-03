@@ -118,6 +118,21 @@ end
         BSplineBasis(GeneralMesh([-5.0, -1.0, 0.5, 2.0, 5.0]), 2), 2, 2)
     @test_throws r"^ArgumentError: the velocity basis has 11 functions, an odd number: the parity split needs an even count, so pick N cells with N \+ p even$" build_spline_parity_factors(
         space_basis(Float64, 8, 2), velocity_basis(Float64, 9, 2), 2, 2)
+    # the velocity basis must be clamped: a periodic one has no reflection j ↦ N + 1 - j
+    @test_throws MethodError build_spline_parity_factors(
+        space_basis(Float64, 8, 2), PeriodicBSplineBasis(UniformMesh(8, (-5.0, 5.0)), 2), 2, 2)
+
+    # symmetric to 10 eps(T) v_max: v_max = 5 + 8 eps(T) 5 passes and 5 + 12 eps(T) 5 does
+    # not; both endpoints and the knots in between are exact
+    for T in REAL_ELTYPES
+        vmax(f) = T(5) + f * eps(T) * T(5)
+        knots(f) = GeneralMesh(T[-5, -2.5, 0, 2.5, vmax(f)])
+        @test build_spline_parity_factors(
+            space_basis(T, 8, 2), BSplineBasis(knots(8), 2), 2,
+            2) isa BilinearStiefelLayer
+        @test_throws r"^ArgumentError: the velocity domain \[-5\.0, 5\.0\d+\] is not symmetric: v_min must equal -v_max$" build_spline_parity_factors(
+            space_basis(T, 8, 2), BSplineBasis(knots(12), 2), 2, 2)
+    end
 end
 
 # The latent difference of f(x, v) = (1 + 0.1 cos x) M(v) given as its spline interpolant, its
@@ -174,35 +189,46 @@ end
         range(0.0, 1.0; length = 8), range(-4.75, 5.0; length = 20), 2, 2)
     @test_throws r"^ArgumentError: the velocity grid has 21 points, an odd number: the parity split needs an even count$" build_grid_parity_factors(
         range(0.0, 1.0; length = 8), range(-5.0, 5.0; length = 21), 2, 2)
-    # symmetric to 10 eps relative to v_max: 4 eps passes, 64 eps does not
-    @test build_grid_parity_factors(
-        range(0.0, 1.0; length = 8), range(-5.0, 5.0 + 4eps(5.0); length = 20), 2, 2) isa
-          BilinearStiefelLayer
-    @test_throws ArgumentError build_grid_parity_factors(
-        range(0.0, 1.0; length = 8), range(-5.0, 5.0 + 64eps(5.0); length = 20), 2, 2)
+    # symmetric to 10 eps(T) v_max: v_max = 5 + 8 eps(T) 5 passes and 5 + 12 eps(T) 5 does
+    # not; both endpoints are exact, and `range` keeps them
+    for T in REAL_ELTYPES
+        vgrid(f) = range(T(-5), T(5) + f * eps(T) * T(5); length = 20)
+        @test build_grid_parity_factors(range(zero(T), one(T); length = 8), vgrid(8), 2, 2) isa
+              BilinearStiefelLayer
+        @test_throws r"^ArgumentError: the velocity domain \[-5\.0, 5\.0\d+\] is not symmetric: v_min must equal -v_max$" build_grid_parity_factors(
+            range(zero(T), one(T); length = 8), vgrid(12), 2, 2)
+    end
 
     # The tie writes orthonormal bases into the grid and the low-rank parameters, and refuses a
-    # low-rank layer of other factors and evaluation matrices of another size
-    let N = 16, p = 2, mx = 3, mv = 2
-        bx, bv = space_basis(Float64, N, p), velocity_basis(Float64, N, p)
+    # low-rank layer of other factors, parameters of another size and evaluation matrices of
+    # another size
+    for T in REAL_ELTYPES
+        N, p, mx, mv = 16, 2, 3, 2
+        bx, bv = space_basis(T, N, p), velocity_basis(T, N, p)
         spline = build_spline_parity_factors(bx, bv, mx, mv)
-        gx = range(0.0, 2π; length = N + 1)[1:N]
-        gv = range(-5 + 5 / (2N), 5 - 5 / (2N); length = 2N)
+        gx = range(zero(T), T(2π); length = N + 1)[1:N]
+        gv = range(T(-5 + 5 / (2N)), T(5 - 5 / (2N)); length = 2N)
         grid = build_grid_parity_factors(gx, gv, mx, mv)
         dlra = LowRankStiefelLayer(N, 2N, mx, mv; metric_factors = grid.metric_factors)
         rng = StableRNG(8)
-        ps_s = (Φx = stiefel(rng, Float64, nbasis(bx), mx),
-            Φv = stiefel(rng, Float64, nbasis(bv) ÷ 2, mv))
-        ps_g = (Φx = stiefel(rng, Float64, N, mx), Φv = stiefel(rng, Float64, N, mv))
-        ps_d = (Φx = Matrix(stiefel(rng, Float64, N, mx)),
-            Φv = Matrix(stiefel(rng, Float64, N, mv)))
+        ps_s = (
+            Φx = stiefel(rng, T, nbasis(bx), mx), Φv = stiefel(rng, T, nbasis(bv) ÷ 2, mv))
+        ps_g = (Φx = stiefel(rng, T, N, mx), Φv = stiefel(rng, T, N, mv))
+        ps_d = (Φx = Matrix(stiefel(rng, T, N, mx)), Φv = Matrix(stiefel(rng, T, N, mv)))
         before = Matrix(ps_g.Φx)
         Ex, Ev = evaluation_matrix(bx, gx), evaluation_matrix(bv, gv)
         tie_continuum_frontends!((spline, ps_s), (grid, ps_g), (dlra, ps_d), Ex, Ev)
+        @test eltype(ps_g.Φx) === T && eltype(ps_d.Φv) === T
         @test Matrix(ps_g.Φx) != before
         @test Matrix(ps_g.Φx) == ps_d.Φx && Matrix(ps_g.Φv) == ps_d.Φv
-        @test opnorm(ps_g.Φx' * ps_g.Φx - I) ≤ 100 * eps()
-        @test opnorm(ps_g.Φv' * ps_g.Φv - I) ≤ 100 * eps()
+        @test opnorm(ps_g.Φx' * ps_g.Φx - I) ≤ 100 * eps(T)
+        @test opnorm(ps_g.Φv' * ps_g.Φv - I) ≤ 100 * eps(T)
+        wide = (Φx = Matrix(stiefel(rng, T, N, mx + 1)), Φv = ps_d.Φv)
+        @test_throws r"^DimensionMismatch: ps_dlra\.Φx must have size \(16, 3\); got \(16, 4\)$" tie_continuum_frontends!(
+            (spline, ps_s), (grid, ps_g), (dlra, wide), Ex, Ev)
+        tall = (Φx = ps_g.Φx, Φv = stiefel(rng, T, N + 1, mv))
+        @test_throws r"^DimensionMismatch: ps_grid\.Φv must have size \(16, 2\); got \(17, 2\)$" tie_continuum_frontends!(
+            (spline, ps_s), (grid, tall), (dlra, ps_d), Ex, Ev)
         other = LowRankStiefelLayer(N, 2N, mx, mv)
         @test_throws r"^ArgumentError: the DLRA layer must carry the metric factors of the grid layer$" tie_continuum_frontends!(
             (spline, ps_s), (grid, ps_g), (other, ps_d), Ex, Ev)
@@ -302,6 +328,29 @@ end
     @test_throws r"^ArgumentError: the x modes must share one basis$" dual_parity_modes(
         [xs((cos,)); Spline(bx2, l2_projection(SplineQuadrature(bx2), sin))],
         vs((0,)), vs((1,)), dmaxwellian)
+    # odd modes on another velocity basis of the same size
+    bv2 = velocity_basis(Float64, 20, 3; V = 8)
+    @test_throws r"^ArgumentError: the odd velocity modes must share the basis of the even ones$" dual_parity_modes(
+        xs((cos, sin)), vs((0,)),
+        [Spline(bv2, l2_projection(SplineQuadrature(bv2; nq = 24), hermite(1)))], dmaxwellian)
+
+    for T in REAL_ELTYPES
+        bx, bv = space_basis(T, 16, 3), velocity_basis(T, 20, 3; V = 10)
+        qx, qv = SplineQuadrature(bx), SplineQuadrature(bv; nq = 24)
+        xm = [Spline(bx, l2_projection(qx, f)) for f in (cos, sin)]
+        ev = [Spline(bv, l2_projection(qv, hermite(n))) for n in (0, 2)]
+        c1, c3 = l2_projection(qv, hermite(1)), l2_projection(qv, hermite(3))
+        # odd modes ψ₁⁻ and ψ₁⁻ + δ ψ₃⁻: cond(K_v) ≈ 5/δ, about 2.3 times above 1/(100 eps(T))
+        # at δ = 225 eps(T) and 1.7 times below it at δ = 900 eps(T)
+        od(δ) = [Spline(bv, c1), Spline(bv, c1 .+ δ * eps(T) .* c3)]
+        @test_throws r"^ArgumentError: K_v = ∫ f₀' ψ⁺ ψ⁻ is numerically singular: cond\(K_v\) > 1/\(100 eps\)$" dual_parity_modes(
+            xm, ev, od(225), dmaxwellian)
+        @test size(dual_parity_modes(xm, ev, od(900), dmaxwellian)) ==
+              (nbasis(bx) * nbasis(bv), 4)
+        # a df0 that returns Float64 gives a result of the element type of the modes
+        df64(v) = Float64(dmaxwellian(v))
+        @test eltype(dual_parity_modes(xm, ev, od(900), df64)) === T
+    end
 end
 
 # Particles of density ∝ (1 + 0.5 cos x) e^{-v²/2} on [0, 2π) × (-V, V), with positive weights
@@ -504,11 +553,20 @@ end
     vs = range(-7.75, 7.75; length = 32)
     @test_throws r"^ArgumentError: the x space holds the constant mode k = 0, which has no conjugate: pass the wavenumbers k ≠ 0 only$" kruskal_oberman_free_energy(
         dmaxwellian, vs, [0, 1])
-    @test_throws r"^ArgumentError: f₀' ≥ 0 at a node v > 0: f₀ is not monotone, and the free energy is not defined; use dual_parity_modes for this case$" kruskal_oberman_free_energy(
+    @test_throws r"^ArgumentError: f₀' ≥ 0 at a node v > 0, where the weight -v/f₀' of the free energy must be positive; for a non-monotone f₀ use dual_parity_modes$" kruskal_oberman_free_energy(
         dtwo_stream, vs, [1, 2])
     # f₀' = 0 at the nodes v > 7 is refused as well
-    @test_throws r"^ArgumentError: f₀' ≥ 0 at a node v > 0: f₀ is not monotone, and the free energy is not defined; use dual_parity_modes for this case$" kruskal_oberman_free_energy(
+    @test_throws r"^ArgumentError: f₀' ≥ 0 at a node v > 0, where the weight -v/f₀' of the free energy must be positive; for a non-monotone f₀ use dual_parity_modes$" kruskal_oberman_free_energy(
         v -> abs(v) > 7 ? zero(v) : dmaxwellian(v), vs, [1, 2])
+    # k and -k span the same modes, so each |k| occurs once
+    for ks in ([1, 1], [1, -1], [2, 1, -2])
+        @test_throws r"^ArgumentError: the wavenumbers repeat a mode: k and -k give the same modes cos kx, sin kx, so each \|k\| may occur once$" kruskal_oberman_free_energy(
+            dmaxwellian, vs, ks)
+    end
+    # a negative wavenumber alone is a mode of its own, with the free energy of |k|
+    C = randn(StableRNG(9), 4, 32) .* maxwellian.(vs)'
+    @test kruskal_oberman_free_energy(dmaxwellian, vs, [-1, 2])(C).value ≈
+          kruskal_oberman_free_energy(dmaxwellian, vs, [1, 2])(C).value rtol = 8 * eps()
     @test_throws r"^ArgumentError: the velocity grid has 31 points, an odd number: the parity split needs an even count$" kruskal_oberman_free_energy(
         dmaxwellian, range(-7.5, 7.5; length = 31), [1])
     @test_throws r"^ArgumentError: the velocity domain \[-7\.75, 8\.0\] is not symmetric: v_min must equal -v_max$" kruskal_oberman_free_energy(
