@@ -648,3 +648,14 @@ has left the file, or that lived only on a merged branch, stays taken.
   basis per parity in the layers.
 - **kind:** found late
 - **found:** 2026-11-03
+
+### K84 · `kruskal_oberman_free_energy` accepts an empty x space and returns a free energy with no modes.
+
+- **location:** `ext/MultiModalAutoEncoderExt.jl`
+- **evidence:** `kruskal_oberman_free_energy` refuses the wavenumber `k = 0` and a repeated `|k|`,
+  and no guard refuses an empty `wavenumbers`. `kruskal_oberman_free_energy(dmaxwellian,
+  range(-7.75, 7.75; length = 32), Int[])` returns a `KruskalObermanFreeEnergy` whose `k` is
+  empty, so its coefficient matrices have zero rows. An `ArgumentError` for an empty x space, or
+  a docstring sentence that allows it, closes this.
+- **kind:** found late
+- **found:** 2026-11-03

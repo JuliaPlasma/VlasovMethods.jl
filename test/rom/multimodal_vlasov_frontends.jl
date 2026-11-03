@@ -340,16 +340,17 @@ end
         xm = [Spline(bx, l2_projection(qx, f)) for f in (cos, sin)]
         ev = [Spline(bv, l2_projection(qv, hermite(n))) for n in (0, 2)]
         c1, c3 = l2_projection(qv, hermite(1)), l2_projection(qv, hermite(3))
-        # odd modes ψ₁⁻ and ψ₁⁻ + δ ψ₃⁻: cond(K_v) ≈ 5/δ, about 2.3 times above 1/(100 eps(T))
-        # at δ = 225 eps(T) and 1.7 times below it at δ = 900 eps(T)
+        # odd modes ψ₁⁻ and ψ₁⁻ + δ eps(T) ψ₃⁻: cond(K_v) · 100 eps(T) is 1.259 (Float32) and
+        # 1.255 (Float64) at δ = 410, and 0.796 and 0.793 at δ = 650, so the two cases bracket
+        # the threshold 1/(100 eps(T)) to within about 25 %
         od(δ) = [Spline(bv, c1), Spline(bv, c1 .+ δ * eps(T) .* c3)]
         @test_throws r"^ArgumentError: K_v = ∫ f₀' ψ⁺ ψ⁻ is numerically singular: cond\(K_v\) > 1/\(100 eps\)$" dual_parity_modes(
-            xm, ev, od(225), dmaxwellian)
-        @test size(dual_parity_modes(xm, ev, od(900), dmaxwellian)) ==
+            xm, ev, od(410), dmaxwellian)
+        @test size(dual_parity_modes(xm, ev, od(650), dmaxwellian)) ==
               (nbasis(bx) * nbasis(bv), 4)
         # a df0 that returns Float64 gives a result of the element type of the modes
         df64(v) = Float64(dmaxwellian(v))
-        @test eltype(dual_parity_modes(xm, ev, od(900), df64)) === T
+        @test eltype(dual_parity_modes(xm, ev, od(650), df64)) === T
     end
 end
 
