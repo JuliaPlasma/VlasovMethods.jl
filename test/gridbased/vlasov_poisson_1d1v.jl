@@ -305,7 +305,7 @@ end
 
         @test which(VM._grid_1d1v_rhs!, typeof((ḟ, 0.0, q, params))) !=
               which(VM._grid_1d1v_rhs!, typeof((ḟd, 0.0, qd, params)))
-        @test !haskey(params.cache.caches, VM._cachehash(eltype(qd)))
+        @test !haskey(params.cache.caches, eltype(qd))
         @test @inferred(VM._grid_1d1v_rhs!(ḟd, 0.0, qd, params)) === ḟd
         # the first call of the type builds the cache of that type, in that type
         cache = params.cache[eltype(qd)]

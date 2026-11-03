@@ -600,7 +600,8 @@ has left the file, or that lived only on a merged branch, stays taken.
   element type: `rhs[j] += w * buf[t]` (`:28`) in one velocity dimension and
   `rhs[idx...] += val` (`:55`) in several, once per particle. The particle sums of
   `compute_coefficients` and `compute_coefficients_rclb` use compensated summation, and the
-  right-hand sides did not change with it. Probe on `32dbd62`, Julia 1.13, 17 cubic `Free`
+  right-hand sides did not change with it. Probe on `32dbd62`, and again on `6dc3a9f` with the
+  same figures, Julia 1.13, 17 cubic `Free`
   basis functions on `(-2, 2)`, velocities uniform on `(-2, 2)` from `StableRNG(20261102)`, equal
   weights `1/N`, a `Float64` model: `max|v̇32 − v̇64| / max|v̇64|` of the `Float32` state against
   the `Float64` state is 2.7e-6 (`LenardBernstein`), 3.2e-6 (`ConservativeLenardBernstein`) and
