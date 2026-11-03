@@ -265,9 +265,11 @@ end
         B, _ = bracket_quadrature(bx64, bv64, f0, G, E)
         QP, _ = bracket_quadrature(bx64, bv64, f0, G, Float64.(H))
         PP, _ = bracket_quadrature(bx64, bv64, f0, Float64.(H), Float64.(H))
-        _, Boo = bracket_quadrature(bx64, bv64, f0, E, E)
+        # A_oo = ∫∫ |f₀| (|∂ₓe ∂ᵥe'| + |∂ᵥe ∂ₓe'|) on the odd modes e: the scale of the
+        # round-off in {P, P}, since the bracket B_oo itself is zero by parity
+        _, Aoo = bracket_quadrature(bx64, bv64, f0, E, E)
         @test opnorm(QP - I) ≤ 100 * eps(T) * cond(B)
-        @test opnorm(PP) ≤ 100 * eps(T) * opnorm(inv(B))^2 * opnorm(Boo)
+        @test opnorm(PP) ≤ 100 * eps(T) * opnorm(inv(B))^2 * opnorm(Aoo)
         # the even modes paired with the L²-orthonormal odd modes are far from canonical
         @test opnorm(B - I) > 1
     end
@@ -276,6 +278,18 @@ end
     qx, qv = SplineQuadrature(bx), SplineQuadrature(bv; nq = 24)
     xs(fs) = [Spline(bx, l2_projection(qx, f)) for f in fs]
     vs(ns) = [Spline(bv, l2_projection(qv, hermite(n))) for n in ns]
+
+    # the keyword nq reaches the quadrature of K_v: two nodes per cell are too few, and the
+    # dual modes fail the bound on {Q, P} above
+    xm, ev, od = xs((cos, sin, x -> cos(2x), x -> sin(2x))), vs((0, 2, 4)), vs((1, 3, 5))
+    X = reduce(hcat, coefficients.(xm))
+    G = kron(reduce(hcat, coefficients.(ev)), X)
+    B, _ = bracket_quadrature(
+        bx, bv, maxwellian, G, kron(reduce(hcat, coefficients.(od)), X))
+    QP, _ = bracket_quadrature(
+        bx, bv, maxwellian, G, dual_parity_modes(xm, ev, od, dmaxwellian; nq = 2))
+    @test opnorm(QP - I) > 100 * eps() * cond(B)
+
     @test_throws r"^ArgumentError: an x mode is constant: ∂x is not invertible on the x space$" dual_parity_modes(
         xs((x -> 1.0, cos, sin)), vs((0, 2)), vs((1, 3)), dmaxwellian)
     @test_throws r"^ArgumentError: ∂x is singular on the x space: each cos mx needs its sin mx$" dual_parity_modes(
@@ -384,6 +398,11 @@ end
         dep_keep = klimontovich_deposition(
             space_basis(T, 16, p), velocity_basis(T, 16, p; V = 6), keep)
         @test dep(x, out) ≈ dep_keep(x, v) rtol = 100 * eps(T)
+        # the x basis must be periodic and the v basis clamped
+        @test_throws MethodError klimontovich_deposition(
+            velocity_basis(T, 16, p), velocity_basis(T, 16, p; V = 6), w)
+        @test_throws MethodError klimontovich_deposition(
+            space_basis(T, 16, p), space_basis(T, 16, p), w)
     end
 
     # (b) the truncation error E_h of the bracket of φ and ψ falls at order p + 1/2 or better
