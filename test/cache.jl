@@ -41,7 +41,8 @@ end
     end
 
     # The key is the element type alone, so a model built on one thread finds its parent from
-    # another. CI runs with two threads, where the spawned task runs on the other thread.
+    # another. CI runs with two threads, where the main task runs on the interactive thread and
+    # the spawned task on a default thread.
     @testset "$(nameof(M)) finds its parent from another thread" for M in (
         LenardBernstein, ConservativeLenardBernstein,
         RescaledConservativeLenardBernstein, MetriplecticLenardBernstein)
