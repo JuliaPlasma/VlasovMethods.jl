@@ -1,9 +1,17 @@
-struct RCLBCache{T, PT <: ParticleDistribution, ST <: SplineDistribution{T}} <: Cache{T}
+# The particles, the spline and the work arrays of a rescaled conservative Lenard–Bernstein
+# right-hand side in the element type `T` of a state, as `LBCache` holds them. A cache belongs
+# to one task.
+struct RCLBCache{T, PT <: ParticleDistribution, ST <: SplineDistribution{T}, VT} <: Cache{T}
     pdist::PT
     sdist::ST
 
+    rhs::Vector{T}
+    values::VT
+
     function RCLBCache{T}(pdist, sdist) where {T}
-        new{T, typeof(pdist), typeof(sdist)}(pdist, sdist)
+        values = _local_buffers(sdist.basis, T)
+        new{T, typeof(pdist), typeof(sdist), typeof(values)}(
+            pdist, sdist, zeros(T, nbasis(sdist.basis)), values)
     end
 end
 
@@ -11,7 +19,7 @@ function RCLBCache(pdist::ParticleDistribution{T}, sdist::SplineDistribution{T})
     RCLBCache{T}(pdist, sdist)
 end
 
-@collision_cache RCLBCache
+@collision_cache RCLBCache buffers
 
 struct RescaledConservativeLenardBernstein{
     XD, VD, DT <: DistributionFunction{<:Any, XD, VD}, ET <: Entropy, T, CT <: CacheDict} <:
@@ -31,7 +39,7 @@ struct RescaledConservativeLenardBernstein{
 end
 
 @doc raw"""
-    compute_coefficients_rclb(distribution, particle_dist, vp)
+    compute_coefficients_rclb(distribution, particle_dist, vp[, values])
 
 The coefficients of the **rescaled** parametrisation, in which the coefficient of ``v`` is
 normalised to one:
@@ -47,37 +55,47 @@ fixed-coefficient cumulant-scaling experiment of the manuscript appendix, which 
 coefficients by hand rather than solving for them.
 
 The particle weights appear in every sum, for the reason given at
-[`compute_coefficients`](@ref).
+[`compute_coefficients`](@ref), and `values` is the buffer of the point evaluations as there.
 """
 function compute_coefficients_rclb(
         distribution::SplineDistribution, particle_dist::ParticleDistribution,
-        vp::AbstractArray{VT}) where {VT}
+        vp::AbstractArray{VT},
+        values::AbstractVector = _local_buffers(
+            distribution.basis, promote_type(eltype(distribution.spline), VT))) where {VT}
     w = particle_dist.particles.w
     fs = distribution.spline
-    dfs = derivative(fs)
 
     n = zero(VT)
     nu = zero(VT)
     neps = zero(VT)
-    B1 = zero(VT)
-    B2 = zero(VT)
+    # the sums of `f_s'/f_s` take the type of the buffer where it is wider than that of the state
+    BT = promote_type(VT, eltype(values))
+    B1 = zero(BT)
+    B2 = zero(BT)
+
+    # the error carried by each running sum, in the type of the sum
+    εn = zero(VT)
+    εnu = zero(VT)
+    εneps = zero(VT)
+    εB1 = zero(BT)
+    εB2 = zero(BT)
 
     for α in eachindex(vp)
-        wα = w[1, α]
+        wα = VT(w[1, α])
         vα = vp[α]
-        fα = fs(vα)
+        fα = evaluate!(values, fs, vα)
 
         fα > 0 || throw(DomainError(fα,
             "the projected distribution is non-positive at v = $(vα); see " *
             "the positivity note in `compute_coefficients`"))
 
-        n += wα
-        nu += wα * vα
-        neps += wα * vα^2
+        n, εn = compensated_summation(n, wα, εn)
+        nu, εnu = compensated_summation(nu, wα * vα, εnu)
+        neps, εneps = compensated_summation(neps, wα * vα^2, εneps)
 
-        g = dfs(vα) / fα
-        B1 += wα * g
-        B2 += wα * vα * g
+        g = evaluate!(values, fs, vα, 1) / fα
+        B1, εB1 = compensated_summation(B1, wα * g, εB1)
+        B2, εB2 = compensated_summation(B2, wα * vα * g, εB2)
     end
 
     den = nu * B1 - n * B2
@@ -99,14 +117,18 @@ end
 # was being used as the multiplier of f'/f and A₂ᶜᵒⁿˢ = 1/σ² as the constant drift, giving a
 # vector field with no conservation property at all.
 function RCLB_rhs_GI!(v, t, q::AbstractArray{ST}, params) where {ST}
-    dist = params.model.cache[ST].sdist
+    (; sdist, rhs, values) = params.model.cache[ST]
 
-    fs = projection(q, params.idist, dist)
-    dfdv = derivative(fs)
+    fs = _projection!(rhs, values, q, params.idist, sdist)
 
-    A = compute_coefficients_rclb(dist, params.idist, q)
+    A1, A2 = compute_coefficients_rclb(sdist, params.idist, q, values)
 
-    v .= -params.ν .* (A[1] .* dfdv.(q) ./ fs.(q) .+ (A[2] .+ q))
+    for α in eachindex(v, q)
+        qα = q[α]
+        v[α] = -params.ν *
+               (A1 * evaluate!(values, fs, qα, 1) / evaluate!(values, fs, qα) + (A2 + qα))
+    end
+    return v
 end
 
 # used for plotting
@@ -120,7 +142,9 @@ function RCLB_rhs(v::AbstractVector{ST}, params, fs::Spline) where {ST}
     return -params.ν .* (A[1] .* dfdv.(v) ./ fs.(v) .+ (A[2] .+ v))
 end
 
-function GeometricIntegrator(model::RescaledConservativeLenardBernstein, tspan::Tuple, tstep::Real)
+# The velocity space is 1D, in any spatial dimension: a scalar velocity and one weight per particle.
+function GeometricIntegrator(
+        model::RescaledConservativeLenardBernstein{<:Any, 1}, tspan::Tuple, tstep::Real)
     # collect parameters
     # params = (ϕ = model.potential, model = model)
     params = (ν = model.ν, idist = model.dist, fdist = model.ent.dist, model = model)

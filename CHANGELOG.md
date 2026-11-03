@@ -179,6 +179,14 @@ their own, except for what they removed and narrowed, which is listed in full be
 
 ### Bug Fixes
 
+- **`GeometricIntegrator` of a 2D conservative Lenard–Bernstein model is refused.** The
+  `GeometricIntegrator(model, tspan, tstep)` methods of `ConservativeLenardBernstein` and of
+  `RescaledConservativeLenardBernstein` dispatch on `{<:Any, 1}`: a 1D velocity space and any
+  spatial dimension, so a 0D1V model builds its integrator. For a 2D velocity space they built a
+  1D ODE on `v[1, :]` and silently ignored the second velocity component, so the run finished with
+  a wrong answer and no error. A 2D velocity space raises a `MethodError`. A 1D1V model is
+  unchanged.
+
 - **`initialize!(dist, BumpOnTail())` draws.** Both `draw!` methods of the bump-on-tail example
   bound `ParticleDistribution{1, 1}`, whose first parameter is the element type, so no 1D1V
   distribution matched them and the call raised a `MethodError`. They now take a 1D1V
@@ -193,9 +201,108 @@ their own, except for what they removed and narrowed, which is listed in full be
   allocates 0 bytes, where the allocating form allocated 8 800 bytes (Float32, 16 × 64 grid) up to
   264 096 bytes (Float64, 64 × 256). Per call it is as fast as or faster than the allocating form
   at every measured size, and the results do not change. A state of another element type, such as
-  the `ForwardDiff.Dual` numbers of the implicit midpoint's Jacobian, keeps the allocating method.
-  Two concurrent calls on one `params` are unsafe, because they share the buffers. The bound of
-  `GeometricBrackets` rises from `0.2` to `0.3`, the first release with `poisson_apply!`.
+  the `ForwardDiff.Dual` numbers of the implicit midpoint's Jacobian, takes buffers of its own
+  type, as the next entry says. Two concurrent calls on one `params` are unsafe, because they share
+  the buffers. The bound of `GeometricBrackets` rises from `0.2` to `0.3`, the first release with
+  `poisson_apply!`.
+
+- **The Lenard–Bernstein right-hand sides and the grid right-hand side of a `Dual` state allocate
+  nothing (K45).** `LB_rhs_GI!`, `CLB_rhs_GI!` and `RCLB_rhs_GI!` projected the particles with the
+  allocating `projection`, and evaluated `f_s` and `f_s'` with the allocating point evaluation of
+  SimpleSplines: two evaluations per particle in `LB_rhs_GI!`, four in the other two, of which
+  `compute_coefficients` and `compute_coefficients_rclb` made two. The cache of each model
+  holds the load vector and the evaluation buffer in the element type of the state, the projection
+  runs through `_projection!`, and each evaluation through SimpleSplines' `evaluate!`.
+  `LenardBernstein` gets a cache of the same form, and the two coefficient functions take the
+  buffer as an optional fourth argument; without it, they allocate one. The grid right-hand side
+  of a state of another element type than the distribution's, such as the `ForwardDiff.Dual`
+  numbers of the implicit midpoint's Jacobian, takes its buffers from `params.cache`, a
+  `CacheDict` that builds them on the first call of a type. `LB_rhs!` keeps the allocating path.
+  Two results change outside the model's own element type. `LenardBernstein` on particles and a
+  spline of different element types, such as `Float32` particles and a `Float64` spline, raises a
+  `MethodError` at construction, as the two conservative models already did; at `5d3c427` it
+  built. A state of another element type than the model's, such as a `Float32` state on a
+  `Float64` model, is projected and evaluated in the state's type, where `5d3c427` promoted to the
+  model's; the right-hand sides then differ by at most 2.1e-6 of their largest value on 256
+  particles and by at most 3.4e-5 on 2000. Bytes of one call after a warm call, in a cold process
+  on Julia 1.13.3, at `5d3c427` and with this change:
+
+  | right-hand side | state | size | `5d3c427` | this change |
+  |:--|:--|:--|--:|--:|
+  | `LB_rhs_GI!` | `Float64` | N = 256, 2000 | 49 472, 384 320 | 0, 0 |
+  | `LB_rhs_GI!` | `Float32` | N = 256, 2000 | 41 184, 320 224 | 0, 0 |
+  | `CLB_rhs_GI!`, `RCLB_rhs_GI!` | `Float64` | N = 256, 2000 | 98 624, 768 320 | 0, 0 |
+  | `CLB_rhs_GI!`, `RCLB_rhs_GI!` | `Float32` | N = 256, 2000 | 82 144, 640 224 | 0, 0 |
+  | `CLB_rhs_GI!`, `RCLB_rhs_GI!` | `Dual{Nothing, Float64, 12}` | N = 256, 2000 | 494 624, 3 843 104 | 0, 0 |
+  | `_grid_1d1v_rhs!` | `Dual{Nothing, Float64, 12}` | 16 × 64, 64 × 256 | 235 120, 3 429 792 | 0, 0 |
+  | `_grid_1d1v_rhs!` | `Dual{Nothing, Float32, 12}` | 16 × 64, 64 × 256 | 134 080, 1 715 104 | 0, 0 |
+
+  A `Float32` state on a `Float64` model allocates 0 bytes per call in `CLB_rhs_GI!` and
+  `RCLB_rhs_GI!`. `compute_coefficients` and `compute_coefficients_rclb` convert each weight to the
+  state's element type, so they return `Float32` coefficients, inferred concretely. Their particle
+  sums use compensated summation (`GeometricBase.Utils.compensated_summation`) in that type, so
+  that on 2000 particles of equal weight the coefficients of a `Float32` state differ from sums in
+  `BigFloat` by at most 8 ulp of `Float32`, where plain sums differ by 2e-5; the right-hand sides
+  of a `Float64` state differ from those of a `BigFloat` state by at most 6e-14 of their largest
+  value.
+
+  `@collision_cache` gives every cache it generates the element type of its spline (K45).
+  `CacheDict` stores its parent under that type, and `CLBCache`, `RCLBCache` and `MLBCache` had
+  none, so the first lookup of the parent's type built a second cache, and the three
+  Lenard–Bernstein operators projected into that cache's copy of the spline. The lookup
+  returns the parent, so they project into the spline of the entropy, as `Landau` does. The
+  `evaluate!` of SimpleSplines is new in SimpleSplines 0.4.
+
+- **The Landau vector field allocates only its two least-squares solves, and
+  `Picard_iterate_Landau_nls!` no longer prints (K43).** `LandauCache` now holds every buffer of
+  one evaluation of `collisional_vectorfield!`: the gradient tabulations of its quadrature grid,
+  which it builds once where `compute_L!` built them on every call, the kernel blocks and the
+  factors of `compute_L!`, the sample and the workspace of `compute_J!`, the evaluation buffers
+  of `compute_K!`, and the load array and the mass workspace of the particle projection, which
+  runs through a new in-place `_projection!` for a velocity space of more than one dimension.
+  Each point evaluation goes through SimpleSplines' `evaluate!`. `compute_L!`, `compute_J!`,
+  `compute_K!` and the projection then allocate nothing. The two solves `K1 \ LJ` and `K2 \ LJ`
+  keep LAPACK's pivots, reflectors, workspace and result, and factorise a copy of `K` held in the
+  cache with the pivoted QR. Where the number of particles is the number of basis functions
+  (Np == M), `K` is square: `\` took an LU factorisation there and the solve now takes the pivoted
+  QR, and the bound "no more than its two least-squares solves" holds only for Np ≠ M. Because
+  `compute_J!` and `compute_L!` read the buffers and tabulations of the cache's quadrature grid,
+  each raises an `ArgumentError` for an `sdist` whose quadrature is not the cache's, where it built
+  its result on that distribution's grid before. The Picard step takes its iterate from the cache,
+  keeps its guess and its five iterates in histories of fixed length, and writes the residual of
+  each iterate as a `@debug` message rather than to `stdout`; K43 is removed. The guess of its first
+  three steps asserts the type of its `ODEProblem`, as `_mlb_startup_guess!` does, so `extrapolate!`
+  no longer dispatches at run time. `compute_L!` loses its `chunk` keyword: the kernel blocks are
+  the cache's, `_LANDAU_CHUNK = 256` rows high, or `Q` where `Q < 256`.
+  The gradient tabulations are `SparseMatrixCSC`, with a few stored entries per grid point, and so
+  are the factors `X = D diag(s)` of `compute_L!`, which have the pattern of `D`: `compute_L!`
+  rescales their stored values in place. The first term of `L` is accumulated from the stored
+  entries of `D` straight into `L`, and the coupled term multiplies the sparse factors with the
+  kernel block column by column, so the cache holds no dense `M × Q` factor and no `M × M` block
+  for them. VlasovMethods now depends on the standard library `SparseArrays`. At `M = 361`,
+  `compute_L!` takes 1.27 s, against 3.50 s and 126 MB per call at the base of the branch; it now
+  allocates nothing, and its results agree with the base to about `1e-15` relative. Each timing is
+  the median of nine calls in a cold process on Julia 1.13.3, `--check-bounds=auto`, with a cubic
+  clamped basis and 24 × 24 particles; the two processes ran one after the other, on a machine at
+  load average 10 to 13.
+  A `Landau` on a velocity space of one dimension, which no method of `compute_L!` accepted, now
+  raises a `MethodError` at construction. The vector field matches its reference at the
+  tolerance of the collision tests, `64 * eps`. Bytes of one call after a warm call, in a cold
+  process on Julia 1.13.3, on a cubic clamped basis of 8 × 8 cells, at `b512046` and with this
+  change; the solves column is the bytes of `K1 \ LJ` plus `K2 \ LJ` on the same matrices:
+
+  | call | type | particles | `b512046` | now | solves |
+  |:--|:--|:--|--:|--:|--:|
+  | `collisional_vectorfield!` | `Float64` | 256, 576 | 23 141 840, 24 497 616 | 894 368, 1 627 552 | 1 418 816, 2 774 592 |
+  | `collisional_vectorfield!` | `Float32` | 256, 576 | 13 506 368, 14 203 648 | 450 112, 819 712 | 712 416, 1 409 696 |
+  | `Picard_iterate_Landau_nls!`, `ti = 4` | `Float64`, `Float32` | 256 | 138 938 784, 81 083 264 | 5 416 544, 2 726 432 | |
+  | `Picard_iterate_Landau_nls!`, `ti = 1` | `Float64`, `Float32` | 256 | 995 285 824, 580 885 296 | 38 591 216, 19 431 984 | |
+
+  A step from the fourth on allocates its six vector fields, its histories of 49 920 bytes
+  (`Float64`) and 416 bytes more.
+
+  The commented-out `# println("projection")` of `collisional_vectorfield!` goes with the call
+  it named, so K47 counts twelve such lines in three files.
 
 - **`Picard_iterate_over_particles` checks its arguments before it writes.** Before this release, a
   history with one row too few let the solve run, wrote column 2 of the history, and only then
@@ -230,12 +337,12 @@ their own, except for what they removed and narrowed, which is listed in full be
   floors could not be resolved together. GeometricOptimizers 0.9, the HNN extension's, requires
   SimpleSolvers 0.14.2 as well.
 
-- **`[compat] PoissonSolvers` rises from `0.6` to `0.6.1`, and `SimpleSplines` from `0.3.1` to
-  `0.3.5`.** At PoissonSolvers 0.6.0 the FFT solver's call to `plan_rfft` is ambiguous between
-  FFTW 1.10 and FFTA 0.3.2, which CairoMakie brings in through KernelDensity, so every grid
-  Vlasov–Poisson test throws a `MethodError` when both are loaded. SimpleSplines up to 0.3.4 makes
-  the same call in its periodic mass operator, which `Potential(PeriodicBasisSpline(…))` reaches.
-  PoissonSolvers 0.6.1 and SimpleSplines 0.3.5 plan the transform by `invoke` on FFTW's method.
+- **`[compat] SimpleSplines` is `"0.4"`, from `"0.3.1"`; `PoissonSolvers` rises from `"0.6"` to
+  `"0.6.2"`, and `GeometricBrackets` from `"0.3"` to `"0.3.2"`.** SimpleSplines 0.4 is the first
+  release with the caller-buffer `evaluate!`, and PoissonSolvers 0.6.2 and GeometricBrackets 0.3.2
+  are the first releases of theirs that admit it. In SimpleSplines 0.4 a `Float64` spline
+  evaluated at a `Float32` point returns a `Float32`; a caller that evaluates a spline of this
+  package's results at a narrower point gets the precision of the point.
 
 ### Internal
 
@@ -264,6 +371,18 @@ their own, except for what they removed and narrowed, which is listed in full be
   has left the file, or that lived only on a merged branch, is not given again.
   "The next `K<n>`" read as the next number after the highest one left in the file, and that
   reuses a deleted ID.
+
+- **The advections, the moments, the external-field vector fields and the collision-tensor index
+  are asserted type-stable and allocation-free.** A test asserts `@inferred` and `== 0` bytes, in
+  `Float32` and `Float64`, for `v_advection!` and `s_advection!` at 256 particles, for the value
+  `h(t, x, params)` of `AnalyticHamiltonian` at a state of 512 entries, and for the six velocity
+  moments `_apply_∫dv!`, `_apply_∫dvᵀ!`, `_apply_∫dv_μ!`, `_apply_∫dvᵀ_μ!`, `_apply_∫vdv!` and
+  `_apply_∫v²dv!` on grids of `16 × 64` and `64 × 256`. It asserts `== 0` bytes for `v_drift!`
+  and `v_lorentz!` at 256 particles in a `UniformField`, whose inference was already asserted,
+  and both halves for the `getindex` of `CollisionTensor` at three `CartesianIndex`es, which was
+  reached only through the `getindex` of `ReducedCollisionTensor`. Each reading is the minimum of
+  three through a barrier of fixed arity, after a warm call and an `@inferred` call, beside a
+  positive control on the same barrier, and does not run under coverage. No source file changes.
 
 ## [0.3.0] — 2026-10-16
 

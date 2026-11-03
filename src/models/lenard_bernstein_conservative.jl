@@ -1,9 +1,16 @@
-struct CLBCache{T, PT <: ParticleDistribution, ST <: SplineDistribution{T}} <: Cache{T}
+# The particles, the spline and the work arrays of a conservative Lenard–Bernstein right-hand
+# side in the element type `T` of a state, as `LBCache` holds them. A cache belongs to one task.
+struct CLBCache{T, PT <: ParticleDistribution, ST <: SplineDistribution{T}, VT} <: Cache{T}
     pdist::PT
     sdist::ST
 
+    rhs::Vector{T}
+    values::VT
+
     function CLBCache{T}(pdist, sdist) where {T}
-        new{T, typeof(pdist), typeof(sdist)}(pdist, sdist)
+        values = _local_buffers(sdist.basis, T)
+        new{T, typeof(pdist), typeof(sdist), typeof(values)}(
+            pdist, sdist, zeros(T, nbasis(sdist.basis)), values)
     end
 end
 
@@ -11,7 +18,7 @@ function CLBCache(pdist::ParticleDistribution{T}, sdist::SplineDistribution{T}) 
     CLBCache{T}(pdist, sdist)
 end
 
-@collision_cache CLBCache
+@collision_cache CLBCache buffers
 
 struct ConservativeLenardBernstein{
     XD, VD, DT <: DistributionFunction{<:Any, XD, VD}, ET <: Entropy, T, CT <: CacheDict} <:
@@ -59,7 +66,7 @@ struct ConservativeLenardBernstein{
 end
 
 @doc raw"""
-    compute_coefficients(distribution, particle_dist, vp)
+    compute_coefficients(distribution, particle_dist, vp[, values])
 
 The coefficients ``A_1``, ``A_2`` of the conservative Lenard-Bernstein drift, from the
 requirement that the operator conserve momentum and energy:
@@ -80,6 +87,15 @@ n_h \varepsilon_h &= \textstyle\sum_\alpha w_\alpha v_\alpha^2 ,
 solved by Cramer's rule. This is `eq:coefficient_lin_system` of the Lenard-Bernstein
 manuscript.
 
+`values` is the buffer of the point evaluations of ``f_s`` and ``f_s'``: `local_width` entries
+of an element type that holds the evaluations, such as the `values` of the model's cache of
+the element type of `vp`. With it the call allocates nothing; without it, the call allocates
+one. A buffer belongs to one task.
+
+The sums run in the element type of `vp`, or in the wider type of `values` where it is wider,
+with compensated summation, so that a `Float32` state with `Float32` buffers returns `Float32`
+coefficients whose sums are exact to a few ulp of that type.
+
 !!! note "The particle weights belong in every sum"
     They were absent from all five of them. Both the matrix and the right-hand side are linear
     in ``w``, so for **uniform** weights the factor cancels and ``A_1, A_2`` come out
@@ -91,21 +107,31 @@ manuscript.
 """
 function compute_coefficients(
         distribution::SplineDistribution, particle_dist::ParticleDistribution,
-        vp::AbstractArray{VT}) where {VT}
+        vp::AbstractArray{VT},
+        values::AbstractVector = _local_buffers(
+            distribution.basis, promote_type(eltype(distribution.spline), VT))) where {VT}
     w = particle_dist.particles.w
     fs = distribution.spline
-    dfs = derivative(fs)
 
     n = zero(VT)
     nu = zero(VT)
     neps = zero(VT)
-    B1 = zero(VT)
-    B2 = zero(VT)
+    # the sums of `f_s'/f_s` take the type of the buffer where it is wider than that of the state
+    BT = promote_type(VT, eltype(values))
+    B1 = zero(BT)
+    B2 = zero(BT)
+
+    # the error carried by each running sum, in the type of the sum
+    εn = zero(VT)
+    εnu = zero(VT)
+    εneps = zero(VT)
+    εB1 = zero(BT)
+    εB2 = zero(BT)
 
     for α in eachindex(vp)
-        wα = w[1, α]
+        wα = VT(w[1, α])
         vα = vp[α]
-        fα = fs(vα)
+        fα = evaluate!(values, fs, vα)
 
         # f_s is an L² projection of a particle distribution, so it undershoots into negative
         # values where the sampling is thin and is exactly zero in cells with no particles.
@@ -123,13 +149,13 @@ function compute_coefficients(
             "distribution undershoots where the sampling is thin. Use more particles, a " *
             "coarser spline basis, or a positivity-preserving projection."))
 
-        n += wα
-        nu += wα * vα
-        neps += wα * vα^2
+        n, εn = compensated_summation(n, wα, εn)
+        nu, εnu = compensated_summation(nu, wα * vα, εnu)
+        neps, εneps = compensated_summation(neps, wα * vα^2, εneps)
 
-        g = dfs(vα) / fα
-        B1 -= wα * g
-        B2 -= wα * vα * g
+        g = evaluate!(values, fs, vα, 1) / fα
+        B1, εB1 = compensated_summation(B1, -(wα * g), εB1)
+        B2, εB2 = compensated_summation(B2, -(wα * vα * g), εB2)
     end
 
     Δ = n * neps - nu^2
@@ -170,14 +196,18 @@ which is `eq:velocity_ode` of the Lenard-Bernstein manuscript **with the opposit
     time.
 """
 function CLB_rhs_GI!(v, t, q::AbstractArray{ST}, params) where {ST}
-    dist = params.model.cache[ST].sdist
+    (; sdist, rhs, values) = params.model.cache[ST]
 
-    fs = projection(q, params.idist, dist)
-    dfdv = derivative(fs)
+    fs = _projection!(rhs, values, q, params.idist, sdist)
 
-    A = compute_coefficients(dist, params.idist, q)
+    A1, A2 = compute_coefficients(sdist, params.idist, q, values)
 
-    v .= -params.ν .* (dfdv.(q) ./ fs.(q) .+ (A[1] .+ A[2] .* q))
+    for α in eachindex(v, q)
+        qα = q[α]
+        v[α] = -params.ν *
+               (evaluate!(values, fs, qα, 1) / evaluate!(values, fs, qα) + (A1 + A2 * qα))
+    end
+    return v
 end
 
 # used for plotting
@@ -191,7 +221,9 @@ function CLB_rhs(v::AbstractVector{ST}, params, fs::Spline) where {ST}
     return -params.ν .* (dfdv.(v) ./ fs.(v) .+ (A[1] .+ A[2] .* v))
 end
 
-function GeometricIntegrator(model::ConservativeLenardBernstein, tspan::Tuple, tstep::Real)
+# The velocity space is 1D, in any spatial dimension: a scalar velocity and one weight per particle.
+function GeometricIntegrator(
+        model::ConservativeLenardBernstein{<:Any, 1}, tspan::Tuple, tstep::Real)
     # collect parameters
     # params = (ϕ = model.potential, model = model)
     params = (ν = model.ν, idist = model.dist, fdist = model.ent.dist, model = model)

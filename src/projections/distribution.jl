@@ -62,6 +62,18 @@ function _local_buffers(B::TensorProductBasis{T, D}, ::Type{VT}) where {T, D, VT
     ntuple(k -> zeros(VT, local_width(bases(B)[k])), Val(D))
 end
 
+# The concrete type of `_local_buffers(basis, VT)`, from the types alone, so that the cache
+# lookup in `CacheDict` stays inferable for a cache that holds those buffers.
+_buffer_type(::Type{VT}, ::Type{<:AbstractBSplineBasis}) where {VT} = Vector{VT}
+function _buffer_type(::Type{VT}, ::Type{<:TensorProductBasis{T, D}}) where {VT, T, D}
+    NTuple{D, Vector{VT}}
+end
+function _buffer_type(::Type{VT}, ::SplineDistribution{
+        DT, XD, VD, ST, BT}) where {
+        VT, DT, XD, VD, ST, BT}
+    _buffer_type(VT, BT)
+end
+
 # Whether a point lies in the domain the basis resolves. A periodic axis has no outside: an
 # argument is reduced onto the domain before evaluation, so every particle contributes.
 _axis_in_domain(b::PeriodicBSplineBasis, x) = true
@@ -128,10 +140,22 @@ function projection(velocities::AbstractMatrix{VT},
         dist::ParticleDistribution{PT, XD, VD},
         final_dist::SplineDistribution{ST, XD, VD}) where {VT, PT, ST, XD, VD}
     B = final_dist.basis
-    rhs = zeros(VT, size(B)...)
-    bufs = _local_buffers(B, VT)
+    _projection!(zeros(VT, size(B)...), _local_buffers(B, VT),
+        mass_workspace(mass_operator(final_dist), ST), velocities, dist, final_dist)
+end
+
+# The projection onto a velocity space of `VD > 1` dimensions against the caller's work arrays:
+# `rhs` of the size of the basis, which takes the load array, `bufs` of the local widths of its
+# axes, and `work` from `mass_workspace` of the distribution's mass operator, of the element
+# type of its coefficients. `rhs` is zeroed before the deposit, so a caller can pass the same
+# arrays to every call.
+function _projection!(rhs::AbstractArray, bufs::Tuple, work, velocities::AbstractMatrix,
+        dist::ParticleDistribution{PT, XD, VD},
+        final_dist::SplineDistribution{ST, XD, VD}) where {PT, ST, XD, VD}
+    B = final_dist.basis
     w = dist.particles.w
 
+    fill!(rhs, zero(eltype(rhs)))
     escaped = 0
     for p in axes(velocities, 2)
         v = view(velocities, :, p)
@@ -143,7 +167,7 @@ function projection(velocities::AbstractMatrix{VT},
     end
     _check_escaped(escaped, size(velocities, 2), B)
 
-    mass_solve!(final_dist.coefficients, mass_operator(final_dist), rhs)
+    mass_solve!(final_dist.coefficients, mass_operator(final_dist), rhs, work)
     return final_dist.spline
 end
 
