@@ -120,8 +120,8 @@ const BASE_EXPORTS = Symbol[
 # `CHANGELOG.md` bullet.
 const REMOVED_EXPORTS = Symbol[:CLB_rhs, Symbol("DiffEq", "Integrator"), :LB_rhs, :run]
 
-# The names the unreleased section records. Each is the bold lead of its `[Unreleased]`
-# bullet, so a name that ships without a line in the record fails here.
+# The names the newest section records. Each is the bold lead of its bullet there, so a name that
+# ships without a line in the record fails here.
 const NEW_EXPORTS = Symbol[
     :ScaledField,
     :best_and_worst,
@@ -155,12 +155,13 @@ const NEW_EXPORTS = Symbol[
     end
 end
 
-@testset "The unreleased section" begin
+@testset "The newest section" begin
     changelog = read(joinpath(pkgdir(VlasovMethods), "CHANGELOG.md"), String)
 
-    # The section stands above every release heading, so a reader meets it first.
-    @test occursin("## [Unreleased] — targeting 0.4.0", changelog)
-    @test first(eachmatch(r"^## \[([^\]]+)\]"m, changelog)).captures[1] == "Unreleased"
+    # The newest section stands above every other, so a reader meets it first: the unreleased
+    # section, or the section of the version that `Project.toml` declares.
+    newest = first(eachmatch(r"^## \[([^\]]+)\]"m, changelog)).captures[1]
+    @test newest in ("Unreleased", string(pkgversion(VlasovMethods)))
     for name in NEW_EXPORTS
         @test occursin("- **`" * string(name) * "`", changelog)
         @test name in names(VlasovMethods)

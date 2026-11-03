@@ -327,29 +327,50 @@ their own, except for what they removed and narrowed, which is listed in full be
 
 ### Breaking Changes
 
-- **`[compat] julia` rises from 1.11 to 1.12.** Pkg no longer resolves the package on Julia 1.11.
-  Nothing in `src/` changes.
+- **`[compat]` bounds narrowed since 0.3.0.** Seven entries lost versions between `v0.3.0` and
+  this release, so a manifest that resolved against one of the dropped versions has to move with
+  them:
 
-- **`[compat] ReducedComplexityModeling` is `"0.5"`, from `"0.1.1"`, and `ReducedBasisMethods` is
-  `"0.4"`, from `"0.2.1"`.** ReducedBasisMethods 0.4 is the first release that binds
-  ReducedComplexityModeling 0.5; 0.2 and 0.3 bind 0.1, so the two bounds move together, and
-  `scripts/Project.toml` takes ReducedComplexityModeling `0.5` with them. `ParameterSpace`,
-  `h5save` and `h5load` are ReducedComplexityModeling's, so a caller moves across its breaking
-  releases 0.2 to 0.5. An HDF5 round trip of a `ReducedBasis` or of `Snapshots` keeps the written
-  order of its parameters now, where ReducedComplexityModeling 0.1 returned them in alphabetical
-  order.
+  | entry | `v0.3.0` | `0.4.0` |
+  |:--|:--|:--|
+  | `julia` | `1.11` | `1.12` |
+  | `GeometricBrackets` | `0.2` | `0.3.2` |
+  | `PoissonSolvers` | `0.6` | `0.6.2` |
+  | `ReducedBasisMethods` | `0.2.1` | `0.4` |
+  | `ReducedComplexityModeling` | `0.1.1` | `0.5` |
+  | `SimpleSolvers` | `0.14.1` | `0.14.2` |
+  | `SimpleSplines` | `0.3.1` | `0.4` |
 
-- **`[compat] SimpleSolvers` rises from `0.14.1` to `0.14.2`.** SimpleSolvers 0.14.1 bounds
-  `NeuralNetworkParameters` to 0.4, and ReducedComplexityModeling 0.5 requires 0.5, so the old
-  floors could not be resolved together. GeometricOptimizers 0.9, the HNN extension's, requires
-  SimpleSolvers 0.14.2 as well.
+  The entries that joined `[compat]` in the same interval, `AbstractNeuralNetworks`,
+  `GeometricOptimizers` and `SparseArrays`, have no row. No export of `v0.3.0` is removed.
 
-- **`[compat] SimpleSplines` is `"0.4"`, from `"0.3.1"`; `PoissonSolvers` rises from `"0.6"` to
-  `"0.6.2"`, and `GeometricBrackets` from `"0.3"` to `"0.3.2"`.** SimpleSplines 0.4 is the first
-  release with the caller-buffer `evaluate!`, and PoissonSolvers 0.6.2 and GeometricBrackets 0.3.2
-  are the first releases of theirs that admit it. In SimpleSplines 0.4 a `Float64` spline
-  evaluated at a `Float32` point returns a `Float32`; a caller that evaluates a spline of this
-  package's results at a narrower point gets the precision of the point.
+  Pkg no longer resolves the package on Julia 1.11; nothing in `src/` branches on the version.
+  `GeometricBrackets` 0.3 is the first release with `poisson_apply!`, which the grid right-hand
+  side calls. ReducedBasisMethods 0.4 is the first release that binds ReducedComplexityModeling
+  0.5; 0.2 and 0.3 bind 0.1, so the two bounds move together, and `scripts/Project.toml` takes
+  ReducedComplexityModeling `0.5` with them. `ParameterSpace`, `h5save` and `h5load` are
+  ReducedComplexityModeling's, so a caller moves across its breaking releases 0.2 to 0.5. An HDF5
+  round trip of a `ReducedBasis` or of `Snapshots` keeps the written order of its parameters now,
+  where ReducedComplexityModeling 0.1 returned them in alphabetical order. SimpleSolvers 0.14.1
+  bounds `NeuralNetworkParameters` to 0.4, and ReducedComplexityModeling 0.5 requires 0.5, so the
+  old floors could not be resolved together; GeometricOptimizers 0.9, the HNN extension's,
+  requires SimpleSolvers 0.14.2 as well. SimpleSplines 0.4 is the first release with the
+  caller-buffer `evaluate!`, and PoissonSolvers 0.6.2 and GeometricBrackets 0.3.2 are the first
+  releases of theirs that admit it. In SimpleSplines 0.4 a `Float64` spline evaluated at a
+  `Float32` point returns a `Float32`; a caller that evaluates a spline of this package's results
+  at a narrower point gets the precision of the point.
+
+- **Calls that behave differently.** Each is described in its entry above:
+  - `compute_L!` loses its `chunk` keyword, and `compute_L!` and `compute_J!` raise an
+    `ArgumentError` for an `sdist` whose quadrature is not the cache's, where they built the result
+    on that distribution's grid (the Landau entry).
+  - `LenardBernstein` on particles and a spline of different element types raises a `MethodError`
+    at construction, where it built (K45).
+  - A Lenard–Bernstein right-hand side of a state of another element type than the model's, such
+    as a `Float32` state on a `Float64` model, is computed in the state's type, where it was
+    promoted to the model's (K45, K81).
+  - `GeometricIntegrator` of a conservative Lenard–Bernstein model with a 2D velocity space raises
+    a `MethodError`, where it built a 1D ODE and ignored the second velocity component.
 
 ### Internal
 
