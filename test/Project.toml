@@ -30,9 +30,10 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 VlasovMethods = "4a954452-39e6-424b-ae51-38fc4bbc42ef"
 
 [compat]
-# Up to 0.8.13 the piracy check reads the field `mt` of `Core.TypeName`, which Julia 1.12 does
-# not have; 0.8.14 is the first Aqua that runs on Julia 1.12.
-Aqua = "0.8.14"
+# 0.8.14 is the first Aqua whose piracy check runs on Julia 1.12, which has no `TypeName.mt`; 0.8.17
+# gives the persistent-tasks subprocess the versions the tests load, and 0.8.18 passes where the
+# manifest lists a weak dependency that is not installed.
+Aqua = "0.8.18"
 # Test-only: `src/` does not call it. The bound carries both the 0.10 line and `1`, as
 # `GeometricProblems` and `NeuralNetworkParameters` do. It supplies the `Dual` numbers that check
 # 3's gradient assertions and the inference probe use. 0.10.36 is the floor that Symbolics 7, a
