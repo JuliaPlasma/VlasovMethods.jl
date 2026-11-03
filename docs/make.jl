@@ -17,6 +17,7 @@ makedocs(;
     pages = [
         "Home" => "index.md",
         "Projections" => "projections.md",
+        "Multi-modal autoencoder frontends" => "rom.md",
         "The paper's examples" => "paper.md"
     ]
 )

@@ -235,4 +235,15 @@ include("hnn.jl")
 
 export train_hnn
 
+# The Vlasov frontends of the multi-modal symplectic autoencoder: the parity layers of a spline
+# and of a grid, their tie, the dual parity modes, the Klimontovich deposition and its bridge
+# loss, and the Kruskal–Oberman free energy. Their methods are a package extension, so this
+# declares and exports them, and nothing here loads `GeometricMachineLearning`.
+
+include("rom/multimodal.jl")
+
+export build_spline_parity_factors, build_grid_parity_factors, tie_continuum_frontends!,
+       dual_parity_modes, klimontovich_deposition, klimontovich_bridge_loss,
+       kruskal_oberman_free_energy
+
 end

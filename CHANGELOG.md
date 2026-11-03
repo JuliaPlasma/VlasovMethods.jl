@@ -15,9 +15,64 @@ makes it worth keeping. The 69 commits from `v0.2.1` to this file's first commit
 their own, except for what they removed and narrowed, which is listed in full below against
 `v0.2.1`: four exports leave `names(VlasovMethods)` and eight `[compat]` entries lost versions.
 
-## [Unreleased]
+## [Unreleased] — targeting 0.4.1
+
+### New Features
+
+The Vlasov frontends of a multi-modal symplectic autoencoder join as the package extension
+`MultiModalAutoEncoderExt`, which loads with `GeometricMachineLearning` 0.9. The seven functions
+below are exported from `src/` with no methods; the extension defines them and the types they
+return, so loading the package alone does not load `GeometricMachineLearning`.
+
+- **`build_spline_parity_factors`.** `build_spline_parity_factors(basis_x, basis_v, mx, mv)`
+  returns a `BilinearStiefelLayer` of a tensor-product spline whose decoded modes are orthonormal
+  in the mass matrices, with `metric_factors = (R_x, R_v)`. `R_x` is the upper Cholesky factor of
+  `M_x`; `R_v = Sᵀ(R⁺ ⊕ R⁻)S` is a square-root factor of `M_v` built from the Cholesky factors of
+  its two parity blocks, because a triangular factor of the whole `M_v` does not commute with the
+  velocity reflection, and an even latent state would decode to a function that is not even. The
+  velocity basis is a clamped `BSplineBasis`. A velocity basis that is not symmetric about
+  `v = 0`, or that has an odd number `N + p` of functions, is refused with an `ArgumentError`.
+
+- **`build_grid_parity_factors`.** `build_grid_parity_factors(grid_x, grid_v, mx, mv)` returns
+  the layer of a uniform phase-space grid, with the factors `√Δx` and `√Δv`, so that each value
+  carries `√(Δx Δv)`. A velocity grid that is not symmetric, or that has an odd number of nodes,
+  is refused.
+
+- **`tie_continuum_frontends!`.** Sets the bases of a grid layer and of a `LowRankStiefelLayer`
+  from those of a spline layer, through the nodal evaluation matrices `E_x` and `E_v`. A function
+  given as a spline, as its grid values or as a low-rank factorisation of them maps to the same
+  latent state up to the quadrature error of the grid: for `(1 + 0.1 cos x) M(v)` the difference
+  falls at a fitted order of at least `p + 0.5` over 16 to 129 cells. The velocity bases are tied
+  through the even modes, so the odd coordinates agree at a lower order (K83).
+
+- **`dual_parity_modes`.** `dual_parity_modes(x_modes, even_v, odd_v, df0)` returns the odd
+  modes `h = e B⁻¹`, `B = -D_x ⊗ K_v`, for which the Vlasov bracket linearised at `f₀(v)` is
+  canonical on the even and odd coordinates. It holds for the Maxwellian and for the two-stream
+  equilibrium `v² M(v)`. Odd modes on another basis than the even ones, x modes on a non-periodic
+  basis, a constant spatial mode, a `cos mx` without its `sin mx`, unequal even and odd dimensions
+  and a numerically singular `K_v` each raise an `ArgumentError` that names the condition.
+
+- **`klimontovich_deposition`.** Deposits weighted particles on a tensor-product spline space
+  and returns the coefficients `M_x⁻¹ c M_v⁻¹` of the `L²` projection of the Klimontovich
+  density, not the moments `c`.
+
+- **`klimontovich_bridge_loss`.** The relative latent discrepancy between a particle frontend
+  and the spline frontend applied to the deposited coefficients.
+
+- **`kruskal_oberman_free_energy`.** `kruskal_oberman_free_energy(df0, grid_v, wavenumbers)`
+  returns the Kruskal–Oberman free energy of the linearised Vlasov–Poisson equations at a
+  monotone `f₀`, on spatial Fourier modes and a symmetric velocity grid, with its gradient and the
+  vector field of the skew operator `[0 𝒜; 𝒜 0]`, `𝒜 = f₀' ∂ₓ`, which is the linearised
+  Vlasov–Poisson right-hand side. An empty `wavenumbers`, a wavenumber `0`, two wavenumbers of the
+  same `|k|` and an `f₀` with `v f₀'(v) ≥ 0` at any node are refused; the last message names
+  `dual_parity_modes`, the construction for a non-monotone `f₀`.
 
 ### Internal
+
+- **The GeometricOptimizers floor is 0.9.2.** The `[compat]` floor of `GeometricOptimizers`, a weak
+  dependency of the HNN extension, is `0.9.2`, not `0.9.1`. GeometricMachineLearning 0.9.0, the only
+  0.9 release, requires `0.9.2 - 0.9`, so the lower-bound check cannot resolve `0.9.1`. An
+  environment that holds `GeometricOptimizers` at `0.9.1` does not resolve this version.
 
 - **The test project's bounds hold at the merged downgrade check.** The CI Downgrade job resolves
   `Project.toml` and `test/Project.toml` together at their lower bounds and runs the tests there.
@@ -31,6 +86,11 @@ their own, except for what they removed and narrowed, which is listed in full be
   `unhandled LimitedAccuracy` in the analysis of `Picard_iterate_over_particles!`;
   `OffsetArrays = "1.14"`, because 1.13.0 redefines `Base.fill` on Julia 1.12 and the packages
   that load it fail to precompile; `SafeTestsets = "0.1"`; and `StableRNGs = "0.1, 1"`.
+
+- **ExplicitImports joins the suite.** `test/quality/explicit_imports.jl` checks that the
+  package lists no stale explicit import, and that the extension `MultiModalAutoEncoderExt`
+  imports every name explicitly, from its owner, and none it does not use. The implicit and
+  public checks of the package itself fail and are left out (K82).
 
 ## [0.4.0] — 2026-11-03
 

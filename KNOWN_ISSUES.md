@@ -616,3 +616,35 @@ has left the file, or that lived only on a merged branch, stays taken.
   not measured.
 - **kind:** not verified
 - **found:** #101
+
+### K82 · The package module relies on 79 implicit imports, and imports names that their modules do not declare public.
+
+- **location:** `src/VlasovMethods.jl`
+- **evidence:** with ExplicitImports 1.15.0 and `GeometricMachineLearning` loaded,
+  `check_no_implicit_imports(VlasovMethods)` raises an `ImplicitImportsException`, and
+  `explicit_imports(VlasovMethods)` lists 79 names for the package module: those of the `using`
+  lines of `HDF5`, `LinearAlgebra`, `Parameters`, `ParticleMethods`, `PoissonSolvers`,
+  `ProgressMeter`, `Random`, `SimpleSplines`, `Sobol`, `SpecialFunctions` and `StaticArrays`.
+  `check_all_qualified_accesses_are_public(VlasovMethods)` names `Base.Callable`
+  (`src/examples/bump.jl`), `SimpleSplines.ContractWorkspace` (`src/models/landau.jl`) and
+  `HDF5.H5DataStore`, and `check_all_explicit_imports_are_public(VlasovMethods)` names
+  `TanhActivation` of `ext/VlasovMethodsHNNExt.jl`. `test/quality/explicit_imports.jl` checks
+  the stale imports and the owners of the package, and the implicit, stale, owner and public
+  checks of `MultiModalAutoEncoderExt`, and leaves the implicit and public checks of the package
+  out, with a comment that names this entry.
+- **kind:** defect
+- **found:** 2026-11-03
+
+### K83 · The odd latent coordinates of the tied grid and low-rank frontends agree with the spline frontend at a lower order than the even ones.
+
+- **location:** `ext/MultiModalAutoEncoderExt.jl`
+- **evidence:** `BilinearStiefelLayer` and `LowRankStiefelLayer` share one velocity basis between
+  the even and the odd coordinates, and the spline factor applies `R⁺` to the even half and `R⁻`
+  to the odd half, with `R⁺ ≠ R⁻` near `v = 0`. `tie_continuum_frontends!` therefore ties the
+  velocity bases through the even modes. Probe at `p = 3`, `V = 8`, with the modes of
+  `tie_errors` in `test/rom/multimodal_vlasov_frontends.jl` and `f = (1 + 0.1 cos x) v M(v)`:
+  `‖p_spline − p_grid‖` is 2.8e-2, 7.8e-3, 2.0e-3 and 5.1e-4 at `N = 17, 33, 65, 129`, an order
+  of 2, where the even coordinates of `(1 + 0.1 cos x) M(v)` reach a fitted order of 4.3. A tie
+  of both parities needs a velocity basis per parity in the layers.
+- **kind:** found late
+- **found:** 2026-11-03
