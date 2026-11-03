@@ -39,11 +39,10 @@ Aqua = "0.8.18"
 # Test-only: `src/` does not call it. 1.15 is the release the import checks of
 # `test/quality/explicit_imports.jl` are written against.
 ExplicitImports = "1.15"
-# Test-only: `src/` does not call it. The bound carries both the 0.10 line and `1`, as
-# `GeometricProblems` and `NeuralNetworkParameters` do. It supplies the `Dual` numbers that check
-# 3's gradient assertions and the inference probe use. 0.10.36 is the floor that Symbolics 7, a
-# dependency of ElectromagneticFields 0.9, sets on ForwardDiff.
-ForwardDiff = "0.10.36, 1"
+# Test-only: `src/` does not call it. It supplies the `Dual` numbers that check 3's gradient
+# assertions and the inference probe use. `1` is the floor that GeometricMachineLearning 0.6 and
+# later set on ForwardDiff; the multi-modal autoencoder tests load the 0.9 line.
+ForwardDiff = "1"
 # Test-only: `src/` does not call it. 0.6.6 is the first GeometricSolutions with the HDF5
 # extension that defines the `EnsembleSolution` methods of `h5save` and `h5load`.
 GeometricSolutions = "0.6.6"
