@@ -262,7 +262,7 @@ function kruskal_oberman_free_energy(df0, grid_v::AbstractRange{T},
                             "number: the parity split needs an even count"))
     v = collect(grid_v)
     f = T.(df0.(v))
-    all(q -> v[q] * f[q] < 0, eachindex(v)) ||
+    all(q -> v[q] < 0 < f[q] || f[q] < 0 < v[q], eachindex(v)) ||
         throw(ArgumentError("v f₀'(v) ≥ 0 at a node, where the weight -v/f₀' of the free " *
                             "energy must be positive; for a non-monotone f₀ use dual_parity_modes"))
     k = T.(repeat(wavenumbers; inner = 2))

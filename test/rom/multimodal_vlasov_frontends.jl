@@ -571,6 +571,9 @@ end
         @test_throws r"^ArgumentError: v f₀'\(v\) ≥ 0 at a node, where the weight -v/f₀' of the free energy must be positive; for a non-monotone f₀ use dual_parity_modes$" kruskal_oberman_free_energy(
             df0, vs, [1, 2])
     end
+    # the signs are compared, not multiplied: v f₀' = 1f-46 underflows to zero in Float32
+    Hs = kruskal_oberman_free_energy(v -> -v, range(-1.0f-23, 1.0f-23; length = 4), [1])
+    @test Hs.w0 ≈ ones(Float32, 4) rtol = 8 * eps(Float32)
     # k and -k span the same modes, so each |k| occurs once
     for ks in ([1, 1], [1, -1], [2, 1, -2])
         @test_throws r"^ArgumentError: the wavenumbers repeat a mode: k and -k give the same modes cos kx, sin kx, so each \|k\| may occur once$" kruskal_oberman_free_energy(
