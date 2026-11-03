@@ -30,13 +30,27 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 VlasovMethods = "4a954452-39e6-424b-ae51-38fc4bbc42ef"
 
 [compat]
+# 0.8.14 is the first Aqua whose piracy check runs on Julia 1.12, which has no `TypeName.mt`; 0.8.17
+# gives the persistent-tasks subprocess the versions the tests load, and 0.8.18 passes where the
+# manifest lists a weak dependency that is not installed.
+Aqua = "0.8.18"
 # Test-only: `src/` does not call it. The bound carries both the 0.10 line and `1`, as
 # `GeometricProblems` and `NeuralNetworkParameters` do. It supplies the `Dual` numbers that check
-# 3's gradient assertions and the inference probe use.
-ForwardDiff = "0.10, 1"
+# 3's gradient assertions and the inference probe use. 0.10.36 is the floor that Symbolics 7, a
+# dependency of ElectromagneticFields 0.9, sets on ForwardDiff.
+ForwardDiff = "0.10.36, 1"
 # Test-only: `src/` does not call it. 0.6.6 is the first GeometricSolutions with the HDF5
 # extension that defines the `EnsembleSolution` methods of `h5save` and `h5load`.
 GeometricSolutions = "0.6.6"
+# 0.10.0 is the first JET whose own `[compat]` admits Julia 1.12, but its captured-variable check
+# calls `widenconst` on a `LimitedAccuracy` type and errors on the `Picard_iterate_over_particles!`
+# probe; 0.10.1 is the first JET that applies `ignorelimited` there.
+JET = "0.10.1, 0.11, 0.12, 0.13"
+# 1.14.0 is the first OffsetArrays that does not redefine `Base.fill` on Julia 1.12; 1.13.0 does,
+# and the packages that load it then fail to precompile.
+OffsetArrays = "1.14"
+SafeTestsets = "0.1"
+StableRNGs = "0.1, 1"
 
 [sources]
 VlasovMethods = {path = ".."}
