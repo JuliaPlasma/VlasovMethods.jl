@@ -203,8 +203,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   at every measured size, and the results do not change. A state of another element type, such as
   the `ForwardDiff.Dual` numbers of the implicit midpoint's Jacobian, takes buffers of its own
   type, as the next entry says. Two concurrent calls on one `params` are unsafe, because they share
-  the buffers. The bound of `GeometricBrackets` rises from `0.2` to `0.3`, the first release with
-  `poisson_apply!`.
+  the buffers. `GeometricBrackets` 0.3 is the first release with `poisson_apply!`; the bound is
+  `0.3.2` (Breaking Changes).
 
 - **The Lenard–Bernstein right-hand sides and the grid right-hand side of a `Dual` state allocate
   nothing (K45).** `LB_rhs_GI!`, `CLB_rhs_GI!` and `RCLB_rhs_GI!` projected the particles with the
@@ -367,10 +367,18 @@ their own, except for what they removed and narrowed, which is listed in full be
   - `LenardBernstein` on particles and a spline of different element types raises a `MethodError`
     at construction, where it built (K45).
   - A Lenard–Bernstein right-hand side of a state of another element type than the model's, such
-    as a `Float32` state on a `Float64` model, is computed in the state's type, where it was
-    promoted to the model's (K45, K81).
+    as a `Float32` state on a `Float64` model, is computed in the state's type: `LB_rhs_GI!`
+    whole, and the coefficients of `CLB_rhs_GI!` and `RCLB_rhs_GI!`, which promoted to the type of
+    the weights (K45, K81).
   - `GeometricIntegrator` of a conservative Lenard–Bernstein model with a 2D velocity space raises
     a `MethodError`, where it built a 1D ODE and ignored the second velocity component.
+  - `Landau` on a velocity space of one dimension raises a `MethodError` at construction, where it
+    built.
+  - `Picard_iterate_over_particles` throws an `ArgumentError` for a `vn` or `vn_minus_one` that
+    shares memory with `dv_history`, where it returned and overwrote the caller's array.
+  - A model and its caches, and the `params` of the grid model, belong to one task. Two threads
+    that evaluate one of them at once share its buffers and get wrong results with no error, where
+    `v0.3.0` kept a collision cache per thread and the grid right-hand side allocated.
 
 ### Internal
 
