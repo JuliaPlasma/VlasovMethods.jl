@@ -26,6 +26,8 @@ if "core" in GROUPS
     @safetestset "SODE Ensemble" include("integration/sodeensemble.jl")
     @safetestset "Names" include("integration/names.jl")
     @safetestset "Collisions" include("gridbased/collisions.jl")
+    @safetestset "Moments" include("gridbased/moments.jl")
+    @safetestset "Vlasov–Poisson Advection" include("models/vlasov_poisson.jl")
     @safetestset "Plotting extension" include("integration/makie_extension.jl")
     @safetestset "Grid 1D1V Vlasov–Poisson" include("gridbased/vlasov_poisson_1d1v.jl")
     @safetestset "Snapshots" include("particles/snapshots.jl")

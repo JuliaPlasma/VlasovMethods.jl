@@ -95,6 +95,9 @@ function _alloc_call3(f::F, a::A, b::B, c::C) where {F, A, B, C}
     (f(a, b, c); @allocated f(a, b, c))
 end
 _alloc_call1(f::F, a::A) where {F, A} = (f(a); @allocated f(a))
+function _alloc_call4(f::F, a::A, b::B, c::C, d::D) where {F, A, B, C, D}
+    (f(a, b, c, d); @allocated f(a, b, c, d))
+end
 
 @testset "Collisions" begin
     # every test below runs in Float32 and Float64 with nx ≠ nv and nv ≥ 3
@@ -214,6 +217,28 @@ _alloc_call1(f::F, a::A) where {F, A} = (f(a); @allocated f(a))
             @test _alloc_getindex(ct, 1, 2, 3) == 0
             @test _alloc_getindex(rt, 1, 2, 1) == 0
             @test _alloc_call1(collect, v) > 0   # the control: the barrier sees an allocation
+        end
+
+        @testset "the CartesianIndex getindex of CollisionTensor is inferred and allocates nothing" begin
+            # The reading follows a warm call and an `@inferred` call at the same argument types,
+            # and is the minimum of three readings through the barrier of four arguments.
+            # Coverage instrumentation allocates on every counted line, so the assertion does not
+            # run under it rather than being weakened.
+            nx, nv = 3, 5
+            v = collect(range(T(-3), T(3); length = nv))
+            hv = (v[end] - v[1]) / (nv - 1)
+            qc = VlasovMethods.QuadraticCollisions(nx, nv, one(T) / nx, hv, v)
+            ct = VlasovMethods.CollisionTensor(T, nx, nv, qc)
+            I, J, K = CartesianIndex(2, 3), CartesianIndex(2, 2), CartesianIndex(2, 4)
+
+            ct[I, J, K]
+            @test @inferred(ct[I, J, K]) isa T
+            @test ct[I, J, K] == qc(I, J, K)
+            if Base.JLOptions().code_coverage == 0
+                @test minimum(_ -> _alloc_call4(getindex, ct, I, J, K), 1:3) == 0
+            end
+            # the control: the barrier sees an allocation
+            @test _alloc_call4((x, I, J, K) -> collect(Tuple(I)), ct, I, J, K) > 0
         end
 
         @testset "the invariants of the two forms" begin

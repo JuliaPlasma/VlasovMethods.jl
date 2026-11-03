@@ -361,6 +361,18 @@ their own, except for what they removed and narrowed, which is listed in full be
   "The next `K<n>`" read as the next number after the highest one left in the file, and that
   reuses a deleted ID.
 
+- **The advections, the moments, the external-field vector fields and the collision-tensor index
+  are asserted type-stable and allocation-free.** A test asserts `@inferred` and `== 0` bytes, in
+  `Float32` and `Float64`, for `v_advection!` and `s_advection!` at 256 particles, for the value
+  `h(t, x, params)` of `AnalyticHamiltonian` at a state of 512 entries, and for the six velocity
+  moments `_apply_∫dv!`, `_apply_∫dvᵀ!`, `_apply_∫dv_μ!`, `_apply_∫dvᵀ_μ!`, `_apply_∫vdv!` and
+  `_apply_∫v²dv!` on grids of `16 × 64` and `64 × 256`. It asserts `== 0` bytes for `v_drift!`
+  and `v_lorentz!` at 256 particles in a `UniformField`, whose inference was already asserted,
+  and both halves for the `getindex` of `CollisionTensor` at three `CartesianIndex`es, which was
+  reached only through the `getindex` of `ReducedCollisionTensor`. Each reading is the minimum of
+  three through a barrier of fixed arity, after a warm call and an `@inferred` call, beside a
+  positive control on the same barrier, and does not run under coverage. No source file changes.
+
 ## [0.3.0] — 2026-10-16
 
 ### Bug Fixes
