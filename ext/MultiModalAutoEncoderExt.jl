@@ -140,6 +140,9 @@ function dual_parity_modes(x_modes::AbstractVector{<:Spline},
         throw(ArgumentError("the even and odd velocity spaces have dimensions " *
                             "$(length(even_v)) and $(length(odd_v)): they must be equal"))
     bx, Φx = _modes(x_modes, "x")
+    # B = -D_x ⊗ K_v drops the boundary term of the integration by parts in x.
+    bx isa PeriodicBSplineBasis ||
+        throw(ArgumentError("the x modes must be on a periodic basis"))
     bv, Ψp = _modes(even_v, "even velocity")
     bm, Ψm = _modes(odd_v, "odd velocity")
     bm == bv ||
@@ -245,6 +248,8 @@ end
 
 function kruskal_oberman_free_energy(df0, grid_v::AbstractRange{T},
         wavenumbers::AbstractVector{<:Integer}) where {T}
+    isempty(wavenumbers) &&
+        throw(ArgumentError("the wavenumbers are empty: the x space needs at least one mode"))
     any(iszero, wavenumbers) &&
         throw(ArgumentError("the x space holds the constant mode k = 0, which has no " *
                             "conjugate: pass the wavenumbers k ≠ 0 only"))
@@ -257,8 +262,8 @@ function kruskal_oberman_free_energy(df0, grid_v::AbstractRange{T},
                             "number: the parity split needs an even count"))
     v = collect(grid_v)
     f = T.(df0.(v))
-    all(q -> v[q] ≤ 0 || f[q] < 0, eachindex(v)) ||
-        throw(ArgumentError("f₀' ≥ 0 at a node v > 0, where the weight -v/f₀' of the free " *
+    all(q -> v[q] * f[q] < 0, eachindex(v)) ||
+        throw(ArgumentError("v f₀'(v) ≥ 0 at a node, where the weight -v/f₀' of the free " *
                             "energy must be positive; for a non-monotone f₀ use dual_parity_modes"))
     k = T.(repeat(wavenumbers; inner = 2))
     return KruskalObermanFreeEnergy(k, v, T(step(grid_v)), f, -v ./ f)
@@ -274,12 +279,11 @@ function (H::KruskalObermanFreeEnergy)(C::AbstractMatrix)
     value = (kinetic + dot(ρ, Φ)) / 2
     # δH/δf = w₀ δf + Φ, the gradient with respect to `C` divided by the node weight
     U = C .* H.w0' .+ Φ
-    gradient = H.Δv .* U
     # The skew operator [0 𝒜; 𝒜 0] on the parity parts of δH/δf: 𝒜 = f₀' ∂ₓ maps the odd part
     # to the rate of δf⁺ and the even part to the rate of δf⁻, since f₀' is odd. 𝒜 is linear, so
     # the rate of δf = δf⁺ + δf⁻ is 𝒜 applied to the whole of δH/δf.
     rhs = _advect(H, U)
-    return (value = value, gradient = gradient, rhs = rhs)
+    return (value = value, gradient = U .*= H.Δv, rhs = rhs)
 end
 
 # 𝒜 U = f₀'(v) ∂ₓ U on the rows cos kx, sin kx: ∂ₓ takes the pair (a, b) to (k b, -k a).

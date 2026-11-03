@@ -328,6 +328,11 @@ end
     @test_throws r"^ArgumentError: the x modes must share one basis$" dual_parity_modes(
         [xs((cos,)); Spline(bx2, l2_projection(SplineQuadrature(bx2), sin))],
         vs((0,)), vs((1,)), dmaxwellian)
+    # x modes on a clamped basis
+    bxc = BSplineBasis(UniformMesh(16, (0.0, 2π)), 3)
+    @test_throws r"^ArgumentError: the x modes must be on a periodic basis$" dual_parity_modes(
+        [Spline(bxc, l2_projection(SplineQuadrature(bxc), f)) for f in (cos, sin)],
+        vs((0, 2)), vs((1, 3)), dmaxwellian)
     # odd modes on another velocity basis of the same size
     bv2 = velocity_basis(Float64, 20, 3; V = 8)
     @test_throws r"^ArgumentError: the odd velocity modes must share the basis of the even ones$" dual_parity_modes(
@@ -554,11 +559,18 @@ end
     vs = range(-7.75, 7.75; length = 32)
     @test_throws r"^ArgumentError: the x space holds the constant mode k = 0, which has no conjugate: pass the wavenumbers k ≠ 0 only$" kruskal_oberman_free_energy(
         dmaxwellian, vs, [0, 1])
-    @test_throws r"^ArgumentError: f₀' ≥ 0 at a node v > 0, where the weight -v/f₀' of the free energy must be positive; for a non-monotone f₀ use dual_parity_modes$" kruskal_oberman_free_energy(
+    @test_throws r"^ArgumentError: the wavenumbers are empty: the x space needs at least one mode$" kruskal_oberman_free_energy(
+        dmaxwellian, vs, Int[])
+    @test_throws r"^ArgumentError: v f₀'\(v\) ≥ 0 at a node, where the weight -v/f₀' of the free energy must be positive; for a non-monotone f₀ use dual_parity_modes$" kruskal_oberman_free_energy(
         dtwo_stream, vs, [1, 2])
-    # f₀' = 0 at the nodes v > 7 is refused as well
-    @test_throws r"^ArgumentError: f₀' ≥ 0 at a node v > 0, where the weight -v/f₀' of the free energy must be positive; for a non-monotone f₀ use dual_parity_modes$" kruskal_oberman_free_energy(
+    # f₀' = 0 at the nodes |v| > 7 is refused as well
+    @test_throws r"^ArgumentError: v f₀'\(v\) ≥ 0 at a node, where the weight -v/f₀' of the free energy must be positive; for a non-monotone f₀ use dual_parity_modes$" kruskal_oberman_free_energy(
         v -> abs(v) > 7 ? zero(v) : dmaxwellian(v), vs, [1, 2])
+    # the sign of f₀' is checked on v < 0 too: f₀' = -|v| and f₀' = 0 there are refused
+    for df0 in (v -> -abs(v), v -> v < 0 ? zero(v) : dmaxwellian(v))
+        @test_throws r"^ArgumentError: v f₀'\(v\) ≥ 0 at a node, where the weight -v/f₀' of the free energy must be positive; for a non-monotone f₀ use dual_parity_modes$" kruskal_oberman_free_energy(
+            df0, vs, [1, 2])
+    end
     # k and -k span the same modes, so each |k| occurs once
     for ks in ([1, 1], [1, -1], [2, 1, -2])
         @test_throws r"^ArgumentError: the wavenumbers repeat a mode: k and -k give the same modes cos kx, sin kx, so each \|k\| may occur once$" kruskal_oberman_free_energy(

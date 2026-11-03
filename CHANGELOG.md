@@ -48,9 +48,9 @@ return, so loading the package alone does not load `GeometricMachineLearning`.
 - **`dual_parity_modes`.** `dual_parity_modes(x_modes, even_v, odd_v, df0)` returns the odd
   modes `h = e B⁻¹`, `B = -D_x ⊗ K_v`, for which the Vlasov bracket linearised at `f₀(v)` is
   canonical on the even and odd coordinates. It holds for the Maxwellian and for the two-stream
-  equilibrium `v² M(v)`. Odd modes on another basis than the even ones, a constant spatial mode,
-  a `cos mx` without its `sin mx`, unequal even and odd dimensions and a numerically singular
-  `K_v` each raise an `ArgumentError` that names the condition.
+  equilibrium `v² M(v)`. Odd modes on another basis than the even ones, x modes on a non-periodic
+  basis, a constant spatial mode, a `cos mx` without its `sin mx`, unequal even and odd dimensions
+  and a numerically singular `K_v` each raise an `ArgumentError` that names the condition.
 
 - **`klimontovich_deposition`.** Deposits weighted particles on a tensor-product spline space
   and returns the coefficients `M_x⁻¹ c M_v⁻¹` of the `L²` projection of the Klimontovich
@@ -63,11 +63,16 @@ return, so loading the package alone does not load `GeometricMachineLearning`.
   returns the Kruskal–Oberman free energy of the linearised Vlasov–Poisson equations at a
   monotone `f₀`, on spatial Fourier modes and a symmetric velocity grid, with its gradient and the
   vector field of the skew operator `[0 𝒜; 𝒜 0]`, `𝒜 = f₀' ∂ₓ`, which is the linearised
-  Vlasov–Poisson right-hand side. A wavenumber `0`, two wavenumbers of the same `|k|` and an
-  `f₀` with `f₀' ≥ 0` at a node `v > 0` are refused; the last message names `dual_parity_modes`,
-  the construction for a non-monotone `f₀`.
+  Vlasov–Poisson right-hand side. An empty `wavenumbers`, a wavenumber `0`, two wavenumbers of the
+  same `|k|` and an `f₀` with `v f₀'(v) ≥ 0` at any node are refused; the last message names
+  `dual_parity_modes`, the construction for a non-monotone `f₀`.
 
 ### Internal
+
+- **The GeometricOptimizers floor is 0.9.2.** The `[compat]` floor of `GeometricOptimizers`, a weak
+  dependency of the HNN extension, is `0.9.2`, not `0.9.1`. GeometricMachineLearning 0.9.0, the only
+  0.9 release, requires `0.9.2 - 0.9`, so the lower-bound check cannot resolve `0.9.1`. An
+  environment that holds `GeometricOptimizers` at `0.9.1` does not resolve this version.
 
 - **The test project's bounds hold at the merged downgrade check.** The CI Downgrade job resolves
   `Project.toml` and `test/Project.toml` together at their lower bounds and runs the tests there.

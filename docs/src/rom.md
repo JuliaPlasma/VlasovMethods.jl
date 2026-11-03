@@ -76,7 +76,7 @@ klimontovich_bridge_loss
 
 ## The Kruskal–Oberman free energy
 
-For a monotone equilibrium, ``f_0'(v) < 0`` for ``v > 0``,
+For a monotone equilibrium, ``v\, f_0'(v) < 0`` for ``v \ne 0``,
 [`kruskal_oberman_free_energy`](@ref) returns the free energy of the linearised Vlasov–Poisson
 equations on spatial Fourier modes and a symmetric velocity grid, with its gradient and its
 Hamiltonian vector field. The vector field is that of the skew operator

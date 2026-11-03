@@ -127,7 +127,8 @@ holds for the two-stream equilibrium ``f_0 = v^2 M(v)`` as for the Maxwellian ``
 # Throws
 
 - `ArgumentError` when the splines of `x_modes`, of `even_v` or of `odd_v` do not share one
-  basis, when `odd_v` is on another basis than `even_v`, when `even_v` and `odd_v` differ in
+  basis, when the basis of `x_modes` is not periodic, when `odd_v` is on another basis than
+  `even_v`, when `even_v` and `odd_v` differ in
   length, when an `x` mode is constant,
   when ``D_x`` is singular because a ``\cos mx`` lacks its ``\sin mx``, and when ``K_v`` is
   numerically singular, ``\mathrm{cond}(K_v) > 1/(100\,\mathrm{eps}(T))``. Each message
@@ -225,10 +226,10 @@ canonical coordinates of that case are those of [`dual_parity_modes`](@ref).
 
 # Throws
 
-- `ArgumentError` when a wavenumber is zero (the constant mode has no conjugate), when two
-  wavenumbers have the same ``|k|`` (they give the same modes), when `grid_v` is not symmetric
-  or has an odd number of nodes, and when ``f_0'(v) \ge 0`` at a node ``v > 0``, which names
-  [`dual_parity_modes`](@ref).
+- `ArgumentError` when `wavenumbers` is empty, when a wavenumber is zero (the constant mode
+  has no conjugate), when two wavenumbers have the same ``|k|`` (they give the same modes),
+  when `grid_v` is not symmetric or has an odd number of nodes, and when
+  ``v\, f_0'(v) \ge 0`` at a node, which names [`dual_parity_modes`](@ref).
 - `DimensionMismatch` when `C` does not have one row per mode and one column per node.
 """
 function kruskal_oberman_free_energy end
