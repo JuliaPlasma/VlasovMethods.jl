@@ -123,17 +123,13 @@ const REMOVED_EXPORTS = Symbol[:CLB_rhs, Symbol("DiffEq", "Integrator"), :LB_rhs
 # The names the newest section records. Each is the bold lead of its bullet there, so a name that
 # ships without a line in the record fails here.
 const NEW_EXPORTS = Symbol[
-    :ScaledField,
-    :best_and_worst,
-    :energy_drift,
-    :field_energy_error,
-    :growth_rate,
-    :integrate_vp,
-    :plot_series,
-    :potential_error,
-    :saved_indices,
-    :train_hnn,
-    :trajectory_errors
+    :build_grid_parity_factors,
+    :build_spline_parity_factors,
+    :dual_parity_modes,
+    :klimontovich_bridge_loss,
+    :klimontovich_deposition,
+    :kruskal_oberman_free_energy,
+    :tie_continuum_frontends!
 ]
 
 @testset "Exported names" begin

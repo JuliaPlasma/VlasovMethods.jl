@@ -5,6 +5,7 @@ const GROUPS = isempty(ARGS) ? ["core", "slow"] : ARGS
 if "core" in GROUPS
     @safetestset "Aqua" include("quality/aqua.jl")
     @safetestset "JET" include("quality/jet.jl")
+    @safetestset "ExplicitImports" include("quality/explicit_imports.jl")
     @safetestset "Spline Distribution" include("distributions/spline_distribution.jl")
     @safetestset "Grid Distribution" include("distributions/grid_distribution.jl")
     @safetestset "Particle Distribution" include("distributions/particle_distribution.jl")
@@ -44,4 +45,5 @@ if "slow" in GROUPS
     @safetestset "Reduced Equations at T = 100" include("verification/reduced_equations.jl")
     @safetestset "Bump-on-tail Runs" include("integration/bump_on_tail_runs.jl")
     @safetestset "HNN" include("hnn.jl")
+    @safetestset "Multi-modal Vlasov Frontends" include("rom/multimodal_vlasov_frontends.jl")
 end
