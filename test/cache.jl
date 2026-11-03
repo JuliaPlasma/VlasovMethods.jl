@@ -39,4 +39,15 @@ end
         @test model.cache[other] === c
         @test length(model.cache.caches) == 2
     end
+
+    # The key is the element type alone, so a model built on one thread finds its parent from
+    # another. CI runs with two threads, where the spawned task runs on the other thread.
+    @testset "$(nameof(M)) finds its parent from another thread" for M in (
+        LenardBernstein, ConservativeLenardBernstein,
+        RescaledConservativeLenardBernstein, MetriplecticLenardBernstein)
+        pdist, sdist = setup(Float64)
+        model = M(pdist, CollisionEntropy(sdist))
+        @test fetch(Threads.@spawn model.cache[Float64]) === parent(model.cache)
+        @test length(model.cache.caches) == 1
+    end
 end

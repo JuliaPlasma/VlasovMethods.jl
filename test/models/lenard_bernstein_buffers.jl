@@ -155,7 +155,7 @@ end
 
         # the first call of the type builds its cache
         @test @inferred(rhs!(v̇d, 0.0, qd, params)) === v̇d
-        @test haskey(model.cache.caches, VM._cachehash(eltype(qd)))
+        @test haskey(model.cache.caches, eltype(qd))
         if Base.JLOptions().code_coverage == 0
             @test rhs_bytes(rhs!, v̇d, 0.0, qd, params) == 0
         end
