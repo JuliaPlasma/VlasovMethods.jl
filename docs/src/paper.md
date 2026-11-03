@@ -3,10 +3,11 @@
 This page has two examples. The analytic quadratic model, whose solution has a closed form, is the
 experiment of the reduced-order paper ([arXiv:1910.06026](https://arxiv.org/abs/1910.06026)): a
 bump-on-tail initial distribution in a linear external field. The self-consistent bump-on-tail
-problem is not in the paper, which names it as future work. It comes from the notebooks of
-ReducedBasisMethods, so for this problem "the paper's" parameters, commands and items below are the
-notebooks'. Five scripts in `scripts/` compute both. This page says how to run them and what each
-one writes. It runs no script, and it shows no figure: the figures are files that the scripts write.
+problem is not in the paper, which names the self-consistent Poisson field as future work. It comes
+from the notebooks and the `bump_on_tail_*.jl` scripts of ReducedBasisMethods, so for this problem
+"the paper's" parameters below are theirs, and a "paper command" runs them. Five scripts in
+`scripts/` compute both. This page says how to run them and what each one writes. It runs no
+script, and it shows no figure: the figures are files that the scripts write.
 
 ## Running a script
 
