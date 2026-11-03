@@ -2,6 +2,8 @@ using VlasovMethods
 using LinearAlgebra
 using Test
 
+include("../helpers/allocation_barriers.jl")
+
 const multiindex = VlasovMethods.multiindex
 
 # --- helpers for the invariants testset ----------------------------------------
@@ -95,9 +97,6 @@ function _alloc_call3(f::F, a::A, b::B, c::C) where {F, A, B, C}
     (f(a, b, c); @allocated f(a, b, c))
 end
 _alloc_call1(f::F, a::A) where {F, A} = (f(a); @allocated f(a))
-function _alloc_call4(f::F, a::A, b::B, c::C, d::D) where {F, A, B, C, D}
-    (f(a, b, c, d); @allocated f(a, b, c, d))
-end
 
 @testset "Collisions" begin
     # every test below runs in Float32 and Float64 with nx ≠ nv and nv ≥ 3
@@ -235,10 +234,10 @@ end
             @test @inferred(ct[I, J, K]) isa T
             @test ct[I, J, K] == qc(I, J, K)
             if Base.JLOptions().code_coverage == 0
-                @test minimum(_ -> _alloc_call4(getindex, ct, I, J, K), 1:3) == 0
+                @test minimum(_ -> _alloc4(getindex, ct, I, J, K), 1:3) == 0
             end
             # the control: the barrier sees an allocation
-            @test _alloc_call4((x, I, J, K) -> collect(Tuple(I)), ct, I, J, K) > 0
+            @test _alloc4((x, I, J, K) -> collect(Tuple(I)), ct, I, J, K) > 0
         end
 
         @testset "the invariants of the two forms" begin
