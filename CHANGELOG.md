@@ -15,7 +15,7 @@ makes it worth keeping. The 69 commits from `v0.2.1` to this file's first commit
 their own, except for what they removed and narrowed, which is listed in full below against
 `v0.2.1`: four exports leave `names(VlasovMethods)` and eight `[compat]` entries lost versions.
 
-## [Unreleased] — targeting 0.4.0
+## [0.4.0] — 2026-11-03
 
 ### New Features
 
@@ -203,8 +203,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   at every measured size, and the results do not change. A state of another element type, such as
   the `ForwardDiff.Dual` numbers of the implicit midpoint's Jacobian, takes buffers of its own
   type, as the next entry says. Two concurrent calls on one `params` are unsafe, because they share
-  the buffers. The bound of `GeometricBrackets` rises from `0.2` to `0.3`, the first release with
-  `poisson_apply!`.
+  the buffers. `GeometricBrackets` 0.3 is the first release with `poisson_apply!`; the bound is
+  `0.3.2` (Breaking Changes).
 
 - **The Lenard–Bernstein right-hand sides and the grid right-hand side of a `Dual` state allocate
   nothing (K45).** `LB_rhs_GI!`, `CLB_rhs_GI!` and `RCLB_rhs_GI!` projected the particles with the
@@ -327,29 +327,61 @@ their own, except for what they removed and narrowed, which is listed in full be
 
 ### Breaking Changes
 
-- **`[compat] julia` rises from 1.11 to 1.12.** Pkg no longer resolves the package on Julia 1.11.
-  Nothing in `src/` changes.
+- **`[compat]` bounds narrowed since 0.3.0.** Seven entries lost versions between `v0.3.0` and
+  this release, so a manifest that resolved against one of the dropped versions has to move with
+  them:
 
-- **`[compat] ReducedComplexityModeling` is `"0.5"`, from `"0.1.1"`, and `ReducedBasisMethods` is
-  `"0.4"`, from `"0.2.1"`.** ReducedBasisMethods 0.4 is the first release that binds
-  ReducedComplexityModeling 0.5; 0.2 and 0.3 bind 0.1, so the two bounds move together, and
-  `scripts/Project.toml` takes ReducedComplexityModeling `0.5` with them. `ParameterSpace`,
-  `h5save` and `h5load` are ReducedComplexityModeling's, so a caller moves across its breaking
-  releases 0.2 to 0.5. An HDF5 round trip of a `ReducedBasis` or of `Snapshots` keeps the written
-  order of its parameters now, where ReducedComplexityModeling 0.1 returned them in alphabetical
-  order.
+  | entry | `v0.3.0` | `0.4.0` |
+  |:--|:--|:--|
+  | `julia` | `1.11` | `1.12` |
+  | `GeometricBrackets` | `0.2` | `0.3.2` |
+  | `PoissonSolvers` | `0.6` | `0.6.2` |
+  | `ReducedBasisMethods` | `0.2.1` | `0.4` |
+  | `ReducedComplexityModeling` | `0.1.1` | `0.5` |
+  | `SimpleSolvers` | `0.14.1` | `0.14.2` |
+  | `SimpleSplines` | `0.3.1` | `0.4` |
 
-- **`[compat] SimpleSolvers` rises from `0.14.1` to `0.14.2`.** SimpleSolvers 0.14.1 bounds
-  `NeuralNetworkParameters` to 0.4, and ReducedComplexityModeling 0.5 requires 0.5, so the old
-  floors could not be resolved together. GeometricOptimizers 0.9, the HNN extension's, requires
-  SimpleSolvers 0.14.2 as well.
+  The entries that joined `[compat]` in the same interval, `AbstractNeuralNetworks`,
+  `GeometricOptimizers` and `SparseArrays`, have no row. No export of `v0.3.0` is removed.
 
-- **`[compat] SimpleSplines` is `"0.4"`, from `"0.3.1"`; `PoissonSolvers` rises from `"0.6"` to
-  `"0.6.2"`, and `GeometricBrackets` from `"0.3"` to `"0.3.2"`.** SimpleSplines 0.4 is the first
-  release with the caller-buffer `evaluate!`, and PoissonSolvers 0.6.2 and GeometricBrackets 0.3.2
-  are the first releases of theirs that admit it. In SimpleSplines 0.4 a `Float64` spline
-  evaluated at a `Float32` point returns a `Float32`; a caller that evaluates a spline of this
-  package's results at a narrower point gets the precision of the point.
+  Pkg no longer resolves the package on Julia 1.11; nothing in `src/` branches on the version.
+  `GeometricBrackets` 0.3 is the first release with `poisson_apply!`, which the grid right-hand
+  side calls. ReducedBasisMethods 0.4 is the first release that binds ReducedComplexityModeling
+  0.5; 0.2 and 0.3 bind 0.1, so the two bounds move together, and `scripts/Project.toml` takes
+  ReducedComplexityModeling `0.5` with them. `ParameterSpace`, `h5save` and `h5load` are
+  ReducedComplexityModeling's, so a caller moves across its breaking releases 0.2 to 0.5. An HDF5
+  round trip of a `ReducedBasis` or of `Snapshots` keeps the written order of its parameters now,
+  where ReducedComplexityModeling 0.1 returned them in alphabetical order. SimpleSolvers 0.14.1
+  bounds `NeuralNetworkParameters` to 0.4, and ReducedComplexityModeling 0.5 requires 0.5, so the
+  old floors could not be resolved together; GeometricOptimizers 0.9, the HNN extension's,
+  requires SimpleSolvers 0.14.2 as well. SimpleSplines 0.4 is the first release with the
+  caller-buffer `evaluate!`, and PoissonSolvers 0.6.2 and GeometricBrackets 0.3.2 are the first
+  releases of theirs that admit it. In SimpleSplines 0.4 a `Float64` spline evaluated at a
+  `Float32` point returns a `Float32`; a caller that evaluates a spline of this package's results
+  at a narrower point gets the precision of the point.
+
+- **Calls that behave differently.** Each is described in its entry above:
+  - `compute_L!` loses its `chunk` keyword, and `compute_L!` and `compute_J!` raise an
+    `ArgumentError` for an `sdist` whose quadrature is not the cache's, where they built the result
+    on that distribution's grid (the Landau entry).
+  - `LenardBernstein` on particles and a spline of different element types raises a `MethodError`
+    at construction, where it built (K45).
+  - A Lenard–Bernstein right-hand side of a state of another element type than the model's, such
+    as a `Float32` state on a `Float64` model, is computed in the state's type: `LB_rhs_GI!`
+    whole, and the coefficients of `CLB_rhs_GI!` and `RCLB_rhs_GI!`, which promoted to the type of
+    the weights (K45, K81).
+  - `GeometricIntegrator` of a conservative Lenard–Bernstein model with a 2D velocity space raises
+    a `MethodError`, where it built a 1D ODE and ignored the second velocity component.
+  - `Landau` on a velocity space of one dimension raises a `MethodError` at construction, where it
+    built.
+  - `Picard_iterate_over_particles` throws an `ArgumentError` for a `vn` or `vn_minus_one` that
+    shares memory with `dv_history`, where it returned and overwrote the caller's array. It throws
+    a `DimensionMismatch` for a `vn_minus_one` of another length than the particle count at any
+    `ti`, and for a `dv_history` that is not `(N, 2)`, where a call with `ti < 4` or a wider
+    history returned.
+  - A model and its caches, and the `params` of the grid model, belong to one task. Two threads
+    that evaluate one of them at once share its buffers and can get wrong results with no error,
+    where `v0.3.0` kept a collision cache per thread and the grid right-hand side allocated.
 
 ### Internal
 
