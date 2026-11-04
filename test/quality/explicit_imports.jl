@@ -9,8 +9,9 @@ const EXT = Base.get_extension(VlasovMethods, :MultiModalAutoEncoderExt)
 @testset "ExplicitImports" begin
     @test EXT isa Module
 
-    # The package lists no explicit import that it does not use, and takes each explicit import
-    # and each qualified access from the module that owns the name.
+    # The package lists no explicit import that it does not use, takes each explicit import and
+    # each qualified access from the module that owns the name, and qualifies no name with its
+    # own module.
     @test check_no_stale_explicit_imports(VlasovMethods) === nothing
     @test check_all_explicit_imports_via_owners(VlasovMethods) === nothing
     @test check_all_qualified_accesses_via_owners(VlasovMethods) === nothing
@@ -21,7 +22,8 @@ const EXT = Base.get_extension(VlasovMethods, :MultiModalAutoEncoderExt)
     # (K82 in KNOWN_ISSUES.md).
 
     # The multi-modal extension imports each name explicitly, from the module that owns it and
-    # declares it public, and imports nothing it does not use.
+    # declares it public, imports nothing it does not use, and qualifies no name with its own
+    # module.
     @test check_no_implicit_imports(EXT) === nothing
     @test check_no_stale_explicit_imports(EXT) === nothing
     @test check_all_explicit_imports_via_owners(EXT) === nothing
