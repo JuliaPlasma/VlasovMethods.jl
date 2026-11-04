@@ -15,6 +15,14 @@ makes it worth keeping. The 69 commits from `v0.2.1` to this file's first commit
 their own, except for what they removed and narrowed, which is listed in full below against
 `v0.2.1`: four exports leave `names(VlasovMethods)` and eight `[compat]` entries lost versions.
 
+## [Unreleased] — targeting 0.4.2
+
+### Internal
+
+- **ExplicitImports also checks self-qualified accesses.** `test/quality/explicit_imports.jl` runs
+  `check_no_self_qualified_accesses` on the package and on `MultiModalAutoEncoderExt`. The file
+  calls single checks, so this one, which `test_explicit_imports` runs by default, was missing.
+
 ## [0.4.1] — 2026-11-04
 
 ### New Features
