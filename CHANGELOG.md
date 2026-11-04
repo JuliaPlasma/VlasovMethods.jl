@@ -92,6 +92,12 @@ return, so loading the package alone does not load `GeometricMachineLearning`.
   imports every name explicitly, from its owner, and none it does not use. The implicit and
   public checks of the package itself fail and are left out (K82).
 
+- **The docs page of the examples says where each one comes from.** The analytic quadratic model is
+  the experiment of the reduced-order paper. The self-consistent bump-on-tail problem is not in the
+  paper, which names the self-consistent Poisson field as future work, and comes from the notebooks
+  and the `bump_on_tail_*.jl` scripts of ReducedBasisMethods. The page said that the paper has both.
+  The scripts and their parameters do not change.
+
 ## [0.4.0] — 2026-11-03
 
 ### New Features
