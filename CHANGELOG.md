@@ -76,8 +76,8 @@ return, so loading the package alone does not load `GeometricMachineLearning`.
 
 - **The test project's bounds hold at the merged downgrade check.** The CI Downgrade job resolves
   `Project.toml` and `test/Project.toml` together at their lower bounds and runs the tests there.
-  `test/Project.toml` raises `ForwardDiff` from `"0.10, 1"` to `"0.10.36, 1"`, the floor that
-  Symbolics 7, a dependency of ElectromagneticFields 0.9, sets. It adds a bound for each test
+  `test/Project.toml` raises `ForwardDiff` from `"0.10, 1"` to `"1"`, the floor that
+  GeometricMachineLearning 0.6 and later set. It adds a bound for each test
   dependency that had none, because without one the check takes the oldest release:
   `Aqua = "0.8.18"`, because before 0.8.14 the piracy check does not run on Julia 1.12, before
   0.8.17 the persistent-tasks check resolves its subprocess's environment anew and gets newer
