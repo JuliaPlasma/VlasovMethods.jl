@@ -25,10 +25,11 @@ lb_params(model) = (ν = model.ν, idist = model.dist, fdist = model.ent.dist, m
 
 # 24 particles of uniform weight drawn uniformly on `[-2, 2]` with the seed `0x5EED`, on the cubic
 # basis of 17 knots of `metriplectic_setup` in `test/integration/metriplectic_solve.jl`. The
-# projection of so few particles undershoots below zero between them.
+# projection of so few particles undershoots below zero between them. The seed is an `Int`: the
+# StableRNGs of the `[compat]` floor seeds from `Int32` and `Int64` only.
 function mlb_setup(::Type{T}) where {T}
     N = 24
-    rng = StableRNG(0x5EED)
+    rng = StableRNG(Int(0x5EED))
     vars = (x = 1:1, v = 2:2, z = 1:2, w = 3:3)
     pdist = ParticleDistribution(1, 1, ParticleList(zeros(T, 3, N); variables = vars))
     pdist.particles.v[1, :] .= T.(4 .* rand(rng, N) .- 2)

@@ -331,17 +331,24 @@ end
     end
 end
 
-# ∂S_h/∂v_{c,α} = Σ_k K_c[k, α] J_k: the gradient of the entropy ∫ f_s log|f_s| of the projected
-# particles, with J from `compute_J!`, against a central difference of `CollisionEntropy`.
-@testset "Landau gradient on a sign-changing projection" begin
+# The particles and the basis of the testset "Landau: K, J and L assemble": 400 normal particles
+# of seed 0xABBA, 7 knots of order 3 on [-4, 4]².
+function landau_fixture()
     npart = 400
     Random.seed!(0xABBA)
     pd = ParticleDistribution(1, 2, npart)
     pd.particles.v .= randn(2, npart)
     pd.particles.w[1, :] .= 1 / npart
     sd = SplineDistribution(1, 2, 7, 3, (-4.0, 4.0), 0, Free())
+    return pd, sd, Landau(pd, CollisionEntropy(sd))
+end
+
+# ∂S_h/∂v_{c,α} = Σ_k K_c[k, α] J_k: the gradient of the entropy ∫ f_s log|f_s| of the projected
+# particles, with J from `compute_J!`, against a central difference of `CollisionEntropy`.
+@testset "Landau gradient on a sign-changing projection" begin
+    pd, sd, landau = landau_fixture()
+    npart = size(pd.particles.v, 2)
     M = length(sd)
-    landau = Landau(pd, CollisionEntropy(sd))
     v = copy(pd.particles.v)
     projection(v, pd, sd)
 
@@ -380,14 +387,8 @@ end
 # sign. The control is the defining double sum with the signed weights W_a f_s(v_a), which has a
 # negative eigenvalue on the same projection.
 @testset "𝕃 is positive semi-definite on a sign-changing projection" begin
-    npart = 400
-    Random.seed!(0xABBA)
-    pd = ParticleDistribution(1, 2, npart)
-    pd.particles.v .= randn(2, npart)
-    pd.particles.w[1, :] .= 1 / npart
-    sd = SplineDistribution(1, 2, 7, 3, (-4.0, 4.0), 0, Free())
+    pd, sd, landau = landau_fixture()
     M = length(sd)
-    landau = Landau(pd, CollisionEntropy(sd))
     project_function(v -> exp(-(v[1]^2 + v[2]^2) / 2) / (2π), sd)
 
     X = quadrature_nodes(sd.quadrature)

@@ -136,12 +136,11 @@ function compute_coefficients(
         # f_s is an L² projection of a particle distribution, so it undershoots into negative
         # values where the sampling is thin and is exactly zero in cells with no particles.
         # f'/f is then either a division by zero or a term of the wrong sign. Both manuscripts
-        # know this:
-        # the Landau appendix opens with a commented-out section titled "Positivity-preserving
-        # projections" stating that f_s "has to be non-negative everywhere", and the
-        # Lenard-Bernstein H-theorem is stated "provided that f is non-negative". Neither
-        # solves it. Failing here names the open problem instead of continuing with a value
-        # whose sign is wrong.
+        # know this: the Landau appendix opens with a commented-out section titled
+        # "Positivity-preserving projections" stating that f_s "has to be non-negative
+        # everywhere", and the Lenard-Bernstein H-theorem is stated "provided that f is
+        # non-negative". Neither solves it. Failing here names the open problem instead of
+        # continuing with a value whose sign is wrong.
         fα > 0 || throw(DomainError(fα,
             "the projected distribution is non-positive at v = $(vα), so " *
             "f_s'/f_s is not meaningful there. This is the positivity problem both " *

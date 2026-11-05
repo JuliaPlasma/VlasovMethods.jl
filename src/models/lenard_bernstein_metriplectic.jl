@@ -61,7 +61,7 @@ struct MLBCache{T, PT <: ParticleDistribution, ST <: SplineDistribution{T}} <: C
     dS_dg::Vector{T}
 
     # The work arrays of the vector field: the squared velocities of the moments, the load
-    # vector of the projection, the samples of `1 + log f_s` at the quadrature nodes, and the
+    # vector of the projection, the samples of `1 + log|f_s|` at the quadrature nodes, and the
     # values or derivatives of the basis functions that are non-zero at one point.
     v²::Vector{T}
     rhs::Vector{T}

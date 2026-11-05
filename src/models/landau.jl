@@ -13,7 +13,7 @@ const _LANDAU_CHUNK = 256
 #   point, one column per row of the block) and the product of the two, `Q × M` and then
 #   transposed, of its coupled term; `X` has the sparsity pattern of `D`, and `compute_L!`
 #   rescales its stored values;
-# - `g`, `Jc`: the sample of `1 + log f_s` on the grid and its projection, of `compute_J!`;
+# - `g`, `Jc`: the sample of `1 + log|f_s|` on the grid and its projection, of `compute_J!`;
 # - `rhs`: the load array of the particle projection;
 # - `vals`, `ders`: the per-axis buffers of `evaluate!` and `evaluate_all!`;
 # - `work`, `mwork`: the contraction and mass-solve workspaces of SimpleSplines;
@@ -507,7 +507,7 @@ function collisional_vectorfield!(v̇::AbstractArray{ST}, v::AbstractArray{ST}, 
     compute_K!(cache.K1, cache.K2, v, sdist, landau)
 
     # compute J vector. Before `compute_L!`, although the two are independent: `compute_J!`
-    # is where the positivity of f_s on the quadrature grid is checked, and it costs O(Q)
+    # is where a zero or a non-finite f_s on the quadrature grid is refused, and it costs O(Q)
     # against the O(Q²) kernel sum below.
     compute_J!(cache.J, sdist, landau)
 
