@@ -234,6 +234,27 @@ end
     @test landau2.dist.particles.v == landau.dist.particles.v
 end
 
+@testset "the residual is the max-norm" begin
+    # With `v_prev_2 = v_prev .+ 100Δt` and `-100` in both columns of `rhs_prev`, the Hermite
+    # guess is the line `v_prev .- 100Δt`. Every entry of its residual `-Δt (100 + f)` is
+    # negative, because `‖f‖∞` is about 6 here, so its max-norm is at least `94Δt`, where the
+    # largest entry is negative.
+    landau, v_prev = landau_solver_setup()
+    Δt, abstol = 1e-6, 1e-12
+    rhs_prev = fill(-100.0, 2, size(v_prev, 2), 2)
+    logger = Test.TestLogger(; min_level = Base.CoreLogging.Debug)
+    sol = Base.CoreLogging.with_logger(logger) do
+        VM.Picard_iterate_Landau_nls!(
+            landau, Δt, 4, 0.0, v_prev, v_prev .+ 100Δt, rhs_prev;
+            abstol)
+    end
+    records = filter(r -> r.message == "Landau Picard residual", logger.logs)
+    @test records[1].kwargs[:residual] ≥ 94Δt
+    @test sol.iterations > 1
+    @test sol.residual ≤ abstol
+    @test landau.dist.particles.v == v_prev .+ Δt .* rhs_prev[:, :, 1]
+end
+
 # The bytes of one call after a warm call, through barriers of fixed arity whose arguments have
 # concrete types: a step of the solver, the guess of its first three steps, and a least-squares
 # solve of the vector field.
