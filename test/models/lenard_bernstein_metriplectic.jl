@@ -212,7 +212,7 @@ end
         for (T, δ, throws) in cases
             w = fill(one(T) / 2, 2)
             v = [one(T) - δ, one(T) + δ]
-            n, u, ε = moments(w, v)
+            _, u, ε = moments(w, v)
             @test u == 1
             @test ε - u^2 == δ^2
             v̇ = rhs_or_nothing(model(T, w; bracket = bracket), v, ones(T, 2))
