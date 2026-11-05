@@ -142,24 +142,21 @@ end
 @doc raw"""
     compute_J!(J, g, values, sdist, ::MetriplecticLenardBernstein)
 
-The vector ``\mathbb{L}_k = \sum_i \mathbb{M}^{-1}_{ik} \int \varphi_i \, (1 + \log f_s) \, dv``
-of the Landau manuscript's `eq:defn_Lk`, which is exactly the ``L^2`` projection of
-``1 + \log f_s`` onto the basis.
+The vector
+``\mathbb{L}_k = \sum_i \mathbb{M}^{-1}_{ik} \int \varphi_i \, (1 + \log |f_s|) \, dv`` of
+`eq:defn_Lk` of the Landau and Lenard-Bernstein metriplectic manuscripts, which is exactly the
+``L^2`` projection of ``1 + \log |f_s|`` onto the basis.
 
-This discretisation projects ``1 + \log f_s`` onto the spline space and differentiates the
+This discretisation projects ``1 + \log |f_s|`` onto the spline space and differentiates the
 *projection*, where `eq:velocity_ode` of the Lenard-Bernstein manuscript uses the pointwise
 ratio ``f_s'(v_\alpha)/f_s(v_\alpha)``. The two agree only up to the projection error of the
 logarithm. That is deliberate and is what makes this a genuine discrete-gradient system: `J`
-is ``\partial S_h / \partial f_i`` for ``S_h = \int f_s \log f_s \, dv``.
+is ``\mathbb{M}^{-1}`` times ``\partial S_h / \partial f_i`` for the entropy
+``S_h = \int f_s \log |f_s| \, dv`` of `eq:disc_entropy`.
 
-!!! warning "The logarithm is unguarded in the manuscripts and guarded here"
-    The earlier implementation wrote `0.5 * log(f_s^2)`. That is `log|f_s|` exactly, and its
-    derivative is `f_s'/f_s` for either sign, so the drift it produces is finite and
-    plausible-looking wherever `f_s < 0`. What it is not is the entropy: `S = ∫ f log f`
-    requires `f > 0`, and where `f_s < 0` the H-theorem reverses — `dS/dt = -ν ∫ F²/f dv`
-    becomes *positive*. So the construction converted a positivity violation from a visible
-    `DomainError` into an invisible wrong answer, and removed the only diagnostic that would
-    have caught it. Positivity is checked here instead.
+``\log |f_s| = \frac{1}{2} \log (f_s^2)`` is defined where the ``L^2`` projection of a particle
+distribution undershoots below zero. A quadrature node where ``f_s`` is zero or not finite
+throws a `DomainError`.
 
 `g`, of the length of the quadrature nodes, and `values`, of the local width of the basis, are
 work arrays.
@@ -174,12 +171,8 @@ function compute_J!(J, g, values, sdist::SplineDistribution{T, XD, 1},
     # against the mass operator -- which is what `l2_projection!` does.
     for r in eachindex(x)
         f = _spline_value!(values, fs.basis, fs.coefficients, x[r])
-        f > 0 || throw(DomainError(f,
-            "the projected distribution is non-positive at v = $(x[r]), so " *
-            "log f_s and hence the discrete entropy are undefined there. Writing this as " *
-            "0.5*log(f_s^2) would return log|f_s| and hide the violation; the H-theorem " *
-            "reverses where f_s < 0."))
-        g[r] = 1 + log(f)
+        _check_log_defined(f, x[r])
+        g[r] = 1 + log(abs(f))
     end
 
     l2_projection!(J, q, g)
@@ -219,12 +212,12 @@ end
 @doc raw"""
     compute_entropy(f, mlb::MetriplecticLenardBernstein)
 
-``S_h = \int f_s \log f_s \, dv``, the quantity the manuscript's entropy figures report.
+``S_h = \int f \log |f| \, dv``, the entropy of `eq:disc_entropy` for ``f = f_s``: the
+H-functional that decreases, and the quantity the manuscript's entropy figures report.
 
 Integrated on the Gauß-Legendre grid of the basis rather than adaptively, so that it is the
-same quadrature the discretisation itself uses. Returns the value alone; the earlier version
-returned a `quadgk` error estimate alongside it and wrote `0.5*log(f^2)`, so it reported
-``\int f \log|f|`` rather than the entropy.
+same quadrature the discretisation itself uses. A node where `f` is zero or not finite throws a
+`DomainError`, because ``\log |f|`` is undefined there.
 """
 function compute_entropy(f, mlb::MetriplecticLenardBernstein)
     sdist = mlb.entropy.dist
@@ -235,10 +228,8 @@ function compute_entropy(f, mlb::MetriplecticLenardBernstein)
     S = zero(eltype(w))
     for r in eachindex(x)
         fr = f(x[r])
-        fr > 0 || throw(DomainError(fr,
-            "the distribution is non-positive at v = $(x[r]), so the entropy " *
-            "∫ f log f dv is undefined there"))
-        S += w[r] * fr * log(fr)
+        _check_log_defined(fr, x[r])
+        S += w[r] * fr * log(abs(fr))
     end
     return S
 end

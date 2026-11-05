@@ -17,6 +17,34 @@ their own, except for what they removed and narrowed, which is listed in full be
 
 ## [Unreleased] — targeting 0.4.2
 
+### Bug Fixes
+
+- **The metriplectic paths take `log|f_s|`, as the Landau and Lenard-Bernstein manuscripts do.**
+  `CollisionEntropy` evaluates `S_h = ∫ f_s log|f_s|` (`eq:disc_entropy`), `compute_J!` of
+  `Landau` and of `MetriplecticLenardBernstein` project `1 + log|f_s|` (`eq:defn_Lk`), and
+  `compute_entropy` sums `f log|f|`. Where `f_s > 0` nothing changes. Where the L² projection of
+  the particles undershoots below zero at a quadrature node, each returns a finite value; before,
+  each threw a `DomainError`. A node where `f_s` is zero or not finite throws a `DomainError`;
+  before, an infinite value passed the guard. `compute_J!` gives the exact gradient of
+  `CollisionEntropy` with respect to the particle velocities on a sign-changing projection: the
+  new tests compare it with a central difference, for `Landau` and for
+  `MetriplecticLenardBernstein`. PD-LB's `compute_coefficients` and `compute_coefficients_rclb`
+  keep their `DomainError` for `f_s ≤ 0`, because `f_s'/f_s` is undefined there (K8).
+- **`compute_L!` of `Landau` weights the grid by the mobility `|f_s|`**, the `M(f) = |f|` of the
+  Landau manuscript's appendix bracket `eq:landau_bracket_modified`. With the signed weight
+  `W_a f_s(v_a)`, `𝕃` had a negative eigenvalue where `f_s` changes sign — `−2.08e-3` times
+  `max|𝕃|` on the projection of the unit Gaussian on 7 knots of order 3 — and the discrete
+  H-theorem failed. Now `𝕃` is symmetric, positive semi-definite and `𝕃 1 = 0` for every finite
+  `f_s`; where `f_s > 0` it is unchanged.
+
+### Documentation
+
+- **The docstrings follow the manuscripts' text.** `CollisionEntropy` gives `S_h` as the
+  H-functional of `S = ∫ f log f`, which decreases; the `kernel` docstring no longer says that the
+  manuscript's Coulomb kernel differs from it; the `CLB_rhs_GI!` docstring no longer says that
+  `eq:velocity_ode` of the Lenard-Bernstein manuscript has the opposite sign. K8 of
+  `KNOWN_ISSUES.md` says which paths run where `f_s` changes sign and which refuse it.
+
 ### Internal
 
 - **ExplicitImports also checks self-qualified accesses.** `test/quality/explicit_imports.jl` runs

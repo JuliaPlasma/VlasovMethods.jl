@@ -67,13 +67,18 @@ has left the file, or that lived only on a merged branch, stays taken.
   migration. None of these are regressions; each is either a numerical-methods decision or work
   the migration deliberately did not take on.
 
-### K8 · Positivity of `f_s` is detected, not solved.
+### K8 · Positivity of `f_s` is not preserved, and PD-LB refuses `f_s ≤ 0`.
 
 - **location:** —
-- **evidence:** Every `log f_s` and `1/f_s` now throws rather than continuing, which is strictly
-  better than the old `0.5·log(f_s²)` returning `log|f_s|`. But a run whose projection undershoots
-  now stops, and the real fix — a positivity-preserving projection — is the manuscripts' own open
-  problem.
+- **evidence:** The metriplectic paths — `CollisionEntropy`, `compute_J!` of `Landau` and of
+  `MetriplecticLenardBernstein`, `compute_entropy` and `compute_L!` — take `log|f_s|` and the
+  mobility `|f_s|`, as the manuscripts do, and run where the L² projection of a particle
+  distribution changes sign; they throw a `DomainError` only where `f_s` is zero or not finite at
+  a quadrature node. PD-LB's `compute_coefficients` and the rescaled operator's
+  `compute_coefficients_rclb` still throw a `DomainError` where `f_s ≤ 0` at a particle, because
+  the pointwise ratio `f_s'/f_s` is undefined there, so a run of either operator whose projection
+  undershoots stops. The real fix — a positivity-preserving projection — is the manuscripts' own
+  open problem.
 - **kind:** defect
 - **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
   migration. None of these are regressions; each is either a numerical-methods decision or work

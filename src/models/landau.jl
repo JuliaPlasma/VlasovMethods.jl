@@ -116,11 +116,16 @@ The vector
 
 ```math
 \mathbb{L}_k = \sum_i \mathbb{M}^{-1}_{ik} \int_\Omega \varphi_i(v)
-               \left[ 1 + \log \Big( \sum_j f_j \varphi_j(v) \Big) \right] dv
+               \left[ 1 + \log \Big| \sum_j f_j \varphi_j(v) \Big| \right] dv
 ```
 
-of the Landau manuscript's `eq:defn_Lk` — the ``L^2`` projection of ``1 + \log f_s`` onto the
-spline basis.
+of the Landau manuscript's `eq:defn_Lk` — the ``L^2`` projection of ``1 + \log |f_s|`` onto the
+spline basis: ``\mathbb{M}^{-1}`` times the gradient of the entropy
+``S_h = \int f_s \log |f_s| \, dv`` of `eq:disc_entropy` with respect to the coefficients of
+``f_s``.
+
+``\log |f_s|`` is defined where the ``L^2`` projection of a particle distribution undershoots
+below zero. A quadrature node where ``f_s`` is zero or not finite throws a `DomainError`.
 
 Written as a projection rather than as one quadrature per coefficient. The integrand is
 sampled once on the tensor-product Gauß-Legendre grid the basis already carries and contracted
@@ -144,18 +149,8 @@ function compute_J!(J, sdist::SplineDistribution{T, XD, VD}, landau::Landau) whe
     g = cache.g
     for (r, pt) in enumerate(Iterators.product(X...))
         f = evaluate!(cache.vals, fs.basis, fs.coefficients, pt)
-        # The manuscript's own appendix opens with a commented-out section titled
-        # "Positivity-preserving projections", stating that f_s "has to be non-negative
-        # everywhere", and does not solve it. Writing this as 0.5*log(f^2) — which an earlier
-        # version of the metriplectic operator did — returns log|f| and hides the violation
-        # behind a finite number, while the H-theorem it is used to prove reverses wherever
-        # f_s < 0.
-        f > 0 || throw(DomainError(f,
-            "the projected distribution is non-positive at v = $(pt), so " *
-            "log f_s in eq:defn_Lk is undefined there. An L² projection of a particle " *
-            "distribution undershoots where the sampling is thin; use more particles or a " *
-            "coarser spline basis."))
-        g[r] = 1 + log(f)
+        _check_log_defined(f, pt)
+        g[r] = 1 + log(abs(f))
     end
 
     l2_projection!(cache.Jc, q, g, cache.work)
@@ -175,12 +170,8 @@ U(u) = \frac{1}{|u|} \left( \mathbb{I} - \frac{u \otimes u}{|u|^2} \right) ,
 
 the orthogonal projector onto the complement of ``u``, scaled by ``1/|u|``.
 
-This is the standard Landau tensor and it is **not** what the manuscript's `eq:landau_kernel`
-as typeset says: that carries a prefactor ``1/|u|^3`` in front of the bracketed projector, i.e.
-an extra ``|u|^{-2}``. The intended reading is
-``|u|^{-3} ( |u|^2 \mathbb{I} - u \otimes u )``, which is this. The properties the
-conservation proofs rest on hold for the expression implemented here: ``U`` is symmetric,
-``U(v_\alpha, v_\beta) = U(v_\beta, v_\alpha)``, and ``U u = 0`` exactly.
+The properties the conservation proofs rest on hold for the expression implemented here: ``U``
+is symmetric, ``U(v_\alpha, v_\beta) = U(v_\beta, v_\alpha)``, and ``U u = 0`` exactly.
 
 !!! warning "The coincident-point value is a regularisation, not a limit"
     ``U`` diverges as ``|u| \to 0``; there is no value to return there. Zero is returned so
@@ -305,11 +296,21 @@ The symmetric matrix
 ```math
 \mathbb{L}_{ij} = \frac{1}{2} \int_\Omega \! \int_\Omega
   \big( \nabla \varphi_i(v) - \nabla \varphi_i(v') \big) \cdot
-  f_s(v) \, U(v,v') \, f_s(v') \cdot
+  |f_s(v)| \, U(v,v') \, |f_s(v')| \cdot
   \big( \nabla \varphi_j(v) - \nabla \varphi_j(v') \big) \, dv \, dv'
 ```
 
-of the Landau manuscript's `eq:discrete-landau-matrix`.
+of the Landau manuscript's `eq:discrete-landau-matrix`, from its appendix bracket
+`eq:landau_bracket_modified` with the mobility ``M(f) = |f|``.
+
+# Mobility
+
+The bracket allows any mobility ``M(f) \ge 0``. With ``M(f) = f``, ``\mathbb{L}`` loses positive
+semi-definiteness where ``f_s`` changes sign, and with it the discrete H-theorem. With
+``|f_s|``, every term of the quadrature sum is a non-negative weight times a positive
+semi-definite form, so ``\mathbb{L}`` is symmetric, positive semi-definite and
+``\mathbb{L} \mathbb{1} = 0`` for every finite ``f_s``. A non-finite ``f_s`` is not checked here:
+`collisional_vectorfield!` calls [`compute_J!`](@ref) first, which throws.
 
 # Method
 
@@ -324,7 +325,7 @@ second and third are equal, so the factor of one half cancels and
 \qquad A^{cd}_a = \sum_b s_b \, U^{cd}_{ab} ,
 ```
 
-with ``s_a = w_a f_s(v_a)`` and ``D^c`` the gradient tables above. This is an identity, not
+with ``s_a = w_a |f_s(v_a)|`` and ``D^c`` the gradient tables above. This is an identity, not
 an approximation: the same quadrature sum, rearranged.
 
 Both terms are products of sparse ``M \times Q`` factors, which hold a few stored entries per
@@ -365,7 +366,8 @@ function compute_L!(L, sdist::SplineDistribution{T, XD, 2}, landau::Landau) wher
         r += 1
         p = SVector(X[1][a1], X[2][a2])
         pts[r] = p
-        s[r] = W[1][a1] * W[2][a2] * evaluate!(cache.vals, fs.basis, fs.coefficients, p)
+        s[r] = W[1][a1] * W[2][a2] *
+               abs(evaluate!(cache.vals, fs.basis, fs.coefficients, p))
     end
 
     # The tabulations of the cache's quadrature grid, which `LandauCache` builds once.
