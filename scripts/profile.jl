@@ -12,10 +12,9 @@
 #            defaults, so the profile is the whole collision step: the projection, the two
 #            coefficient solves and the time step. The trajectory goes to `--runs-dir` beside the
 #            dump.
-#   landau   one `Picard_iterate_Landau_nls!` step of the two-dimensional Landau operator. No
-#            Landau driver marches in time — every one of them meets the positivity guard of
-#            `KNOWN_ISSUES.md` K8 — so the solver step is profiled directly, on the cell-centred
-#            lattice of `test/integration/landau_solver.jl`, where the projection stays positive.
+#   landau   one `Picard_iterate_Landau_nls!` step of the two-dimensional Landau operator, to the
+#            tolerance `ABSTOL`. The solver step is profiled on the cell-centred lattice of
+#            `test/integration/landau_solver.jl`, where the projection stays positive.
 
 include(joinpath(@__DIR__, "options.jl"))
 
@@ -36,11 +35,7 @@ const DOMAINV = (-10.0, 10.0)
 # density is positive everywhere the operator reads it.
 const N1 = 16
 const LANDAU_DOMAIN = (-2.0, 2.0)
-const TOL = 1e-10
-const FTOL = 1e-10
-const BETA = 0.5
-const DEPTH = 3
-const CHUNKSIZE = 1
+const ABSTOL = 1e-10
 
 """
     step_clb(h5file, tspan = TSPAN)
@@ -61,8 +56,7 @@ end
 function step_landau(landau, v_prev, ti)
     rhs_prev = zeros(2, size(v_prev, 2), 2)
     VlasovMethods.Picard_iterate_Landau_nls!(
-        landau, TOL, FTOL, BETA, TSTEP, ti, 0.0, v_prev, copy(v_prev), rhs_prev,
-        DEPTH, CHUNKSIZE)
+        landau, TSTEP, ti, 0.0, v_prev, copy(v_prev), rhs_prev; abstol = ABSTOL)
 
     return nothing
 end
@@ -112,7 +106,7 @@ function profile_landau()
 
     return string("One `Picard_iterate_Landau_nls!` step of the two-dimensional Landau ",
         "operator, on a ", N1, "^2 cell-centred lattice inside ", LANDAU_DOMAIN,
-        " with a quadratic `Free` basis, `ti = 4`."),
+        " with a quadratic `Free` basis, `ti = 4`, `abstol = ", ABSTOL, "`."),
     String[]
 end
 

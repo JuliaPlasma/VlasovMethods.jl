@@ -38,6 +38,17 @@ their own, except for what they removed and narrowed, which is listed in full be
   `max|𝕃|` on the projection of the unit Gaussian on 7 knots of order 3 — and the discrete
   H-theorem failed. Now `𝕃` is symmetric and positive semi-definite for every finite `f_s`, and
   `𝕃 1 = 0` wherever the basis functions sum to one; where `f_s > 0` it is unchanged.
+- **`Picard_iterate_Landau_nls!` iterates to a tolerance and stores velocities and a vector field
+  that belong together (K5, K6).** It stops at the first iterate `v_k` whose max-norm residual
+  `‖v_k − v_prev − Δt f_k‖∞` is at most `abstol`, with `f_k` the vector field at the midpoint
+  `(v_k + v_prev)/2`, gives the particles `v_prev + Δt f_k` and stores `f_k` for the next step's
+  Hermite guess. Before, it ran exactly five iterations and kept the last iterate
+  `v_5 = v_prev + Δt f_4` beside `f_5`. On the 16 × 16 lattice of `test/integration/landau_solver.jl` at
+  `Δt = 1e-3`, the five iterations left a residual of `2.9e-9` and drifted the energy by
+  `1.2e-11`; with `abstol = 1e-12` the step takes 9 evaluations and drifts the energy by
+  `4.4e-16`, within the bound `(Δt/2) · abstol · Σ w ‖f_k‖₁` that the new test derives. At
+  `Δt = 1e-2` the iteration does not contract, and the step now throws instead of returning.
+  K10 of `KNOWN_ISSUES.md` names the new test of the momentum and the energy of one step.
 
 ### Breaking Changes
 
@@ -54,6 +65,15 @@ their own, except for what they removed and narrowed, which is listed in full be
   as for one particle or all particles at one velocity, or where the computed `ε − u²` is not
   positive. Before, it divided by `ε − u²` there, which is zero or a rounding residue of either
   sign. A `NaN` velocity is not refused and propagates, as before.
+- **`Picard_iterate_Landau_nls!(landau, Δt, ti, t, v_prev, v_prev_2, rhs_prev; abstol,
+  max_iters = 100)` replaces the twelve positional arguments (K5).** `tol`, `ftol`, `β`, `m` and
+  `chunksize` were never read and are gone; `abstol` has no default. The step returns
+  `(iterations, residual)`, the number of vector-field evaluations and the last max-norm
+  residual, in place of the histories `(v, v̇)` of six iterates. It throws an `ArgumentError`
+  for an `abstol` that is not finite and positive or a `max_iters` below 1, and an
+  `ErrorException` when no iterate meets `abstol` within `max_iters` evaluations; then neither
+  the particles nor `rhs_prev` are written. The `@debug` residual is the max-norm, where it was
+  the 2-norm.
 
 ### New Features
 

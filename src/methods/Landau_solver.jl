@@ -10,38 +10,64 @@ function _landau_startup_guess!(v, vn, t, Δt, params, landau)
     extrapolate!(t - Δt, vn, t, v, problemGNI, MidpointExtrapolation(5))
 end
 
+# The max-norm residual `‖v - (v_prev + Δt v̇)‖∞`, without a temporary array. A `NaN` entry
+# makes the result `NaN`.
+function _landau_picard_residual(v, v_prev, Δt, v̇)
+    r = zero(promote_type(eltype(v), typeof(Δt)))
+    for i in eachindex(v, v_prev, v̇)
+        r = max(r, abs(v[i] - (v_prev[i] + Δt * v̇[i])))
+    end
+    return r
+end
+
 """
-    Picard_iterate_Landau_nls!(landau, tol, ftol, β, Δt, ti, t, v_prev, v_prev_2, rhs_prev, m,
-        chunksize)
+    Picard_iterate_Landau_nls!(landau, Δt, ti, t, v_prev, v_prev_2, rhs_prev; abstol,
+        max_iters = 100)
 
-Take one implicit-midpoint step of the Landau model by five Picard iterations from the
-velocities `v_prev`, write the last iterate into the particles of `landau.dist`, and return the
-iterates and their midpoint vector fields as the histories `(v = …, v̇ = …)`, six of each.
+Take one implicit-midpoint step of the Landau model from the velocities `v_prev` by a Picard
+iteration to the tolerance `abstol`, write the accepted velocities into the particles of
+`landau.dist`, and return `(iterations = …, residual = …)`.
 
-`ti` counts the steps from 1, and `t` is the time of the guess. From the fourth step on, the
-guess is the Hermite extrapolation from `v_prev_2` and `v_prev` with the vector fields in
+From the guess `v₀`, iteration `k = 0, 1, …` evaluates the vector field `f_k` at the midpoint
+`(v_k + v_prev)/2` and the residual ``r_k = v_k - (v_{prev} + Δt \\, f_k)``. The first iterate
+with ``\\|r_k\\|_∞ ≤`` `abstol` is accepted: the particles take `v_prev + Δt f_k`, so that the
+accepted velocities and the stored vector field `f_k` belong together. Otherwise
+`v_{k+1} = v_prev + Δt f_k`. `iterations` is `k + 1`, the number of vector-field evaluations,
+and `residual` is ``\\|r_k\\|_∞``. The guess of the first three steps evaluates the vector field
+too; those evaluations are not counted.
+
+`abstol` must be finite and positive and `max_iters` at least 1, or an `ArgumentError` is thrown
+before any vector field is evaluated. When no iterate meets `abstol` within `max_iters`
+evaluations, an `ErrorException` is thrown that names the number of evaluations and the last
+residual, and neither the particles nor `rhs_prev` are written. A residual that is not finite
+never meets `abstol`.
+
+`ti` counts the steps from 1, and `t` is the time of the new velocities. From the fourth step on,
+the guess is the Hermite extrapolation from `v_prev_2` and `v_prev` with the vector fields in
 `rhs_prev[:, :, 2]` and `rhs_prev[:, :, 1]`; the first three steps (`ti < 4`) take it from a
-midpoint extrapolation of the vector field. On return, `rhs_prev[:, :, 1]` holds the last
-midpoint vector field and `rhs_prev[:, :, 2]` the one it held before. `tol`, `ftol`, `β`, `m`
-and `chunksize` are not read.
+midpoint extrapolation of the vector field. On return, `rhs_prev[:, :, 1]` holds the accepted
+vector field `f_k` and `rhs_prev[:, :, 2]` the one it held before.
 
-The residual ``|v - (v_{prev} + Δt \\, \\dot{v})|`` of the guess and of each iterate is sent as
-a `@debug` message; nothing is written to `stdout`.
+The residual ``\\|r_k\\|_∞`` of each iterate is sent as the `@debug` message
+"Landau Picard residual" with the keyword `iteration = k`; nothing is written to `stdout`.
 
 # Allocations
 
-From the fourth step on, a call allocates at most the bytes of its six vector-field
-evaluations, plus the `Base.summarysize` of the histories it returns, plus 1 KiB. A
-vector-field evaluation allocates no more than its two least-squares solves `K1 \\ LJ` and
-`K2 \\ LJ` where the number of particles is not the number of basis functions (Np ≠ M); for a
-square `K` (Np == M) it takes the pivoted QR, where `\\` takes LU, and that bound does not
-hold. The guess of the first three steps allocates at most the bytes of its 37
-vector-field evaluations plus 200 kB, for the arrays of GeometricIntegrators' extrapolation
-and the problem it is given. `test/integration/landau_solver.jl` asserts both bounds.
+From the fourth step on, a call allocates at most `iterations` times the bytes of one
+vector-field evaluation, plus 1 KiB. A vector-field evaluation allocates no more than its two
+least-squares solves `K1 \\ LJ` and `K2 \\ LJ` where the number of particles is not the number of
+basis functions (Np ≠ M); for a square `K` (Np == M) it takes the pivoted QR, where `\\` takes
+LU, and that bound does not hold. The guess of the first three steps allocates at most the bytes
+of its 37 vector-field evaluations plus 200 kB, for the arrays of GeometricIntegrators'
+extrapolation and the problem it is given. `test/integration/landau_solver.jl` asserts both
+bounds.
 """
 function Picard_iterate_Landau_nls!(
-        landau, tol, ftol, β, Δt, ti, t, v_prev, v_prev_2, rhs_prev, m, chunksize)
-    # β, the damping parameter of a damped Picard iteration (β = 1 is plain Picard), is not read
+        landau, Δt, ti, t, v_prev, v_prev_2, rhs_prev; abstol, max_iters = 100)
+    isfinite(abstol) && abstol > 0 ||
+        throw(ArgumentError("abstol must be finite and positive, got $abstol"))
+    max_iters ≥ 1 || throw(ArgumentError("max_iters must be at least 1, got $max_iters"))
+
     # ti is the time index at which v_new is being computed, i.e. for t = ti * Δt
     # v_prev is v at the previous timestep
     # v_prev_2 is v at two timesteps prior to t
@@ -69,39 +95,29 @@ function Picard_iterate_Landau_nls!(
     v_midpoint = cache.v
     v̇_midpoint = cache.v̇
 
-    v_midpoint .= (v_guess .+ v_prev) ./ 2
-    collisional_vectorfield!(v̇_midpoint, v_midpoint, params, landau)
-    @debug "Landau Picard residual" iteration=0 residual=norm(
-        v_guess .- (v_prev .+ Δt .* v̇_midpoint))
-
-    v_sol = Vector{typeof(v_guess)}(undef, 6)
-    v̇_sol = Vector{typeof(v̇_midpoint)}(undef, 6)
-    v_sol[1] = copy(v_guess)
-    v̇_sol[1] = copy(v̇_midpoint)
-
-    for i in 1:5
-        v_guess .= v_prev .+ Δt .* v̇_midpoint
-
+    residual = zero(promote_type(eltype(v_guess), typeof(Δt)))
+    for k in 0:(max_iters - 1)
         v_midpoint .= (v_guess .+ v_prev) ./ 2
-
         collisional_vectorfield!(v̇_midpoint, v_midpoint, params, landau)
+        residual = _landau_picard_residual(v_guess, v_prev, Δt, v̇_midpoint)
+        @debug "Landau Picard residual" iteration=k residual
 
-        @debug "Landau Picard residual" iteration=i residual=norm(
-            v_guess .- (v_prev .+ Δt .* v̇_midpoint))
+        if residual ≤ abstol
+            # accept the update of the converged vector field, so that the state and the
+            # stored derivative belong together
+            dist.particles.v .= v_prev .+ Δt .* v̇_midpoint
 
-        v_sol[i + 1] = copy(v_guess)
-        v̇_sol[i + 1] = copy(v̇_midpoint)
+            # update rhs storage, through views: `rhs_prev[:, :, 1]` on the right would be a
+            # copy
+            view(rhs_prev, :, :, 2) .= view(rhs_prev, :, :, 1)
+            view(rhs_prev, :, :, 1) .= v̇_midpoint
+
+            return (iterations = k + 1, residual = residual)
+        end
+
+        v_guess .= v_prev .+ Δt .* v̇_midpoint
     end
 
-    sol = (v = v_sol, v̇ = v̇_sol)
-
-    # update solution array
-    dist.particles.v .= v_guess
-
-    # update rhs storage, through views: `rhs_prev[:, :, 1]` on the right would be a copy
-    view(rhs_prev, :, :, 2) .= view(rhs_prev, :, :, 1)
-    view(rhs_prev, :, :, 1) .= v̇_midpoint
-
-    # return solution at t
-    return sol
+    error("the Landau Picard iteration did not converge in $max_iters vector-field ",
+        "evaluations: the last residual is $residual, above abstol = $abstol")
 end

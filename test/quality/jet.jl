@@ -227,8 +227,9 @@ if isdefined(JET, :JET_AVAILABLE) ? JET.JET_AVAILABLE : JET.JET_LOADABLE
 
     # test/integration/landau_solver.jl: the Landau Picard step, on its `@allocated` calls at
     # `ti = 1` and `ti = 4`, which take the two branches of the guess, at the `Float32` and
-    # `Float64` argument types of that test, with the `Float64` tolerances it passes in both.
-    # `ti` is an `Int` in both, so one analysis covers the two branches.
+    # `Float64` argument types of that test, with the `Float64` tolerance it passes in both. The
+    # keyword call is probed through `Core.kwcall`. `ti` is an `Int` in both, so one analysis
+    # covers the two branches.
     for T in (Float64, Float32)
         npart = 16
         lpdist = ParticleDistribution(1, 2,
@@ -239,10 +240,11 @@ if isdefined(JET, :JET_AVAILABLE) ? JET.JET_AVAILABLE : JET.JET_LOADABLE
         lsdist = SplineDistribution(
             1, 2, lB, TensorProductQuadrature(lB), zeros(T, size(lB)...))
         landau = Landau(lpdist, CollisionEntropy(lsdist))
-        @test isempty(JET.get_reports(JET.report_opt(
-            VlasovMethods.Picard_iterate_Landau_nls!,
-            (typeof(landau), Float64, Float64, Float64, T, Int, T, Matrix{T}, Matrix{T},
-                Array{T, 3}, Int, Int); target_modules = (VlasovMethods,))))
+        @test isempty(JET.get_reports(JET.report_opt(Core.kwcall,
+            (@NamedTuple{abstol::Float64},
+                typeof(VlasovMethods.Picard_iterate_Landau_nls!),
+                typeof(landau), T, Int, T, Matrix{T}, Matrix{T}, Array{T, 3});
+            target_modules = (VlasovMethods,))))
     end
 
     # test/hnn.jl: the epoch of the HNN extension, at the argument types of that file's allocation
