@@ -62,7 +62,7 @@ v̇ = similar(v)
 VlasovMethods.RCLB_rhs_GI!(v̇, 0.0, v, lb_params(rclb))
 write_reference("collision_rclb_reference.txt", v̇)
 
-mlb = MetriplecticLenardBernstein(pdist, CollisionEntropy(sdist))
+mlb = MetriplecticLenardBernstein(pdist, CollisionEntropy(sdist); bracket = JeyakumarBracket())
 v = copy(pdist.particles.v[1, :])
 v̇ = similar(v)
 VlasovMethods.collisional_vectorfield!(v̇, v, nothing, mlb)

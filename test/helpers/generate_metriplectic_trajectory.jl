@@ -27,7 +27,7 @@ pdist.particles.w[1, :] .= 1 / N
 axis = BSplineBasis(UniformMesh(16, -2.0 .. 2.0), 3, Free())
 sdist = SplineDistribution(1, 1, axis,
     VlasovMethods.SimpleSplines.SplineQuadrature(axis), zeros(Float64, nbasis(axis)))
-mlb = MetriplecticLenardBernstein(pdist, CollisionEntropy(sdist))
+mlb = MetriplecticLenardBernstein(pdist, CollisionEntropy(sdist); bracket = JeyakumarBracket())
 
 vn, vn_minus_one, dv_history = copy(v0), copy(v0), zeros(N, 2)
 open(joinpath(@__DIR__, "..", "data", "lenard_bernstein_metriplectic_trajectory.txt"), "w") do io

@@ -284,10 +284,10 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K36 · A metriplectic Picard step whose particles leave the velocity domain stops with the model's `DomainError`.
 
-- **location:** `src/models/lenard_bernstein_metriplectic.jl:430`
+- **location:** `src/models/lenard_bernstein_metriplectic.jl:481`
 - **evidence:** With `ν = 1e6` at `ti = 4`, all 64 particles leave the `-2.0 .. 2.0` velocity
   support and `_projection!` throws `DomainError: … 64 of 64 particles left the velocity domain …`
-  from inside the solve. The catch at `:430` rethrows it, so the caller sees that `DomainError`
+  from inside the solve. The catch at `:481` rethrows it, so the caller sees that `DomainError`
   and not the residual-and-count `ErrorException` the author decided for a solve that does not
   converge or meets a `NaN`. The error is loud, so the solve never returns in silence.
 - **kind:** found late
@@ -295,8 +295,8 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K41 · `Picard_iterate_over_particles!` calls two `SimpleSolvers` names that are not public.
 
-- **location:** `src/models/lenard_bernstein_metriplectic.jl:431`
-- **evidence:** `SimpleSolvers.status` (`:431`) and `SimpleSolvers.isconverged` (`:434`) are neither
+- **location:** `src/models/lenard_bernstein_metriplectic.jl:482`
+- **evidence:** `SimpleSolvers.status` (`:482`) and `SimpleSolvers.isconverged` (`:485`) are neither
   exported nor declared `public`; `SimpleSolvers` 0.14.1 keeps them unexported at
   `src/SimpleSolvers.jl:138`. `ExplicitImports.check_all_qualified_accesses_are_public` flags
   exactly these two. The fix is a `public` declaration in `SimpleSolvers`.
@@ -305,8 +305,8 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K42 · `Picard_iterate_over_particles` takes `dv`, `m` and `β` and ignores them.
 
-- **location:** `src/models/lenard_bernstein_metriplectic.jl:451`
-- **evidence:** The wrapper does not read `dv`, `m` or `β` after its signature (`:451-454`); it
+- **location:** `src/models/lenard_bernstein_metriplectic.jl:502`
+- **evidence:** The wrapper does not read `dv`, `m` or `β` after its signature (`:502-505`); it
   passes the other arguments to `Picard_iterate_over_particles!`, which takes none of the three.
   They stay so that the call sites do not change, and the CHANGELOG says so. Removing them is an
   API change.
@@ -339,11 +339,11 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K49 · The `which(f!, …)` assertion of the metriplectic collision test cannot fail.
 
-- **location:** `test/integration/collision_operators.jl:94`
-- **evidence:** `f!` has one method, `src/models/lenard_bernstein_metriplectic.jl:336`, and its
+- **location:** `test/integration/collision_operators.jl:95`
+- **evidence:** `f!` has one method, `src/models/lenard_bernstein_metriplectic.jl:387`, and its
   last argument is `mlb::MetriplecticLenardBernstein`. So `which(VlasovMethods.f!, …)` at
-  `:94-96` either returns that method, and the `@test` at `:97` passes, or throws a
-  `MethodError`. The value pin at `:90` already runs `f!` through the Picard step. Whether to
+  `:95-97` either returns that method, and the `@test` at `:98` passes, or throws a
+  `MethodError`. The value pin at `:91` already runs `f!` through the Picard step. Whether to
   keep the assertion is open.
 - **kind:** missing test
 - **found:** #69

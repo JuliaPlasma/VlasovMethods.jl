@@ -39,6 +39,29 @@ their own, except for what they removed and narrowed, which is listed in full be
   H-theorem failed. Now `𝕃` is symmetric and positive semi-definite for every finite `f_s`, and
   `𝕃 1 = 0` wherever the basis functions sum to one; where `f_s > 0` it is unchanged.
 
+### Breaking Changes
+
+- **`MetriplecticLenardBernstein` runs the Dougherty form by default.** Its right-hand side is
+  `eq:semidiscrete_equations_of_motion` of the metriplectic Lenard-Bernstein manuscript, which
+  the manuscript derives from its bracket `eq:lb_bracket_discrete`. Before, the model ran that
+  equation times `n/(ε − u²)`, which rescales friction against diffusion. A model built without
+  the new keyword `bracket` therefore gives other velocities and another solve;
+  `bracket = JeyakumarBracket()` gives the former right-hand side bit for bit.
+- **The right-hand side of `MetriplecticLenardBernstein` throws a `DomainError` where the
+  velocities have no spread**: where `Σ w (v − u)² / n ≤ eps(T) ε`, as for one particle or all
+  particles at one velocity. Before, it divided by `ε − u²` there, which is zero or a rounding
+  residue of either sign. A `NaN` velocity is not refused and propagates, as before.
+
+### New Features
+
+- **`LenardBernsteinBracket`, `DoughertyBracket` and `JeyakumarBracket`** select the metric
+  bracket of `MetriplecticLenardBernstein` through its keyword `bracket`. `DoughertyBracket()`, the
+  default, is the manuscript's form; `JeyakumarBracket()` is that form times `n/(ε − u²)`. Both
+  brackets are symmetric and negative semi-definite and conserve momentum `Σ w v` and energy
+  `Σ w v²` for any entropy gradient. Their docstrings give the equations of motion. The tests that
+  read the reference files of the model in `test/data/` build it with `JeyakumarBracket()`, and
+  the files are unchanged.
+
 ### Documentation
 
 - **The docstrings follow the manuscripts' text.** `CollisionEntropy` gives `S_h` as the
@@ -52,6 +75,11 @@ their own, except for what they removed and narrowed, which is listed in full be
 - **ExplicitImports also checks self-qualified accesses.** `test/quality/explicit_imports.jl` runs
   `check_no_self_qualified_accesses` on the package and on `MultiModalAutoEncoderExt`. The file
   calls single checks, so this one, which `test_explicit_imports` runs by default, was missing.
+- **The right-hand sides of `MetriplecticLenardBernstein` have one function.** `bracket_rhs!`
+  has one method per bracket and replaces the unexported `rhs!`, which had no caller, and
+  `rhs_downstairs_factor!`. `test/models/lenard_bernstein_metriplectic.jl` compares the Dougherty
+  form with the manuscript's equation term by term, the Jeyakumar form with the former right-hand
+  side, and checks the bracket matrix of each form against a control that drops a term.
 
 ## [0.4.1] — 2026-11-04
 

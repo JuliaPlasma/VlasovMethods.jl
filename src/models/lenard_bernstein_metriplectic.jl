@@ -104,23 +104,84 @@ function _mlb_picard(pdist::ParticleDistribution{T}) where {T}
     MLBPicard{T}(size(pdist.particles.v, 2), zero(T), zero(T), 1)
 end
 
+@doc raw"""
+    LenardBernsteinBracket
+
+The metric bracket of [`MetriplecticLenardBernstein`](@ref): [`DoughertyBracket`](@ref) or
+[`JeyakumarBracket`](@ref). Both conserve momentum ``\sum_\gamma w_\gamma v_\gamma`` and energy
+``\sum_\gamma w_\gamma v_\gamma^2`` for any entropy gradient, and their right-hand sides differ
+by the factor ``n_h / (\varepsilon_h - u_h^2)``, which rescales friction against diffusion.
+"""
+abstract type LenardBernsteinBracket end
+
+@doc raw"""
+    DoughertyBracket()
+
+The bracket `eq:lb_bracket_discrete` of the metriplectic Lenard-Bernstein manuscript, with the
+kernel ``\varepsilon_h - u_h^2 + (v - u_h)(v' - u_h)``. Its equation of motion is
+`eq:semidiscrete_equations_of_motion`,
+
+```math
+\dot{v}_\gamma = \nu \left[ - (\varepsilon_h - u_h^2) \, \frac{S_\gamma}{w_\gamma}
+  + \frac{\varepsilon_h - u_h v_\gamma}{n_h} \sum_\beta S_\beta
+  + \frac{v_\gamma - u_h}{n_h} \sum_\beta v_\beta S_\beta \right] ,
+```
+
+with ``S_\gamma = \partial S_h / \partial v_\gamma``, the moments ``n_h = \sum_\beta w_\beta``,
+``u_h = \sum_\beta w_\beta v_\beta / n_h`` and ``\varepsilon_h = \sum_\beta w_\beta v_\beta^2 / n_h``,
+and the weight ``w_\gamma`` of each particle. The default bracket of
+[`MetriplecticLenardBernstein`](@ref).
+"""
+struct DoughertyBracket <: LenardBernsteinBracket end
+
+@doc raw"""
+    JeyakumarBracket()
+
+The bracket of [`DoughertyBracket`](@ref) times ``n_h / (\varepsilon_h - u_h^2)``. Its
+equation of motion is `eq:semidiscrete_equations_of_motion` of the metriplectic
+Lenard-Bernstein manuscript times the same factor,
+
+```math
+\dot{v}_\gamma = \nu \left[ - n_h \, \frac{S_\gamma}{w_\gamma}
+  + \frac{\varepsilon_h - u_h v_\gamma}{\varepsilon_h - u_h^2} \sum_\beta S_\beta
+  + \frac{v_\gamma - u_h}{\varepsilon_h - u_h^2} \sum_\beta v_\beta S_\beta \right] ,
+```
+
+in the notation of [`DoughertyBracket`](@ref).
+"""
+struct JeyakumarBracket <: LenardBernsteinBracket end
+
+@doc raw"""
+    MetriplecticLenardBernstein(dist, ent; ν = 1.0, bracket = DoughertyBracket())
+
+The metriplectic Lenard-Bernstein collision operator on the particles of `dist`, with the
+entropy `ent`, the collision frequency `ν` and the metric bracket `bracket`, a
+[`LenardBernsteinBracket`](@ref).
+
+The right-hand side of either bracket throws a `DomainError` when the velocities have no spread,
+``\sum_\gamma w_\gamma (v_\gamma - u_h)^2 / n_h \le \epsilon \, \varepsilon_h`` with the machine
+epsilon ``\epsilon`` of the element type: one particle, or all particles at one velocity. There
+``\varepsilon_h - u_h^2`` is zero, or a rounding residue of either sign.
+"""
 struct MetriplecticLenardBernstein{
     D, XD, VD, DT <: DistributionFunction{<:Any, XD, VD}, ET <: Entropy, CT <: CacheDict,
-    PST <: MLBPicard} <: VlasovModel
+    PST <: MLBPicard, BT <: LenardBernsteinBracket} <: VlasovModel
     dist::DT
     entropy::ET
     ν::D
 
     cache::CT
     picard::PST
+    bracket::BT
 
     function MetriplecticLenardBernstein(
-            dist::DistributionFunction{<:Any, XD, VD}, ent::Entropy; ν::D = 1.0) where {
+            dist::DistributionFunction{<:Any, XD, VD}, ent::Entropy; ν::D = 1.0,
+            bracket::LenardBernsteinBracket = DoughertyBracket()) where {
             D, XD, VD}
         cache = CacheDict(MLBCache(dist, ent.dist))
         picard = _mlb_picard(dist)
-        new{D, XD, VD, typeof(dist), typeof(ent), typeof(cache), typeof(picard)}(
-            dist, ent, ν, cache, picard)
+        new{D, XD, VD, typeof(dist), typeof(ent), typeof(cache), typeof(picard),
+            typeof(bracket)}(dist, ent, ν, cache, picard, bracket)
     end
 end
 
@@ -260,45 +321,52 @@ function compute_moments(v::AbstractArray{ST}, v², pdist::ParticleDistribution,
     return n, u, eps
 end
 
-@doc raw"""
-``(\varepsilon_h - u_h^2) \, \mathbb{L} \, \partial S_h / \partial v``, i.e. the bracket of
-[`rhs_downstairs_factor!`](@ref) with its denominator cleared.
-
-Useful where the common factor is supplied elsewhere; it is **not** ``\dot{v}``, which is what
-`rhs_downstairs_factor!` returns.
-"""
-function rhs!(
-        v̇::AbstractArray{ST}, v::AbstractArray{ST}, pdist::ParticleDistribution, n, u, eps,
-        dS::AbstractArray{ST}, dS_sum, dS_v_sum, ::MetriplecticLenardBernstein) where {ST}
-    w = view(pdist.particles.w, 1, :)
-    v̇ .= .-n ./ w .* (eps - u^2) .* dS .+ (eps .- u .* v) .* dS_sum .+
-         (v .- u) .* dS_v_sum
+# The right-hand side of the bracket, without the collision frequency: the equation of motion of
+# the bracket's docstring divided by `ν`. `w` holds the weight of each particle, and `eps` is the
+# energy moment.
+function bracket_rhs!(v̇, v, w, n, u, eps, dS, dS_sum, dS_v_sum, ::DoughertyBracket)
+    v̇ .= .-(eps - u^2) ./ w .* dS .+ (eps .- u .* v) ./ n .* dS_sum .+
+         (v .- u) ./ n .* dS_v_sum
 end
 
-@doc raw"""
-The metriplectic Lenard-Bernstein right-hand side, ``\dot{v} = \mathbb{L} \, \partial S_h / \partial v``
-with the bracket
-
-```math
-\mathbb{L}_{\alpha\beta} = - \frac{n_h}{w_\alpha} \, \delta_{\alpha\beta}
-  + \frac{(\varepsilon_h - u_h v_\alpha) + (v_\alpha - u_h) v_\beta}{\varepsilon_h - u_h^2} .
-```
-
-``\mathbb{L}`` is symmetric and satisfies ``\sum_\alpha w_\alpha \mathbb{L}_{\alpha\beta} = 0``
-and ``\sum_\alpha w_\alpha v_\alpha \mathbb{L}_{\alpha\beta} = 0``, so momentum and energy are
-exact Casimirs of the bracket **whatever** `dS` is — a stronger structure than the
-manuscript's, and the reason these runs conserve.
-
-The weight is per particle, read from `pdist` for each ``\alpha``: the two degeneracies above
-are what fail if a single weight is used for every particle, so with non-uniform weights the
-conservation the bracket is built for would be lost.
-"""
-function rhs_downstairs_factor!(
-        v̇::AbstractArray{ST}, v::AbstractArray{ST}, pdist::ParticleDistribution, n, u, eps,
-        dS::AbstractArray{ST}, dS_sum, dS_v_sum, ::MetriplecticLenardBernstein) where {ST}
-    w = view(pdist.particles.w, 1, :)
+function bracket_rhs!(v̇, v, w, n, u, eps, dS, dS_sum, dS_v_sum, ::JeyakumarBracket)
     v̇ .= .-n ./ w .* dS .+ (eps .- u .* v) ./ (eps - u^2) .* dS_sum .+
          (v .- u) ./ (eps - u^2) .* dS_v_sum
+end
+
+# Throws where the velocities have no spread: the two-pass variance `σ²` is at most `eps(T) ε`.
+# `ε − u²` is then zero or a rounding residue of either sign, which no fixed multiple of `eps(T) ε`
+# separates from a true spread, while `σ²` of particles at one velocity is of order
+# `eps(T)² v²`. A `NaN` fails the comparison and propagates.
+function _check_velocity_spread(v, w, n, u, ε)
+    σ² = zero(u)
+    for i in eachindex(v, w)
+        σ² += w[i] * (v[i] - u)^2
+    end
+    σ² /= n
+    σ² ≤ eps(typeof(σ²)) * ε && throw(DomainError(ε - u^2,
+        "the velocities have no spread, so ε − u² of the metriplectic Lenard–Bernstein " *
+        "bracket is not positive"))
+    return nothing
+end
+
+# The velocity field `ν 𝕃 dS` of the model's bracket at the velocities `v`, for the entropy
+# gradient `dS`, written into `v̇`.
+function metriplectic_rhs!(v̇::AbstractArray{ST}, v::AbstractArray{ST}, dS,
+        mlb::MetriplecticLenardBernstein) where {ST}
+    cache = mlb.cache[ST]
+    w = view(mlb.dist.particles.w, 1, :)
+
+    ds_sum = sum(dS)
+    ds_v_sum = dot(v, dS)
+
+    n, u, eps = compute_moments(v, cache.v², mlb.dist, mlb)
+    _check_velocity_spread(v, w, n, u, eps)
+
+    bracket_rhs!(v̇, v, w, n, u, eps, dS, ds_sum, ds_v_sum, mlb.bracket)
+
+    # Scale by the collision frequency, as every other collision model here does.
+    v̇ .*= mlb.ν
 end
 
 function collisional_vectorfield!(v̇::AbstractArray{ST}, v::AbstractArray{ST}, params,
@@ -313,15 +381,7 @@ function collisional_vectorfield!(v̇::AbstractArray{ST}, v::AbstractArray{ST}, 
 
     compute_dS!(cache.dS, cache.values, cache.J, v, sdist, mlb, mlb.dist)
 
-    ds_sum = sum(cache.dS)
-    ds_v_sum = dot(v, cache.dS)
-
-    n, u, eps = compute_moments(v, cache.v², mlb.dist, mlb)
-
-    rhs_downstairs_factor!(v̇, v, mlb.dist, n, u, eps, cache.dS, ds_sum, ds_v_sum, mlb)
-
-    # Scale by the collision frequency, as every other collision model here does.
-    v̇ .*= mlb.ν
+    metriplectic_rhs!(v̇, v, cache.dS, mlb)
 end
 
 function f!(f::AbstractArray{T}, vn::AbstractArray{T}, vp, params,

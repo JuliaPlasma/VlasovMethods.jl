@@ -33,7 +33,9 @@ function metriplectic_setup(::Type{T}, n::Int = N) where {T}
     axis = BSplineBasis(UniformMesh(NKNOT - 1, T(-2) .. T(2)), 3, Free())
     sdist = SplineDistribution(1, 1, axis, SplineQuadrature(axis), zeros(T, nbasis(axis)))
 
-    return MetriplecticLenardBernstein(pdist, CollisionEntropy(sdist)), v0
+    mlb = MetriplecticLenardBernstein(
+        pdist, CollisionEntropy(sdist); bracket = JeyakumarBracket())
+    return mlb, v0
 end
 
 function step_args(v0, mlb, abstol, ::Type{T};
