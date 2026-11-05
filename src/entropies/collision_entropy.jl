@@ -63,8 +63,8 @@ function (ent::CollisionEntropy{XD, VD})() where {XD, VD}
 end
 
 # log|f| is -Inf where f is zero and undefined where f is not finite; every other value, a
-# negative one included, has a finite logarithm. The entropy, 𝕃 of both metriplectic models and
-# `compute_entropy` sample log|f_s| at the quadrature nodes and refuse such a node.
+# negative one included, has a finite logarithm. The entropy, `compute_J!` of both metriplectic
+# models and `compute_entropy` sample log|f_s| at the quadrature nodes and refuse such a node.
 function _check_log_defined(f, v)
     (f != 0 && isfinite(f)) || throw(DomainError(f,
         "the projected distribution is zero or not finite at v = $(v), so " *
