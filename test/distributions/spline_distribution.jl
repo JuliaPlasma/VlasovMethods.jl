@@ -387,7 +387,7 @@ end
 # sign. The control is the defining double sum with the signed weights W_a f_s(v_a), which has a
 # negative eigenvalue on the same projection.
 @testset "𝕃 is positive semi-definite on a sign-changing projection" begin
-    pd, sd, landau = landau_fixture()
+    _, sd, landau = landau_fixture()
     M = length(sd)
     project_function(v -> exp(-(v[1]^2 + v[2]^2) / 2) / (2π), sd)
 
