@@ -353,14 +353,14 @@ end
 # log|f_s| is -Inf at a zero of f_s and undefined at a non-finite value, so 𝕃 and the entropy
 # refuse both.
 @testset "a zero projection throws, $T" for T in (Float32, Float64)
-    mlb, pdist, sdist = mlb_setup(T)
+    mlb, _, sdist = mlb_setup(T)
     sdist.coefficients .= 0
     @test_throws DomainError mlb_J!(zeros(T, nbasis(sdist.basis)), sdist, mlb)
     @test_throws DomainError mlb_entropy(sdist, mlb)
 end
 
 @testset "a non-finite projection throws, $T" for T in (Float32, Float64)
-    mlb, pdist, sdist = mlb_setup(T)
+    mlb, _, sdist = mlb_setup(T)
     for bad in (T(NaN), T(Inf))
         sdist.coefficients .= one(T)
         sdist.coefficients[5] = bad
