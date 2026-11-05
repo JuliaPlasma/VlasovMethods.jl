@@ -370,8 +370,8 @@ end
     end
 end
 
-# PD-LB's pointwise ratio f_s'/f_s has no meaning where f_s ≤ 0, so its coefficients refuse a
-# projection that is negative at a particle.
+# The pointwise ratio f_s'/f_s of the conservative operators has no meaning where f_s ≤ 0, so
+# their coefficients refuse a projection that is negative at a particle.
 @testset "PD-LB refuses a sign-changing projection, $T" for T in (Float32, Float64)
     pdist, sdist = setup(T, 256)
     project_function(v -> v^2 - one(T) / 4, sdist)

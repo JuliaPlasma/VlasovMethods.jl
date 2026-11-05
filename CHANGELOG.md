@@ -28,8 +28,9 @@ their own, except for what they removed and narrowed, which is listed in full be
   before, an infinite value passed the guard. `compute_J!` gives the exact gradient of
   `CollisionEntropy` with respect to the particle velocities on a sign-changing projection: the
   new tests compare it with a central difference, for `Landau` and for
-  `MetriplecticLenardBernstein`. PD-LB's `compute_coefficients` and `compute_coefficients_rclb`
-  keep their `DomainError` for `f_s ≤ 0`, because `f_s'/f_s` is undefined there (K8).
+  `MetriplecticLenardBernstein`. `compute_coefficients` of `ConservativeLenardBernstein` and
+  `compute_coefficients_rclb` of `RescaledConservativeLenardBernstein` keep their `DomainError`
+  for `f_s ≤ 0`, because `f_s'/f_s` is undefined there (K8).
 - **`compute_L!` of `Landau` weights the grid by the mobility `|f_s|`**, the `M(f) = |f|` of the
   Landau manuscript's appendix bracket `eq:landau_bracket_modified`. With the signed weight
   `W_a f_s(v_a)`, `𝕃` had a negative eigenvalue where `f_s` changes sign — `−2.08e-3` times

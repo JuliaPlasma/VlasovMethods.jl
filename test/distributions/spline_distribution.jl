@@ -382,10 +382,10 @@ end
     @test maximum(abs, central - exact) ≤ 1e-5 * maximum(abs, exact)
 end
 
-# MP-L's appendix bracket with the mobility M(f) = |f| (`eq:landau_bracket_modified`): 𝕃 is
-# symmetric, positive semi-definite and annihilates the constants on a projection that changes
-# sign. The control is the defining double sum with the signed weights W_a f_s(v_a), which has a
-# negative eigenvalue on the same projection.
+# The Landau manuscript's appendix bracket with the mobility M(f) = |f|
+# (`eq:landau_bracket_modified`): 𝕃 is symmetric, positive semi-definite and annihilates the
+# constants on a projection that changes sign. The control is the defining double sum with the
+# signed weights W_a f_s(v_a), which has a negative eigenvalue on the same projection.
 @testset "𝕃 is positive semi-definite on a sign-changing projection" begin
     _, sd, landau = landau_fixture()
     M = length(sd)
