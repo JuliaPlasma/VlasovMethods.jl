@@ -151,7 +151,7 @@ end
         @test maximum(eigvals(Symmetric((L .+ L') ./ 2))) ≤ tol
         @test maximum(abs, w' * L) ≤ tol * scale
         @test maximum(abs, (w .* v)' * L) ≤ tol * scale
-        # The bracket is not zero: its diagonal dominates.
+        # The bracket is not zero: its symmetric part has an eigenvalue below `−max|𝕃|/10`.
         @test minimum(eigvals(Symmetric((L .+ L') ./ 2))) < -Lmax / 10
     end
 

@@ -80,7 +80,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   has one method per bracket and replaces the unexported `rhs!`, which had no caller, and
   `rhs_downstairs_factor!`. `test/models/lenard_bernstein_metriplectic.jl` compares the Dougherty
   form with the manuscript's equation term by term, the Jeyakumar form with the former right-hand
-  side, and checks the bracket matrix of each form against a control that drops a term.
+  side, and checks the bracket matrix of each form, beside a control that drops a term of the
+  Dougherty form.
 
 ## [0.4.1] — 2026-11-04
 
