@@ -24,19 +24,24 @@ function landau_solver_setup(::Type{T} = Float64) where {T}
     return Landau(pdist, CollisionEntropy(sdist)), copy(pdist.particles.v)
 end
 
-# One step at `ti`, with `stdout` redirected into a file; returns what the step returns and what
-# it wrote to the file.
+# One step at `ti` and `Δt = 1e-6`, with `stdout` redirected into a file; returns what the step
+# returns, what it wrote to the file, and the residuals of its debug messages.
 function landau_step(landau, v_prev::AbstractMatrix{T}, ti) where {T}
     rhs_prev = zeros(T, 2, size(v_prev, 2), 2)
     path = tempname()
+    logger = Test.TestLogger(; min_level = Base.CoreLogging.Debug)
     sol = open(path, "w") do io
         redirect_stdout(io) do
-            VM.Picard_iterate_Landau_nls!(
-                landau, T(1e-6), ti, zero(T), v_prev, copy(v_prev),
-                rhs_prev; abstol = 1e-12)
+            Base.CoreLogging.with_logger(logger) do
+                VM.Picard_iterate_Landau_nls!(
+                    landau, T(1e-6), ti, zero(T), v_prev, copy(v_prev),
+                    rhs_prev; abstol = 1e-12)
+            end
         end
     end
-    return sol, read(path, String)
+    residuals = [r.kwargs[:residual]
+                 for r in logger.logs if r.message == "Landau Picard residual"]
+    return sol, read(path, String), residuals
 end
 
 # The kinetic energy `½ Σ_α w_α ‖v_α‖₂²` and the momentum `Σ_α w_α v_α`.
@@ -45,9 +50,9 @@ landau_momentum(v, w) = v * w
 
 @testset "the Landau Picard solver runs" begin
     landau1, v_prev1 = landau_solver_setup()
-    sol1, out1 = landau_step(landau1, v_prev1, 1)
+    sol1, out1, res1 = landau_step(landau1, v_prev1, 1)
     landau4, v_prev4 = landau_solver_setup()
-    sol4, out4 = landau_step(landau4, v_prev4, 4)
+    sol4, out4, res4 = landau_step(landau4, v_prev4, 4)
 
     for sol in (sol1, sol4)
         @test sol isa NamedTuple{(:iterations, :residual)}
@@ -59,6 +64,19 @@ landau_momentum(v, w) = v * w
     # guess of `ti ≥ 4`
     @test landau1.dist.particles.v != v_prev1
     @test landau4.dist.particles.v != v_prev4
+
+    # The first residual tells the two guesses apart. With `v_prev_2 == v_prev` and
+    # `rhs_prev == 0`, the Hermite guess is `v_prev`, whose residual is `Δt ‖f(v_prev)‖∞` up to
+    # the rounding of `v_prev + Δt f` (relative `eps · ‖v‖∞ / (Δt ‖f‖∞)`, about 1e-10 here).
+    # The guess of `ti < 4`, the midpoint extrapolation, has a residual below a hundredth of that
+    # (measured 8.2e-15 against 5.9e-6), so it meets `abstol` at the first evaluation.
+    landau0, _ = landau_solver_setup()
+    f0 = similar(v_prev1)
+    VM.collisional_vectorfield!(f0, v_prev1, (dist = landau0.dist, ent = landau0.entropy), landau0)
+    @test isapprox(res4[1], 1e-6 * maximum(abs, f0); rtol = 1e-8)
+    @test res1[1] ≤ 1e-2 * 1e-6 * maximum(abs, f0)
+    @test sol1.iterations == 1
+    @test length(res1) == 1
 
     # nothing is written to `stdout`
     @test isempty(out1)
@@ -170,7 +188,7 @@ end
     @test count(r -> r.message == "Landau Picard residual", logger.logs) == 10
     @test err isa ErrorException
     @test occursin("did not converge", err.msg)
-    @test occursin("10", err.msg)
+    @test occursin("in 10 vector-field evaluations", err.msg)
     # the message names the last residual
     @test occursin(string(logger.logs[end].kwargs[:residual]), err.msg)
     @test landau.dist.particles.v == v_prev
@@ -197,6 +215,11 @@ end
         @test !any(r -> r.message == "Landau Picard residual", logger.logs)
         @test isequal(landau.cache[Float64].K1, K1)
     end
+    # `max_iters` counts evaluations, so it is an integer
+    landau, v_prev = landau_solver_setup()
+    @test_throws TypeError VM.Picard_iterate_Landau_nls!(landau, 1e-3, 4, 0.0, v_prev,
+        copy(v_prev), zeros(2, size(v_prev, 2), 2); abstol = 1e-12, max_iters = 2.5)
+    @test landau.dist.particles.v == v_prev
 end
 
 @testset "a residual equal to abstol is accepted" begin
@@ -209,15 +232,6 @@ end
         zeros(2, size(v_prev, 2), 2); abstol = sol.residual)
     @test sol2 == sol
     @test landau2.dist.particles.v == landau.dist.particles.v
-end
-
-@testset "the residual is the max-norm" begin
-    # `v - (v_prev + Δt v̇)` is `[1 -3]` here: the max-norm is 3, the largest entry 1
-    @test VM._landau_picard_residual([0.0 0.0], [0.0 0.0], 1.0, [-1.0 3.0]) == 3.0
-    # a `NaN` entry anywhere makes the residual `NaN`, which fails every `≤ abstol`
-    @test isnan(VM._landau_picard_residual([0.0 0.0 0.0], [0.0 0.0 0.0], 1.0, [0.0 NaN 1.0
-                                                                               ]))
-    @test isnan(VM._landau_picard_residual([0.0 0.0], [0.0 0.0], 1.0, [1.0 NaN]))
 end
 
 # The bytes of one call after a warm call, through barriers of fixed arity whose arguments have

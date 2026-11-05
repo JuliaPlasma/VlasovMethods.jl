@@ -10,16 +10,6 @@ function _landau_startup_guess!(v, vn, t, Δt, params, landau)
     extrapolate!(t - Δt, vn, t, v, problemGNI, MidpointExtrapolation(5))
 end
 
-# The max-norm residual `‖v - (v_prev + Δt v̇)‖∞`, without a temporary array. A `NaN` entry
-# makes the result `NaN`.
-function _landau_picard_residual(v, v_prev, Δt, v̇)
-    r = zero(promote_type(eltype(v), typeof(Δt)))
-    for i in eachindex(v, v_prev, v̇)
-        r = max(r, abs(v[i] - (v_prev[i] + Δt * v̇[i])))
-    end
-    return r
-end
-
 """
     Picard_iterate_Landau_nls!(landau, Δt, ti, t, v_prev, v_prev_2, rhs_prev; abstol,
         max_iters = 100)
@@ -40,7 +30,9 @@ too; those evaluations are not counted.
 before any vector field is evaluated. When no iterate meets `abstol` within `max_iters`
 evaluations, an `ErrorException` is thrown that names the number of evaluations and the last
 residual, and neither the particles nor `rhs_prev` are written. A residual that is not finite
-never meets `abstol`.
+never meets `abstol`. An exception of the vector field passes through: the projection throws a
+`DomainError` once an iterate moves particles out of the velocity domain, which can happen
+before `max_iters` evaluations.
 
 `ti` counts the steps from 1, and `t` is the time of the new velocities. From the fourth step on,
 the guess is the Hermite extrapolation from `v_prev_2` and `v_prev` with the vector fields in
@@ -63,7 +55,7 @@ extrapolation and the problem it is given. `test/integration/landau_solver.jl` a
 bounds.
 """
 function Picard_iterate_Landau_nls!(
-        landau, Δt, ti, t, v_prev, v_prev_2, rhs_prev; abstol, max_iters = 100)
+        landau, Δt, ti, t, v_prev, v_prev_2, rhs_prev; abstol, max_iters::Integer = 100)
     isfinite(abstol) && abstol > 0 ||
         throw(ArgumentError("abstol must be finite and positive, got $abstol"))
     max_iters ≥ 1 || throw(ArgumentError("max_iters must be at least 1, got $max_iters"))
@@ -95,11 +87,13 @@ function Picard_iterate_Landau_nls!(
     v_midpoint = cache.v
     v̇_midpoint = cache.v̇
 
-    residual = zero(promote_type(eltype(v_guess), typeof(Δt)))
+    residual = zero(eltype(v_midpoint))
     for k in 0:(max_iters - 1)
         v_midpoint .= (v_guess .+ v_prev) ./ 2
         collisional_vectorfield!(v̇_midpoint, v_midpoint, params, landau)
-        residual = _landau_picard_residual(v_guess, v_prev, Δt, v̇_midpoint)
+        # the residual, in `v_midpoint`, which the next iteration overwrites
+        v_midpoint .= v_guess .- (v_prev .+ Δt .* v̇_midpoint)
+        residual = maximum(abs, v_midpoint)
         @debug "Landau Picard residual" iteration=k residual
 
         if residual ≤ abstol
