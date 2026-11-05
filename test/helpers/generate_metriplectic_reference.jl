@@ -29,7 +29,7 @@ pdist.particles.w[1, :] .= 1 / N
 axis = BSplineBasis(UniformMesh(16, -2.0 .. 2.0), 3, Free())
 sdist = SplineDistribution(1, 1, axis,
     VlasovMethods.SimpleSplines.SplineQuadrature(axis), zeros(Float64, nbasis(axis)))
-# The source at `8419ed7` has one right-hand side, the Jeyakumar form, and no `bracket` keyword;
+# The model at `8419ed7` runs the Jeyakumar form and has no `bracket` keyword;
 # the test that reads this file builds the model with `bracket = JeyakumarBracket()`.
 mlb = MetriplecticLenardBernstein(pdist, CollisionEntropy(sdist))
 

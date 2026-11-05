@@ -192,3 +192,62 @@ end
         @test all(isnan, rhs(model(T, w; bracket = bracket), v_nan, dS))
     end
 end
+
+# `rhs(mlb, v, dS)`, or `nothing` where it throws the `DomainError` that names `ε − u²`.
+function rhs_or_nothing(mlb, v, dS)
+    try
+        return rhs(mlb, v, dS)
+    catch e
+        e isa DomainError && occursin("ε − u²", sprint(showerror, e)) || rethrow()
+        return nothing
+    end
+end
+
+@testset "the threshold" begin
+    # Two particles of weight 1/2 at `1 ± δ`, a dyadic `δ`, so that `u == 1` and the computed
+    # `ε − u²` equals `σ² = δ²` exactly. Below `eps(T) ε` the variance clause alone throws.
+    cases = (
+        (Float64, 2.0^-26, true), (Float64, 2.0^-25, false), (Float32, 2.0f0^-11, false))
+    @testset "$(nameof(typeof(bracket)))" for bracket in (DoughertyBracket(), JeyakumarBracket())
+        for (T, δ, throws) in cases
+            w = fill(one(T) / 2, 2)
+            v = [one(T) - δ, one(T) + δ]
+            n, u, ε = moments(w, v)
+            @test u == 1
+            @test ε - u^2 == δ^2
+            v̇ = rhs_or_nothing(model(T, w; bracket = bracket), v, ones(T, 2))
+            if throws
+                @test v̇ === nothing
+            else
+                @test v̇ !== nothing && all(isfinite, v̇)
+            end
+        end
+    end
+end
+
+@testset "a computed ε − u² ≤ 0 throws ($T)" for T in (Float64, Float32)
+    # Twelve particles at `c ± δ`, alternating, with `σ² = δ²` a small multiple of `eps(T) ε`,
+    # where the one-pass `ε − u²` of the model can be zero or negative.
+    N = 12
+    w = fill(one(T) / N, N)
+    dS = ones(T, N)
+    @testset "$(nameof(typeof(bracket)))" for bracket in (DoughertyBracket(), JeyakumarBracket())
+        mlb = model(T, w; bracket = bracket)
+        thrown_above = 0
+        for c in range(T(0.5), T(2.9); length = 25), f in (1.1, 1.5, 2, 3, 4)
+
+            δ = sqrt(T(f) * eps(T)) * c
+            v = [c + (-1)^γ * δ for γ in 1:N]
+            n, u, ε = VM.compute_moments(v, similar(v), mlb.dist, mlb)
+            σ² = sum(w .* (v .- u) .^ 2) / n
+            v̇ = rhs_or_nothing(mlb, v, dS)
+            if v̇ === nothing
+                thrown_above += σ² > eps(T) * ε
+            else
+                @test ε - u^2 > 0
+                @test all(isfinite, v̇)
+            end
+        end
+        @test thrown_above ≥ 1
+    end
+end

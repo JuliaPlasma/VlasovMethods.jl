@@ -158,9 +158,11 @@ The metriplectic Lenard-Bernstein collision operator on the particles of `dist`,
 entropy `ent`, the collision frequency `ν` and the metric bracket `bracket`, a
 [`LenardBernsteinBracket`](@ref).
 
-The right-hand side of either bracket throws a `DomainError` when the velocities have no spread,
+The right-hand side of either bracket throws a `DomainError` when the velocities have no spread
+that the precision resolves: when
 ``\sum_\gamma w_\gamma (v_\gamma - u_h)^2 / n_h \le \epsilon \, \varepsilon_h`` with the machine
-epsilon ``\epsilon`` of the element type: one particle, or all particles at one velocity. There
+epsilon ``\epsilon`` of the element type, as for one particle or all particles at one velocity,
+or when the computed ``\varepsilon_h - u_h^2`` is not positive. There
 ``\varepsilon_h - u_h^2`` is zero, or a rounding residue of either sign.
 """
 struct MetriplecticLenardBernstein{
@@ -334,19 +336,24 @@ function bracket_rhs!(v̇, v, w, n, u, eps, dS, dS_sum, dS_v_sum, ::JeyakumarBra
          (v .- u) ./ (eps - u^2) .* dS_v_sum
 end
 
-# Throws where the velocities have no spread: the two-pass variance `σ²` is at most `eps(T) ε`.
-# `ε − u²` is then zero or a rounding residue of either sign, which no fixed multiple of `eps(T) ε`
-# separates from a true spread, while `σ²` of particles at one velocity is of order
-# `eps(T)² v²`. A `NaN` fails the comparison and propagates.
+# Throws where the velocities have no spread that the precision resolves: where the two-pass
+# variance `σ²` is at most `eps(T) ε`, or where the computed `ε − u²` is not positive. For
+# particles at one velocity, `ε − u²` is zero or a rounding residue of either sign, which no fixed
+# multiple of `eps(T) ε` separates from a true spread, while their `σ²` is of order `eps(T)² v²`.
+# Just above that threshold, the residue of `ε − u²` can still make it zero or negative. The
+# right-hand sides divide by or multiply with `ε − u²`, which is positive wherever this passes, so
+# the Jeyakumar form stays finite and the Dougherty diagonal keeps its sign. An overflow of `v²`
+# that makes `σ²` and `ε` both infinite, or an underflow that makes both zero, throws too. A `NaN`
+# fails both comparisons and propagates.
 function _check_velocity_spread(v, w, n, u, ε)
     σ² = zero(u)
     for i in eachindex(v, w)
         σ² += w[i] * (v[i] - u)^2
     end
     σ² /= n
-    σ² ≤ eps(typeof(σ²)) * ε && throw(DomainError(ε - u^2,
-        "the velocities have no spread, so ε − u² of the metriplectic Lenard–Bernstein " *
-        "bracket is not positive"))
+    (σ² ≤ eps(typeof(σ²)) * ε || ε - u^2 ≤ 0) && throw(DomainError(ε - u^2,
+        "the velocities have no spread that the precision resolves, so ε − u² of the " *
+        "metriplectic Lenard–Bernstein bracket is not positive"))
     return nothing
 end
 

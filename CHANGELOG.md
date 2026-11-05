@@ -48,9 +48,10 @@ their own, except for what they removed and narrowed, which is listed in full be
   the new keyword `bracket` therefore gives other velocities and another solve;
   `bracket = JeyakumarBracket()` gives the former right-hand side bit for bit.
 - **The right-hand side of `MetriplecticLenardBernstein` throws a `DomainError` where the
-  velocities have no spread**: where `Σ w (v − u)² / n ≤ eps(T) ε`, as for one particle or all
-  particles at one velocity. Before, it divided by `ε − u²` there, which is zero or a rounding
-  residue of either sign. A `NaN` velocity is not refused and propagates, as before.
+  velocities have no spread that the precision resolves**: where `Σ w (v − u)² / n ≤ eps(T) ε`,
+  as for one particle or all particles at one velocity, or where the computed `ε − u²` is not
+  positive. Before, it divided by `ε − u²` there, which is zero or a rounding residue of either
+  sign. A `NaN` velocity is not refused and propagates, as before.
 
 ### New Features
 
