@@ -658,3 +658,26 @@ has left the file, or that lived only on a merged branch, stays taken.
   `test/models/lenard_bernstein_metriplectic.jl` assert the throw for both brackets.
 - **kind:** defect
 - **found:** #112
+
+### K89 · `discrete_gradient_step!` checks `Δt` before its conversion to the element type of the velocities.
+
+- **location:** `src/methods/discrete_gradient.jl:127`
+- **evidence:** the check `isfinite(Δt) && Δt > 0` at line 127 reads `Δt` as given, and line 135
+  takes `h = T(Δt)`. For `Float32` velocities, a positive `Float64` `Δt` below the smallest
+  `Float32` subnormal gives `h = 0`: the first iterate `v_0 = vⁿ` then has the residual `0`, and
+  the step returns `iterations = 1` without moving the particles. A `Δt` above
+  `floatmax(Float32)` gives `h = Inf`, and the step throws after `max_iters` evaluations or at the
+  projection, not with the `ArgumentError` for `Δt`. No test covers either limit.
+- **kind:** defect
+- **found:** #115
+
+### K90 · `PairwiseLandau` checks the particle weights only in its constructor.
+
+- **location:** `src/models/landau_pairwise.jl:71`
+- **evidence:** the constructor throws an `ArgumentError` for a weight that is not positive and
+  finite (line 71). The model holds the distribution by reference, and `apply_G!` reads the
+  weights at every call and divides by them (`w[1, β] / wγ`, line 197). A weight changed to zero
+  after construction gives non-finite entries of `𝔾(v) x` with no error. No test changes a
+  weight after construction.
+- **kind:** defect
+- **found:** #115
