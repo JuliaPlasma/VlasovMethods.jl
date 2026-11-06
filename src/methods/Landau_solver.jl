@@ -6,7 +6,8 @@
 function _landau_startup_guess!(v, vn, t, Δt, params, landau)
     problemGNI = GeometricEquations.ODEProblem(
         (v̇, t, v, params) -> collisional_vectorfield!(v̇, v, params, landau),
-        (t, t+Δt), Δt, vn; parameters = params)::GeometricEquations.ODEProblem
+        # a copy, because the `StateVariable` of `GeometricBase` takes no view
+        (t, t+Δt), Δt, copy(vn); parameters = params)::GeometricEquations.ODEProblem
     extrapolate!(t - Δt, vn, t, v, problemGNI, MidpointExtrapolation(5))
 end
 
@@ -79,9 +80,11 @@ function Picard_iterate_Landau_nls!(
 
     # use Hermite extrapolation to get an initial guess
     if ti ≥ 4
+        # the extrapolation takes its three times in one type
+        tp, Δtp = promote(t, Δt)
         extrapolate!(
-            t - 2Δt, v_prev_2, view(rhs_prev, :, :, 2), t - Δt, v_prev,
-            view(rhs_prev, :, :, 1), t, v_guess, HermiteExtrapolation())
+            tp - 2Δtp, v_prev_2, view(rhs_prev, :, :, 2), tp - Δtp, v_prev,
+            view(rhs_prev, :, :, 1), tp, v_guess, HermiteExtrapolation())
     else
         _landau_startup_guess!(v_guess, v_prev, t, Δt, params, landau)
     end

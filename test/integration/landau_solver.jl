@@ -255,6 +255,41 @@ end
     @test landau.dist.particles.v == v_prev .+ Δt .* rhs_prev[:, :, 1]
 end
 
+@testset "a view as v_prev at ti < 4" begin
+    # the velocities as a slice of a history of steps, so that `v_prev` is a `SubArray`
+    landau, v_prev = landau_solver_setup()
+    history = zeros(size(v_prev)..., 2)
+    history[:, :, 1] .= v_prev
+    sol = VM.Picard_iterate_Landau_nls!(landau, 1e-6, 1, 0.0, view(history, :, :, 1),
+        copy(v_prev), zeros(2, size(v_prev, 2), 2); abstol = 1e-12)
+    # the same step from the `Matrix`
+    landau2, _ = landau_solver_setup()
+    sol2 = VM.Picard_iterate_Landau_nls!(landau2, 1e-6, 1, 0.0, v_prev, copy(v_prev),
+        zeros(2, size(v_prev, 2), 2); abstol = 1e-12)
+    @test sol == sol2
+    @test landau.dist.particles.v == landau2.dist.particles.v
+    @test landau.dist.particles.v != v_prev
+    @test history[:, :, 1] == v_prev
+end
+
+@testset "mixed float types of Δt and t at ti ≥ 4" begin
+    # `Float32` velocities and `t`, and a `Float64` `Δt`
+    abstol = Float64(64 * eps(Float32))
+    landau, v_prev = landau_solver_setup(Float32)
+    rhs_prev = zeros(Float32, 2, size(v_prev, 2), 2)
+    sol = VM.Picard_iterate_Landau_nls!(landau, 1e-6, 4, 0.0f0, v_prev, copy(v_prev),
+        rhs_prev; abstol)
+    # the same step with a `Float64` `t`
+    landau2, _ = landau_solver_setup(Float32)
+    rhs_prev2 = zeros(Float32, 2, size(v_prev, 2), 2)
+    sol2 = VM.Picard_iterate_Landau_nls!(landau2, 1e-6, 4, 0.0, v_prev, copy(v_prev),
+        rhs_prev2; abstol)
+    @test sol == sol2
+    @test landau.dist.particles.v == landau2.dist.particles.v
+    @test landau.dist.particles.v != v_prev
+    @test rhs_prev == rhs_prev2
+end
+
 # The bytes of one call after a warm call, through barriers of fixed arity whose arguments have
 # concrete types: a step of the solver, the guess of its first three steps, and a least-squares
 # solve of the vector field.
