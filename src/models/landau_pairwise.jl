@@ -219,9 +219,9 @@ converted to `T`.
 
 The projection throws a `DomainError` for a velocity outside the domain of the spline basis,
 `NaN` and `Inf` included, and [`compute_J!`](@ref) for a projection that is zero at a quadrature
-node, as for no particle; [`apply_G!`](@ref) throws for two equal velocities. `v` or `v̇` of
-another size than `2 × N`, with `N` the number of particles of the model, throws a
-`DimensionMismatch` that names it.
+node, as for no particle; [`apply_G!`](@ref) throws for two equal velocities and for a weight
+that is not positive and finite. `v` or `v̇` of another size than `2 × N`, with `N` the number
+of particles of the model, throws a `DimensionMismatch` that names it.
 """
 function collisional_vectorfield!(v̇::AbstractArray{ST}, v::AbstractArray{ST}, params,
         model::PairwiseLandau) where {ST}

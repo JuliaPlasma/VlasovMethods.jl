@@ -129,8 +129,9 @@ their own, except for what they removed and narrowed, which is listed in full be
   with `𝔾` at the midpoint (`eq:midpoint_G`), by a fixed-point iteration to the max-norm residual
   `abstol`, and returns `(iterations, residual)` as `Picard_iterate_Landau_nls!` does. It refuses
   a `Δt` that is not finite and positive in the element type of the velocities, so a `Float64`
-  `Δt` that is zero or `Inf` in `Float32` throws an `ArgumentError` (K89). The step conserves momentum to rounding and energy within `(Δt/2) · abstol · Σ w ‖f‖₁` plus rounding,
-  and `S_h` decreases at each of 20 steps of the new test, beside controls with `𝔾(vⁿ)`, with the
+  `Δt` that is zero or `Inf` in `Float32` throws an `ArgumentError` (K89). The step conserves
+  momentum to rounding and energy within `(Δt/2) · abstol · Σ w ‖f‖₁` plus rounding, and `S_h`
+  decreases at each of 20 steps of the new test, beside controls with `𝔾(vⁿ)`, with the
   midpoint gradient, and with the last iterate accepted, which break them. K10 of
   `KNOWN_ISSUES.md` names that test and stays for the appendix model `Landau`.
 - **`GonzalezGradient`** is the discrete gradient of the step, the manuscript's
