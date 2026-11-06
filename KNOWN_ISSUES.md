@@ -77,15 +77,17 @@ has left the file, or that lived only on a merged branch, stays taken.
   migration. None of these are regressions; each is either a numerical-methods decision or work
   the migration deliberately did not take on.
 
-### K10 · No test covers a structure-preservation claim for Landau beyond the momentum and energy of one step.
+### K10 · No test covers a structure-preservation claim for Landau over a run.
 
 - **location:** `scripts/verify_conservation.jl`
 - **evidence:** `git grep -in 'landau' scripts/verify_conservation.jl` returns nothing, so the
   script exercises the conservative Lenard-Bernstein operator only. The `Landau` testsets under
   `test/` assert assembly, allocations, refusals, type parameters, a reference value and the Picard
-  step. Of the conservation invariants, only the momentum and the energy of one step on a lattice
-  are tested, by "the step converges and conserves" of `test/integration/landau_solver.jl`; no
-  test checks an invariant over a run.
+  step. Two of them test a structure property: "𝕃 is positive semi-definite on a sign-changing
+  projection" of `test/distributions/spline_distribution.jl` checks that `𝕃` is symmetric,
+  positive semi-definite and annihilates the constants, and "the step converges and conserves" of
+  `test/integration/landau_solver.jl` checks the momentum and the energy of one step on a
+  lattice. No test checks an invariant or the entropy over a run.
 - **kind:** missing test
 - **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
   migration. None of these are regressions; each is either a numerical-methods decision or work

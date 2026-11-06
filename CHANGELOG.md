@@ -44,8 +44,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   `(v_k + v_prev)/2`, gives the particles `v_prev + Δt f_k` and stores `f_k` for the next step's
   Hermite guess. Before, it ran exactly five iterations and kept the last iterate
   `v_5 = v_prev + Δt f_4` beside `f_5`. On the 16 × 16 lattice of
-  `test/integration/landau_solver.jl` at `Δt = 1e-3`, the five iterations left a residual of
-  `2.9e-9` and drifted the energy by `1.2e-11`; with `abstol = 1e-12` the step takes 9
+  `test/integration/landau_solver.jl` at `Δt = 1e-3`, the five iterations left a max-norm
+  residual of `2.9e-9` and drifted the energy by `1.2e-11`; with `abstol = 1e-12` the step takes 9
   evaluations and drifts the energy by `4.4e-16`, within the bound
   `(Δt/2) · abstol · Σ w ‖f_k‖₁` that the new test derives. At `Δt = 1e-2` the iteration does not
   contract, and the step now throws instead of returning.

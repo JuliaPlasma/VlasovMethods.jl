@@ -30,9 +30,11 @@ too; those evaluations are not counted.
 before any vector field is evaluated. When no iterate meets `abstol` within `max_iters`
 evaluations, an `ErrorException` is thrown that names the number of evaluations and the last
 residual, and neither the particles nor `rhs_prev` are written. A residual that is not finite
-never meets `abstol`. An exception of the vector field passes through: the projection throws a
-`DomainError` once an iterate moves particles out of the velocity domain, which can happen
-before `max_iters` evaluations.
+never meets `abstol`, and an `abstol` below the rounding error of the residual, about the
+machine epsilon of the velocities' element type times their size, may never be met. An
+exception of the vector field passes through: the projection throws a `DomainError` once an
+iterate moves particles out of the velocity domain, which can happen before `max_iters`
+evaluations.
 
 `ti` counts the steps from 1, and `t` is the time of the new velocities. From the fourth step on,
 the guess is the Hermite extrapolation from `v_prev_2` and `v_prev` with the vector fields in
