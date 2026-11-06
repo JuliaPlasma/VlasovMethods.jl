@@ -247,6 +247,12 @@ end
     VM.entropy_gradient!(gm, (v0 .+ v1) ./ 2, model)
     @test abs(ΔS - dot(v1 .- v0, gm)) > 1e-10 * abs(ΔS)
 
+    # the base point is the midpoint: the formula of eq:disc_grad_props, written out
+    Δv = v1 .- v0
+    g = gradS((v0 .+ v1) ./ 2, model)
+    gref = g .+ Δv .* ((Sh(v1, model) - Sh(v0, model) - dot(Δv, g)) / sum(abs2, Δv))
+    @test gd ≈ gref rtol=1e-12
+
     # only a computed |Δv|² of zero takes the midpoint gradient: at |Δv|² = 1e-10 the
     # correction applies
     v1 = v0 .+ 1e-5 .* d ./ norm(d)
@@ -279,6 +285,12 @@ end
         e
     end
     @test 3.5 ≤ ΔE[1] / ΔE[2] ≤ 4.5
+
+    # ν = 0.7 scales f: the step is the written-out step
+    m7 = fixture(; ν = 0.7)
+    discrete_gradient_step!(m7, Δt; abstol)
+    @test maximum(abs, m7.landau.dist.particles.v .- written_step(m7, vn, Δt, abstol)) ≤
+          abstol
 end
 
 @testset "the accepted state is the update" begin
@@ -421,6 +433,42 @@ end
     @test_throws DomainError VM.collisional_vectorfield!(similar(before), before, nothing, model)
     @test_throws DomainError discrete_gradient_step!(model, 2e-3; abstol = 1e-12)
     @test isequal(model.landau.dist.particles.v, before)
+end
+
+@testset "particle weights and sizes" begin
+    # the scheme divides by w_γ: a weight that is not positive and finite is refused
+    v, w = fixture_particles(Float64)
+    for bad in (0.0, -1e-3, NaN, Inf)
+        wb = copy(w)
+        wb[17] = bad
+        @test throws_with(() -> build(v, wb), ArgumentError, "weight of particle 17")
+    end
+
+    # an array of another number of columns than the model has particles
+    model = fixture()
+    v = copy(model.landau.dist.particles.v)
+    v100 = v[:, 1:100]
+    msg = "the model has 144 particles"
+    @test throws_with(() -> VM.entropy_gradient!(similar(v100), v100, model),
+        DimensionMismatch, msg)
+    @test throws_with(() -> VM.entropy_gradient!(zeros(2, 100), v, model),
+        DimensionMismatch, msg)
+    @test throws_with(() -> VM.apply_G!(similar(v100), v100, ones(2, 100), model),
+        DimensionMismatch, msg)
+    @test throws_with(() -> VM.apply_G!(similar(v), v, ones(2, 100), model),
+        DimensionMismatch, msg)
+    @test throws_with(() -> VM.apply_G!(zeros(2, 100), v, ones(2, 144), model),
+        DimensionMismatch, msg)
+    @test throws_with(
+        () -> VM.collisional_vectorfield!(similar(v100), v100, nothing, model),
+        DimensionMismatch, msg)
+    @test throws_with(() -> VM.collisional_vectorfield!(zeros(2, 100), v, nothing, model),
+        DimensionMismatch, msg)
+    v145 = hcat(v, [0.05, 0.05])
+    @test throws_with(() -> VM.entropy_gradient!(similar(v145), v145, model),
+        DimensionMismatch, msg)
+    @test throws_with(() -> VM.apply_G!(similar(v145), v145, ones(2, 145), model),
+        DimensionMismatch, msg)
 end
 
 @testset "Float32, allocations and inference" begin

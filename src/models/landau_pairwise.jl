@@ -1,3 +1,8 @@
+@noinline function _throw_weight(i, wi)
+    throw(ArgumentError("the weight of particle $i is $wi; the pairwise scheme divides by " *
+                        "the weights, which must be positive and finite"))
+end
+
 @doc raw"""
     PairwiseLandau(dist, ent; ν = 1.0, γ = -3)
 
@@ -35,7 +40,8 @@ The model holds a `Landau` of the same arguments in its field `landau`, and take
 the particle distribution, the projection onto the spline distribution of `ent`, the matrices
 ``\mathbb{K}`` of [`compute_K!`](@ref) and ``\mathbb{L}_k`` of [`compute_J!`](@ref), the
 [`kernel`](@ref) of the exponent `γ`, its check of `γ` and the buffers of its cache. The weights
-are row 1 of `dist.particles.w`.
+are row 1 of `dist.particles.w`. ``\mathbb{G}`` divides by them, so a weight that is not positive
+and finite throws an `ArgumentError`.
 
 The particle velocities must be distinct: ``U(v, v)`` is not defined, and two particles of equal
 velocities throw a `DomainError`.
@@ -55,6 +61,9 @@ struct PairwiseLandau{LT <: Landau} <: VlasovModel
     landau::LT
 
     function PairwiseLandau(dist::DistributionFunction, ent::Entropy; ν = 1.0, γ = -3)
+        w = view(dist.particles.w, 1, :)
+        i = findfirst(x -> !(isfinite(x) && x > 0), w)
+        isnothing(i) || _throw_weight(i, w[i])
         landau = Landau(dist, ent; γ, ν)
         new{typeof(landau)}(landau)
     end
@@ -68,9 +77,12 @@ The gradient ``\partial S_h / \partial v_{c,\alpha} = \sum_k \mathbb{K}_c[k, \al
 particles at the velocities `v` (`2 × N`), written into `∇S` (`2 × N`). The projection,
 ``\mathbb{K}`` and ``\mathbb{L}_k`` are those of `model.landau`, with the buffers of its cache of
 the element type of `v`; the projection overwrites the coefficients of that cache's spline
-distribution.
+distribution. `v` or `∇S` of another number of columns than the model has particles throws a
+`DimensionMismatch`.
 """
 function entropy_gradient!(∇S, v::AbstractMatrix{T}, model::PairwiseLandau) where {T}
+    _check_columns(:v, v, model)
+    _check_columns(:∇S, ∇S, model)
     landau = model.landau
     cache = landau.cache[T]
     sdist = cache.sdist
@@ -80,6 +92,16 @@ function entropy_gradient!(∇S, v::AbstractMatrix{T}, model::PairwiseLandau) wh
     mul!(view(∇S, 1, :), transpose(cache.K1), cache.J)
     mul!(view(∇S, 2, :), transpose(cache.K2), cache.J)
     return ∇S
+end
+
+# The arrays of `entropy_gradient!` and `apply_G!` have one column per particle of the model.
+@noinline function _throw_columns(name, n, N)
+    throw(DimensionMismatch("$name has $n columns, and the model has $N particles"))
+end
+function _check_columns(name, a, model::PairwiseLandau)
+    N = size(model.landau.dist.particles.w, 2)
+    size(a, 2) == N || _throw_columns(name, size(a, 2), N)
+    return nothing
 end
 
 # S_h of the projection of the particles at the velocities `v`, on the cache's spline
@@ -113,12 +135,16 @@ y_\gamma = - \sum_{\beta \ne \gamma} U(v_\gamma, v_\beta)
 with ``U`` the [`kernel`](@ref) of `model.landau` and the weights ``w`` of row 1 of
 `model.landau.dist.particles.w`. The pair ``\beta = \gamma`` is skipped by its index. Two
 particles ``\gamma \ne \beta`` of equal velocities throw a `DomainError` that names both, the
-smaller index first. `y` must not alias `v` or `x`.
+smaller index first. `y` must not alias `v` or `x`. An array of another number of columns than
+the model has particles throws a `DimensionMismatch`.
 
 The cost is ``O(N^2)`` kernel evaluations, one per ordered pair; the [`PairwiseLandau`](@ref)
 docstring gives measured times. A call allocates nothing.
 """
 function apply_G!(y, v::AbstractMatrix{T}, x, model::PairwiseLandau) where {T}
+    _check_columns(:y, y, model)
+    _check_columns(:v, v, model)
+    _check_columns(:x, x, model)
     landau = model.landau
     w = landau.dist.particles.w
     for γ in axes(v, 2)
@@ -150,7 +176,8 @@ converted to `T`.
 
 The projection throws a `DomainError` for a velocity outside the domain of the spline basis,
 `NaN` and `Inf` included, and [`compute_J!`](@ref) for a projection that is zero at a quadrature
-node, as for no particle; [`apply_G!`](@ref) throws for two equal velocities.
+node, as for no particle; [`apply_G!`](@ref) throws for two equal velocities. `v` or `v̇` of
+another number of columns than the model has particles throws a `DimensionMismatch`.
 """
 function collisional_vectorfield!(v̇::AbstractArray{ST}, v::AbstractArray{ST}, params,
         model::PairwiseLandau) where {ST}

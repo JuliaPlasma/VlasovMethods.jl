@@ -117,7 +117,9 @@ their own, except for what they removed and narrowed, which is listed in full be
   `PairwiseLandau(dist, ent; ν = 1.0, γ = -3)` holds a `Landau` of the same arguments and takes
   its projection, `∇S_h`, `kernel` and buffers; its `collisional_vectorfield!` and the product
   with `𝔾` cost `O(N²)` kernel evaluations and allocate nothing. Two particles of equal velocities
-  throw a `DomainError`. The tests compare the vector field with `eq:eom_line3` written out,
+  throw a `DomainError`, a particle weight that is not positive and finite an `ArgumentError`, and
+  an array of another number of columns than the model has particles a `DimensionMismatch`. The
+  tests compare the vector field with `eq:eom_line3` written out,
   check that it conserves momentum and energy and decreases `S_h` for `γ = -3` and `γ = 0`, and
   that the kernel of `𝔾` has the dimension 3. K4 of `KNOWN_ISSUES.md` now names it as the
   main-text method and `Landau` as the appendix method.
@@ -148,6 +150,12 @@ their own, except for what they removed and narrowed, which is listed in full be
   not matter" evaluates that form with `U = 0` and with `U = 7 I` at the coincident pairs and finds
   the same `𝕃`. The error of `𝕃` from the shared quadrature nodes falls under cell refinement. The
   `compute_L!` docstring names `γ`.
+- **The Landau collision operator has a page of its own**, `landau.md`, with the docstrings of
+  both Landau methods: `kernel`, `compute_K!`, `compute_L!`, the `Landau` method of
+  `compute_J!` and `Picard_iterate_Landau_nls!` for the appendix method, and `PairwiseLandau`,
+  `entropy_gradient!`, `apply_G!`, the discrete gradients and `discrete_gradient_step!` for the
+  main-text method. The home page no longer renders them, which keeps its HTML under Documenter's
+  size threshold.
 
 ### Internal
 
