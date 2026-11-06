@@ -78,7 +78,8 @@ end
     end
 
     @testset "Metriplectic Lenard–Bernstein" begin
-        model = MetriplecticLenardBernstein(pdist, CollisionEntropy(sdist))
+        model = MetriplecticLenardBernstein(
+            pdist, CollisionEntropy(sdist); bracket = JeyakumarBracket())
         v = copy(v₀)
         v̇ = similar(v)
         VlasovMethods.collisional_vectorfield!(v̇, v, nothing, model)

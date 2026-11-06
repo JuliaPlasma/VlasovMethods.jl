@@ -155,6 +155,7 @@ export LenardBernstein
 export ConservativeLenardBernstein
 export RescaledConservativeLenardBernstein
 export MetriplecticLenardBernstein
+export DoughertyBracket, JeyakumarBracket, LenardBernsteinBracket
 export Landau
 
 # Example Problems
