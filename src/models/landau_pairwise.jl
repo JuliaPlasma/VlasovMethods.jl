@@ -2,6 +2,11 @@
     throw(ArgumentError("the weight of particle $i is $wi; the pairwise scheme divides by " *
                         "the weights, which must be positive and finite"))
 end
+function _check_weights(w)
+    i = findfirst(x -> !(isfinite(x) && x > 0), w)
+    isnothing(i) || _throw_weight(i, w[i])
+    return nothing
+end
 
 @doc raw"""
     PairwiseLandau(dist, ent; ν = 1.0, γ = -3)
@@ -42,7 +47,8 @@ the particle distribution, the projection onto the spline distribution of `ent`,
 ``\mathbb{K}`` of [`compute_K!`](@ref) and ``\mathbb{L}_k`` of [`compute_J!`](@ref), the
 [`kernel`](@ref) of the exponent `γ`, its check of `γ` and the buffers of its cache. The weights
 are row 1 of `dist.particles.w`. ``\mathbb{G}`` divides by them, so a weight that is not positive
-and finite throws an `ArgumentError`.
+and finite throws an `ArgumentError`, in the constructor and in each [`apply_G!`](@ref), which
+reads the weights of the distribution as they are at the call.
 
 The particle velocities must be distinct: ``U(v, v)`` is not defined, and two particles of equal
 velocities throw a `DomainError`. For ``\gamma < -2``, where ``U`` diverges as ``|u| \to 0``, so
@@ -54,7 +60,7 @@ in `Float64`. For ``\gamma \ge -2`` ``U`` stays finite, and only equal velocitie
 # Cost
 
 One product ``\mathbb{G}(v) \, x`` of [`apply_G!`](@ref) costs `O(N²)` kernel evaluations,
-one per ordered pair of particles. On the fixture of `test/models/landau_pairwise.jl` widened to
+one per ordered pair of particles. On the fixture of `test/helpers/pairwise_landau.jl` widened to
 a lattice of `N` particles, quadratic splines on 8 × 8 cells (`M = 100`, `Q = 576`), `Float64`,
 the minimum of 5 calls after a warm call in a cold process: `apply_G!` takes 0.36 ms at
 `N = 400` and 5.75 ms at `N = 1600`, 2.25 ns per pair, at a load of about 10; the gradient
@@ -66,9 +72,7 @@ struct PairwiseLandau{LT <: Landau} <: VlasovModel
     landau::LT
 
     function PairwiseLandau(dist::DistributionFunction, ent::Entropy; ν = 1.0, γ = -3)
-        w = view(dist.particles.w, 1, :)
-        i = findfirst(x -> !(isfinite(x) && x > 0), w)
-        isnothing(i) || _throw_weight(i, w[i])
+        _check_weights(view(dist.particles.w, 1, :))
         landau = Landau(dist, ent; γ, ν)
         new{typeof(landau)}(landau)
     end
@@ -169,7 +173,8 @@ particles ``\gamma \ne \beta`` of equal velocities throw a `DomainError` that na
 smaller index first. For ``\gamma < -2`` so do two different velocities whose squared distance is
 below the threshold of the element type of `v` at which ``U`` stops being finite and not zero.
 `y` must not alias `v` or `x`. An array of another size than `2 × N`, with `N` the number of
-particles of the model, throws a `DimensionMismatch`.
+particles of the model, throws a `DimensionMismatch`, and a weight that is not positive and
+finite an `ArgumentError`.
 
 The cost is ``O(N^2)`` kernel evaluations, one per ordered pair; the [`PairwiseLandau`](@ref)
 docstring gives measured times. A call allocates nothing.
@@ -180,6 +185,7 @@ function apply_G!(y, v::AbstractMatrix{T}, x, model::PairwiseLandau) where {T}
     _check_size(:x, x, model)
     landau = model.landau
     w = landau.dist.particles.w
+    _check_weights(view(w, 1, :))
     τ = _close_threshold(T, landau)
     for γ in axes(v, 2)
         vγ = SVector(v[1, γ], v[2, γ])
