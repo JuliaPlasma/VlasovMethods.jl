@@ -32,10 +32,10 @@ struct GonzalezGradient <: DiscreteGradient end
 
 The [`GonzalezGradient`](@ref) of the entropy `S_h` of `model` between the velocities `v0` and
 `v1` (`2 × N`), written into `∇̄S`. At `v1 == v0` it is `entropy_gradient!` at `v0`, bit for
-bit. A call projects the particles three times: at the midpoint for `∇S_h`, then at `v1` and at
-`v0` for `S_h`. The midpoint goes into the buffer `v` of `model.landau.cache[T]`. At `v1 == v0`
-a call allocates nothing; otherwise the two evaluations of `S_h` by [`CollisionEntropy`](@ref)
-allocate.
+bit. A call projects the particles at the midpoint for `∇S_h`, and, where `v1 ≠ v0`, at `v1`
+and at `v0` for `S_h`. The midpoint goes into the buffer `v` of `model.landau.cache[T]`. At
+`v1 == v0` a call allocates nothing; otherwise the two evaluations of `S_h` by
+[`CollisionEntropy`](@ref) allocate.
 """
 function discrete_gradient!(∇̄S, v0::AbstractMatrix{T}, v1::AbstractMatrix{T},
         model::PairwiseLandau, ::GonzalezGradient) where {T}
