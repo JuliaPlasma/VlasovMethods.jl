@@ -21,6 +21,7 @@ if "core" in GROUPS
     @safetestset "Lenard–Bernstein Buffers" include("models/lenard_bernstein_buffers.jl")
     @safetestset "Metriplectic Lenard–Bernstein Brackets" include("models/lenard_bernstein_metriplectic.jl")
     @safetestset "Landau Buffers" include("models/landau.jl")
+    @safetestset "Pairwise Landau" include("models/landau_pairwise.jl")
     @safetestset "Cache Dict" include("cache.jl")
     @safetestset "Vlasov–Poisson" include("integration/vlasov_poisson.jl")
     @safetestset "Vlasov with External Fields" include("models/vlasov_with_external_fields.jl")

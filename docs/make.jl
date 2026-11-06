@@ -17,6 +17,7 @@ makedocs(;
     pages = [
         "Home" => "index.md",
         "Projections" => "projections.md",
+        "The Landau collision operator" => "landau.md",
         "Multi-modal autoencoder frontends" => "rom.md",
         "The paper's examples" => "paper.md"
     ]

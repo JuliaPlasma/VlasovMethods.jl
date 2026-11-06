@@ -144,6 +144,10 @@ include("models/lenard_bernstein_metriplectic.jl")
 include("models/rescaled_lenard_bernstein_conservative.jl")
 include("models/vlasov_poisson.jl")
 
+# The pairwise Landau scheme holds a `Landau`, and its time step names `PairwiseLandau`.
+include("models/landau_pairwise.jl")
+include("methods/discrete_gradient.jl")
+
 # The `ElectromagneticFields` adapter lives in `ext/VlasovMethodsElectromagneticFieldsExt.jl`
 # and loads when both packages are loaded. The field interface is defined by the included model.
 include("models/vlasov_with_external_fields.jl")
@@ -157,6 +161,7 @@ export RescaledConservativeLenardBernstein
 export MetriplecticLenardBernstein
 export DoughertyBracket, JeyakumarBracket, LenardBernsteinBracket
 export Landau
+export PairwiseLandau, GonzalezGradient, discrete_gradient_step!
 
 # Example Problems
 
