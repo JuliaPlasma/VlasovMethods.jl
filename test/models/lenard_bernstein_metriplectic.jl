@@ -90,13 +90,13 @@ end
     @test relerr_max(rhs(mlb, v, dS), expected) ≤ 8 * eps(T)
 end
 
-@testset "Jeyakumar is the base's form ($T)" for T in (Float64, Float32)
+@testset "Jeyakumar is the former right-hand side ($T)" for T in (Float64, Float32)
     w, v, dS = fixture(T)
     ν = T(0.7)
     mlb = model(T, w; ν = ν, bracket = JeyakumarBracket())
 
     # The Jeyakumar form written out, with the moments, sums and weights computed as the model
-    # computes them, so that the comparison is exact.
+    # computes them, so that the two agree to rounding.
     pw = mlb.dist.particles.w
     n = sum(pw)
     u = dot(pw, v) / n
@@ -107,7 +107,7 @@ end
     expected = ν .* (.-n ./ w .* dS .+ (eps .- u .* v) ./ (eps - u^2) .* dS_sum .+
                 (v .- u) ./ (eps - u^2) .* dS_v_sum)
 
-    @test rhs(mlb, v, dS) == expected
+    @test relerr_max(rhs(mlb, v, dS), expected) ≤ 8 * Base.eps(T)
 end
 
 @testset "the factor between the forms ($T)" for T in (Float64, Float32)
