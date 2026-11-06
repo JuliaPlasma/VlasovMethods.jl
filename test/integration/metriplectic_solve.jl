@@ -157,6 +157,25 @@ end
         @test norm(step_residual(v, v0, mlb, Float32)) ≤ abstol
     end
 
+    # The default bracket in a Picard step. The residual of `f!` is `r = Δt F − (v − v0)`, and
+    # the field `F` conserves momentum and energy, so `Σ w r` bounds the change of momentum and
+    # `Σ w (v + v0) r` that of energy, up to the rounding of the sums.
+    @testset "a Dougherty step converges and conserves momentum and energy" begin
+        mlb, v0 = metriplectic_setup(Float64)
+        dmlb = MetriplecticLenardBernstein(mlb.dist, mlb.entropy)
+        @test dmlb.bracket isa DoughertyBracket
+        abstol = abstol_float64()
+        v = solve_step(v0, dmlb, abstol, Float64)
+        r = step_residual(v, v0, dmlb, Float64)
+        w = vec(dmlb.dist.particles.w)
+        @test norm(r) ≤ abstol
+        @test maximum(abs, v .- v0) > 100 * abstol
+        @test abs(dot(w, v) - dot(w, v0)) ≤
+              norm(w) * norm(r) + 8 * eps(Float64) * dot(w, abs.(v0))
+        @test abs(dot(w, v .^ 2) - dot(w, v0 .^ 2)) ≤
+              norm(w .* (v .+ v0)) * norm(r) + 8 * eps(Float64) * dot(w, v0 .^ 2)
+    end
+
     @testset "the solve writes nothing to stdout" begin
         mlb, v0 = metriplectic_setup(Float64)
         mktemp() do path, io
@@ -215,7 +234,8 @@ end
     # becomes `NaN`, so the first non-finite value is met inside the `SimpleSolvers` solve.
     @testset "a solve that meets a NaN throws the residual and the iteration count" begin
         mlb, v0 = metriplectic_setup(Float64)
-        nanmlb = MetriplecticLenardBernstein(mlb.dist, mlb.entropy; ν = NaN)
+        nanmlb = MetriplecticLenardBernstein(
+            mlb.dist, mlb.entropy; ν = NaN, bracket = mlb.bracket)
         caught = solve_outcome(step_args(v0, nanmlb, abstol_float64(), Float64; ti = 4)...)
         @test caught isa ErrorException
         message = caught === nothing ? "" : sprint(showerror, caught)
@@ -231,7 +251,8 @@ end
     # from inside the solve; it must reach the caller unchanged.
     @testset "an exception from the model reaches the caller" begin
         mlb, v0 = metriplectic_setup(Float64)
-        fastmlb = MetriplecticLenardBernstein(mlb.dist, mlb.entropy; ν = 1e6)
+        fastmlb = MetriplecticLenardBernstein(
+            mlb.dist, mlb.entropy; ν = 1e6, bracket = mlb.bracket)
         caught = solve_outcome(step_args(v0, fastmlb, abstol_float64(), Float64; ti = 4)...)
         @test caught isa DomainError
     end
@@ -475,7 +496,8 @@ end
     @testset "the in-place step passes the failures of the solve to the caller" begin
         mlb, v0 = metriplectic_setup(Float64)
         abstol = abstol_float64()
-        nanmlb = MetriplecticLenardBernstein(mlb.dist, mlb.entropy; ν = NaN)
+        nanmlb = MetriplecticLenardBernstein(
+            mlb.dist, mlb.entropy; ν = NaN, bracket = mlb.bracket)
         caught = step_outcome(
             similar(v0), v0, v0, zeros(N, 2), 4, 0.0, ΔT, abstol, 1.0e-50,
             nanmlb)
@@ -483,7 +505,8 @@ end
         message = caught === nothing ? "" : sprint(showerror, caught)
         @test occursin("did not converge", message)
         @test occursin("iterations = 1", message)
-        fastmlb = MetriplecticLenardBernstein(mlb.dist, mlb.entropy; ν = 1e6)
+        fastmlb = MetriplecticLenardBernstein(
+            mlb.dist, mlb.entropy; ν = 1e6, bracket = mlb.bracket)
         caught = step_outcome(
             similar(v0), v0, v0, zeros(N, 2), 4, 0.0, ΔT, abstol, 1.0e-50,
             fastmlb)

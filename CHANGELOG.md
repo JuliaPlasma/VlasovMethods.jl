@@ -44,8 +44,10 @@ their own, except for what they removed and narrowed, which is listed in full be
 - **`MetriplecticLenardBernstein` runs the Dougherty form by default.** Its right-hand side is
   `eq:semidiscrete_equations_of_motion` of the metriplectic Lenard-Bernstein manuscript, which
   the manuscript derives from its bracket `eq:lb_bracket_discrete`. Before, the model ran that
-  equation times `n/(ε − u²)`, which rescales friction against diffusion. A model built without
-  the new keyword `bracket` therefore gives other velocities and another solve;
+  equation times `n/(ε − u²)`. The factor is one scalar on every term, so the ratio of friction to
+  diffusion is unchanged; it changes the rate of relaxation, and the two forms share their
+  equilibria. A model built without the new keyword `bracket` therefore gives other velocities and
+  another solve;
   `bracket = JeyakumarBracket()` gives the former right-hand side bit for bit.
 - **The right-hand side of `MetriplecticLenardBernstein` throws a `DomainError` where the
   velocities have no spread that the precision resolves**: where `Σ w (v − u)² / n ≤ eps(T) ε`,
@@ -58,8 +60,10 @@ their own, except for what they removed and narrowed, which is listed in full be
 - **`LenardBernsteinBracket`, `DoughertyBracket` and `JeyakumarBracket`** select the metric
   bracket of `MetriplecticLenardBernstein` through its keyword `bracket`. `DoughertyBracket()`, the
   default, is the manuscript's form; `JeyakumarBracket()` is that form times `n/(ε − u²)`. Both
-  brackets are symmetric and negative semi-definite and conserve momentum `Σ w v` and energy
-  `Σ w v²` for any entropy gradient. Their docstrings give the equations of motion. The tests that
+  brackets conserve momentum `Σ w v` and energy `Σ w v²` for any entropy gradient and any
+  weights, and both are symmetric. They are negative semi-definite when every weight is positive,
+  since a negative weight makes the bracket matrix indefinite. Their docstrings give the equations
+  of motion. The tests that
   read the reference files of the model in `test/data/` build it with `JeyakumarBracket()`, and
   the files are unchanged.
 

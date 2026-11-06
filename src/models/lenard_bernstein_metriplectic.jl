@@ -110,7 +110,7 @@ end
 The metric bracket of [`MetriplecticLenardBernstein`](@ref): [`DoughertyBracket`](@ref) or
 [`JeyakumarBracket`](@ref). Both conserve momentum ``\sum_\gamma w_\gamma v_\gamma`` and energy
 ``\sum_\gamma w_\gamma v_\gamma^2`` for any entropy gradient, and their right-hand sides differ
-by the factor ``n_h / (\varepsilon_h - u_h^2)``, which rescales friction against diffusion.
+by the factor ``n_h / (\varepsilon_h - u_h^2)`` in every term, so they share their equilibria.
 """
 abstract type LenardBernsteinBracket end
 
