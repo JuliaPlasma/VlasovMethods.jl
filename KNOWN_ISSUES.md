@@ -31,29 +31,6 @@ has left the file, or that lived only on a merged branch, stays taken.
   migration. None of these are regressions; each is either a numerical-methods decision or work
   the migration deliberately did not take on.
 
-### K5 · The Landau Picard solver does not iterate to convergence.
-
-- **location:** `Landau_solver.jl`
-- **evidence:** `Landau_solver.jl` runs exactly five iterations and reports the residual as a
-  `@debug` message without testing it. `tol`, `ftol`, `β`, `m` and `chunksize` are accepted and
-  unused. Every conservation property in the appendix is a property of the *exactly* solved
-  implicit system, so momentum and energy drift at the size of that reported residual.
-- **kind:** defect
-- **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
-  migration. None of these are regressions; each is either a numerical-methods decision or work
-  the migration deliberately did not take on.
-
-### K6 · The accepted Landau solution is one Picard step behind its stored derivative.
-
-- **location:** —
-- **evidence:** The loop's last action recomputes `v̇` at the midpoint from the newest guess
-  without updating the guess, so the stored state and derivative do not correspond and the next
-  step's Hermite extrapolation is fed an inconsistent pair.
-- **kind:** defect
-- **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
-  migration. None of these are regressions; each is either a numerical-methods decision or work
-  the migration deliberately did not take on.
-
 ### K7 · The Landau kernel's coincident-point value is a regularisation, not a limit.
 
 - **location:** —
@@ -100,13 +77,17 @@ has left the file, or that lived only on a merged branch, stays taken.
   migration. None of these are regressions; each is either a numerical-methods decision or work
   the migration deliberately did not take on.
 
-### K10 · No test covers any structure-preservation claim for Landau.
+### K10 · No test covers a structure-preservation claim for Landau over a run.
 
 - **location:** `scripts/verify_conservation.jl`
 - **evidence:** `git grep -in 'landau' scripts/verify_conservation.jl` returns nothing, so the
   script exercises the conservative Lenard-Bernstein operator only. The `Landau` testsets under
   `test/` assert assembly, allocations, refusals, type parameters, a reference value and the Picard
-  step, not a conservation invariant.
+  step. Two of them test a structure property: "𝕃 is positive semi-definite on a sign-changing
+  projection" of `test/distributions/spline_distribution.jl` checks that `𝕃` is symmetric,
+  positive semi-definite and annihilates the constants, and "the step converges and conserves" of
+  `test/integration/landau_solver.jl` checks the momentum and the energy of one step on a
+  lattice. No test checks an invariant or the entropy over a run.
 - **kind:** missing test
 - **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
   migration. None of these are regressions; each is either a numerical-methods decision or work
