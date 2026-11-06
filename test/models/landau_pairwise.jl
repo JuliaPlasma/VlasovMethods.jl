@@ -601,3 +601,296 @@ end
         @inferred VM.collisional_vectorfield!(y, v, nothing, model)
     end
 end
+
+# The bytes of one call of a five-argument method after a warm call, through a barrier whose
+# arguments have concrete types; `copy_first_5` is the control that the barrier sees an allocation.
+function bytes5(f::F, a::A, b::B, c::C, d::D, e::E) where {F, A, B, C, D, E}
+    f(a, b, c, d, e)
+    return @allocated f(a, b, c, d, e)
+end
+copy_first_5(a, b, c, d, e) = copy(a)
+
+# The relative increments ‖v_{k+1} − v_k‖ / ‖v_{k+1} − vⁿ‖ of the fixed-point iteration of the
+# step, written out with the rule `gradient` and no acceptance: from v_0 = vⁿ,
+# f_k = ν 𝔾(m_k) ∇̄S(vⁿ, v_k), m_k = (vⁿ + v_k)/2 and v_{k+1} = vⁿ + Δt f_k.
+function increments(model, vn, Δt, gradient; iters = 40)
+    T = eltype(vn)
+    h = T(Δt)
+    ν = T(model.landau.ν)
+    vk = copy(vn)
+    g = similar(vk)
+    m = similar(vk)
+    f = similar(vk)
+    out = zeros(T, iters)
+    for k in 1:iters
+        VM.discrete_gradient!(g, vn, vk, model, gradient)
+        m .= (vn .+ vk) ./ 2
+        VM.apply_G!(f, m, g, model)
+        f .*= ν
+        vnext = vn .+ h .* f
+        out[k] = norm(vnext .- vk, Inf) / norm(vnext .- vn, Inf)
+        vk .= vnext
+    end
+    return out
+end
+
+@testset "the quadrature rule" begin
+    for nq in (1, 2, 3, 5, 8)
+        rule = AVFGradient(nq)
+        τ, ω = rule.nodes, rule.weights
+        @test rule.nq == nq
+        @test length(τ) == nq == length(ω)
+        @test eltype(τ) === Float64 === eltype(ω)
+        @test all(t -> 0 < t < 1, τ)
+        @test issorted(τ)
+        @test all(i -> abs(τ[i] + τ[nq + 1 - i] - 1) ≤ 1e-15, 1:nq)
+        @test all(>(0), ω)
+        @test abs(sum(ω) - 1) ≤ 1e-15
+        # exact on τ^k for every k ≤ 2nq − 1
+        @test maximum(k -> abs(sum(ω .* τ .^ k) - 1 / (k + 1)), 0:(2nq - 1)) ≤ 1e-14
+    end
+    @test AVFGradient(1).nodes == [0.5]
+    @test AVFGradient(1).weights == [1.0]
+
+    # the rule sums its nodes with the weights, written out from its own fields
+    model = fixture()
+    v0 = copy(model.landau.dist.particles.v)
+    d = randn(StableRNG(5), 2, 144)
+    d ./= norm(d, Inf)
+    v1 = v0 .+ 1e-3 .* d
+    g = similar(v0)
+    gt = similar(v0)
+    ref = similar(v0)
+    for nq in (1, 2, 5)
+        rule = AVFGradient(nq)
+        VM.discrete_gradient!(g, v0, v1, model, rule)
+        fill!(ref, 0)
+        for i in 1:nq
+            VM.entropy_gradient!(gt, v0 .+ rule.nodes[i] .* (v1 .- v0), model)
+            ref .+= rule.weights[i] .* gt
+        end
+        @test maximum(abs, g .- ref) ≤ 1e-14 * maximum(abs, ref)
+    end
+end
+
+@testset "nq = 1 is the midpoint gradient" begin
+    model = fixture()
+    v0 = copy(model.landau.dist.particles.v)
+    d = randn(StableRNG(5), 2, 144)
+    d ./= norm(d, Inf)
+    v1 = v0 .+ 1e-3 .* d
+    g = similar(v0)
+    gm = similar(v0)
+    VM.discrete_gradient!(g, v0, v1, model, AVFGradient(1))
+    VM.entropy_gradient!(gm, (v0 .+ v1) ./ 2, model)
+    @test g == gm
+    ΔS = Sh(v1, model) - Sh(v0, model)
+    @test abs(ΔS - dot(v1 .- v0, g)) == abs(ΔS - dot(v1 .- v0, gm))
+
+    # the single node is the midpoint of the segment, bit for bit
+    @test v0 .+ AVFGradient(1).nodes[1] .* (v1 .- v0) == (v0 .+ v1) ./ 2
+end
+
+@testset "the identity at a step's displacement" begin
+    model = fixture()
+    vn = copy(model.landau.dist.particles.v)
+    Δt, abstol = 2e-3, 1e-12
+    discrete_gradient_step!(model, Δt; abstol)
+    v1 = copy(model.landau.dist.particles.v)
+    ΔS = Sh(v1, model) - Sh(vn, model)
+    @test ΔS < 0
+    @test maximum(abs, v1 .- vn) ≈ 5.863e-4 atol = 1e-7
+    @test abs(ΔS) ≈ 1.973e-4 atol = 1e-7
+    g = similar(vn)
+    for nq in (2, 5, 8)
+        VM.discrete_gradient!(g, vn, v1, model, AVFGradient(nq))
+        @test abs(ΔS - dot(v1 .- vn, g)) ≤ 1e-10 * abs(ΔS)
+    end
+
+    # the control: the midpoint gradient breaks the bound
+    VM.discrete_gradient!(g, vn, v1, model, AVFGradient(1))
+    @test abs(ΔS - dot(v1 .- vn, g)) > 1e-10 * abs(ΔS)
+end
+
+@testset "the identity falls with nq" begin
+    model = fixture()
+    v0 = copy(model.landau.dist.particles.v)
+    d = randn(StableRNG(7), 2, 144)
+    d ./= norm(d, Inf)
+    v1 = v0 .+ 1e-1 .* d
+    ΔS = Sh(v1, model) - Sh(v0, model)
+    g = similar(v0)
+    rel = map((1, 2, 3, 5)) do nq
+        VM.discrete_gradient!(g, v0, v1, model, AVFGradient(nq))
+        abs(ΔS - dot(v1 .- v0, g)) / abs(ΔS)
+    end
+    @test rel[2] ≤ rel[1] / 5
+    @test rel[3] ≤ rel[2] / 5
+    @test rel[4] ≤ 1e-5
+end
+
+@testset "Δv = 0" begin
+    model = fixture()
+    v0 = copy(model.landau.dist.particles.v)
+    g0 = similar(v0)
+    VM.entropy_gradient!(g0, v0, model)
+    scale = maximum(abs, g0)
+    g = similar(v0)
+    for nq in (5, 1)
+        VM.discrete_gradient!(g, v0, copy(v0), model, AVFGradient(nq))
+        @test maximum(abs, g .- g0) ≤ 8 * eps() * scale
+    end
+    VM.discrete_gradient!(g, v0, copy(v0), model, AVFGradient(1))
+    @test g == g0
+end
+
+@testset "one AVF step" begin
+    model = fixture()
+    vn = copy(model.landau.dist.particles.v)
+    w = weights(model)
+    Δt, abstol = 2e-3, 1e-12
+    r = discrete_gradient_step!(model, Δt; abstol, gradient = AVFGradient(5))
+    v1 = copy(model.landau.dist.particles.v)
+    @test r.iterations == 5
+    @test r.residual ≤ abstol
+    @test v1 != vn
+    @test all(abs.(momentum(v1, w) .- momentum(vn, w)) .≤ momentum_bound(vn, w))
+    @test abs(energy(v1, w) - energy(vn, w)) ≤ energy_bound(vn, v1, Δt, abstol, w)
+end
+
+@testset "the relaxed state, both rules" begin
+    model = fixture()
+    w = weights(model)
+    for _ in 1:250
+        discrete_gradient_step!(model, 8e-3; abstol = 1e-12)
+    end
+    vn = copy(model.landau.dist.particles.v)
+    @test 1.14 < anisotropy(vn, w) < 1.143
+
+    g_inc = increments(model, vn, 8e-3, GonzalezGradient())
+    a_inc = increments(model, vn, 8e-3, AVFGradient(5))
+    @test minimum(a_inc) ≤ 1e-15
+    @test minimum(g_inc) > 1e-13
+    @test minimum(g_inc) ≥ 1e3 * minimum(a_inc)
+
+    # the step reads the same difference: at a tolerance that no nonzero residual of the
+    # Gonzalez iteration meets, the averaged-vector-field rule accepts at its fixed point
+    avf = fixture()
+    avf.landau.dist.particles.v .= vn
+    r = discrete_gradient_step!(avf, 8e-3; abstol = 1e-16, max_iters = 40,
+        gradient = AVFGradient(5))
+    @test r.residual ≤ 1e-16
+    @test r.iterations ≤ 12
+    gonzalez = fixture()
+    gonzalez.landau.dist.particles.v .= vn
+    @test throws_with(
+        () -> discrete_gradient_step!(gonzalez, 8e-3; abstol = 1e-16, max_iters = 40),
+        ErrorException, "did not converge in 40 evaluations")
+end
+
+@testset "twenty AVF steps" begin
+    model = fixture()
+    w = weights(model)
+    Δt, abstol = 2e-3, 1e-12
+    v0 = copy(model.landau.dist.particles.v)
+    Ebound = 0.0
+    smallest, worst, worst_control = Inf, 0.0, 0.0
+    g = similar(v0)
+    for n in 1:20
+        vn = copy(model.landau.dist.particles.v)
+        discrete_gradient_step!(model, Δt; abstol, gradient = AVFGradient(5))
+        v1 = copy(model.landau.dist.particles.v)
+        Ebound += energy_bound(vn, v1, Δt, abstol, w)
+
+        ΔS = Sh(v1, model) - Sh(vn, model)
+        @test ΔS < 0
+        smallest = min(smallest, -ΔS)
+        VM.discrete_gradient!(g, vn, v1, model, AVFGradient(5))
+        worst = max(worst, abs(ΔS - dot(v1 .- vn, g)) / abs(ΔS))
+        @test abs(ΔS - dot(v1 .- vn, g)) ≤ 1e-7 * abs(ΔS)
+
+        # the control: the midpoint gradient is one node of the rule, and breaks the bound
+        VM.discrete_gradient!(g, vn, v1, model, AVFGradient(1))
+        worst_control = max(worst_control, abs(ΔS - dot(v1 .- vn, g)) / abs(ΔS))
+    end
+    v20 = model.landau.dist.particles.v
+    @test smallest > 0
+    @test worst > 0
+    @test worst_control > 1e-7
+    @test all(abs.(momentum(v20, w) .- momentum(v0, w)) .≤ 20 * momentum_bound(v0, w))
+    @test abs(energy(v20, w) - energy(v0, w)) ≤ Ebound
+    @test anisotropy(v20, w) < anisotropy(v0, w)
+    @test 1.211 < anisotropy(v20, w) < 1.214
+end
+
+@testset "Float32, nq = 0 and the hot path" begin
+    v32, w32 = fixture_particles(Float32)
+    m32 = build(v32, w32)
+    v0 = copy(m32.landau.dist.particles.v)
+    d = randn(StableRNG(5), Float32, 2, 144)
+    d ./= norm(d, Inf)
+    v1 = v0 .+ 1.0f-3 .* d
+    ΔS = Sh(v1, m32) - Sh(v0, m32)
+    g = similar(v0)
+    for nq in (2, 5)
+        VM.discrete_gradient!(g, v0, v1, m32, AVFGradient(nq))
+        @test eltype(g) == Float32
+        @test abs(ΔS - dot(v1 .- v0, g)) ≤ 1e-5
+    end
+
+    Δt, abstol = 2.0f-3, 1.0f-4
+    r = discrete_gradient_step!(m32, Δt; abstol, gradient = AVFGradient(5))
+    y1 = copy(m32.landau.dist.particles.v)
+    @test eltype(y1) == Float32
+    @test r.iterations == 2
+    @test r.residual ≤ abstol
+    @test abs(energy(y1, w32) - energy(v0, w32)) ≤ energy_bound(v0, y1, Δt, abstol, w32)
+
+    # an nq below 1 is refused, and an nq that is not an integer has no method
+    for bad in (0, -1)
+        @test throws_with(() -> AVFGradient(bad), ArgumentError, "nq")
+    end
+    @test_throws MethodError AVFGradient(2.5)
+
+    # the hot path: no allocation after a warm call and a concrete return, in both precisions
+    m64 = build(Float64.(v0), Float64.(w32))
+    for (model, v) in ((m32, v0), (m64, Float64.(v0)))
+        x = v .+ eltype(v)(1e-3) .* eltype(v).(d)
+        y = similar(v)
+        for nq in (1, 5)
+            rule = AVFGradient(nq)
+            @test bytes5(VM.discrete_gradient!, y, v, x, model, rule) == 0
+            @inferred VM.discrete_gradient!(y, v, x, model, rule)
+        end
+        @test bytes5(copy_first_5, y, v, x, model, AVFGradient(5)) > 0
+    end
+end
+
+@testset "a large nq" begin
+    model = fixture()
+    vn = copy(model.landau.dist.particles.v)
+    r = discrete_gradient_step!(model, 2e-3; abstol = 1e-12, gradient = AVFGradient(40))
+    @test r.iterations == 5
+    @test r.residual ≤ 1e-12
+    @test copy(model.landau.dist.particles.v) != vn
+
+    d = randn(StableRNG(5), 2, 144)
+    d ./= norm(d, Inf)
+    v1 = vn .+ 1e-3 .* d
+    g = similar(vn)
+    VM.discrete_gradient!(g, vn, v1, model, AVFGradient(40))
+    ΔS = Sh(v1, model) - Sh(vn, model)
+    @test abs(ΔS - dot(v1 .- vn, g)) ≤ 1e-10 * abs(ΔS)
+end
+
+@testset "the labels, the cost and the pages" begin
+    d = string(@doc AVFGradient)
+    for word in ("eq:disc_grad_props", "quadrature error", "O(N²)", "nq", "midpoint")
+        @test occursin(word, d)
+    end
+    ds = string(@doc discrete_gradient_step!)
+    for word in ("AVFGradient", "GonzalezGradient", "quadrature error")
+        @test occursin(word, ds)
+    end
+    @test :AVFGradient in names(VlasovMethods)
+end

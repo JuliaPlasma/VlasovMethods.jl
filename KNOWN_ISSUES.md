@@ -661,8 +661,8 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K89 · `discrete_gradient_step!` checks `Δt` before its conversion to the element type of the velocities.
 
-- **location:** `src/methods/discrete_gradient.jl:127`
-- **evidence:** the check `isfinite(Δt) && Δt > 0` at line 127 reads `Δt` as given, and line 135
+- **location:** `src/methods/discrete_gradient.jl:258`
+- **evidence:** the check `isfinite(Δt) && Δt > 0` at line 258 reads `Δt` as given, and line 266
   takes `h = T(Δt)`. For `Float32` velocities, a positive `Float64` `Δt` below the smallest
   `Float32` subnormal gives `h = 0`: the first iterate `v_0 = vⁿ` then has the residual `0`, and
   the step returns `iterations = 1` without moving the particles. A `Δt` above

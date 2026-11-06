@@ -161,7 +161,7 @@ export RescaledConservativeLenardBernstein
 export MetriplecticLenardBernstein
 export DoughertyBracket, JeyakumarBracket, LenardBernsteinBracket
 export Landau
-export PairwiseLandau, GonzalezGradient, discrete_gradient_step!
+export PairwiseLandau, GonzalezGradient, AVFGradient, discrete_gradient_step!
 
 # Example Problems
 

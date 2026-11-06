@@ -134,6 +134,22 @@ their own, except for what they removed and narrowed, which is listed in full be
 - **`GonzalezGradient`** is the discrete gradient of the step, the manuscript's
   (`eq:disc_grad_props`), and the default of its keyword `gradient`. It satisfies
   `S_h(v1) − S_h(v0) = (v1 − v0) · ∇̄S` to rounding and returns `∇S_h(v0)` at `v1 = v0`.
+- **`AVFGradient`** is the second discrete gradient of the step, the averaged-vector-field rule:
+  the mean of `∇S_h` along the segment from `vⁿ` to `vⁿ⁺¹`, taken by an `nq`-point Gauß–Legendre
+  rule on `[0, 1]`, `∇̄S = Σᵢ ωᵢ ∇S_h(vⁿ + τᵢ (vⁿ⁺¹ − vⁿ))`. `AVFGradient(nq = 5)` holds the
+  nodes and weights, computed in `Float64` in the constructor by Newton's method on the Legendre
+  polynomial; a weight or a node is converted to the element type of the velocities at each use,
+  so the rule runs in `Float32` as in `Float64`. A call takes `nq` evaluations of `∇S_h` and no
+  `S_h`, allocates nothing after a warm call, and an `nq` below 1 throws an `ArgumentError`. Its
+  identity holds to the quadrature error and not to rounding, because `S_h` is not a polynomial,
+  where the `GonzalezGradient`'s holds to rounding; `nq = 1` is the midpoint gradient. On the
+  fixture of `test/models/landau_pairwise.jl` at 144 particles, quadratic splines on 8 × 8 cells
+  and a load of about 7, one call takes 271 µs at `nq = 5` against 121 µs for the
+  `GonzalezGradient`. The new tests check the rule's exactness on `τ^k` for `k ≤ 2nq − 1`, the
+  identity at a step's displacement and its fall with `nq`, one step's momentum and energy, 20
+  steps of the discrete H-theorem beside the midpoint rule as the control, and the increments of
+  the iteration at the state relaxed by 250 steps, where the smallest relative increment is
+  `0` with `AVFGradient(5)` and `6.7e-13` with `GonzalezGradient`.
 
 ### Documentation
 
