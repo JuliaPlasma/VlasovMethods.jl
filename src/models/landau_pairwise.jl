@@ -33,8 +33,9 @@ projection. Written out, this is `eq:eom_line3`,
 ``\mathbb{G}`` is symmetric and negative semi-definite, so ``S_h`` decreases; ``\sum_\gamma
 w_\gamma \mathbb{G}_{\gamma\sigma} = 0`` conserves the momentum ``\sum_\alpha w_\alpha v_\alpha``
 and ``\sum_\gamma w_\gamma v_\gamma \cdot \mathbb{G}_{\gamma\sigma} = 0`` the energy
-``\frac{1}{2} \sum_\alpha w_\alpha |v_\alpha|^2``. For distinct velocities the kernel of
-``\mathbb{G}`` has the dimension ``d + 1 = 3``. Only two velocity dimensions are supported.
+``\frac{1}{2} \sum_\alpha w_\alpha |v_\alpha|^2``. For distinct velocities that do not all lie
+on one line the kernel of ``\mathbb{G}`` has the dimension ``d + 1 = 3``. Only two velocity
+dimensions are supported.
 
 The model holds a `Landau` of the same arguments in its field `landau`, and takes from it
 the particle distribution, the projection onto the spline distribution of `ent`, the matrices
