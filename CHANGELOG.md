@@ -15,7 +15,7 @@ makes it worth keeping. The 69 commits from `v0.2.1` to this file's first commit
 their own, except for what they removed and narrowed, which is listed in full below against
 `v0.2.1`: four exports leave `names(VlasovMethods)` and eight `[compat]` entries lost versions.
 
-## [Unreleased] — targeting 0.4.2
+## [Unreleased] — targeting 0.5.0
 
 ### Bug Fixes
 
