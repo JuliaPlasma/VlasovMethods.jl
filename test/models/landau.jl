@@ -321,7 +321,7 @@ end
         @test err isa ArgumentError
         @test err isa ArgumentError && occursin("γ > -6", err.msg)
     end
-    # the control: the most singular exponent of the tests below, and one just above the bound
+    # the control: one exponent just above the bound, and the most singular one of the tests below
     @test Landau(pd, ent; γ = -5.9).γ == -5.9
     @test Landau(pd, ent; γ = -5.5).γ == -5.5
 end

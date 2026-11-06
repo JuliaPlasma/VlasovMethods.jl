@@ -208,9 +208,11 @@ cells and 1.7 from 8 to 16.
 dimensions both gradient differences are of order ``|u|`` near ``u = 0`` for splines of degree
 at least 2, whose gradients are Lipschitz, so the integrand of ``\mathbb{L}`` behaves as
 ``|u|^{\gamma + 4}`` and ``\int r^{\gamma + 5} \, dr`` converges at ``r = 0`` exactly for
-``\gamma > -6``. For linear splines the gradients jump between cells, and the integral of the
-continuum needs ``\gamma > -4``; the quadrature sum of [`compute_L!`](@ref) is finite for every
-accepted ``\gamma``.
+``\gamma > -6``. For linear splines the gradients jump across the cell edges: the gradient
+differences are of order one on the pairs that straddle an edge, a fraction of order ``|u|`` of
+the pairs at distance ``|u|``, so the integral of the continuum converges exactly for
+``\gamma > -5``. The quadrature sum of [`compute_L!`](@ref) is finite for every accepted
+``\gamma``.
 """
 function kernel(v_α::AbstractVector{T}, v_β::AbstractVector{T}, landau::Landau) where {T}
     # inlined into the two sweeps of `compute_L!`, which call it once per pair of grid points

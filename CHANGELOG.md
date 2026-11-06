@@ -83,6 +83,9 @@ their own, except for what they removed and narrowed, which is listed in full be
   `ErrorException` when no iterate meets `abstol` within `max_iters` evaluations; then neither
   the particles nor `rhs_prev` are written. The `@debug` residual is the max-norm, where it was
   the 2-norm.
+- **`Landau` has a new second type parameter `G`, the type of the kernel exponent `γ`.** The type
+  is `Landau{D, G, XD, VD, DT, ET, CT}`, so `XD`, `VD` and the parameters after them move one place
+  to the right; code that writes `Landau{…}` with positional parameters changes with it.
 
 ### New Features
 
@@ -102,11 +105,9 @@ their own, except for what they removed and narrowed, which is listed in full be
   `|u|² I − u uᵀ`. A `γ` that is not finite or is at most `-6` throws an `ArgumentError`: in two
   dimensions, for splines of degree at least 2, the integrand of `𝕃` behaves as `|u|^{γ+4}` near
   `u = 0`, integrable exactly for `γ > -6`. `kernel` returns the zero matrix at `u = 0` for every
-  `γ`. The type of `γ` is the new second type parameter `G` of `Landau{D, G, XD, VD, DT, ET, CT}`,
-  so `XD`, `VD` and the parameters after them move one place to the right. The new tests check the
-  kernel for `γ` = −5.5, −3, −1.5, 0 and 1, and that `𝕃` is symmetric, positive semi-definite and
-  annihilates constants for `γ` = −5.5, −3 and 0; the allocation and inference tests run for
-  `γ = -3` and `γ = 0`.
+  `γ`. The new tests check the kernel for `γ` = −5.5, −3, −1.5, 0 and 1, and that `𝕃` is
+  symmetric, positive semi-definite and annihilates constants for `γ` = −5.5, −3 and 0; the
+  allocation and inference tests run for `γ = -3` and `γ = 0`.
 
 ### Documentation
 
