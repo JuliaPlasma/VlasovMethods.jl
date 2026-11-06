@@ -453,6 +453,10 @@ end
         DimensionMismatch, msg)
     @test throws_with(() -> VM.entropy_gradient!(zeros(2, 100), v, model),
         DimensionMismatch, msg)
+    @test throws_with(() -> VM.entropy_gradient!(similar(v), v100, model),
+        DimensionMismatch, msg)
+    @test throws_with(() -> VM.apply_G!(similar(v), v100, ones(2, 144), model),
+        DimensionMismatch, msg)
     @test throws_with(() -> VM.apply_G!(similar(v100), v100, ones(2, 100), model),
         DimensionMismatch, msg)
     @test throws_with(() -> VM.apply_G!(similar(v), v, ones(2, 100), model),
