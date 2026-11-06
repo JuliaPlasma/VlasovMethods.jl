@@ -78,12 +78,12 @@ The gradient ``\partial S_h / \partial v_{c,\alpha} = \sum_k \mathbb{K}_c[k, \al
 particles at the velocities `v` (`2 × N`), written into `∇S` (`2 × N`). The projection,
 ``\mathbb{K}`` and ``\mathbb{L}_k`` are those of `model.landau`, with the buffers of its cache of
 the element type of `v`; the projection overwrites the coefficients of that cache's spline
-distribution. `v` or `∇S` of another number of columns than the model has particles throws a
-`DimensionMismatch`.
+distribution. `v` or `∇S` of another size than `2 × N`, with `N` the number of particles of the
+model, throws a `DimensionMismatch`.
 """
 function entropy_gradient!(∇S, v::AbstractMatrix{T}, model::PairwiseLandau) where {T}
-    _check_columns(:v, v, model)
-    _check_columns(:∇S, ∇S, model)
+    _check_size(:v, v, model)
+    _check_size(:∇S, ∇S, model)
     landau = model.landau
     cache = landau.cache[T]
     sdist = cache.sdist
@@ -95,13 +95,15 @@ function entropy_gradient!(∇S, v::AbstractMatrix{T}, model::PairwiseLandau) wh
     return ∇S
 end
 
-# The arrays of `entropy_gradient!` and `apply_G!` have one column per particle of the model.
-@noinline function _throw_columns(name, n, N)
-    throw(DimensionMismatch("$name has $n columns, and the model has $N particles"))
+# The arrays of `entropy_gradient!`, `apply_G!` and the vector field are `2 × N`: one row per
+# velocity component and one column per particle of the model.
+@noinline function _throw_size(name, sz, N)
+    throw(DimensionMismatch("$name has size $sz, and the model has $N particles of 2 " *
+                            "velocity components"))
 end
-function _check_columns(name, a, model::PairwiseLandau)
+function _check_size(name, a, model::PairwiseLandau)
     N = size(model.landau.dist.particles.w, 2)
-    size(a, 2) == N || _throw_columns(name, size(a, 2), N)
+    size(a) == (2, N) || _throw_size(name, size(a), N)
     return nothing
 end
 
@@ -136,16 +138,16 @@ y_\gamma = - \sum_{\beta \ne \gamma} U(v_\gamma, v_\beta)
 with ``U`` the [`kernel`](@ref) of `model.landau` and the weights ``w`` of row 1 of
 `model.landau.dist.particles.w`. The pair ``\beta = \gamma`` is skipped by its index. Two
 particles ``\gamma \ne \beta`` of equal velocities throw a `DomainError` that names both, the
-smaller index first. `y` must not alias `v` or `x`. An array of another number of columns than
-the model has particles throws a `DimensionMismatch`.
+smaller index first. `y` must not alias `v` or `x`. An array of another size than `2 × N`, with
+`N` the number of particles of the model, throws a `DimensionMismatch`.
 
 The cost is ``O(N^2)`` kernel evaluations, one per ordered pair; the [`PairwiseLandau`](@ref)
 docstring gives measured times. A call allocates nothing.
 """
 function apply_G!(y, v::AbstractMatrix{T}, x, model::PairwiseLandau) where {T}
-    _check_columns(:y, y, model)
-    _check_columns(:v, v, model)
-    _check_columns(:x, x, model)
+    _check_size(:y, y, model)
+    _check_size(:v, v, model)
+    _check_size(:x, x, model)
     landau = model.landau
     w = landau.dist.particles.w
     for γ in axes(v, 2)
@@ -178,10 +180,12 @@ converted to `T`.
 The projection throws a `DomainError` for a velocity outside the domain of the spline basis,
 `NaN` and `Inf` included, and [`compute_J!`](@ref) for a projection that is zero at a quadrature
 node, as for no particle; [`apply_G!`](@ref) throws for two equal velocities. `v` or `v̇` of
-another number of columns than the model has particles throws a `DimensionMismatch`.
+another size than `2 × N`, with `N` the number of particles of the model, throws a
+`DimensionMismatch` that names it.
 """
 function collisional_vectorfield!(v̇::AbstractArray{ST}, v::AbstractArray{ST}, params,
         model::PairwiseLandau) where {ST}
+    _check_size(:v̇, v̇, model)
     ∇S = model.landau.cache[ST].v̇
     entropy_gradient!(∇S, v, model)
     apply_G!(v̇, v, ∇S, model)

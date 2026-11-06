@@ -473,6 +473,28 @@ end
         DimensionMismatch, msg)
     @test throws_with(() -> VM.apply_G!(similar(v145), v145, ones(2, 145), model),
         DimensionMismatch, msg)
+
+    # the vector field names its own argument
+    @test throws_with(() -> VM.collisional_vectorfield!(zeros(2, 145), v, nothing, model),
+        DimensionMismatch, "v̇ has size (2, 145)")
+
+    # an array of another number of rows than the two velocity components
+    v3 = vcat(v, zeros(1, 144))
+    @test throws_with(() -> VM.entropy_gradient!(similar(v), v3, model),
+        DimensionMismatch, "v has size (3, 144)")
+    @test throws_with(() -> VM.entropy_gradient!(zeros(3, 144), v, model),
+        DimensionMismatch, "∇S has size (3, 144)")
+    @test throws_with(() -> VM.apply_G!(similar(v), v3, ones(2, 144), model),
+        DimensionMismatch, "v has size (3, 144)")
+    @test throws_with(() -> VM.apply_G!(similar(v), v, ones(3, 144), model),
+        DimensionMismatch, "x has size (3, 144)")
+    @test throws_with(() -> VM.apply_G!(zeros(3, 144), v, ones(2, 144), model),
+        DimensionMismatch, "y has size (3, 144)")
+    @test throws_with(() -> VM.collisional_vectorfield!(zeros(3, 144), v, nothing, model),
+        DimensionMismatch, "v̇ has size (3, 144)")
+    @test throws_with(() -> VM.collisional_vectorfield!(zeros(2, 144), v3, nothing, model),
+        DimensionMismatch, "v has size (3, 144)")
+    @test model.landau.dist.particles.v == v
 end
 
 @testset "Float32, allocations and inference" begin
