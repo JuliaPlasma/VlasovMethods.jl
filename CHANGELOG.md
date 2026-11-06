@@ -112,6 +112,25 @@ their own, except for what they removed and narrowed, which is listed in full be
   kernel for `γ` = −5.5, −3, −1.5, 0 and 1, and that `𝕃` is symmetric, positive semi-definite and
   annihilates constants for `γ` = −5.5, −3 and 0; the allocation and inference tests run for `γ =
   -3` and `γ = 0`.
+- **`PairwiseLandau`** is the particle-pair Landau scheme of the Landau manuscript's main text,
+  `v̇ = ν 𝔾(v) ∇S_h(v)` (`eq:landau_sd_gradient_form`, `eq:G_semi-disc`, `eq:eom_line3`).
+  `PairwiseLandau(dist, ent; ν = 1.0, γ = -3)` holds a `Landau` of the same arguments and takes
+  its projection, `∇S_h`, `kernel` and buffers; its `collisional_vectorfield!` and the product
+  with `𝔾` cost `O(N²)` kernel evaluations and allocate nothing. Two particles of equal velocities
+  throw a `DomainError`. The tests compare the vector field with `eq:eom_line3` written out,
+  check that it conserves momentum and energy and decreases `S_h` for `γ = -3` and `γ = 0`, and
+  that the kernel of `𝔾` has the dimension 3. K4 of `KNOWN_ISSUES.md` now names it as the
+  main-text method and `Landau` as the appendix method.
+- **`discrete_gradient_step!`** takes one step of `PairwiseLandau` by `eq:disc_grad_update_rule`,
+  with `𝔾` at the midpoint (`eq:midpoint_G`), by a fixed-point iteration to the max-norm residual
+  `abstol`, and returns `(iterations, residual)` as `Picard_iterate_Landau_nls!` does. The step
+  conserves momentum to rounding and energy within `(Δt/2) · abstol · Σ w ‖f‖₁` plus rounding,
+  and `S_h` decreases at each of 20 steps of the new test, beside controls with `𝔾(vⁿ)`, with the
+  midpoint gradient, and with the last iterate accepted, which break them. K10 of
+  `KNOWN_ISSUES.md` names that test and stays for the appendix model `Landau`.
+- **`GonzalezGradient`** is the discrete gradient of the step, the manuscript's
+  (`eq:disc_grad_props`), and the default of its keyword `gradient`. It satisfies
+  `S_h(v1) − S_h(v0) = (v1 − v0) · ∇̄S` to rounding and returns `∇S_h(v0)` at `v1 = v0`.
 
 ### Documentation
 

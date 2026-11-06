@@ -17,15 +17,17 @@ has left the file, or that lived only on a merged branch, stays taken.
   migration. None of this is a regression; it is either a numerical-methods decision or work the
   migration deliberately did not take on.
 
-### K4 · The implemented Landau scheme is not the one the main text derives.
+### K4 · The appendix Landau method takes the implicit midpoint rule, which is not a discrete gradient, so no discrete H-theorem is proven for it.
 
-- **location:** —
-- **evidence:** The manuscript builds the gradient form with the `G` operator — whose structure
-  *is* the momentum and energy conservation proof — and a Gonzalez discrete gradient, which *is*
-  the discrete H-theorem proof. What runs is the **appendix** two-step `v̇ = K⁺LJ` with plain
-  implicit midpoint and `∇S(midpoint)`, which is not a discrete gradient. Neither structural proof
-  transfers to the code as written. `G` is never formed, and no code implements the gradient
-  form. A gap between paper and code, not an error in either.
+- **location:** `src/methods/Landau_solver.jl`
+- **evidence:** The manuscript derives two methods. The main-text method is `PairwiseLandau`:
+  the gradient form with the `G` operator of `eq:G_semi-disc` at the midpoint, whose structure
+  *is* the momentum and energy conservation proof, and the Gonzalez discrete gradient of
+  `discrete_gradient_step!`, which *is* the discrete H-theorem proof. The appendix method is
+  `Landau`: the two-step `v̇ = K⁺LJ` with the implicit midpoint rule and `∇S` at the midpoint
+  (`eq:particle_ode_midpoint`), the appendix's own choice, which is not a discrete gradient. The
+  H-theorem of the time discretisation therefore holds for `PairwiseLandau` only. A gap between
+  the appendix method and the main text's proof, not an error in either.
 - **kind:** docs
 - **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
   migration. None of these are regressions; each is either a numerical-methods decision or work
@@ -74,7 +76,9 @@ has left the file, or that lived only on a merged branch, stays taken.
   projection" of `test/distributions/spline_distribution.jl` checks that `𝕃` is symmetric,
   positive semi-definite and annihilates the constants, and "the step converges and conserves" of
   `test/integration/landau_solver.jl` checks the momentum and the energy of one step on a
-  lattice. No test checks an invariant or the entropy over a run.
+  lattice. No test checks an invariant or the entropy over a run. This entry is about the appendix
+  model `Landau`: for the main-text model `PairwiseLandau`, "S_h decreases over 20 steps" of
+  `test/models/landau_pairwise.jl` checks the entropy, the momentum and the energy over a run.
 - **kind:** missing test
 - **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
   migration. None of these are regressions; each is either a numerical-methods decision or work
