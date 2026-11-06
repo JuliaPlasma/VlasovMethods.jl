@@ -4,11 +4,14 @@
 # assertion `::GeometricEquations.ODEProblem` states it, and the `extrapolate!` call dispatches
 # statically.
 function _landau_startup_guess!(v, vn, t, Δt, params, landau)
+    # the extrapolation takes its times in one type
+    tp, Δtp = promote(t, Δt)
     problemGNI = GeometricEquations.ODEProblem(
         (v̇, t, v, params) -> collisional_vectorfield!(v̇, v, params, landau),
         # a copy, because the `StateVariable` of `GeometricBase` takes no view
-        (t, t+Δt), Δt, copy(vn); parameters = params)::GeometricEquations.ODEProblem
-    extrapolate!(t - Δt, vn, t, v, problemGNI, MidpointExtrapolation(5))
+        # (JuliaGNI/GeometricBase.jl#41)
+        (tp, tp+Δtp), Δtp, copy(vn); parameters = params)::GeometricEquations.ODEProblem
+    extrapolate!(tp - Δtp, vn, tp, v, problemGNI, MidpointExtrapolation(5))
 end
 
 """
