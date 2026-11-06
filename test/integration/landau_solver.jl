@@ -5,7 +5,7 @@ using VlasovMethods
 
 const VM = VlasovMethods
 
-# No other test calls `Picard_iterate_Landau_nls!`. It is called once on each side of its
+# No other test calls `Picard_iterate_Landau_nls!`. It is called on both sides of its
 # `ti ≥ 4` branch, so an undefined global in either branch throws here.
 function landau_solver_setup(::Type{T} = Float64) where {T}
     n1 = 16
