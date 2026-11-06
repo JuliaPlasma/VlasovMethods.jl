@@ -186,9 +186,11 @@ which is `eq:velocity_ode` of the Lenard-Bernstein manuscript.
 !!! note "The sign"
     The particles move with the transport velocity
     ``a = -\nu (f'/f + A_1 + A_2 v)`` of the continuity equation
-    ``\partial_t f + \partial_v (a f) = 0``. The check: for a Maxwellian of width
-    ``\sigma > 1`` — too broad — ``a = -\nu v (1 - \sigma^{-2}) < 0`` for ``v > 0``, so the
-    particles move inward and the distribution relaxes.
+    ``\partial_t f + \partial_v (a f) = 0``. The check is the H-theorem: with
+    ``F = f' + (A_1 + A_2 v) f``, the constraints ``\int F \, dv = \int v F \, dv = 0`` give
+    ``\frac{d}{dt} \int f \log f \, dv = -\nu \int F^2 / f \, dv \le 0`` for ``f > 0``. A
+    centred Maxwellian of any width ``\sigma`` gives ``A_1 = 0`` and ``A_2 = \sigma^{-2}``, so
+    ``a = 0``: the operator conserves the energy, and every Maxwellian is an equilibrium.
 """
 function CLB_rhs_GI!(v, t, q::AbstractArray{ST}, params) where {ST}
     (; sdist, rhs, values) = params.model.cache[ST]

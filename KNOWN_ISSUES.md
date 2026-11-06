@@ -70,15 +70,17 @@ has left the file, or that lived only on a merged branch, stays taken.
 ### K8 · Positivity of `f_s` is not preserved, and the conservative Lenard-Bernstein operators refuse `f_s ≤ 0`.
 
 - **location:** —
-- **evidence:** The metriplectic paths — `CollisionEntropy`, `compute_J!` of `Landau` and of
-  `MetriplecticLenardBernstein`, `compute_entropy` and `compute_L!` — take `log|f_s|` and the
-  mobility `|f_s|`, as the manuscripts do, and run where the L² projection of a particle
-  distribution changes sign; they throw a `DomainError` only where `f_s` is zero or not finite at
-  a quadrature node. `compute_coefficients` of `ConservativeLenardBernstein` and
+- **evidence:** The metriplectic paths run where the L² projection of a particle distribution
+  changes sign, as the manuscripts do. `CollisionEntropy`, `compute_J!` of `Landau` and of
+  `MetriplecticLenardBernstein` and `compute_entropy` take `log|f_s|`, and throw a `DomainError`
+  only where `f_s` is zero or not finite at a quadrature node. `compute_L!` of `Landau` takes the
+  mobility `|f_s|` and checks no node: a zero contributes zero mobility, and a non-finite value
+  enters the matrix. `compute_coefficients` of `ConservativeLenardBernstein` and
   `compute_coefficients_rclb` of `RescaledConservativeLenardBernstein` throw a `DomainError` where
-  `f_s ≤ 0` at a particle, because the pointwise ratio `f_s'/f_s` is undefined there, so a run of
-  either operator whose projection undershoots stops. The real fix — a positivity-preserving
-  projection — is the manuscripts' own open problem.
+  `f_s ≤ 0` at a particle, because both operators assume `f_s > 0`: the pointwise ratio
+  `f_s'/f_s` is undefined at `f_s = 0`, and the Lenard-Bernstein H-theorem holds only for a
+  non-negative `f`. So a run of either operator whose projection undershoots stops. The real fix
+  — a positivity-preserving projection — is the manuscripts' own open problem.
 - **kind:** defect
 - **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
   migration. None of these are regressions; each is either a numerical-methods decision or work

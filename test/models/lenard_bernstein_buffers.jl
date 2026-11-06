@@ -312,7 +312,7 @@ end
 # ∂S_h/∂v_α of `compute_dS!`, from 𝕃 of `compute_J!`, is the gradient of S_h = ∫ f_s log|f_s|
 # (`eq:disc_entropy`) of the projected particles, against a central difference of
 # `compute_entropy`.
-@testset "MP-LB gradient on a sign-changing projection" begin
+@testset "metriplectic Lenard-Bernstein gradient on a sign-changing projection" begin
     mlb, pdist, sdist = mlb_setup(Float64)
     v = copy(pdist.particles.v[1, :])
     projection(v, pdist, sdist)
@@ -370,9 +370,11 @@ end
     end
 end
 
-# The pointwise ratio f_s'/f_s of the conservative operators has no meaning where f_s ≤ 0, so
-# their coefficients refuse a projection that is negative at a particle.
-@testset "PD-LB refuses a sign-changing projection, $T" for T in (Float32, Float64)
+# The conservative operators assume f_s > 0: their pointwise ratio f_s'/f_s is undefined at
+# f_s = 0, and their H-theorem holds only for f_s ≥ 0. So their coefficients refuse a projection
+# that is negative at a particle.
+@testset "the conservative coefficients refuse a sign-changing projection, $T" for T in (
+    Float32, Float64)
     pdist, sdist = setup(T, 256)
     project_function(v -> v^2 - one(T) / 4, sdist)
     q = copy(pdist.particles.v[1, :])

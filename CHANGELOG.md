@@ -30,13 +30,14 @@ their own, except for what they removed and narrowed, which is listed in full be
   new tests compare it with a central difference, for `Landau` and for
   `MetriplecticLenardBernstein`. `compute_coefficients` of `ConservativeLenardBernstein` and
   `compute_coefficients_rclb` of `RescaledConservativeLenardBernstein` keep their `DomainError`
-  for `f_s ≤ 0`, because `f_s'/f_s` is undefined there (K8).
+  for `f_s ≤ 0`, because both operators assume `f_s > 0`: the ratio `f_s'/f_s` is undefined at
+  `f_s = 0`, and the Lenard-Bernstein H-theorem holds only for a non-negative `f` (K8).
 - **`compute_L!` of `Landau` weights the grid by the mobility `|f_s|`**, the `M(f) = |f|` of the
   Landau manuscript's appendix bracket `eq:landau_bracket_modified`. With the signed weight
   `W_a f_s(v_a)`, `𝕃` had a negative eigenvalue where `f_s` changes sign — `−2.08e-3` times
   `max|𝕃|` on the projection of the unit Gaussian on 7 knots of order 3 — and the discrete
-  H-theorem failed. Now `𝕃` is symmetric, positive semi-definite and `𝕃 1 = 0` for every finite
-  `f_s`; where `f_s > 0` it is unchanged.
+  H-theorem failed. Now `𝕃` is symmetric and positive semi-definite for every finite `f_s`, and
+  `𝕃 1 = 0` wherever the basis functions sum to one; where `f_s > 0` it is unchanged.
 
 ### Documentation
 

@@ -308,8 +308,9 @@ of the Landau manuscript's `eq:discrete-landau-matrix`, from its appendix bracke
 The bracket allows any mobility ``M(f) \ge 0``. With ``M(f) = f``, ``\mathbb{L}`` loses positive
 semi-definiteness where ``f_s`` changes sign, and with it the discrete H-theorem. With
 ``|f_s|``, every term of the quadrature sum is a non-negative weight times a positive
-semi-definite form, so ``\mathbb{L}`` is symmetric, positive semi-definite and
-``\mathbb{L} \mathbb{1} = 0`` for every finite ``f_s``. A non-finite ``f_s`` is not checked here:
+semi-definite form, so ``\mathbb{L}`` is symmetric and positive semi-definite for every finite
+``f_s``. Where the basis functions sum to one, ``\mathbb{L} \mathbb{1} = 0`` as well, because
+the gradient of their sum vanishes. A non-finite ``f_s`` is not checked here:
 `collisional_vectorfield!` calls [`compute_J!`](@ref) first, which throws.
 
 # Method
