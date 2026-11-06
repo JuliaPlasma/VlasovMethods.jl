@@ -110,12 +110,14 @@ about ``10^{-11}``" is the same floor in the relative increment
 
 `Δt`, converted to the element type of the velocities, and `abstol` must be finite and positive
 and `max_iters` at least 1, or an `ArgumentError` that names the argument is thrown before any
-evaluation: a `Float64` `Δt` that is zero or `Inf` in `Float32` is refused. When no iterate
-meets `abstol` within `max_iters` evaluations, an `ErrorException` is thrown that names the
-number of evaluations and the last residual. A residual that is not finite never meets
-`abstol`. The exceptions of the vector field pass through: a `DomainError` for two equal
-velocities, and the projection's `DomainError` once an iterate leaves the velocity domain. In
-each case the particles are not written.
+evaluation: a `Float64` `Δt` that is zero or `Inf` in `Float32` is refused. So is a particle
+weight that is not positive and finite, with an `ArgumentError` that names the particle. When
+no iterate meets `abstol` within `max_iters` evaluations, an `ErrorException` is thrown that
+names the number of evaluations and the last residual. A residual that is not finite never
+meets `abstol`. The exceptions of the vector field pass through: a `DomainError` for two equal
+velocities and, for ``\gamma < -2``, for two velocities too close, and the projection's
+`DomainError` once an iterate leaves the velocity domain. In each case the particles are not
+written.
 
 # Cost
 
@@ -133,6 +135,7 @@ function discrete_gradient_step!(model::PairwiseLandau, Δt; abstol,
     isfinite(abstol) && abstol > 0 ||
         throw(ArgumentError("abstol must be finite and positive, got $abstol"))
     max_iters ≥ 1 || throw(ArgumentError("max_iters must be at least 1, got $max_iters"))
+    _check_weights(view(model.landau.dist.particles.w, 1, :))
 
     ν = T(model.landau.ν)
 

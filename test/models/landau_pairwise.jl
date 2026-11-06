@@ -200,22 +200,16 @@ end
     end
 
     # the model holds the distribution by reference, so apply_G! and the vector field check
-    # the weights as they are at the call; the vector field projects the particles before it
-    # applies 𝔾, and the projection of a weight that is not finite throws its DomainError first
+    # the weights as they are at the call, the vector field before it projects the particles
     for bad in (0.0, -1e-3, NaN, Inf)
         model = fixture()
         model.landau.dist.particles.w[1, 17] = bad
         vm = copy(model.landau.dist.particles.v)
         @test throws_with(() -> VM.apply_G!(similar(vm), vm, ones(2, 144), model),
             ArgumentError, "weight of particle 17")
-        if isfinite(bad)
-            @test throws_with(
-                () -> VM.collisional_vectorfield!(similar(vm), vm, nothing, model),
-                ArgumentError, "weight of particle 17")
-        else
-            @test_throws DomainError VM.collisional_vectorfield!(similar(vm), vm, nothing,
-                model)
-        end
+        @test throws_with(
+            () -> VM.collisional_vectorfield!(similar(vm), vm, nothing, model),
+            ArgumentError, "weight of particle 17")
     end
 
     # an array of another number of columns than the model has particles

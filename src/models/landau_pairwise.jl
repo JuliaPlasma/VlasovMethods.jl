@@ -217,15 +217,18 @@ The vector field ``\dot{v} = \nu \, \mathbb{G}(v) \, \nabla S_h(v)`` of
 `model.landau.cache[T]`, with `T` the element type of `v`, so a call allocates nothing; `ν` is
 converted to `T`.
 
-The projection throws a `DomainError` for a velocity outside the domain of the spline basis,
-`NaN` and `Inf` included, and [`compute_J!`](@ref) for a projection that is zero at a quadrature
-node, as for no particle; [`apply_G!`](@ref) throws for two equal velocities and for a weight
-that is not positive and finite. `v` or `v̇` of another size than `2 × N`, with `N` the number
-of particles of the model, throws a `DimensionMismatch` that names it.
+A weight that is not positive and finite throws an `ArgumentError` that names the particle,
+before any projection. The projection throws a `DomainError` for a velocity outside the domain
+of the spline basis, `NaN` and `Inf` included, and [`compute_J!`](@ref) for a projection that is
+zero or not finite at a quadrature node, as for no particle; [`apply_G!`](@ref) throws a
+`DomainError` for two equal velocities and, for ``\gamma < -2``, for two velocities too close.
+`v` or `v̇` of another size than `2 × N`, with `N` the number of particles of the model, throws
+a `DimensionMismatch` that names it.
 """
 function collisional_vectorfield!(v̇::AbstractArray{ST}, v::AbstractArray{ST}, params,
         model::PairwiseLandau) where {ST}
     _check_size(:v̇, v̇, model)
+    _check_weights(view(model.landau.dist.particles.w, 1, :))
     ∇S = model.landau.cache[ST].v̇
     entropy_gradient!(∇S, v, model)
     apply_G!(v̇, v, ∇S, model)

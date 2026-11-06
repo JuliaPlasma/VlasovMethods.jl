@@ -117,9 +117,10 @@ their own, except for what they removed and narrowed, which is listed in full be
   with `𝔾` cost `O(N²)` kernel evaluations and allocate nothing. Two particles of equal velocities
   throw a `DomainError`, as do, for `γ < -2`, two velocities closer than a threshold of the
   element type at which the kernel stops being finite and not zero (`2.0e-13` in `Float32` for
-  `γ = -3`), a particle weight that is not positive and finite an `ArgumentError`, both in the
-  constructor and in each product with `𝔾`, which reads the weights of the distribution at the
-  call (K90), and an array whose size is not `2 × N`, with `N` the number of particles of the
+  `γ = -3`), a particle weight that is not positive and finite an `ArgumentError` that names the
+  particle, in the constructor and at each call of the product with `𝔾`, the vector field and
+  `discrete_gradient_step!`, which read the weights of the distribution at the call (K90), and an
+  array whose size is not `2 × N`, with `N` the number of particles of the
   model, a `DimensionMismatch` that names the argument. The tests compare the vector field with
   `eq:eom_line3` written out,
   check that it conserves momentum and energy and decreases `S_h` for `γ = -3` and `γ = 0`, and

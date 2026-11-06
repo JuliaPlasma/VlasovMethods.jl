@@ -213,13 +213,15 @@ end
         @test model.landau.dist.particles.v == v
     end
 
-    # a weight changed to zero after construction
-    model = fixture()
-    before = copy(model.landau.dist.particles.v)
-    model.landau.dist.particles.w[1, 17] = 0
-    @test throws_with(() -> discrete_gradient_step!(model, 2e-3; abstol = 1e-12),
-        ArgumentError, "weight of particle 17")
-    @test model.landau.dist.particles.v == before
+    # a weight that is not positive and finite, set after construction
+    for bad in (0.0, -1e-3, NaN, Inf)
+        model = fixture()
+        before = copy(model.landau.dist.particles.v)
+        model.landau.dist.particles.w[1, 17] = bad
+        @test throws_with(() -> discrete_gradient_step!(model, 2e-3; abstol = 1e-12),
+            ArgumentError, "weight of particle 17")
+        @test model.landau.dist.particles.v == before
+    end
 
     # one particle does not move; no particle and a NaN velocity throw
     one_particle = build(reshape([0.1, -0.2], 2, 1), [1.0])
