@@ -98,16 +98,20 @@ their own, except for what they removed and narrowed, which is listed in full be
   of motion. The tests that
   read the reference files of the model in `test/data/` build it with `JeyakumarBracket()`, and
   the files are unchanged.
-- **`Landau` takes the exponent of its kernel as the keyword `γ`.** `Landau(dist, ent; γ = -3,
-  ν = 1.0)` holds `γ` in the kernel `U(u) = |u|^{γ+2} (I − u uᵀ/|u|²)`, which `kernel` and so
+- **`Landau` takes the exponent of its kernel as the keyword `γ`.** `Landau(dist, ent; γ = -3, ν =
+  1.0)` holds `γ` in the kernel `U(u) = |u|^{γ+2} (I − u uᵀ/|u|²)`, which `kernel` and so
   `compute_L!` use. The default `γ = -3` is the Coulomb kernel and gives the former kernel bit for
   bit, so `test/data/collision_landau_reference.txt` is unchanged; `γ = 0` is Maxwell molecules,
   `|u|² I − u uᵀ`. A `γ` that is not finite or is at most `-6` throws an `ArgumentError`: in two
-  dimensions, for splines of degree at least 2, the integrand of `𝕃` behaves as `|u|^{γ+4}` near
-  `u = 0`, integrable exactly for `γ > -6`. `kernel` returns the zero matrix at `u = 0` for every
-  `γ`. The new tests check the kernel for `γ` = −5.5, −3, −1.5, 0 and 1, and that `𝕃` is
-  symmetric, positive semi-definite and annihilates constants for `γ` = −5.5, −3 and 0; the
-  allocation and inference tests run for `γ = -3` and `γ = 0`.
+  dimensions, for splines of degree at least 2, the integrand of `𝕃` behaves as `|u|^{γ+4}` near `u
+  = 0`, integrable exactly for `γ > -6`. `kernel` returns the zero matrix at `u = 0` for every `γ`.
+  For `γ ≠ -3` the kernel is evaluated as `|u|^{γ+2}` times the projector onto the complement of `û
+  = u / hypot(u)`, without forming `|u|²` or `|u|⁻³`, so it stays finite at radii near the ends of
+  the range of the element type, which the new tests check for `γ = -1.5` and `0`. The default `γ =
+  -3` keeps its former Coulomb evaluation, and its range is unchanged. The new tests check the
+  kernel for `γ` = −5.5, −3, −1.5, 0 and 1, and that `𝕃` is symmetric, positive semi-definite and
+  annihilates constants for `γ` = −5.5, −3 and 0; the allocation and inference tests run for `γ =
+  -3` and `γ = 0`.
 
 ### Documentation
 
@@ -128,10 +132,10 @@ their own, except for what they removed and narrowed, which is listed in full be
 
 ### Internal
 
-- **`kernel` is inlined into `compute_L!`, and skips the power `|u|^{γ+3}` at the default
+- **`kernel` is inlined into `compute_L!`, and skips the power `|u|^{γ+2}` at the default
   `γ = -3`.** On the 8 × 8 cubic basis of `test/models/landau.jl` (M = 121, Q = 1600), one
-  `compute_L!` takes 44 ms where it took 54 ms on `b1d4f0b` (minimum of 20 calls, two cold runs
-  per tree, load 11–17).
+  `compute_L!` takes 44 ms where it took 54 ms on `1897780` (minimum of 20 calls, two cold runs
+  per tree, load 12–20).
 - **ExplicitImports also checks self-qualified accesses.** `test/quality/explicit_imports.jl` runs
   `check_no_self_qualified_accesses` on the package and on `MultiModalAutoEncoderExt`. The file
   calls single checks, so this one, which `test_explicit_imports` runs by default, was missing.
