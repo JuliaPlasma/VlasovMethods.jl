@@ -142,8 +142,9 @@ function compute_coefficients(
         # non-negative". Neither solves it. Failing here names the open problem instead of
         # continuing with a value whose sign is wrong.
         fα > 0 || throw(DomainError(fα,
-            "the projected distribution is non-positive at v = $(vα), so " *
-            "f_s'/f_s is not meaningful there. This is the positivity problem both " *
+            "the projected distribution is non-positive at v = $(vα), but the " *
+            "conservative operator requires f_s > 0: the ratio f_s'/f_s is undefined at " *
+            "f_s = 0. This is the positivity problem both " *
             "manuscripts name and neither solves: an L² projection of a particle " *
             "distribution undershoots where the sampling is thin. Use more particles, a " *
             "coarser spline basis, or a positivity-preserving projection."))

@@ -183,7 +183,7 @@ end
     compute_dS!(dS, buf, J, v, sdist, ::MetriplecticLenardBernstein, pdist)
 
 ``\partial S_h / \partial v_\alpha = w_\alpha \sum_k \mathbb{L}_k \, \varphi_k'(v_\alpha)``,
-the Landau manuscript's `eq:entropy_derivative` up to its overall sign.
+the Landau manuscript's `eq:entropy_derivative`.
 
 The weight ``w_\alpha`` is read from `pdist`, which is why the particle distribution is passed
 in: it equals ``1/N`` for every initialiser in `examples/` but not for the importance-sampling
