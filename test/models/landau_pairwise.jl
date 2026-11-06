@@ -832,10 +832,21 @@ end
     v1 = v0 .+ 1.0f-3 .* d
     ΔS = Sh(v1, m32) - Sh(v0, m32)
     g = similar(v0)
+    gt = similar(v0)
+    ref = similar(v0)
     for nq in (2, 5)
-        VM.discrete_gradient!(g, v0, v1, m32, AVFGradient(nq))
+        rule = AVFGradient(nq)
+        VM.discrete_gradient!(g, v0, v1, m32, rule)
         @test eltype(g) == Float32
         @test abs(ΔS - dot(v1 .- v0, g)) ≤ 1e-5
+
+        # the rule stays in Float32: its sum is the one written out in Float32, bit for bit
+        fill!(ref, 0)
+        for i in 1:nq
+            VM.entropy_gradient!(gt, v0 .+ Float32(rule.nodes[i]) .* (v1 .- v0), m32)
+            ref .+= Float32(rule.weights[i]) .* gt
+        end
+        @test g == ref
     end
 
     Δt, abstol = 2.0f-3, 1.0f-4
