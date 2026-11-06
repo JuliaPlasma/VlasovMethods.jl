@@ -82,6 +82,9 @@ their own, except for what they removed and narrowed, which is listed in full be
   `ErrorException` when no iterate meets `abstol` within `max_iters` evaluations; then neither
   the particles nor `rhs_prev` are written. The `@debug` residual is the max-norm, where it was
   the 2-norm.
+- **`Landau` has a new second type parameter `G`, the type of the kernel exponent `γ`.** The type
+  is `Landau{D, G, XD, VD, DT, ET, CT}`, so `XD`, `VD` and the parameters after them move one place
+  to the right; code that writes `Landau{…}` with positional parameters changes with it.
 
 ### New Features
 
@@ -93,6 +96,20 @@ their own, except for what they removed and narrowed, which is listed in full be
   since a negative weight makes the bracket matrix indefinite. Their docstrings give the equations
   of motion. The tests that read the reference files of the model in `test/data/` build it with
   `JeyakumarBracket()`, and the files are unchanged.
+- **`Landau` takes the exponent of its kernel as the keyword `γ`.** `Landau(dist, ent; γ = -3, ν =
+  1.0)` holds `γ` in the kernel `U(u) = |u|^{γ+2} (I − u uᵀ/|u|²)`, which `kernel` and so
+  `compute_L!` use. The default `γ = -3` is the Coulomb kernel and gives the former kernel bit for
+  bit, so `test/data/collision_landau_reference.txt` is unchanged; `γ = 0` is Maxwell molecules,
+  `|u|² I − u uᵀ`. A `γ` that is not finite or is at most `-6` throws an `ArgumentError`: in two
+  dimensions, for splines of degree at least 2, the integrand of `𝕃` behaves as `|u|^{γ+4}` near `u
+  = 0`, integrable exactly for `γ > -6`. `kernel` returns the zero matrix at `u = 0` for every `γ`.
+  For `γ ≠ -3` the kernel is evaluated as `|u|^{γ+2}` times the projector onto the complement of `û
+  = u / hypot(u)`, without forming `|u|²` or `|u|⁻³`, so it stays finite at radii near the ends of
+  the range of the element type, which the new tests check for `γ = -1.5` and `0`. The default `γ =
+  -3` keeps its former Coulomb evaluation, and its range is unchanged. The new tests check the
+  kernel for `γ` = −5.5, −3, −1.5, 0 and 1, and that `𝕃` is symmetric, positive semi-definite and
+  annihilates constants for `γ` = −5.5, −3 and 0; the allocation and inference tests run for `γ =
+  -3` and `γ = 0`.
 
 ### Documentation
 
@@ -101,9 +118,22 @@ their own, except for what they removed and narrowed, which is listed in full be
   manuscript's Coulomb kernel differs from it; the `CLB_rhs_GI!` docstring no longer says that
   `eq:velocity_ode` of the Lenard-Bernstein manuscript has the opposite sign. K8 of
   `KNOWN_ISSUES.md` says which paths run where `f_s` changes sign and which refuse it.
+- **K7 of `KNOWN_ISSUES.md` leaves the file, and the `kernel` docstring loses its warning, because
+  the coincident value was never a defect.** In `𝕃` the kernel at a point pair multiplies the two
+  gradient differences `∇φ_i(v) − ∇φ_i(v')`, which vanish at `v = v'`, so the coincident term of
+  the quadrature sum is `0ᵀ U 0` and any finite value of the kernel at `u = 0` gives the same `𝕃`.
+  The expanded assembly of `compute_L!` adds the coincident terms to its kernel sums and subtracts
+  them in its coupled term, so they cancel there too; the new testset "the coincident value does
+  not matter" evaluates that form with `U = 0` and with `U = 7 I` at the coincident pairs and finds
+  the same `𝕃`. The error of `𝕃` from the shared quadrature nodes falls under cell refinement. The
+  `compute_L!` docstring names `γ`.
 
 ### Internal
 
+- **`kernel` is inlined into `compute_L!`, and skips the power `|u|^{γ+2}` at the default
+  `γ = -3`.** On the 8 × 8 cubic basis of `test/models/landau.jl` (M = 121, Q = 1600), one
+  `compute_L!` takes 44 ms where it took 54 ms on `1897780` (minimum of 20 calls, two cold runs
+  per tree, load 12–20).
 - **ExplicitImports also checks self-qualified accesses.** `test/quality/explicit_imports.jl` runs
   `check_no_self_qualified_accesses` on the package and on `MultiModalAutoEncoderExt`. The file
   calls single checks, so this one, which `test_explicit_imports` runs by default, was missing.

@@ -94,19 +94,30 @@ end
 @collision_cache LandauCache
 
 struct Landau{
-    D, XD, VD, DT <: DistributionFunction{<:Any, XD, VD}, ET <: Entropy, CT <: CacheDict} <:
-       VlasovModel
+    D, G <: Real, XD, VD, DT <: DistributionFunction{<:Any, XD, VD}, ET <: Entropy,
+    CT <: CacheDict} <: VlasovModel
     dist::DT    # distribution function
     entropy::ET # entropy
     ν::D        # collision frequency
+    γ::G        # exponent of the kernel |u|^{γ+2} (I − ûûᵀ)
 
     cache::CT
 
-    function Landau(dist::DistributionFunction{<:Any, XD, VD}, ent::Entropy; ν::D = 1.0) where {
-            D, XD, VD}
+    function Landau(dist::DistributionFunction{<:Any, XD, VD}, ent::Entropy; γ::G = -3,
+            ν::D = 1.0) where {D, G <: Real, XD, VD}
+        _check_landau_exponent(γ)
         cache = CacheDict(LandauCache(dist, ent.dist))
-        new{D, XD, VD, typeof(dist), typeof(ent), typeof(cache)}(dist, ent, ν, cache)
+        new{D, G, XD, VD, typeof(dist), typeof(ent), typeof(cache)}(dist, ent, ν, γ, cache)
     end
+end
+
+# In two dimensions the integrand of 𝕃 behaves as |u|^{γ+4} near u = 0 for splines of degree at
+# least 2, where both gradient differences are of order |u|, and ∫ r^{γ+5} dr converges at
+# r = 0 exactly for γ > -6.
+function _check_landau_exponent(γ)
+    isfinite(γ) && γ > -6 ||
+        throw(ArgumentError("Landau: the kernel exponent must be finite and γ > -6, got γ = $γ"))
+    return nothing
 end
 
 @doc raw"""
@@ -159,44 +170,85 @@ function compute_J!(J, sdist::SplineDistribution{T, XD, VD}, landau::Landau) whe
 end
 
 @doc raw"""
-    kernel(v_α, v_β, ::Landau)
+    kernel(v_α, v_β, landau::Landau)
 
 The Landau collision kernel
 
 ```math
-U(u) = \frac{1}{|u|} \left( \mathbb{I} - \frac{u \otimes u}{|u|^2} \right) ,
+U(u) = |u|^{\gamma + 2} \left( \mathbb{I} - \frac{u \otimes u}{|u|^2} \right) ,
 \qquad u = v_\alpha - v_\beta ,
 ```
 
-the orthogonal projector onto the complement of ``u``, scaled by ``1/|u|``.
+with the exponent ``\gamma`` = `landau.γ`: the orthogonal projector onto the complement of
+``u``, scaled by ``|u|^{\gamma + 2}``. ``\gamma = -3``, the default of `Landau`, is the Coulomb
+kernel ``|u|^{-1} (\mathbb{I} - u \otimes u / |u|^2)``, and ``\gamma = 0`` is the kernel of
+Maxwell molecules, ``|u|^2 \mathbb{I} - u \otimes u``. Only the first two components of the
+velocities are read.
 
 The properties the conservation proofs rest on hold for the expression implemented here: ``U``
-is symmetric, ``U(v_\alpha, v_\beta) = U(v_\beta, v_\alpha)``, and ``U u = 0`` exactly.
+is symmetric, ``U(v_\alpha, v_\beta) = U(v_\beta, v_\alpha)``, and ``U u = 0`` up to rounding.
 
-!!! warning "The coincident-point value is a regularisation, not a limit"
-    ``U`` diverges as ``|u| \to 0``; there is no value to return there. Zero is returned so
-    that a product quadrature whose two factors share nodes does not produce `Inf`, but the
-    error this introduces does not vanish under refinement — and because both factors of the
-    double integral in [`compute_L!`](@ref) use the *same* Gauß-Legendre nodes, it fires on
-    every diagonal cell pair rather than on a set of measure zero. The kernel is integrable in
-    two dimensions, so the integral itself is finite; what is needed is a quadrature that
-    knows about the singularity, or offset grids for the two factors. Neither is implemented.
+# The coincident point
+
+At ``u = 0`` the kernel is the zero matrix, for every ``\gamma``. For ``\gamma > -2`` zero is
+the limit of ``U``; for ``\gamma \le -2`` ``U`` has no limit there. The value does not enter
+``\mathbb{L}`` of [`compute_L!`](@ref), its only caller in the package: there ``U(v, v')``
+multiplies the gradient differences ``\nabla \varphi_i(v) - \nabla \varphi_i(v')``, which vanish at
+``v = v'``, so the coincident term of the quadrature sum is ``0^{\mathsf T} U \, 0``, and any
+finite value at ``u = 0`` gives the same ``\mathbb{L}``. The two factors of the double integral
+share their Gauß-Legendre nodes, and the error of ``\mathbb{L}`` falls under cell refinement:
+for the projected unit Gaussian on ``[-4, 4]^2`` and ``\gamma = -3``, measured in the relative
+Frobenius norm against a rule of eight more nodes per cell on the same basis, at an order of
+about 1.8 for quadratic splines on 4 to 16 cells, and for cubic splines of about 2.6 from 4 to 8
+cells and 1.7 from 8 to 16.
+
+# The exponent
+
+`Landau` accepts a finite ``\gamma > -6`` and throws an `ArgumentError` otherwise. In two
+dimensions both gradient differences are of order ``|u|`` near ``u = 0`` for splines of degree
+at least 2, whose gradients are Lipschitz, so the integrand of ``\mathbb{L}`` behaves as
+``|u|^{\gamma + 4}`` and ``\int r^{\gamma + 5} \, dr`` converges at ``r = 0`` exactly for
+``\gamma > -6``. For linear splines the gradients jump across the cell edges: the gradient
+differences are of order one on the pairs that straddle an edge, a fraction of order ``|u|`` of
+the pairs at distance ``|u|``, so the integral of the continuum converges exactly for
+``\gamma > -5``. The quadrature sum of [`compute_L!`](@ref) is finite for every accepted
+``\gamma``.
 """
-function kernel(v_α::AbstractVector{T}, v_β::AbstractVector{T}, ::Landau) where {T}
+function kernel(v_α::AbstractVector{T}, v_β::AbstractVector{T}, landau::Landau) where {T}
+    # inlined into the two sweeps of `compute_L!`, which call it once per pair of grid points
+    @inline
     u1 = v_α[1] - v_β[1]
     u2 = v_α[2] - v_β[2]
-    n2 = u1 * u1 + u2 * u2
+    # `γ` is converted to `T` so that the kernel stays in `T`
+    e = T(landau.γ) + 2
 
-    iszero(n2) && return @SMatrix [zero(T) zero(T); zero(T) zero(T)]
+    if e == -1
+        # the Coulomb kernel of γ = -3, without a power
+        n2 = u1 * u1 + u2 * u2
+        iszero(n2) && return @SMatrix [zero(T) zero(T); zero(T) zero(T)]
 
-    nd = sqrt(n2)
-    inv_n = inv(nd)
-    inv_n3 = inv_n / n2
+        nd = sqrt(n2)
+        inv_n = inv(nd)
+        inv_n3 = inv_n / n2
 
-    U11 = inv_n - u1 * u1 * inv_n3
-    U12 = -u1 * u2 * inv_n3
-    U22 = inv_n - u2 * u2 * inv_n3
+        U11 = inv_n - u1 * u1 * inv_n3
+        U12 = -u1 * u2 * inv_n3
+        U22 = inv_n - u2 * u2 * inv_n3
+        return @SMatrix [U11 U12;
+                         U12 U22]
+    end
 
+    # |u|^{γ+2} (I − û ûᵀ) with the unit vector û, so that neither |u|² nor |u|^{-3} is formed,
+    # either of which leaves the range of `T` at radii where the kernel does not
+    iszero(u1) && iszero(u2) && return @SMatrix [zero(T) zero(T); zero(T) zero(T)]
+    nd = hypot(u1, u2)
+    û1 = u1 / nd
+    û2 = u2 / nd
+    p = nd^e
+
+    U11 = p * û2 * û2
+    U12 = -p * û1 * û2
+    U22 = p * û1 * û1
     return @SMatrix [U11 U12;
                      U12 U22]
 end
@@ -301,7 +353,9 @@ The symmetric matrix
 ```
 
 of the Landau manuscript's `eq:discrete-landau-matrix`, from its appendix bracket
-`eq:landau_bracket_modified` with the mobility ``M(f) = |f|``.
+`eq:landau_bracket_modified` with the mobility ``M(f) = |f|``. ``U`` is the
+[`kernel`](@ref) of the exponent ``\gamma`` = `landau.γ`, the Coulomb kernel for the default
+``\gamma = -3``.
 
 # Mobility
 
