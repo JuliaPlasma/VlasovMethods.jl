@@ -388,6 +388,52 @@ end
     @test model.landau.dist.particles.v == before
 end
 
+# The threshold τ of |v_γ - v_β|²: at the smallest d with d² ≥ τ the kernel is finite and not
+# zero and apply_G! returns finite values; at the largest d with d² < τ apply_G! throws; at
+# d² ≈ τ/16 the kernel itself is no longer finite, so τ is within a factor 16 of the failure.
+@testset "the threshold of near-equal velocities, $T, γ = $γ" for T in (Float32, Float64),
+    γ in (-3, -4.5)
+
+    v, w = fixture_particles(T)
+    model = build(v, w; γ)
+    τ = VM._close_threshold(T, model.landau)
+    @test floatmin(T) ≤ τ < 1
+    U(d) = VM.kernel(SVector(zero(T), zero(T)), SVector(d, zero(T)), model.landau)
+    x = ones(T, 2, 144)
+
+    above = sqrt(τ)
+    while above * above < τ
+        above = nextfloat(above)
+    end
+    below = prevfloat(above)
+    @test below * below < τ ≤ above * above
+    @test all(isfinite, U(above)) && !iszero(U(above))
+    @test !all(isfinite, U(sqrt(τ) / 4))
+
+    v[:, 7] .= 0
+    v[:, 23] .= (above, 0)
+    y = similar(v)
+    VM.apply_G!(y, v, x, build(v, w; γ))
+    @test all(isfinite, y)
+    v[:, 23] .= (below, 0)
+    @test throws_with(() -> VM.apply_G!(y, v, x, build(v, w; γ)), DomainError,
+        "particles 7 and 23 have velocities too close")
+end
+
+# For γ ≥ -2 the kernel tends to a finite value or to zero as |u| → 0, and is not refused.
+@testset "γ = 0 accepts near-equal velocities" begin
+    v, w = fixture_particles(Float64)
+    v[:, 7] .= 0
+    v[:, 23] .= (1e-200, 0)
+    model = build(v, w; γ = 0)
+    @test VM._close_threshold(Float64, model.landau) == 0
+    y = similar(v)
+    VM.apply_G!(y, v, ones(2, 144), model)
+    @test all(isfinite, y)
+    VM.collisional_vectorfield!(y, v, nothing, model)
+    @test all(isfinite, y)
+end
+
 @testset "refused arguments" begin
     model = fixture()
     before = copy(model.landau.dist.particles.v)

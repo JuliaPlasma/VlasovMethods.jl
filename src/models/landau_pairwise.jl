@@ -45,18 +45,20 @@ are row 1 of `dist.particles.w`. ``\mathbb{G}`` divides by them, so a weight tha
 and finite throws an `ArgumentError`.
 
 The particle velocities must be distinct: ``U(v, v)`` is not defined, and two particles of equal
-velocities throw a `DomainError`. So do two different velocities where the kernel in the element
-type `T` is not finite or is zero: for ``\gamma = -3`` closer than about
-``(1 / \mathtt{floatmax}(T))^{1/3}``, `1.4e-13` in `Float32` and `1.8e-103` in `Float64`.
+velocities throw a `DomainError`. For ``\gamma < -2``, where ``U`` diverges as ``|u| \to 0``, so
+do two different velocities whose squared distance is below a threshold of the element type `T`
+and of ``\gamma``, at which ``U`` in `T` stops being finite and not zero: for ``\gamma = -3`` a
+distance below ``(2 / \mathtt{floatmax}(T)^{2/3})^{1/2}``, `2.0e-13` in `Float32` and `2.5e-103`
+in `Float64`. For ``\gamma \ge -2`` ``U`` stays finite, and only equal velocities throw.
 
 # Cost
 
 One product ``\mathbb{G}(v) \, x`` of [`apply_G!`](@ref) costs `O(N²)` kernel evaluations,
 one per ordered pair of particles. On the fixture of `test/models/landau_pairwise.jl` widened to
 a lattice of `N` particles, quadratic splines on 8 × 8 cells (`M = 100`, `Q = 576`), `Float64`,
-the minimum of 5 calls after a warm call in a cold process at a load of about 11: `apply_G!`
-takes 0.35 ms at `N = 400` and 5.7 ms at `N = 1600`, 2.2 ns per pair; the gradient
-``\nabla S_h`` takes 0.08 ms and 0.27 ms, and ``S_h`` 0.05 ms and 0.10 ms.
+the minimum of 5 calls after a warm call in a cold process: `apply_G!` takes 0.36 ms at
+`N = 400` and 5.75 ms at `N = 1600`, 2.25 ns per pair, at a load of about 10; the gradient
+``\nabla S_h`` takes 0.08 ms and 0.27 ms, and ``S_h`` 0.05 ms and 0.10 ms, at a load of about 11.
 
 The time integrator is [`discrete_gradient_step!`](@ref).
 """
@@ -126,13 +128,28 @@ end
         "pairwise Landau scheme is not defined"))
 end
 
-# Two different velocities closer than about cbrt(1 / floatmax(T)) give the Coulomb kernel of
-# γ = -3 the entries `-Inf` and `NaN`, and still closer the zero matrix. `apply_G!` refuses a
-# kernel that is not finite or is zero for the pair it visits, the smaller index first.
-@noinline function _throw_close_velocities(γ, β, ::Type{T}) where {T}
+@noinline function _throw_close_velocities(γ, β, n2, τ)
     throw(DomainError((γ, β),
         "particles $γ and $β have velocities too close for the kernel U of the pairwise " *
-        "Landau scheme in $T, which is not finite or zero there"))
+        "Landau scheme in $(typeof(τ)): |v_$γ - v_$β|² = $n2 is below $τ"))
+end
+
+# The threshold τ of the squared distance n2 = |u|², u = v_α - v_β, at and above which the
+# `kernel` of `landau` in `T` is finite and not zero. With F = floatmax(T) and e = γ + 2:
+# - e ≥ 0: τ = 0. U tends to a finite value or to zero as |u| → 0, and stays finite.
+# - e = -1, the Coulomb branch: 1/|u|³ = n2^(-3/2) is finite for n2 > F^(-2/3), and then so are
+#   1/|u| and the entries, each at most 1/|u| in size; U₁₁ + U₂₂ = 1/|u| > 0. τ = 2 F^(-2/3)
+#   leaves n2^(-3/2) ≤ F / 2^(3/2).
+# - the other e < 0, the hypot branch: |u|^e is finite for |u| > F^(1/e), that is for
+#   n2 > F^(2/e), and the larger diagonal entry is at least |u|^e / 2. τ = 2 F^(2/e) leaves
+#   |u|^e ≤ 2^(e/2) F; where τ exceeds floatmin(T), |e| ≥ 2 and so |u|^e ≤ F / 2. Where it does
+#   not, τ = floatmin(T), above the bound F^(2/e).
+# τ > 0, so an n2 that underflows to zero for two different velocities is refused too.
+function _close_threshold(::Type{T}, landau::Landau) where {T}
+    e = T(landau.γ) + 2
+    e < 0 || return zero(T)
+    e == -1 && return 2 * floatmax(T)^(T(-2) / 3)
+    return max(floatmin(T), 2 * floatmax(T)^(2 / e))
 end
 
 @doc raw"""
@@ -149,9 +166,10 @@ y_\gamma = - \sum_{\beta \ne \gamma} U(v_\gamma, v_\beta)
 with ``U`` the [`kernel`](@ref) of `model.landau` and the weights ``w`` of row 1 of
 `model.landau.dist.particles.w`. The pair ``\beta = \gamma`` is skipped by its index. Two
 particles ``\gamma \ne \beta`` of equal velocities throw a `DomainError` that names both, the
-smaller index first, and so do two different velocities too close for the kernel in the element
-type of `v`, where ``U`` is not finite or is zero. `y` must not alias `v` or `x`. An array of another size than `2 × N`, with
-`N` the number of particles of the model, throws a `DimensionMismatch`.
+smaller index first. For ``\gamma < -2`` so do two different velocities whose squared distance is
+below the threshold of the element type of `v` at which ``U`` stops being finite and not zero.
+`y` must not alias `v` or `x`. An array of another size than `2 × N`, with `N` the number of
+particles of the model, throws a `DimensionMismatch`.
 
 The cost is ``O(N^2)`` kernel evaluations, one per ordered pair; the [`PairwiseLandau`](@ref)
 docstring gives measured times. A call allocates nothing.
@@ -162,6 +180,7 @@ function apply_G!(y, v::AbstractMatrix{T}, x, model::PairwiseLandau) where {T}
     _check_size(:x, x, model)
     landau = model.landau
     w = landau.dist.particles.w
+    τ = _close_threshold(T, landau)
     for γ in axes(v, 2)
         vγ = SVector(v[1, γ], v[2, γ])
         xγ = SVector(x[1, γ], x[2, γ])
@@ -171,8 +190,10 @@ function apply_G!(y, v::AbstractMatrix{T}, x, model::PairwiseLandau) where {T}
             β == γ && continue
             vβ = SVector(v[1, β], v[2, β])
             vγ == vβ && _throw_equal_velocities(γ, β)
+            u = vγ - vβ
+            n2 = u[1] * u[1] + u[2] * u[2]
+            n2 < τ && _throw_close_velocities(γ, β, n2, τ)
             U = kernel(vγ, vβ, landau)
-            (!all(isfinite, U) || iszero(U)) && _throw_close_velocities(γ, β, T)
             acc += U * (w[1, β] / wγ * xγ - SVector(x[1, β], x[2, β]))
         end
         y[1, γ] = -acc[1]
