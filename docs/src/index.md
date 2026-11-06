@@ -19,7 +19,8 @@ Filter = t -> !(t in (VlasovMethods.build_spline_parity_factors,
     VlasovMethods.compute_J!, VlasovMethods.compute_K!, VlasovMethods.PairwiseLandau,
     VlasovMethods.entropy_gradient!, VlasovMethods.apply_G!, VlasovMethods.DiscreteGradient,
     VlasovMethods.GonzalezGradient, VlasovMethods.discrete_gradient!,
-    VlasovMethods.discrete_gradient_step!, VlasovMethods.Picard_iterate_Landau_nls!))
+    VlasovMethods.discrete_gradient_step!, VlasovMethods.Picard_iterate_Landau_nls!,
+    VlasovMethods.collisional_vectorfield!))
 ```
 
 The `compute_J!` method of the metriplectic Lenard–Bernstein model; the Landau method is on the

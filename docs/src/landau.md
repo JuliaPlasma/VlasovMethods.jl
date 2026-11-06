@@ -35,6 +35,8 @@ Picard_iterate_Landau_nls!
 PairwiseLandau
 entropy_gradient!
 apply_G!
+collisional_vectorfield!(::AbstractArray{ST}, ::AbstractArray{ST}, ::Any,
+    ::PairwiseLandau) where {ST}
 DiscreteGradient
 GonzalezGradient
 discrete_gradient!
