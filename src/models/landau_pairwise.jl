@@ -45,7 +45,9 @@ are row 1 of `dist.particles.w`. ``\mathbb{G}`` divides by them, so a weight tha
 and finite throws an `ArgumentError`.
 
 The particle velocities must be distinct: ``U(v, v)`` is not defined, and two particles of equal
-velocities throw a `DomainError`.
+velocities throw a `DomainError`. So do two different velocities where the kernel in the element
+type `T` is not finite or is zero: for ``\gamma = -3`` closer than about
+``(1 / \mathtt{floatmax}(T))^{1/3}``, `1.4e-13` in `Float32` and `1.8e-103` in `Float64`.
 
 # Cost
 
@@ -124,6 +126,15 @@ end
         "pairwise Landau scheme is not defined"))
 end
 
+# Two different velocities closer than about cbrt(1 / floatmax(T)) give the Coulomb kernel of
+# γ = -3 the entries `-Inf` and `NaN`, and still closer the zero matrix. `apply_G!` refuses a
+# kernel that is not finite or is zero for the pair it visits, the smaller index first.
+@noinline function _throw_close_velocities(γ, β, ::Type{T}) where {T}
+    throw(DomainError((γ, β),
+        "particles $γ and $β have velocities too close for the kernel U of the pairwise " *
+        "Landau scheme in $T, which is not finite or zero there"))
+end
+
 @doc raw"""
     apply_G!(y, v, x, model::PairwiseLandau)
 
@@ -138,7 +149,8 @@ y_\gamma = - \sum_{\beta \ne \gamma} U(v_\gamma, v_\beta)
 with ``U`` the [`kernel`](@ref) of `model.landau` and the weights ``w`` of row 1 of
 `model.landau.dist.particles.w`. The pair ``\beta = \gamma`` is skipped by its index. Two
 particles ``\gamma \ne \beta`` of equal velocities throw a `DomainError` that names both, the
-smaller index first. `y` must not alias `v` or `x`. An array of another size than `2 × N`, with
+smaller index first, and so do two different velocities too close for the kernel in the element
+type of `v`, where ``U`` is not finite or is zero. `y` must not alias `v` or `x`. An array of another size than `2 × N`, with
 `N` the number of particles of the model, throws a `DimensionMismatch`.
 
 The cost is ``O(N^2)`` kernel evaluations, one per ordered pair; the [`PairwiseLandau`](@ref)
@@ -160,6 +172,7 @@ function apply_G!(y, v::AbstractMatrix{T}, x, model::PairwiseLandau) where {T}
             vβ = SVector(v[1, β], v[2, β])
             vγ == vβ && _throw_equal_velocities(γ, β)
             U = kernel(vγ, vβ, landau)
+            (!all(isfinite, U) || iszero(U)) && _throw_close_velocities(γ, β, T)
             acc += U * (w[1, β] / wγ * xγ - SVector(x[1, β], x[2, β]))
         end
         y[1, γ] = -acc[1]

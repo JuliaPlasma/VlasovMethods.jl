@@ -117,7 +117,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   `PairwiseLandau(dist, ent; ν = 1.0, γ = -3)` holds a `Landau` of the same arguments and takes
   its projection, `∇S_h`, `kernel` and buffers; its `collisional_vectorfield!` and the product
   with `𝔾` cost `O(N²)` kernel evaluations and allocate nothing. Two particles of equal velocities
-  throw a `DomainError`, a particle weight that is not positive and finite an `ArgumentError`, and
+  throw a `DomainError`, as do two velocities too close for the kernel in their element type
+  (`U` not finite or zero, below about `1.4e-13` in `Float32` for `γ = -3`), a particle weight that is not positive and finite an `ArgumentError`, and
   an array whose size is not `2 × N`, with `N` the number of particles of the model, a
   `DimensionMismatch` that names the argument. The tests compare the vector field with
   `eq:eom_line3` written out,

@@ -367,6 +367,27 @@ end
     @test all(isfinite, y)
 end
 
+# Two different velocities at the distance d: the Coulomb kernel is -Inf and NaN where 1/|u|³
+# overflows (d = 1e-13 in Float32, 1e-110 in Float64), and the zero matrix where |u|² underflows
+# (1e-30, 1e-200).
+@testset "near-equal velocities throw, $T, d = $d" for (T, d) in (
+    (Float32, 1.0f-13), (Float32, 1.0f-30), (Float64, 1e-110), (Float64, 1e-200))
+    v, w = fixture_particles(T)
+    v[:, 7] .= 0
+    v[:, 23] .= (d, 0)
+    model = build(v, w)
+    before = copy(v)
+    msg = "particles 7 and 23 have velocities too close"
+    x = ones(T, 2, 144)
+    @test throws_with(() -> VM.apply_G!(similar(before), before, x, model), DomainError, msg)
+    @test throws_with(
+        () -> VM.collisional_vectorfield!(similar(before), before, nothing, model),
+        DomainError, msg)
+    @test throws_with(
+        () -> discrete_gradient_step!(model, T(2e-3); abstol = T(1e-4)), DomainError, msg)
+    @test model.landau.dist.particles.v == before
+end
+
 @testset "refused arguments" begin
     model = fixture()
     before = copy(model.landau.dist.particles.v)
