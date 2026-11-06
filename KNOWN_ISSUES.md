@@ -671,3 +671,18 @@ has left the file, or that lived only on a merged branch, stays taken.
   `test/models/lenard_bernstein_buffers.jl` assert the current behaviour of the entropy paths.
 - **kind:** defect
 - **found:** #111
+
+### K88 · The right-hand side of `MetriplecticLenardBernstein` throws under the Dougherty bracket where the computed `ε − u²` is not positive, as for all particles at one velocity, where its exact value is a finite zero.
+
+- **location:** `src/models/lenard_bernstein_metriplectic.jl`
+- **evidence:** `metriplectic_rhs!` calls `_check_velocity_spread` before `bracket_rhs!` for
+  either bracket, and the check throws a `DomainError` where the computed `ε − u²` is at most
+  zero or the variance is at most `eps(T) ε`. Under `DoughertyBracket`, the terms of
+  `bracket_rhs!` carry the factors `ε − u²`, `ε − u v` and `v − u`, which for particles at one
+  velocity `v = u` are all zero in exact arithmetic, so the exact right-hand side is a finite
+  zero and the throw is stricter than the form needs. Under `JeyakumarBracket` the factor
+  `n/(ε − u²)` is undefined there, so the throw is needed. The testsets "a degenerate velocity
+  set throws" and "a computed ε − u² ≤ 0 throws" of
+  `test/models/lenard_bernstein_metriplectic.jl` assert the throw for both brackets.
+- **kind:** defect
+- **found:** #112
