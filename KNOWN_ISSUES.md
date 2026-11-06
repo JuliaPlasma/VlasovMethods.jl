@@ -31,19 +31,6 @@ has left the file, or that lived only on a merged branch, stays taken.
   migration. None of these are regressions; each is either a numerical-methods decision or work
   the migration deliberately did not take on.
 
-### K7 · The Landau kernel's coincident-point value is a regularisation, not a limit.
-
-- **location:** —
-- **evidence:** `kernel` returns zero at `|u| = 0` so that a product quadrature sharing nodes does
-  not produce `Inf`. The error does not vanish under refinement, and because both factors use the
-  same Gauß–Legendre nodes it fires on every *diagonal cell pair* rather than on a set of measure
-  zero. The kernel is integrable in two dimensions; what is needed is a singularity-aware rule or
-  offset grids.
-- **kind:** defect
-- **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
-  migration. None of these are regressions; each is either a numerical-methods decision or work
-  the migration deliberately did not take on.
-
 ### K8 · Positivity of `f_s` is not preserved, and the conservative Lenard-Bernstein operators refuse `f_s ≤ 0`.
 
 - **location:** —

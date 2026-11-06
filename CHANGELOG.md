@@ -95,6 +95,16 @@ their own, except for what they removed and narrowed, which is listed in full be
   of motion. The tests that
   read the reference files of the model in `test/data/` build it with `JeyakumarBracket()`, and
   the files are unchanged.
+- **`Landau` takes the exponent of its kernel as the keyword `γ`.** `Landau(dist, ent; γ = -3,
+  ν = 1.0)` holds `γ` in the kernel `U(u) = |u|^{γ+2} (I − u uᵀ/|u|²)`, which `kernel` and so
+  `compute_L!` use. The default `γ = -3` is the Coulomb kernel and gives the former kernel bit for
+  bit, so `test/data/collision_landau_reference.txt` is unchanged; `γ = 0` is Maxwell molecules,
+  `|u|² I − u uᵀ`. A `γ` that is not finite or is at most `-6` throws an `ArgumentError`: in two
+  dimensions, for splines of degree at least 2, the integrand of `𝕃` behaves as `|u|^{γ+4}` near
+  `u = 0`, integrable exactly for `γ > -6`. `kernel` returns the zero matrix at `u = 0` for every `γ`. The new tests check the
+  kernel for `γ` = −5.5, −3, −1.5, 0 and 1, and that `𝕃` is symmetric, positive semi-definite and
+  annihilates constants for `γ` = −5.5, −3 and 0; the allocation and inference tests run for
+  `γ = -3` and `γ = 0`.
 
 ### Documentation
 
@@ -103,6 +113,15 @@ their own, except for what they removed and narrowed, which is listed in full be
   manuscript's Coulomb kernel differs from it; the `CLB_rhs_GI!` docstring no longer says that
   `eq:velocity_ode` of the Lenard-Bernstein manuscript has the opposite sign. K8 of
   `KNOWN_ISSUES.md` says which paths run where `f_s` changes sign and which refuse it.
+- **K7 of `KNOWN_ISSUES.md` leaves the file, and the `kernel` docstring loses its warning, because
+  the coincident value was never a defect.** In `𝕃` the kernel at a point pair multiplies the two
+  gradient differences `∇φ_i(v) − ∇φ_i(v')`, which vanish at `v = v'`, so the coincident term of
+  the quadrature sum is `0ᵀ U 0` and any finite value of the kernel at `u = 0` gives the same `𝕃`.
+  The expanded assembly of `compute_L!` adds the coincident terms to its kernel sums and subtracts
+  them in its coupled term, so they cancel there too; the new testset "the coincident value does
+  not matter" evaluates that form with `U = 0` and with `U = 7 I` at the coincident pairs and finds
+  the same `𝕃`. The error of `𝕃` from the shared quadrature nodes falls under cell refinement. The
+  `compute_L!` docstring names `γ`.
 
 ### Internal
 
