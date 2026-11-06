@@ -118,8 +118,9 @@ their own, except for what they removed and narrowed, which is listed in full be
   its projection, `∇S_h`, `kernel` and buffers; its `collisional_vectorfield!` and the product
   with `𝔾` cost `O(N²)` kernel evaluations and allocate nothing. Two particles of equal velocities
   throw a `DomainError`, a particle weight that is not positive and finite an `ArgumentError`, and
-  an array of another number of columns than the model has particles a `DimensionMismatch`. The
-  tests compare the vector field with `eq:eom_line3` written out,
+  an array whose size is not `2 × N`, with `N` the number of particles of the model, a
+  `DimensionMismatch` that names the argument. The tests compare the vector field with
+  `eq:eom_line3` written out,
   check that it conserves momentum and energy and decreases `S_h` for `γ = -3` and `γ = 0`, and
   that the kernel of `𝔾` has the dimension 3. K4 of `KNOWN_ISSUES.md` now names it as the
   main-text method and `Landau` as the appendix method.
