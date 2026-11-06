@@ -219,25 +219,38 @@ function kernel(v_α::AbstractVector{T}, v_β::AbstractVector{T}, landau::Landau
     @inline
     u1 = v_α[1] - v_β[1]
     u2 = v_α[2] - v_β[2]
-    n2 = u1 * u1 + u2 * u2
+    # `γ` is converted to `T` so that the kernel stays in `T`
+    e = T(landau.γ) + 2
 
-    iszero(n2) && return @SMatrix [zero(T) zero(T); zero(T) zero(T)]
+    if e == -1
+        # the Coulomb kernel of γ = -3, without a power
+        n2 = u1 * u1 + u2 * u2
+        iszero(n2) && return @SMatrix [zero(T) zero(T); zero(T) zero(T)]
 
-    nd = sqrt(n2)
-    inv_n = inv(nd)
-    inv_n3 = inv_n / n2
+        nd = sqrt(n2)
+        inv_n = inv(nd)
+        inv_n3 = inv_n / n2
 
-    U11 = inv_n - u1 * u1 * inv_n3
-    U12 = -u1 * u2 * inv_n3
-    U22 = inv_n - u2 * u2 * inv_n3
-    U = @SMatrix [U11 U12;
-                  U12 U22]
+        U11 = inv_n - u1 * u1 * inv_n3
+        U12 = -u1 * u2 * inv_n3
+        U22 = inv_n - u2 * u2 * inv_n3
+        return @SMatrix [U11 U12;
+                         U12 U22]
+    end
 
-    # The Coulomb kernel U times |u|^{γ+3}. `γ` is converted to `T` so that the kernel stays in
-    # `T`. For γ = -3 the exponent is zero and the factor is exactly one, so the power, the
-    # costliest operation of the kernel, and the product are skipped there.
-    e = T(landau.γ) + 3
-    return iszero(e) ? U : nd^e * U
+    # |u|^{γ+2} (I − û ûᵀ) with the unit vector û, so that neither |u|² nor |u|^{-3} is formed,
+    # either of which leaves the range of `T` at radii where the kernel does not
+    iszero(u1) && iszero(u2) && return @SMatrix [zero(T) zero(T); zero(T) zero(T)]
+    nd = hypot(u1, u2)
+    û1 = u1 / nd
+    û2 = u2 / nd
+    p = nd^e
+
+    U11 = p * û2 * û2
+    U12 = -p * û1 * û2
+    U22 = p * û1 * û1
+    return @SMatrix [U11 U12;
+                     U12 U22]
 end
 
 @doc raw"""

@@ -306,6 +306,23 @@ end
             @test abs(λ - n^(γ + 2)) ≤ 8 * eps(T) * n^(γ + 2)
         end
     end
+
+    # radii where |u|³ or 1/|u|³ leaves the range of T: for γ ≠ -3 the kernel is finite and
+    # accurate wherever its largest eigenvalue |u|^{γ+2} is a normal number of T
+    small, large = cbrt(floatmin(T)) / 16, cbrt(floatmax(T)) * 16
+    checked = 0
+    for γ in γs, r in (small, large), k in 0:4
+        γ == -3 && continue
+        u = SVector{2, T}(r * cos(2π * k / 5 + 0.1), r * sin(2π * k / 5 + 0.1))
+        λ = sqrt(big(u[1])^2 + big(u[2])^2)^(γ + 2)
+        floatmin(T) / eps(T) ≤ λ ≤ floatmax(T) / 4 || continue
+        U = VM.kernel(u, vβ, kernel_model(γ))
+        @test all(isfinite, U)
+        @test abs(maximum(eigvals(Symmetric(Matrix(U)))) - λ) ≤ 8 * eps(T) * λ
+        checked += 1
+    end
+    # γ = -1.5 and γ = 0, each at both radii in five directions
+    @test checked == 20
 end
 
 @testset "refused exponents" begin
