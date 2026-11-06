@@ -50,6 +50,13 @@ their own, except for what they removed and narrowed, which is listed in full be
   `(Δt/2) · abstol · Σ w ‖f_k‖₁` that the new test derives. At `Δt = 1e-2` the iteration does not
   contract, and the step now throws instead of returning.
   K10 of `KNOWN_ISSUES.md` names the new test of the momentum and the energy of one step.
+- **The guess of `Picard_iterate_Landau_nls!` takes a view as `v_prev` at `ti < 4`, and a `Δt`
+  and a `t` of different float types at `ti ≥ 4` (K86).** `_landau_startup_guess!` gives the
+  `ODEProblem` of its midpoint extrapolation a copy of `v_prev`, because the `StateVariable` of
+  `GeometricBase` takes no view; before, a view such as `view(v, :, :, k)` threw a `MethodError`.
+  The Hermite guess promotes `t` and `Δt` to one type; before, a `Float64` `Δt` beside a
+  `Float32` `t` threw a `MethodError`. Each step gives the particles of the same step from a
+  `Matrix`, or from a `t` of the type of `Δt`.
 
 ### Breaking Changes
 

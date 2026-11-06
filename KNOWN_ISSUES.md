@@ -639,18 +639,6 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** found late
 - **found:** 2026-11-03
 
-### K86 · The Landau Picard step throws a `MethodError` for a view as `v_prev` at `ti < 4` and for a `Δt` and a `t` of different float types at `ti ≥ 4`.
-
-- **location:** `src/methods/Landau_solver.jl:6`
-- **evidence:** On the lattice of `test/integration/landau_solver.jl`, with `abstol = 1e-12`,
-  `v_prev = view(landau.dist.particles.v, :, :)` at `ti = 1` throws
-  `MethodError: no method matching GeometricBase.StateVariable(::SubArray{Float64, 2, …})` in
-  `_landau_startup_guess!`. With `Float32` particles, `Δt = 1e-6` and `t = 0.0f0` at `ti = 4`, the
-  Hermite guess throws `MethodError: no method matching extrapolate!(::Float64, ::Matrix{Float32},
-  …)`, because `t - 2Δt` is a `Float64` and `t` a `Float32`. The same call with `t = 0.0` runs.
-- **kind:** found late
-- **found:** 2026-11-05
-
 ### K87 · The entropy paths refuse `f_s = 0`, although `f log|f|` has a limit there.
 
 - **location:** `src/entropies/collision_entropy.jl`
