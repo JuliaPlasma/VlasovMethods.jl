@@ -47,8 +47,7 @@ their own, except for what they removed and narrowed, which is listed in full be
   equation times `n/(ε − u²)`. The factor is one scalar on every term, so the ratio of friction to
   diffusion is unchanged; it changes the rate of relaxation, and the two forms share their
   equilibria. A model built without the new keyword `bracket` therefore gives other velocities and
-  another solve;
-  `bracket = JeyakumarBracket()` gives the former right-hand side bit for bit.
+  another solve; `bracket = JeyakumarBracket()` gives the former right-hand side bit for bit.
 - **The right-hand side of `MetriplecticLenardBernstein` throws a `DomainError` where the
   velocities have no spread that the precision resolves**: where `Σ w (v − u)² / n ≤ eps(T) ε`,
   as for one particle or all particles at one velocity, or where the computed `ε − u²` is not
