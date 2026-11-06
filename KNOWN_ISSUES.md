@@ -637,16 +637,6 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** found late
 - **found:** 2026-11-03
 
-### K85 · The JET probe of the Landau Picard step names `@allocated` calls at `ti = 1` that the allocation testset does not make.
-
-- **location:** `test/quality/jet.jl:228`
-- **evidence:** The comment says the probe follows the `@allocated` calls of
-  `test/integration/landau_solver.jl` "at `ti = 1` and `ti = 4`". That file measures one step at
-  `ti = 4` and the guess of the first three steps through `_landau_startup_guess!`, never a step
-  at `ti = 1`.
-- **kind:** docs
-- **found:** 2026-11-05
-
 ### K86 · The Landau Picard step throws a `MethodError` for a view as `v_prev` at `ti < 4` and for a `Δt` and a `t` of different float types at `ti ≥ 4`.
 
 - **location:** `src/methods/Landau_solver.jl:6`

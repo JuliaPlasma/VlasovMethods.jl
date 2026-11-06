@@ -225,11 +225,10 @@ if isdefined(JET, :JET_AVAILABLE) ? JET.JET_AVAILABLE : JET.JET_LOADABLE
                 typeof(mlb)); target_modules = (VlasovMethods,))))
     end
 
-    # test/integration/landau_solver.jl: the Landau Picard step, on its `@allocated` calls at
-    # `ti = 1` and `ti = 4`, which take the two branches of the guess, at the `Float32` and
-    # `Float64` argument types of that test, with the `Float64` tolerance it passes in both. The
-    # keyword call is probed through `Core.kwcall`. `ti` is an `Int` in both, so one analysis
-    # covers the two branches.
+    # test/integration/landau_solver.jl: the Landau Picard step, at the `Float32` and `Float64`
+    # argument types of its `@allocated` call, with the `Float64` tolerance it passes in both.
+    # The keyword call is probed through `Core.kwcall`. `ti` is an `Int`, so one analysis covers
+    # both branches of the guess, `ti < 4` and `ti ≥ 4`.
     for T in (Float64, Float32)
         npart = 16
         lpdist = ParticleDistribution(1, 2,
