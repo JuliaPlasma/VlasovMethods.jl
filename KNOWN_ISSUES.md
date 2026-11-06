@@ -79,8 +79,10 @@ has left the file, or that lived only on a merged branch, stays taken.
   `compute_coefficients_rclb` of `RescaledConservativeLenardBernstein` throw a `DomainError` where
   `f_s ≤ 0` at a particle, because both operators assume `f_s > 0`: the pointwise ratio
   `f_s'/f_s` is undefined at `f_s = 0`, and the Lenard-Bernstein H-theorem holds only for a
-  non-negative `f`. So a run of either operator whose projection undershoots stops. The real fix
-  — a positivity-preserving projection — is the manuscripts' own open problem.
+  non-negative `f`. So a run of either operator whose projection undershoots stops. On
+  `f_s < 0` the integrand `f log|f|` is not convex, so the entropy has no guaranteed convexity or
+  monotone behaviour there; this is the manuscript's caveat. The real fix — a
+  positivity-preserving projection — is the manuscripts' own open problem.
 - **kind:** defect
 - **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
   migration. None of these are regressions; each is either a numerical-methods decision or work
@@ -655,3 +657,17 @@ has left the file, or that lived only on a merged branch, stays taken.
   of both parities needs a velocity basis per parity in the layers.
 - **kind:** found late
 - **found:** 2026-11-03
+
+### K87 · The entropy paths refuse `f_s = 0`, although `f log|f|` has a limit there.
+
+- **location:** `src/entropies/collision_entropy.jl`
+- **evidence:** `CollisionEntropy` and `compute_entropy` of `MetriplecticLenardBernstein`
+  (`src/models/lenard_bernstein_metriplectic.jl`) call `_check_log_defined` at every quadrature
+  node, which throws a `DomainError` where `f_s` is zero. The integrand `f log|f|` tends to `0` as
+  `f → 0`, so both could take the value `0` at such a node by continuity and accept it.
+  `compute_J!` of `Landau` and of `MetriplecticLenardBernstein` projects `1 + log|f_s|` itself,
+  which has no finite value at `f_s = 0`, so its refusal stays. The testsets "a zero projection
+  throws" of `test/distributions/spline_distribution.jl` and
+  `test/models/lenard_bernstein_buffers.jl` assert the current behaviour of the entropy paths.
+- **kind:** defect
+- **found:** #111
