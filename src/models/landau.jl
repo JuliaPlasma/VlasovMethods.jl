@@ -196,8 +196,11 @@ the limit of ``U``; for ``\gamma \le -2`` ``U`` has no limit there. The value do
 gradient differences ``\nabla \varphi_i(v) - \nabla \varphi_i(v')``, which vanish at
 ``v = v'``, so the coincident term of the quadrature sum is ``0^{\mathsf T} U \, 0``, and any
 finite value at ``u = 0`` gives the same ``\mathbb{L}``. The two factors of the double integral
-share their Gauß-Legendre nodes, and the error of ``\mathbb{L}`` falls under cell refinement, at
-an order of about 1.8 for quadratic and 2.7 for cubic splines.
+share their Gauß-Legendre nodes, and the error of ``\mathbb{L}`` falls under cell refinement:
+for the projected unit Gaussian on ``[-4, 4]^2`` and ``\gamma = -3``, measured in the relative
+Frobenius norm against a rule of eight more nodes per cell on the same basis, at an order of
+about 1.8 for quadratic splines on 4 to 16 cells, and for cubic splines of about 2.6 from 4 to 8
+cells and 1.7 from 8 to 16.
 
 # The exponent
 
@@ -210,6 +213,8 @@ continuum needs ``\gamma > -4``; the quadrature sum of [`compute_L!`](@ref) is f
 accepted ``\gamma``.
 """
 function kernel(v_α::AbstractVector{T}, v_β::AbstractVector{T}, landau::Landau) where {T}
+    # inlined into the two sweeps of `compute_L!`, which call it once per pair of grid points
+    @inline
     u1 = v_α[1] - v_β[1]
     u2 = v_α[2] - v_β[2]
     n2 = u1 * u1 + u2 * u2
@@ -220,16 +225,17 @@ function kernel(v_α::AbstractVector{T}, v_β::AbstractVector{T}, landau::Landau
     inv_n = inv(nd)
     inv_n3 = inv_n / n2
 
-    # |u|^{γ+3} times the Coulomb kernel; the exponent is zero for γ = -3, so the factor is
-    # exactly one there. `γ` is converted to `T` so that the kernel stays in `T`.
-    scale = nd^(T(landau.γ) + 3)
+    U11 = inv_n - u1 * u1 * inv_n3
+    U12 = -u1 * u2 * inv_n3
+    U22 = inv_n - u2 * u2 * inv_n3
+    U = @SMatrix [U11 U12;
+                  U12 U22]
 
-    U11 = scale * (inv_n - u1 * u1 * inv_n3)
-    U12 = scale * (-u1 * u2 * inv_n3)
-    U22 = scale * (inv_n - u2 * u2 * inv_n3)
-
-    return @SMatrix [U11 U12;
-                     U12 U22]
+    # The Coulomb kernel U times |u|^{γ+3}. `γ` is converted to `T` so that the kernel stays in
+    # `T`. For γ = -3 the exponent is zero and the factor is exactly one, so the power, the
+    # costliest operation of the kernel, and the product are skipped there.
+    e = T(landau.γ) + 3
+    return iszero(e) ? U : nd^e * U
 end
 
 @doc raw"""

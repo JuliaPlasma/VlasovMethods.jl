@@ -125,6 +125,10 @@ their own, except for what they removed and narrowed, which is listed in full be
 
 ### Internal
 
+- **`kernel` is inlined into `compute_L!`, and skips the power `|u|^{γ+3}` at the default
+  `γ = -3`.** On the 8 × 8 cubic basis of `test/models/landau.jl` (M = 121, Q = 1600), one
+  `compute_L!` takes 44 ms where it took 54 ms on `b1d4f0b` (minimum of 20 calls, two cold runs
+  per tree, load 11–17).
 - **ExplicitImports also checks self-qualified accesses.** `test/quality/explicit_imports.jl` runs
   `check_no_self_qualified_accesses` on the package and on `MultiModalAutoEncoderExt`. The file
   calls single checks, so this one, which `test_explicit_imports` runs by default, was missing.
