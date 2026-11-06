@@ -67,13 +67,22 @@ has left the file, or that lived only on a merged branch, stays taken.
   migration. None of these are regressions; each is either a numerical-methods decision or work
   the migration deliberately did not take on.
 
-### K8 · Positivity of `f_s` is detected, not solved.
+### K8 · Positivity of `f_s` is not preserved, and the conservative Lenard-Bernstein operators refuse `f_s ≤ 0`.
 
 - **location:** —
-- **evidence:** Every `log f_s` and `1/f_s` now throws rather than continuing, which is strictly
-  better than the old `0.5·log(f_s²)` returning `log|f_s|`. But a run whose projection undershoots
-  now stops, and the real fix — a positivity-preserving projection — is the manuscripts' own open
-  problem.
+- **evidence:** The metriplectic paths run where the L² projection of a particle distribution
+  changes sign, as the manuscripts do. `CollisionEntropy`, `compute_J!` of `Landau` and of
+  `MetriplecticLenardBernstein` and `compute_entropy` take `log|f_s|`, and throw a `DomainError`
+  only where `f_s` is zero or not finite at a quadrature node. `compute_L!` of `Landau` takes the
+  mobility `|f_s|` and checks no node: a zero contributes zero mobility, and a non-finite value
+  enters the matrix. `compute_coefficients` of `ConservativeLenardBernstein` and
+  `compute_coefficients_rclb` of `RescaledConservativeLenardBernstein` throw a `DomainError` where
+  `f_s ≤ 0` at a particle, because both operators assume `f_s > 0`: the pointwise ratio
+  `f_s'/f_s` is undefined at `f_s = 0`, and the Lenard-Bernstein H-theorem holds only for a
+  non-negative `f`. So a run of either operator whose projection undershoots stops. On `f_s < 0` the
+  entropy `∫ f log|f|` is not convex, so both manuscripts note that the uniqueness of the discrete
+  equilibrium is not guaranteed; the entropy derivative and the H-theorem do not need `f_s > 0`. The
+  real fix — a positivity-preserving projection — is the manuscripts' own open problem.
 - **kind:** defect
 - **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
   migration. None of these are regressions; each is either a numerical-methods decision or work
@@ -648,3 +657,17 @@ has left the file, or that lived only on a merged branch, stays taken.
   of both parities needs a velocity basis per parity in the layers.
 - **kind:** found late
 - **found:** 2026-11-03
+
+### K87 · The entropy paths refuse `f_s = 0`, although `f log|f|` has a limit there.
+
+- **location:** `src/entropies/collision_entropy.jl`
+- **evidence:** `CollisionEntropy` and `compute_entropy` of `MetriplecticLenardBernstein`
+  (`src/models/lenard_bernstein_metriplectic.jl`) call `_check_log_defined` at every quadrature
+  node, which throws a `DomainError` where `f_s` is zero. The integrand `f log|f|` tends to `0` as
+  `f → 0`, so both could take the value `0` at such a node by continuity and accept it.
+  `compute_J!` of `Landau` and of `MetriplecticLenardBernstein` projects `1 + log|f_s|` itself,
+  which has no finite value at `f_s = 0`, so its refusal stays. The testsets "a zero projection
+  throws" of `test/distributions/spline_distribution.jl` and
+  `test/models/lenard_bernstein_buffers.jl` assert the current behaviour of the entropy paths.
+- **kind:** defect
+- **found:** #111

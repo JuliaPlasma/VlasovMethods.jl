@@ -23,6 +23,30 @@ end
 
 lb_params(model) = (ν = model.ν, idist = model.dist, fdist = model.ent.dist, model = model)
 
+# 24 particles of uniform weight drawn uniformly on `[-2, 2]` with the seed `0x5EED`, on the cubic
+# basis of 17 knots of `metriplectic_setup` in `test/integration/metriplectic_solve.jl`. The
+# projection of so few particles undershoots below zero between them. The seed is an `Int`: the
+# StableRNGs of the `[compat]` floor seeds from `Int32` and `Int64` only.
+function mlb_setup(::Type{T}) where {T}
+    N = 24
+    rng = StableRNG(Int(0x5EED))
+    vars = (x = 1:1, v = 2:2, z = 1:2, w = 3:3)
+    pdist = ParticleDistribution(1, 1, ParticleList(zeros(T, 3, N); variables = vars))
+    pdist.particles.v[1, :] .= T.(4 .* rand(rng, N) .- 2)
+    pdist.particles.w[1, :] .= one(T) / N
+    axis = BSplineBasis(UniformMesh(16, T(-2) .. T(2)), 3, Free())
+    sdist = SplineDistribution(1, 1, axis, SplineQuadrature(axis), zeros(T, nbasis(axis)))
+    return MetriplecticLenardBernstein(pdist, CollisionEntropy(sdist)), pdist, sdist
+end
+
+# The work arrays of `compute_J!` of `MetriplecticLenardBernstein`, and the call
+function mlb_J!(J, sdist, mlb)
+    g = zeros(eltype(J), length(quadrature_nodes(sdist.quadrature)))
+    values = zeros(eltype(J), local_width(sdist.basis))
+    return VM.compute_J!(J, g, values, sdist, mlb)
+end
+mlb_entropy(sdist, mlb) = VM.compute_entropy(y -> sdist.spline(y), mlb)
+
 # The bytes of one call after a warm call, through barriers of fixed arity whose arguments have
 # concrete types: a right-hand side `f!(v̇, t, q, params)` and a coefficient function
 # `f(sdist, pdist, q, values)`.
@@ -282,5 +306,80 @@ end
                 @test startswith(err.msg, phrase)
             end
         end
+    end
+end
+
+# ∂S_h/∂v_α of `compute_dS!`, from 𝕃 of `compute_J!`, is the gradient of S_h = ∫ f_s log|f_s|
+# (`eq:disc_entropy`) of the projected particles, against a central difference of
+# `compute_entropy`.
+@testset "metriplectic Lenard-Bernstein gradient on a sign-changing projection" begin
+    mlb, pdist, sdist = mlb_setup(Float64)
+    v = copy(pdist.particles.v[1, :])
+    projection(v, pdist, sdist)
+
+    # f_s changes sign at the nodes, and no node value is close enough to zero for the
+    # difference step to cross the singularity of log|f_s|
+    fnodes = [sdist.spline(x) for x in quadrature_nodes(sdist.quadrature)]
+    @test minimum(fnodes) < 0
+    @test minimum(abs, fnodes) > 1e-8
+
+    J = mlb_J!(zeros(nbasis(sdist.basis)), sdist, mlb)
+    dS = VM.compute_dS!(
+        similar(v), zeros(local_width(sdist.basis)), J, v, sdist, mlb, pdist)
+
+    h = 1e-6
+    entropy_at(u) = (projection(u, pdist, sdist); mlb_entropy(sdist, mlb))
+    central = map(eachindex(v)) do α
+        vp, vm = copy(v), copy(v)
+        vp[α] += h
+        vm[α] -= h
+        (entropy_at(vp) - entropy_at(vm)) / 2h
+    end
+    @test maximum(abs, central - dS) ≤ 1e-6 * maximum(abs, dS)
+end
+
+@testset "compute_entropy of a sign-changing projection, $T" for T in (Float32, Float64)
+    mlb, pdist, sdist = mlb_setup(T)
+    projection(copy(pdist.particles.v[1, :]), pdist, sdist)
+    x = quadrature_nodes(sdist.quadrature)
+    w = quadrature_weights(sdist.quadrature)
+    f = [sdist.spline(xr) for xr in x]
+    @test minimum(f) < 0
+    terms = [w[r] * f[r] * log(abs(f[r])) for r in eachindex(x)]
+    S = mlb_entropy(sdist, mlb)
+    @test S isa T
+    @test abs(S - sum(terms)) ≤ 8 * eps(T) * sum(abs, terms)
+end
+
+# log|f_s| is -Inf at a zero of f_s and undefined at a non-finite value, so 𝕃 and the entropy
+# refuse both.
+@testset "a zero projection throws, $T" for T in (Float32, Float64)
+    mlb, _, sdist = mlb_setup(T)
+    sdist.coefficients .= 0
+    @test_throws DomainError mlb_J!(zeros(T, nbasis(sdist.basis)), sdist, mlb)
+    @test_throws DomainError mlb_entropy(sdist, mlb)
+end
+
+@testset "a non-finite projection throws, $T" for T in (Float32, Float64)
+    mlb, _, sdist = mlb_setup(T)
+    for bad in (T(NaN), T(Inf))
+        sdist.coefficients .= one(T)
+        sdist.coefficients[5] = bad
+        @test_throws DomainError mlb_J!(zeros(T, nbasis(sdist.basis)), sdist, mlb)
+        @test_throws DomainError mlb_entropy(sdist, mlb)
+    end
+end
+
+# The conservative operators assume f_s > 0: their pointwise ratio f_s'/f_s is undefined at
+# f_s = 0, and their H-theorem holds only for f_s ≥ 0. So their coefficients refuse a projection
+# that is negative at a particle.
+@testset "the conservative coefficients refuse a sign-changing projection, $T" for T in (
+    Float32, Float64)
+    pdist, sdist = setup(T, 256)
+    project_function(v -> v^2 - one(T) / 4, sdist)
+    q = copy(pdist.particles.v[1, :])
+    @test minimum(sdist.spline(qα) for qα in q) < 0
+    for (_, f) in COEFFICIENTS
+        @test_throws DomainError f(sdist, pdist, q)
     end
 end

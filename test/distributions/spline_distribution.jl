@@ -274,6 +274,153 @@ end
     @test isapprox(S, -0.5 * (1 + log(2π)); atol = 1e-6)
 end
 
+# The entropy ∫ f_s log|f_s| of `eq:disc_entropy`, on projections that undershoot below zero at
+# a quadrature node, against the quadrature sum written out over the same nodes and weights.
+@testset "entropy of a sign-changing projection" begin
+    sd1 = SplineDistribution(1, 1, 9, 3, (-4.0, 4.0), 0, Free())
+    project_function(v -> exp(-4v^2), sd1)
+    x = quadrature_nodes(sd1.quadrature)
+    w = quadrature_weights(sd1.quadrature)
+    f1 = [sd1.spline(xr) for xr in x]
+    @test minimum(f1) < 0
+    S1 = sum(w[r] * f1[r] * log(abs(f1[r])) for r in eachindex(x))
+    @test isfinite(CollisionEntropy(sd1)())
+    @test isapprox(CollisionEntropy(sd1)(), S1; rtol = 1e-12)
+
+    sd2 = SplineDistribution(1, 2, 7, 3, (-4.0, 4.0), 0, Free())
+    project_function(v -> exp(-(v[1]^2 + v[2]^2) / 2) / (2π), sd2)
+    X = quadrature_nodes(sd2.quadrature)
+    W = quadrature_weights(sd2.quadrature)
+    f2 = [sd2.spline((a, b)) for a in X[1], b in X[2]]
+    @test minimum(f2) < 0
+    S2 = sum(W[1][i] * W[2][j] * f2[i, j] * log(abs(f2[i, j]))
+    for i in eachindex(X[1]), j in eachindex(X[2]))
+    @test isfinite(CollisionEntropy(sd2)())
+    @test isapprox(CollisionEntropy(sd2)(), S2; rtol = 1e-12)
+end
+
+# log|f_s| is -Inf at a zero of f_s and undefined at a non-finite value, so the entropy and the
+# vector 𝕃 of `compute_J!` refuse both.
+@testset "a zero projection throws" begin
+    sd1 = SplineDistribution(1, 1, 9, 3, (-4.0, 4.0), 0, Free())
+    sd1.coefficients .= 0
+    @test_throws DomainError CollisionEntropy(sd1)()
+
+    pd = ParticleDistribution(1, 2, 4)
+    sd2 = SplineDistribution(1, 2, 7, 3, (-4.0, 4.0), 0, Free())
+    landau = Landau(pd, CollisionEntropy(sd2))
+    sd2.coefficients .= 0
+    @test_throws DomainError CollisionEntropy(sd2)()
+    @test_throws DomainError VM.compute_J!(zeros(length(sd2)), sd2, landau)
+end
+
+@testset "a non-finite projection throws" begin
+    pd = ParticleDistribution(1, 2, 4)
+    sd2 = SplineDistribution(1, 2, 7, 3, (-4.0, 4.0), 0, Free())
+    landau = Landau(pd, CollisionEntropy(sd2))
+    sd1 = SplineDistribution(1, 1, 9, 3, (-4.0, 4.0), 0, Free())
+    for bad in (NaN, Inf)
+        sd1.coefficients .= 1
+        sd1.coefficients[3] = bad
+        @test_throws DomainError CollisionEntropy(sd1)()
+
+        sd2.coefficients .= 1
+        sd2.coefficients[3, 4] = bad
+        @test_throws DomainError CollisionEntropy(sd2)()
+        @test_throws DomainError VM.compute_J!(zeros(length(sd2)), sd2, landau)
+    end
+end
+
+# The particles and the basis of the testset "Landau: K, J and L assemble": 400 normal particles
+# of seed 0xABBA, 7 knots of order 3 on [-4, 4]².
+function landau_fixture()
+    npart = 400
+    Random.seed!(0xABBA)
+    pd = ParticleDistribution(1, 2, npart)
+    pd.particles.v .= randn(2, npart)
+    pd.particles.w[1, :] .= 1 / npart
+    sd = SplineDistribution(1, 2, 7, 3, (-4.0, 4.0), 0, Free())
+    return pd, sd, Landau(pd, CollisionEntropy(sd))
+end
+
+# ∂S_h/∂v_{c,α} = Σ_k K_c[k, α] J_k: the gradient of the entropy ∫ f_s log|f_s| of the projected
+# particles, with J from `compute_J!`, against a central difference of `CollisionEntropy`.
+@testset "Landau gradient on a sign-changing projection" begin
+    pd, sd, landau = landau_fixture()
+    npart = size(pd.particles.v, 2)
+    M = length(sd)
+    v = copy(pd.particles.v)
+    projection(v, pd, sd)
+
+    # f_s changes sign at the nodes, and no node value is close enough to zero for the
+    # difference step to cross the singularity of log|f_s|
+    X = quadrature_nodes(sd.quadrature)
+    fnodes = [sd.spline((a, b)) for a in X[1], b in X[2]]
+    @test minimum(fnodes) < 0
+    @test minimum(abs, fnodes) > 1e-8
+
+    K1 = zeros(M, npart)
+    K2 = zeros(M, npart)
+    VM.compute_K!(K1, K2, v, sd, landau)
+    J = zeros(M)
+    VM.compute_J!(J, sd, landau)
+    grad = (K1' * J, K2' * J)
+
+    entropy_at(u) = (projection(u, pd, sd); CollisionEntropy(sd)())
+    h = 1e-6
+    particles = 1:40:npart
+    exact = [grad[c][α] for c in 1:2, α in particles]
+    central = similar(exact)
+    for (j, α) in enumerate(particles), c in 1:2
+
+        vp = copy(v)
+        vm = copy(v)
+        vp[c, α] += h
+        vm[c, α] -= h
+        central[c, j] = (entropy_at(vp) - entropy_at(vm)) / 2h
+    end
+    @test maximum(abs, central - exact) ≤ 1e-5 * maximum(abs, exact)
+end
+
+# The Landau manuscript's appendix bracket with the mobility M(f) = |f|
+# (`eq:landau_bracket_modified`): 𝕃 is symmetric, positive semi-definite and annihilates the
+# constants on a projection that changes sign. The control is the defining double sum with the
+# signed weights W_a f_s(v_a), which has a negative eigenvalue on the same projection.
+@testset "𝕃 is positive semi-definite on a sign-changing projection" begin
+    _, sd, landau = landau_fixture()
+    M = length(sd)
+    project_function(v -> exp(-(v[1]^2 + v[2]^2) / 2) / (2π), sd)
+
+    X = quadrature_nodes(sd.quadrature)
+    W = quadrature_weights(sd.quadrature)
+    Q1, Q2 = length(X[1]), length(X[2])
+    pts = [VM.SVector(X[1][a1], X[2][a2]) for a2 in 1:Q2 for a1 in 1:Q1]
+    signed = [W[1][a1] * W[2][a2] * sd.spline((X[1][a1], X[2][a2]))
+              for a2 in 1:Q2 for a1 in 1:Q1]
+    @test minimum(signed) < 0
+
+    L = zeros(M, M)
+    VM.compute_L!(L, sd, landau)
+    scale = maximum(abs, L)
+    @test maximum(abs, L - L') ≤ 1e-10 * scale
+    @test maximum(abs, L * ones(M)) ≤ 1e-10 * scale
+    @test minimum(eigvals(Symmetric(L))) ≥ -1e-12 * scale
+
+    # The control: L_ij = ½ Σ_ab s_a s_b Σ_cd (∂_c φ_i(v_a) − ∂_c φ_i(v_b)) U^cd(v_a, v_b)
+    # (∂_d φ_j(v_a) − ∂_d φ_j(v_b)), with s_a = W_a f_s(v_a). With P^cd_ab = s_a s_b U^cd_ab,
+    # symmetric in a and b, the sum over a and b is D^c (diag(P^cd 1) − P^cd) (D^d)ᵀ.
+    D = map(Matrix, VM.gradient_tabulations(sd))
+    Q = Q1 * Q2
+    Lsigned = zeros(M, M)
+    for c in 1:2, d in 1:2
+
+        P = [signed[a] * signed[b] * VM.kernel(pts[a], pts[b], landau)[c, d]
+             for a in 1:Q, b in 1:Q]
+        Lsigned .+= D[c] * (Diagonal(vec(sum(P; dims = 2))) - P) * D[d]'
+    end
+    @test minimum(eigvals(Symmetric(Lsigned))) < -1e-8 * maximum(abs, Lsigned)
+end
+
 @testset "Landau: K, J and L assemble" begin
     npart = 400
     Random.seed!(0xABBA)
@@ -313,12 +460,14 @@ end
     VM.compute_K!(K1b, K2, pd.particles.v, sd, landau)
     @test K1 == K1b
 
-    # A coarse L² projection of a peaked function undershoots into negative values, and the
-    # positivity guard says so instead of returning log of a negative number. This is the
-    # problem both manuscripts name and neither solves.
+    # A coarse L² projection of a peaked function undershoots into negative values. J projects
+    # 1 + log|f_s| (`eq:defn_Lk`), which is finite there.
     project_function(v -> exp(-(v[1]^2 + v[2]^2) / 2) / (2π), sd)
-    Jbad = zeros(M)
-    @test_throws DomainError VM.compute_J!(Jbad, sd, landau)
+    X = quadrature_nodes(sd.quadrature)
+    @test minimum(sd.spline((a, b)) for a in X[1], b in X[2]) < 0
+    Jneg = zeros(M)
+    VM.compute_J!(Jneg, sd, landau)
+    @test all(isfinite, Jneg)
 
     # J = M⁻¹ ∫ φ (1 + log f_s), on a distribution that stays positive
     project_function(v -> exp(-(v[1]^2 + v[2]^2) / 2) / (2π) + 0.05, sd)
@@ -359,10 +508,7 @@ end
     projection(pd.particles.v, pd, sd)
     landau = Landau(pd, CollisionEntropy(sd))
 
-    Lfast = zeros(M, M)
-    VM.compute_L!(Lfast, sd, landau)
-
-    # the same quadrature, summed as written: s_a = w_a f_s(v_a) and
+    # the same quadrature, summed as written: s_a = w_a |f_s(v_a)| and
     # L_ij = ½ Σ_ab s_a s_b Σ_cd (∂_c φ_i(v_a) − ∂_c φ_i(v_b)) U^cd (∂_d φ_j(v_a) − ∂_d φ_j(v_b))
     q = sd.quadrature
     X = quadrature_nodes(q)
@@ -370,29 +516,44 @@ end
     Q1, Q2 = length(X[1]), length(X[2])
     fs = sd.spline
     pts = [VM.SVector(X[1][a1], X[2][a2]) for a2 in 1:Q2 for a1 in 1:Q1]
-    s = [W[1][a1] * W[2][a2] * fs(VM.SVector(X[1][a1], X[2][a2]))
-         for a2 in 1:Q2 for a1 in 1:Q1]
     Dc = map(Matrix, VM.gradient_tabulations(sd))
     Q = Q1 * Q2
+    nodal() = [fs(VM.SVector(X[1][a1], X[2][a2])) for a2 in 1:Q2 for a1 in 1:Q1]
 
-    Lslow = zeros(M, M)
-    for a in 1:Q, b in 1:Q
+    function direct_sum()
+        s = [W[1][a1] * W[2][a2] * abs(fs(VM.SVector(X[1][a1], X[2][a2])))
+             for a2 in 1:Q2 for a1 in 1:Q1]
+        Lslow = zeros(M, M)
+        for a in 1:Q, b in 1:Q
 
-        U = VM.kernel(pts[a], pts[b], landau)
-        sab = s[a] * s[b]
-        iszero(sab) && continue
-        for i in 1:M, j in 1:M
+            U = VM.kernel(pts[a], pts[b], landau)
+            sab = s[a] * s[b]
+            iszero(sab) && continue
+            for i in 1:M, j in 1:M
 
-            acc = 0.0
-            for c in 1:2, d in 1:2
+                acc = 0.0
+                for c in 1:2, d in 1:2
 
-                acc += (Dc[c][i, a] - Dc[c][i, b]) * U[c, d] *
-                       (Dc[d][j, a] - Dc[d][j, b])
+                    acc += (Dc[c][i, a] - Dc[c][i, b]) * U[c, d] *
+                           (Dc[d][j, a] - Dc[d][j, b])
+                end
+                Lslow[i, j] += sab * acc / 2
             end
-            Lslow[i, j] += sab * acc / 2
         end
+        return Lslow
     end
 
+    # the projection of the particles, and on the same basis the projection of a peaked
+    # function, which undershoots to a negative value at a node
+    Lfast = zeros(M, M)
+    VM.compute_L!(Lfast, sd, landau)
+    Lslow = direct_sum()
+    @test maximum(abs, Lfast - Lslow) < 1e-10 * maximum(abs, Lslow)
+
+    project_function(v -> exp(-4 * (v[1]^2 + v[2]^2)), sd)
+    @test minimum(nodal()) < 0
+    VM.compute_L!(Lfast, sd, landau)
+    Lslow = direct_sum()
     @test maximum(abs, Lfast - Lslow) < 1e-10 * maximum(abs, Lslow)
 end
 

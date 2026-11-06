@@ -135,16 +135,16 @@ function compute_coefficients(
 
         # f_s is an L² projection of a particle distribution, so it undershoots into negative
         # values where the sampling is thin and is exactly zero in cells with no particles.
-        # f'/f is then either a division by zero or a term of the wrong sign, and the entropy
-        # of the metriplectic form is a log of a negative number. Both manuscripts know this:
-        # the Landau appendix opens with a commented-out section titled "Positivity-preserving
-        # projections" stating that f_s "has to be non-negative everywhere", and the
-        # Lenard-Bernstein H-theorem is stated "provided that f is non-negative". Neither
-        # solves it. Failing here names the open problem instead of continuing with a value
-        # whose sign is wrong.
+        # f'/f is then either a division by zero or a term of the wrong sign. Both manuscripts
+        # know this: the Landau appendix opens with a commented-out section titled
+        # "Positivity-preserving projections" stating that f_s "has to be non-negative
+        # everywhere", and the Lenard-Bernstein H-theorem is stated "provided that f is
+        # non-negative". Neither solves it. Failing here names the open problem instead of
+        # continuing with a value whose sign is wrong.
         fα > 0 || throw(DomainError(fα,
-            "the projected distribution is non-positive at v = $(vα), so " *
-            "f_s'/f_s is not meaningful there. This is the positivity problem both " *
+            "the projected distribution is non-positive at v = $(vα), but the " *
+            "conservative operator requires f_s > 0: the ratio f_s'/f_s is undefined at " *
+            "f_s = 0. This is the positivity problem both " *
             "manuscripts name and neither solves: an L² projection of a particle " *
             "distribution undershoots where the sampling is thin. Use more particles, a " *
             "coarser spline basis, or a positivity-preserving projection."))
@@ -182,18 +182,16 @@ The conservative Lenard-Bernstein right-hand side,
 \dot{v}_\alpha = - \nu \left( \frac{f_s'(v_\alpha)}{f_s(v_\alpha)} + A_1 + A_2 v_\alpha \right) ,
 ```
 
-which is `eq:velocity_ode` of the Lenard-Bernstein manuscript **with the opposite sign**.
+which is `eq:velocity_ode` of the Lenard-Bernstein manuscript.
 
-!!! note "The sign here is the correct one and the manuscript's is not"
-    The manuscript writes ``\partial_t f = \partial_v (a f)`` with
-    ``a = \nu (f'/f + A_1 + A_2 v)`` and then ``\dot{v}_\alpha = a(v_\alpha)``. Continuity is
-    ``\partial_t f + \partial_v (U f) = 0``, so ``\partial_t f = +\partial_v(a f)`` forces
-    ``U = -a`` and hence ``\dot{v} = -a``. The check: for a Maxwellian of width
-    ``\sigma > 1`` — too broad — ``a = \nu v (1 - \sigma^{-2}) > 0`` for ``v > 0``, so
-    ``\dot v = +a`` would push particles outward and *widen* an already too-wide distribution
-    instead of relaxing it. Conservation is unaffected either way, the constraints being
-    homogeneous, so no published result changes; but the ODE as typeset relaxes backwards in
-    time.
+!!! note "The sign"
+    The particles move with the transport velocity
+    ``a = -\nu (f'/f + A_1 + A_2 v)`` of the continuity equation
+    ``\partial_t f + \partial_v (a f) = 0``. The check is the H-theorem: with
+    ``F = f' + (A_1 + A_2 v) f``, the constraints ``\int F \, dv = \int v F \, dv = 0`` give
+    ``\frac{d}{dt} \int f \log f \, dv = -\nu \int F^2 / f \, dv \le 0`` for ``f > 0``. A
+    centred Maxwellian of any width ``\sigma`` gives ``A_1 = 0`` and ``A_2 = \sigma^{-2}``, so
+    ``a = 0``: the operator conserves the energy, and every Maxwellian is an equilibrium.
 """
 function CLB_rhs_GI!(v, t, q::AbstractArray{ST}, params) where {ST}
     (; sdist, rhs, values) = params.model.cache[ST]
