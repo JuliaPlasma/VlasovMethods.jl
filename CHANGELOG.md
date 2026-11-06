@@ -63,9 +63,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   brackets conserve momentum `Σ w v` and energy `Σ w v²` for any entropy gradient and any
   weights, and both are symmetric. They are negative semi-definite when every weight is positive,
   since a negative weight makes the bracket matrix indefinite. Their docstrings give the equations
-  of motion. The tests that
-  read the reference files of the model in `test/data/` build it with `JeyakumarBracket()`, and
-  the files are unchanged.
+  of motion. The tests that read the reference files of the model in `test/data/` build it with
+  `JeyakumarBracket()`, and the files are unchanged.
 
 ### Documentation
 
