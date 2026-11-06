@@ -192,8 +192,8 @@ is symmetric, ``U(v_\alpha, v_\beta) = U(v_\beta, v_\alpha)``, and ``U u = 0`` u
 
 At ``u = 0`` the kernel is the zero matrix, for every ``\gamma``. For ``\gamma > -2`` zero is
 the limit of ``U``; for ``\gamma \le -2`` ``U`` has no limit there. The value does not enter
-``\mathbb{L}`` of [`compute_L!`](@ref), its only caller in the package: there ``U(v, v')`` multiplies the
-gradient differences ``\nabla \varphi_i(v) - \nabla \varphi_i(v')``, which vanish at
+``\mathbb{L}`` of [`compute_L!`](@ref), its only caller in the package: there ``U(v, v')``
+multiplies the gradient differences ``\nabla \varphi_i(v) - \nabla \varphi_i(v')``, which vanish at
 ``v = v'``, so the coincident term of the quadrature sum is ``0^{\mathsf T} U \, 0``, and any
 finite value at ``u = 0`` gives the same ``\mathbb{L}``. The two factors of the double integral
 share their Gauß-Legendre nodes, and the error of ``\mathbb{L}`` falls under cell refinement:
