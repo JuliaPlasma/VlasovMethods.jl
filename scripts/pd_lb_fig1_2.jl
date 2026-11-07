@@ -18,12 +18,14 @@
 # The figure is the sample variance `Σ v̇² / N` against `1 / N`, with the fitted exponent; the
 # manuscript's reference curve is `1 / N`.
 #
-# Each figure is one sweep, and an error stops it: the HDF5 file of the figure then records the
-# `M` or the `N` that stopped as the attribute `stopped_at`, beside the values before it, the figure
-# is not written, and the script exits non-zero with the error after both sweeps have run. A
-# projection that is not positive at a particle is such an error, the `DomainError` of
-# `compute_coefficients`. With the defaults, both sweeps stop on it: figure 1 at `M = 25`, where
-# the projected Maxwellian is negative at two of the particles, and figure 2 at `N = 5623`.
+# Each figure is one sweep. A point where the projection is not positive at a particle, the
+# `DomainError` of `compute_coefficients`, is a point where the operator stops: the sweep prints
+# it, leaves it out and goes on, the HDF5 file of the figure records the first such `M` or `N` as
+# the attribute `stopped_at` beside the points it computed, and the figure draws those points. The
+# script then exits 0. Any other error stops the script, which exits non-zero, and so does the
+# `ArgumentError` of `plot_convergence` for a sweep that computes fewer than two points. With the
+# defaults, figure 1 stops at `M = 25`, where the projected Maxwellian is negative at two of the
+# particles, and figure 2 at `N = 5623` and `N = 31623`.
 #
 # `--quick` takes 2000 particles, `M ∈ {24, 41, 78}` and the first six `N` of the sweep, 100 to
 # 1778, where neither sweep stops.
@@ -53,27 +55,29 @@ end
 # cell width of a cubic basis of `M` functions on the velocity domain
 cell_width(M) = (last(VELOCITY_DOMAIN) - first(VELOCITY_DOMAIN)) / (M - ORDER + 1)
 
-# The values of `f` at each of `points` until `f` throws: the points reached, their values, and the
-# error, or `nothing`. The record `name` holds the points and the values as the datasets that
-# `labels` names, and the point that threw as the attribute `stopped_at`.
+# The values of `f` at each of `points`: the points reached and their values. A point where `f`
+# throws a `DomainError`, the model's own error, is skipped and its error printed; any other error
+# passes through. The record `name` holds the points reached and their values as the datasets that
+# `labels` names, and the first point that threw, where one did, as the attribute `stopped_at`.
 function sweep(f, name, points, labels)
+    reached = eltype(points)[]
     values = Float64[]
-    failure = nothing
+    stopped = (;)
     for p in points
-        try
-            push!(values, f(p))
+        value = try
+            f(p)
         catch e
-            failure = e
-            break
+            e isa DomainError || rethrow()
+            @printf("  %s = %6d: the operator stops: %s\n", first(labels), p, e.msg)
+            isempty(stopped) && (stopped = (; stopped_at = p))
+            continue
         end
-        @printf("  %s = %6d: %s = %.4e\n", first(labels), p, last(labels), last(values))
+        push!(reached, p)
+        push!(values, value)
+        @printf("  %s = %6d: %s = %.4e\n", first(labels), p, last(labels), value)
     end
-    reached = points[1:length(values)]
-    stopped = failure === nothing ? (;) : (; stopped_at = points[length(values) + 1])
-    isempty(stopped) ||
-        @printf("  %s = %6d: the sweep stops\n", first(labels), stopped.stopped_at)
     write_record(name, merge(OPT, stopped); (Symbol.(labels) .=> (reached, values))...)
-    return reached, values, failure
+    return reached, values
 end
 
 @printf("pd_lb_fig1_2: %s run, %d particles, M = %s\n", QUICK ? "quick" : "paper",
@@ -81,25 +85,20 @@ end
 
 dist = initial_distribution(NormalDistribution(), OPT.npart)
 v = dist.particles.v[1, :]
-M, norms, error1 = sweep("pd_lb_fig1.hdf5", OPT.nbasis, ("nbasis", "norm")) do M
+M, norms = sweep("pd_lb_fig1.hdf5", OPT.nbasis, ("nbasis", "norm")) do M
     sdist = spline_distribution(M)
     project_Maxwellian(sdist)
     return norm(velocity_field(sdist, dist, v))
 end
-error1 === nothing &&
-    save_figure("pd_lb_fig1.pdf", plot_convergence(cell_width.(M), norms))
+save_figure("pd_lb_fig1.pdf", plot_convergence(cell_width.(M), norms))
 
 sdist = spline_distribution(OPT.sweep_nbasis)
-N, variances, error2 = sweep("pd_lb_fig2.hdf5", OPT.sweep_npart, ("npart", "variance")) do N
+N, variances = sweep("pd_lb_fig2.hdf5", OPT.sweep_npart, ("npart", "variance")) do N
     sample = initial_distribution(NormalDistribution(), N)
     u = sample.particles.v[1, :]
     projection(u, sample, sdist)
     return sum(abs2, velocity_field(sdist, sample, u)) / N
 end
-error2 === nothing && save_figure("pd_lb_fig2.pdf", plot_convergence(1 ./ N, variances))
+save_figure("pd_lb_fig2.pdf", plot_convergence(1 ./ N, variances))
 
 report_time()
-
-for e in (error1, error2)
-    e === nothing || throw(e)
-end

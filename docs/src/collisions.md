@@ -45,9 +45,11 @@ The drivers `scripts/pd_lb_*.jl` make the eleven figures of the Lenard–Bernste
 `[−10, 10]`, and `M`, the flag `--nbasis`, is the number of its basis functions: a cubic basis on
 `ncell` cells has `ncell + 3` of them, so the manuscript's "41 elements" are 41 basis functions on
 38 cells. Where a projection is not positive at a particle, or a particle leaves the velocity
-domain, the run stops with the model's `DomainError`, the driver writes no figure for that run and
-exits non-zero. A run to the time `t` with the step `h` takes `t / h` steps, rounded up, so the
-quick run of figures 3 to 6 takes 63 steps of `8e-4` and ends at `t = 0.0504`.
+domain, a run stops with the model's `DomainError`, and the driver writes no figure for that run
+and exits non-zero. The sweeps of figures 1 and 2 are the exception: a point of a sweep where the
+operator stops is left out of its figure, and the driver exits 0. A run to the time `t` with the
+step `h` takes `t / h` steps, rounded up, so the quick run of figures 3 to 6 takes 63 steps of
+`8e-4` and ends at `t = 0.0504`.
 
 ### Figures 1 and 2
 
@@ -61,12 +63,15 @@ width. Figure 2 is the sample variance `Σ v̇² / N` of `N` projected normal ve
 functions, against `1 / N`, for `N` from `10²` to `10⁵` in steps of a quarter decade. Files:
 `pd_lb_fig1.pdf`, `pd_lb_fig2.pdf`, `pd_lb_fig1.hdf5`, `pd_lb_fig2.hdf5`.
 
-Measured: 22.1 s, and the driver exits non-zero. Both sweeps stop on the `DomainError` of a
-projection that is not positive at a particle: figure 1 at `M = 25`, where the projected
-Maxwellian is `−2.4e-5` at two of the `10⁵` velocities, and figure 2 at `N = 5623`. Neither
-figure is written, and each HDF5 file holds the values before the stop and the `M` or the `N`
-that stopped as the attribute `stopped_at`. `--nbasis` and `--sweep-npart` take other lists, such
-as `--nbasis 24,26,28` or `--sweep-npart 100,178,316,562,1000,1778,3162`.
+Measured: 24.0 s, and the driver exits 0. Where the projection is not positive at a particle, the
+`DomainError` of `compute_coefficients`, the operator stops at that point of the sweep: the
+driver prints the stop, leaves the point out of the figure and goes on, and the HDF5 file of the
+figure records the first such `M` or `N` as the attribute `stopped_at` beside the points it
+computed. With the defaults, figure 1 stops at `M = 25`, where the projected Maxwellian is
+`−2.4e-5` at two of the `10⁵` velocities, and draws the other 54 values of `M`; figure 2 stops at
+`N = 5623` and `N = 31623`, and draws the other 11 values of `N`. A sweep that computes fewer
+than two points leaves `plot_convergence` nothing to fit, and its `ArgumentError` stops the
+driver.
 
 `--quick` takes 2000 velocities, `M ∈ {24, 41, 78}` and `N` from 100 to 1778.
 
@@ -98,7 +103,9 @@ The relaxation of the bi-Maxwellian of the two normal distributions of mean `±2
 seeded with `--seed 1`. Figure 7 is the initial and the final distribution, and figure 8 the
 entropy. Files: `pd_lb_fig7.pdf`, `pd_lb_fig8.pdf`, `pd_lb_fig7_8.hdf5`.
 
-Not measured yet: the run takes 6250 steps, and 100 steps of the same configuration take 20 s.
+The run with the manuscript's parameters, 6250 steps, takes longer than 5 minutes and is the
+dispatcher's: its measured time is not in this page yet. 100 steps of the same configuration take
+20 s.
 
 `--quick` takes 200 particles and `t = 0.2`.
 

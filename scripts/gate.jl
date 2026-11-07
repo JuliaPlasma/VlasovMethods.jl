@@ -11,22 +11,26 @@
 # - the values of `--quick` in its option attributes, so that a driver that ignores `--quick`
 #   fails here even where its full run fits the budget.
 #
-# Every driver must print its wall-clock time. `pd_lb_fig11.jl` must also print the relative error
-# of the fourth cumulant at each of the first three steps, each below `5e-3`, where the quick run
-# measures `4.4e-4` to `1.5e-3`, and its first step must solve the implicit midpoint rule to a
-# relative residual below `1e-10`, where it measures `7e-15`. `pd_lb_fig7_8.jl` must start from the
-# velocities that `DoubleMaxwellian` draws after `Random.seed!(1)`.
+# Every driver that runs to its end must print its wall-clock time. `pd_lb_fig11.jl` must also
+# print the relative error of the fourth cumulant at each of the first three steps, each below
+# `5e-3`, where the quick run measures `4.4e-4` to `1.5e-3`, and its first step must solve the
+# implicit midpoint rule to a relative residual below `1e-10`, where it measures `7e-15`.
+# `pd_lb_fig7_8.jl` must start from the velocities that `DoubleMaxwellian` draws after
+# `Random.seed!(1)`.
 #
-# Three more runs check the edges of the drivers:
+# Four more runs check the edges of the drivers:
 #
 # - `pd_lb_fig11.jl` in an empty working directory, with `--runs-dir` and `--results-dir` two
 #   levels below a directory that does not have them, and with `GIT_DIR` naming a path that does
 #   not exist: both directories are created and hold its files, the working directory stays
 #   empty, and `commit` is `"unknown"`;
-# - `pd_lb_fig1_2.jl` with the sweeps `M ∈ {24, 25}` at `10⁴` particles and `N ∈ {1000, 5623}`,
-#   where the projection is not positive at a particle of `M = 25` and of `N = 5623`: it exits
-#   non-zero, records `stopped_at = 25` beside `M = 24` and `stopped_at = 5623` beside
-#   `N = 1000`, and writes neither figure;
+# - `pd_lb_fig1_2.jl` with the sweeps `M ∈ {24, 25, 26}` at `10⁴` particles and
+#   `N ∈ {1000, 5623, 10000, 31623}`, where the projection is not positive at a particle of
+#   `M = 25`, of `N = 5623` and of `N = 31623`: it exits 0, prints each stop, records
+#   `stopped_at = 25` beside `M ∈ {24, 26}` and `stopped_at = 5623` beside `N ∈ {1000, 10000}`,
+#   and writes both figures;
+# - `pd_lb_fig1_2.jl` with `M ∈ {24, 3, 41}`, where `M = 3` throws an `ArgumentError`, which is
+#   not the model's: it exits non-zero with that error and writes no figure 1;
 # - `pd_lb_fig11.jl` with `--tolerance 1e-4`, below the relative errors of the quick run, which
 #   are above `4e-4`: it prints the three relative errors and exits non-zero.
 #
@@ -87,9 +91,9 @@ function start(script, args; out = mktempdir(), dir = ROOT, env = nothing)
 end
 
 # Waits for a driver until `BUDGET` seconds after the gate started, kills it after that, and
-# checks its exit status, 0 or not 0 where `fails`, and that it printed its wall-clock time.
-# Returns its output.
-function finish(job; fails = false)
+# checks its exit status, 0 or not 0 where `fails`, and, where `timed`, that it printed its
+# wall-clock time. Returns its output.
+function finish(job; fails = false, timed = true)
     remaining = BUDGET - (time() - STARTED)
     status = timedwait(() -> process_exited(job.process), max(remaining, 0.0); pollint = 1.0)
     if status === :timed_out
@@ -101,7 +105,8 @@ function finish(job; fails = false)
     finished = check(status === :ok, "$(job.script) finishes within $(BUDGET) s")
     exited = check(finished && success(job.process) != fails,
         "$(job.script) exits $(fails ? "non-zero" : "0")")
-    check(occursin(r"wall-clock time \d", output), "$(job.script) prints its wall-clock time")
+    timed &&
+        check(occursin(r"wall-clock time \d", output), "$(job.script) prints its wall-clock time")
     exited || print(output)
     return output
 end
@@ -159,7 +164,9 @@ const NESTED = joinpath(mktempdir(), "new", "deeper")
 stray = start("pd_lb_fig11.jl", ["--quick"]; out = NESTED, dir = WORK,
     env = "GIT_DIR" => joinpath(WORK, "no-such-git-dir"))
 stop = start("pd_lb_fig1_2.jl",
-    ["--quick", "--npart", "10000", "--nbasis", "24,25", "--sweep-npart", "1000,5623"])
+    ["--quick", "--npart", "10000", "--nbasis", "24,25,26", "--sweep-npart",
+        "1000,5623,10000,31623"])
+other = start("pd_lb_fig1_2.jl", ["--quick", "--nbasis", "24,3,41"])
 miss = start("pd_lb_fig11.jl", ["--quick", "--tolerance", "1e-4"])
 
 println("the helpers of pd_lb_common.jl")
@@ -233,20 +240,31 @@ if check(isfile(joinpath(stray.runs, "pd_lb_fig11.hdf5")),
     check(commit == "unknown", "commit is \"unknown\" outside a git checkout, got $(commit)")
 end
 
-println("pd_lb_fig1_2.jl with two sweeps that the projection stops")
-finish(stop; fails = true)
-for (figure, record, dataset, reached, stopped) in (
-    ("pd_lb_fig1.pdf", "pd_lb_fig1.hdf5", "nbasis", [24], 25),
-    ("pd_lb_fig2.pdf", "pd_lb_fig2.hdf5", "npart", [1000], 5623))
-    check(!isfile(joinpath(stop.results, figure)), "$(figure) is not written")
+println("pd_lb_fig1_2.jl with sweeps that the projection stops")
+output = finish(stop)
+for (figure, record, dataset, reached, stops) in (
+    ("pd_lb_fig1.pdf", "pd_lb_fig1.hdf5", "nbasis", [24, 26], [25]),
+    ("pd_lb_fig2.pdf", "pd_lb_fig2.hdf5", "npart", [1000, 10000], [5623, 31623]))
+    check(
+        all(
+            p -> occursin(Regex("^  $(dataset) = +$(p): the operator stops: ", "m"), output),
+            stops),
+        "it prints the stop at $(dataset) = $(stops)")
+    check_figure(joinpath(stop.results, figure))
     check(isfile(joinpath(stop.runs, record)), "$(record) is written") || continue
     h5open(joinpath(stop.runs, record), "r") do file
         attributes = HDF5.attrs(file)
-        check(haskey(attributes, "stopped_at") && attributes["stopped_at"] == stopped,
-            "$(record) records stopped_at = $(stopped)")
+        check(haskey(attributes, "stopped_at") && attributes["stopped_at"] == first(stops),
+            "$(record) records stopped_at = $(first(stops))")
         check(read(file[dataset]) == reached, "$(record) records $(dataset) = $(reached) alone")
     end
 end
+
+println("pd_lb_fig1_2.jl with a basis too small for the spline")
+output = finish(other; fails = true, timed = false)
+check(occursin("ArgumentError: at least two breakpoints are needed", output),
+    "it stops with the ArgumentError of the basis")
+check(!isfile(joinpath(other.results, "pd_lb_fig1.pdf")), "pd_lb_fig1.pdf is not written")
 
 println("pd_lb_fig11.jl with a tolerance below its relative errors")
 output = finish(miss; fails = true)
