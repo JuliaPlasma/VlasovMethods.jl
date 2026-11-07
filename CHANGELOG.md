@@ -160,6 +160,46 @@ their own, except for what they removed and narrowed, which is listed in full be
   `AVFGradient(5)` iteration stays within one rounding unit of the velocities (relative increment
   at most `6.7e-13`), while the largest increment of the `GonzalezGradient` iteration lies between
   `1.50e-11` and `4.71e-11`.
+- **`AnisotropicBiMaxwellian`, `DoubleMaxwellian2D` and `BKWDistribution`** are the 2D reference
+  cases of the Landau collision methods. `AnisotropicBiMaxwellian(σ1², σ2²; seed)` is the
+  centred bi-Maxwellian of the two temperatures, `DoubleMaxwellian2D(; weights, variances, means,
+  seed)` the sum of two displaced Maxwellians, and `BKWDistribution(t₀; seed)` the BKW solution of
+  Carrillo, Hu, Wang and Wu (2020), Appendix A, at the time `t₀`: mass one and temperature one,
+  `f = (2πK)⁻¹ exp(−v²/(2K))[(4K − 2)/(2K) + (1 − K)v²/(2K²)]` at `K(t) = 1 − exp(−2t)/2`, which is
+  the paper's `K = 1 − exp(−t/8)/2` at the rate the factor sixteen gives between its kernel
+  `(|z|² I − z ⊗ z)/16` and this package's `U = |z|² (I − û ûᵀ)`. Each `initialize!` fills the two
+  velocity components from `Random.MersenneTwister(seed)`, which the type holds as the field
+  `seed`, so that the sample is the seed's own and not the global RNG's; the bi-Maxwellian keeps
+  the weights the distribution holds, and the other two set them to `1/N` as the examples above do.
+  At `10⁵` particles and the seed `20261107` the bi-Maxwellian's means, variances and covariance
+  deviate from `0`, `0`, `0.5`, `0.3` and `0` by `1.37`, `0.04`, `0.44`, `−0.98` and `−0.05`
+  standard errors, and over the four seeds `20261107`, `1`, `2` and `3` none by more than `2.18`;
+  the double Maxwellian's mean deviates from its `(0.08, 0)` by `1.73` and `−0.85` standard errors
+  and its two variances from the mixture's `0.5736` and `0.38` by `0.44` and `−0.08`, and the BKW's
+  two variances from its `1` by `−3.08` and `−0.07` and its fourth moment from the profile's `7.1013`
+  by `−2.06` of the sample's own standard error, which tells it from a Gaussian's `8`. A distribution
+  of one or three velocity components throws a `DimensionMismatch`, and a negative `t₀` an
+  `ArgumentError`. The new file `test/examples/reference_cases.jl` holds their tests, in the `core`
+  group.
+
+### Scripts
+
+- **`scripts/reference_forms.jl` derives the two closed forms of the 2D reference cases and checks
+  them against the moment equations.** The header derives the rate of the second moments at the
+  Maxwell molecules of `γ = 0` — `d(T₁₁ − T₂₂)/dt = −8 (T₁₁ − T₂₂)` at density one, unit mass and
+  `ν = 1`, from the weak form of the Landau operator over the bi-Maxwellian — and the BKW profile
+  above with its fourth moment `8K(2 − K)` and the equation of that moment, `dM₄/dt = 32 (1 − K)²`,
+  which is what fixes the rate of `K(t)` and not only its value. `--check` integrates the weak form
+  by a product Gauss–Hermite rule of the envelope: the rate of `φ = v₁²` and of `φ = v₂²` at the
+  four temperature ratios `1.2`, `1.5`, `2` and `3`, and the profile's mass, energy, temperature
+  and fourth moment with the equation of the fourth moment at the four times `0.1`, `0.3`, `0.6`
+  and `0.9`. Every comparison agrees to `1e-10` relative, measured between `1.6e-15` and `5.6e-14`,
+  and the control, the rate's constant `4` in place of `8`, misses by a relative `1.0`. The
+  profile's sample of `10⁵` particles at `t₀ = 0.2` lies within `3.08` standard errors of its
+  moments. The conservation of mass by the weak form is an identity of the test function — `φ = 1`
+  has no gradient — and the conservation of energy an identity of the kernel, `U(u) u = 0`, so
+  neither is among the checks: the file states both and checks only what can fail. A run without
+  `--check` prints the same table and writes it, with the command line, into `--results-dir`.
 
 ### Documentation
 

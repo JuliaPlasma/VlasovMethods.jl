@@ -23,6 +23,7 @@ if "core" in GROUPS
     @safetestset "Landau Buffers" include("models/landau.jl")
     @safetestset "Pairwise Landau" include("models/landau_pairwise.jl")
     @safetestset "Discrete Gradient" include("methods/discrete_gradient.jl")
+    @safetestset "Reference Cases" include("examples/reference_cases.jl")
     @safetestset "Cache Dict" include("cache.jl")
     @safetestset "Vlasov–Poisson" include("integration/vlasov_poisson.jl")
     @safetestset "Vlasov with External Fields" include("models/vlasov_with_external_fields.jl")
