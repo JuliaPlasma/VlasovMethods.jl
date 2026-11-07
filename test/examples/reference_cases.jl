@@ -281,6 +281,11 @@ end
     for t₀ in (0.2, 0.6)
         K = bkw_parameter(t₀)
         dist = initialize!(particles(npart), BKWDistribution(t₀; seed = SEED))
+        # the seed holds the sample, and another seed gives another one
+        @test initialize!(particles(npart),
+            BKWDistribution(t₀; seed = SEED)).particles.v == dist.particles.v
+        @test initialize!(particles(npart),
+            BKWDistribution(t₀; seed = SEED + 1)).particles.v != dist.particles.v
         w = collect(vec(dist.particles.w))
         m = moments(dist.particles.v, w)
         @test sum(w) ≈ 1
