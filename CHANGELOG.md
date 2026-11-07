@@ -117,18 +117,22 @@ their own, except for what they removed and narrowed, which is listed in full be
   with `𝔾` cost `O(N²)` kernel evaluations and allocate nothing. Two particles of equal velocities
   throw a `DomainError`, as do, for `γ < -2`, two velocities closer than a threshold of the
   element type at which the kernel stops being finite and not zero (`2.0e-13` in `Float32` for
-  `γ = -3`), a particle weight that is not positive and finite an `ArgumentError`, and
-  an array whose size is not `2 × N`, with `N` the number of particles of the model, a
-  `DimensionMismatch` that names the argument. The tests compare the vector field with
+  `γ = -3`), a particle weight that is not positive and finite an `ArgumentError` that names the
+  particle, in the constructor and at each call of the product with `𝔾`, the vector field and
+  `discrete_gradient_step!`, which read the weights of the distribution at the call (K90), and an
+  array whose size is not `2 × N`, with `N` the number of particles of the
+  model, a `DimensionMismatch` that names the argument. The tests compare the vector field with
   `eq:eom_line3` written out,
   check that it conserves momentum and energy and decreases `S_h` for `γ = -3` and `γ = 0`, and
   that the kernel of `𝔾` has the dimension 3. K4 of `KNOWN_ISSUES.md` now names it as the
   main-text method and `Landau` as the appendix method.
 - **`discrete_gradient_step!`** takes one step of `PairwiseLandau` by `eq:disc_grad_update_rule`,
   with `𝔾` at the midpoint (`eq:midpoint_G`), by a fixed-point iteration to the max-norm residual
-  `abstol`, and returns `(iterations, residual)` as `Picard_iterate_Landau_nls!` does. The step
-  conserves momentum to rounding and energy within `(Δt/2) · abstol · Σ w ‖f‖₁` plus rounding,
-  and `S_h` decreases at each of 20 steps of the new test, beside controls with `𝔾(vⁿ)`, with the
+  `abstol`, and returns `(iterations, residual)` as `Picard_iterate_Landau_nls!` does. It refuses
+  a `Δt` that is not finite and positive in the element type of the velocities, so a `Float64`
+  `Δt` that is zero or `Inf` in `Float32` throws an `ArgumentError` (K89). The step conserves
+  momentum to rounding and energy within `(Δt/2) · abstol · Σ w ‖f‖₁` plus rounding, and `S_h`
+  decreases at each of 20 steps of the new test, beside controls with `𝔾(vⁿ)`, with the
   midpoint gradient, and with the last iterate accepted, which break them. K10 of
   `KNOWN_ISSUES.md` names that test and stays for the appendix model `Landau`.
 - **`GonzalezGradient`** is the discrete gradient of the step, the manuscript's
@@ -173,6 +177,10 @@ their own, except for what they removed and narrowed, which is listed in full be
   form with the manuscript's equation term by term, the Jeyakumar form with the former right-hand
   side, and checks the bracket matrix of each form, beside a control that drops a term of the
   Dougherty form.
+- **The tests of `discrete_gradient_step!` and `GonzalezGradient` have a file of their own,
+  `test/methods/discrete_gradient.jl`**, which mirrors `src/methods/discrete_gradient.jl`.
+  `test/models/landau_pairwise.jl` keeps the tests of `PairwiseLandau`, and both files include
+  the fixture `test/helpers/pairwise_landau.jl`.
 
 ## [0.4.1] — 2026-11-04
 

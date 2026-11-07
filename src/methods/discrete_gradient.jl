@@ -97,7 +97,7 @@ the accepted state differs from it by a residual of at most `abstol`.
 # Tolerance
 
 The residual stalls at the rounding of one evaluation, and `abstol` must lie above that floor,
-or the step runs to `max_iters` and throws. On the fixture of `test/models/landau_pairwise.jl`
+or the step runs to `max_iters` and throws. On the fixture of `test/helpers/pairwise_landau.jl`
 (144 particles on ``[-4, 4]^2``, `γ = -3`), the residuals of the 20th to the 30th evaluation lie
 between `1.1e-15` and `1.6e-14` in `Float64` and between `3.6e-7` and `1.5e-5` in `Float32`, for
 `Δt` from `5e-5` to `8e-3`; for `γ = 0` at `Δt = 5e-5`, between `1.1e-14` and `5.3e-14` in
@@ -108,11 +108,14 @@ about ``10^{-11}``" is the same floor in the relative increment
 
 # Errors
 
-`Δt` and `abstol` must be finite and positive and `max_iters` at least 1, or an `ArgumentError`
-that names the argument is thrown before any evaluation. When no iterate meets `abstol` within
-`max_iters` evaluations, an `ErrorException` is thrown that names the number of evaluations and
-the last residual. A residual that is not finite never meets `abstol`. The exceptions of the
-vector field pass through: a `DomainError` for two equal velocities, and the projection's
+`Δt`, converted to the element type of the velocities, and `abstol` must be finite and positive
+and `max_iters` at least 1, or an `ArgumentError` that names the argument is thrown before any
+evaluation: a `Float64` `Δt` that is zero or `Inf` in `Float32` is refused. So is a particle
+weight that is not positive and finite, with an `ArgumentError` that names the particle. When
+no iterate meets `abstol` within `max_iters` evaluations, an `ErrorException` is thrown that
+names the number of evaluations and the last residual. A residual that is not finite never
+meets `abstol`. The exceptions of the vector field pass through: a `DomainError` for two equal
+velocities and, for ``\gamma < -2``, for two velocities too close, and the projection's
 `DomainError` once an iterate leaves the velocity domain. In each case the particles are not
 written.
 
@@ -124,15 +127,16 @@ each ``S_h`` of [`CollisionEntropy`](@ref) allocates: 92 kB on 8 × 8 quadratic 
 """
 function discrete_gradient_step!(model::PairwiseLandau, Δt; abstol,
         max_iters::Integer = 100, gradient::DiscreteGradient = GonzalezGradient())
-    isfinite(Δt) && Δt > 0 ||
-        throw(ArgumentError("Δt must be finite and positive, got $Δt"))
-    isfinite(abstol) && abstol > 0 ||
-        throw(ArgumentError("abstol must be finite and positive, got $abstol"))
-    max_iters ≥ 1 || throw(ArgumentError("max_iters must be at least 1, got $max_iters"))
-
     vn = model.landau.dist.particles.v
     T = eltype(vn)
     h = T(Δt)
+    isfinite(h) && h > 0 ||
+        throw(ArgumentError("Δt must be finite and positive in $T, got $Δt"))
+    isfinite(abstol) && abstol > 0 ||
+        throw(ArgumentError("abstol must be finite and positive, got $abstol"))
+    max_iters ≥ 1 || throw(ArgumentError("max_iters must be at least 1, got $max_iters"))
+    _check_weights(view(model.landau.dist.particles.w, 1, :))
+
     ν = T(model.landau.ν)
 
     vk = copy(vn)
