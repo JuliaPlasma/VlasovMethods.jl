@@ -658,3 +658,28 @@ has left the file, or that lived only on a merged branch, stays taken.
   `test/models/lenard_bernstein_metriplectic.jl` assert the throw for both brackets.
 - **kind:** defect
 - **found:** #112
+
+### K91 · The anisotropy rate of the 1600-particle bi-Maxwellian does not converge under mesh refinement, and the discrete gradient step does not converge at 12 × 12, 24 × 24 and 32 × 32 cells.
+
+- **location:** `test/examples/reference_cases.jl`, testset "the rate at 16 × 16 cells, and the
+  8 × 8 control"
+- **evidence:** the rate of `fitted_rate` (30 steps, `abstol = 1e-7`, the default `max_iters`) on
+  the sample `rate_sample(1600)` with `reference_model(v, w; ncell, L = 3.0)` at `Δt = 1e-5`,
+  Julia 1.13.3:
+
+  | cells | fitted rate |
+  |--:|:--|
+  | 8 × 8 | 10.246 |
+  | 12 × 12 | the step throws "did not converge in 100 evaluations", last residual 9.6e-6 |
+  | 16 × 16 | 8.1073 |
+  | 20 × 20 | 7.4254 |
+  | 24 × 24 | the step throws, last residual 3.3e-5 |
+  | 32 × 32 | the step throws, last residual 2.0e-6 |
+
+  The closed rate is `8`. The 16 × 16 mesh is within the testset's 5 % clamp, and 20 × 20 is not,
+  so the agreement at 16 × 16 is not shown to be a converged one. The control of the testset,
+  `ncell = 8, L = 4.0, Δt = 1e-4`, gives 1.859; it changes the cell count, the domain and `Δt`
+  together, so it does not isolate the mesh. With `L = 4.0` at 8 × 8 cells, `Δt = 1e-5` gives
+  1.9574.
+- **kind:** defect
+- **found:** #119
