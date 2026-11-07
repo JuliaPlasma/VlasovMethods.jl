@@ -311,10 +311,10 @@ Each of the six runs reaches `t = 100 h` and exits 0:
 
 The pairwise method's `S_h` falls in each run. The spline method's rises in the runs of the
 bi-Maxwellian and the BKW profile, and changes by less than `1e-6` in that of the double
-Maxwellian: its vector field has the opposite sign of the appendix's `−K⁺LJ`. K96 of
-`KNOWN_ISSUES.md` records the sign, that the method solves each velocity component alone, and the
-energy drifts of the table. `--quick` takes 200 particles, 5 steps and 4 cells per axis, `M = 36`;
-each of the four quick runs of the gate exits 0. With
+Maxwellian. K96 of `KNOWN_ISSUES.md` records that the vector field of the spline method has the
+opposite sign of the appendix's `−K⁺LJ`, that the method solves each velocity component alone,
+and the energy drifts of the table. `--quick` takes 200 particles, 5 steps and 4 cells per axis,
+`M = 36`; each of the four quick runs of the gate exits 0. With
 `--quick --method pairwise --tstep 1e-3 --ncell 8` the third step does not converge and the run
 stops at `t = 0.003`; on 4 cells the same run reaches `t = 0.005`.
 

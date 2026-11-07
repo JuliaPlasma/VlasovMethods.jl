@@ -15,7 +15,8 @@
 # form `−8` that `closed_gap_rate` reads from `rate_checks` of `scripts/reference_forms.jl`, and the
 # smallest wall-clock time of `--repeats` evaluations after one evaluation that compiles. Each
 # measured rate is printed with its sign: the spline method's vector field has the opposite sign of
-# the appendix's (K96 of `KNOWN_ISSUES.md`), so its rate lies near `+8`.
+# the appendix's (K96 of `KNOWN_ISSUES.md`), so its rate lies near `+8` where `N ≥ 400` and
+# `M ≥ 289`, and elsewhere differs from `−8` by an amount that the table states.
 #
 # Every row states the rank condition of the appendix method, `dN ≥ M − 1` with `d = 2`, which
 # the appendix needs for `K K⁺ = I` of the stacked matrix `K` of `M` rows and `dN` columns, and

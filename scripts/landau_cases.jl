@@ -291,7 +291,8 @@ end
 
 The run of `method_name` from `options.npart` particles of `case` with `options.seed`, at the
 exponent `options.gamma`, on `options.ncell` quadratic cells per axis, for `options.nsteps` steps
-of `options.tstep`. Returns the times `t`, the velocities `v` and the `diagnostics`.
+of `options.tstep`. Returns the times `t`, the velocities `v`, the `diagnostics` and the
+`halfwidth` of the velocity domain.
 
 Where a step throws a `DomainError` or an `ErrorException`, the record `record` is written with
 `attributes`, the attribute `stopped_at`, the time of that step, and the times and the velocities
