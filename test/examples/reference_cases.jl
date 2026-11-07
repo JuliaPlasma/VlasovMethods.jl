@@ -158,7 +158,8 @@ end
     @test_throws ArgumentError AnisotropicBiMaxwellian(variance_one, 0.0)
     @test_throws ArgumentError AnisotropicBiMaxwellian(variance_one, NaN)
     @test_throws ArgumentError AnisotropicBiMaxwellian(variance_one, Inf)
-    @test_throws "σ1² must be positive and finite" AnisotropicBiMaxwellian(NaN, variance_two)
+    @test_throws r"^ArgumentError: σ1² must be positive and finite, got NaN$" AnisotropicBiMaxwellian(
+        NaN, variance_two)
 
     # the two variances may be of different types, and the type parameter is their promotion:
     # `(Float64, Int)` and `(Int, Float64)` give `Float64`, `(Int, Int)` gives `Int`, and each value
@@ -233,8 +234,8 @@ end
     @test_throws ArgumentError DoubleMaxwellian2D(; weights = (0.5, 0.3, 0.2), variances, means)
     @test_throws ArgumentError DoubleMaxwellian2D(; weights, variances = (
         (0.5, 0.3), (0.3,)))
-    @test_throws "mean pairs of lengths (3, 2)" DoubleMaxwellian2D(; weights, variances,
-        means = ((0.4, 0.0, 0.0), (-0.4, 0.0)))
+    @test_throws r"^ArgumentError: the double Maxwellian is the sum of two components, each of one weight, one pair of variances and one pair of means, and this one has 2 weights, 2 variance pairs of lengths \(2, 2\) and 2 mean pairs of lengths \(3, 2\)$" DoubleMaxwellian2D(;
+        weights, variances, means = ((0.4, 0.0, 0.0), (-0.4, 0.0)))
     @test_throws ArgumentError DoubleMaxwellian2D(; weights,
         variances = ((0.5, 0.3), (0.3, -0.5)), means)
     @test_throws ArgumentError DoubleMaxwellian2D(; weights, variances,
@@ -308,7 +309,7 @@ end
     # the profile is no distribution at a negative time, where its quadratic factor changes sign,
     # and a time that is not finite is refused as such and not as a negative one
     @test_throws ArgumentError BKWDistribution(-0.1)
-    @test_throws "t₀ must be finite" BKWDistribution(NaN)
+    @test_throws r"^ArgumentError: t₀ must be finite, got NaN$" BKWDistribution(NaN)
 
     # t₀ = 0 is a distribution, whose K is 1/2: the profile vanishes quadratically at the origin
     # and every particle takes the branch weighted by |v|²
