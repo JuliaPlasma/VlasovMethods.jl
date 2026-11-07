@@ -44,17 +44,17 @@
 # for the Jeyakumar form, so the temperature relaxes to `T₀` as `T(t) − T₀ ∝ exp(−λ t)` with the
 # closed form `λ = 2ν` for the Dougherty form and `λ = 2ν n₀ / T₀ = ν n₀` for the Jeyakumar form.
 # The weights of the initial particles sum to `n₀ = 1`, so the two closed forms differ by two; at
-# `T₀ = n₀` they would be equal. The check dilates the initial particles about their mean to the
-# temperature `T₀`, contracts them by `1 / √2` to `T₀ / 2`, takes the steps of the run with the
-# implicit midpoint rule, fits `λ` to `ln|T(t) − T₀|` by least squares, and prints the fitted
-# value, the closed form and their relative difference, the control, the other form's rate, and
-# its relative difference to the fit, and the count of the steps whose fixed-point solve stops at
-# its iteration cap (`relax_frozen`). The script exits non-zero, after it has written its files,
-# where the relative difference exceeds `--tolerance` or the control's does not. The table goes to
-# `<stem>_rate.md` in `--results-dir`, the values to attributes of the record, and the times and
-# the temperatures of the check to its datasets `rate_t` and `rate_temperature`. The other two
-# cases run no rate check: on the uniform case the fit of one bracket misses its closed form by
-# more than `5 %` (`docs/src/collisions.md`).
+# `T₀ = n₀` they would be equal. The check scales the initial particles about their mean to the
+# temperature `T₀ / 2`, takes the steps of the run with the implicit midpoint rule, fits `λ` to
+# `ln(T₀ − T(t))` by least squares, and prints the fitted value, the closed form and their
+# relative difference, the control, the other form's rate, and its relative difference to the
+# fit, and the count of the steps whose fixed-point solve stops at its iteration cap
+# (`relax_frozen`). The script exits non-zero, after it has written its files, where the relative
+# difference exceeds `--tolerance`, `0.05` by default, or the control's does not. The table goes
+# to `<stem>_rate.md` in `--results-dir`, the values to attributes of the record, and the times
+# and the temperatures of the check to its datasets `rate_t` and `rate_temperature`. The other two
+# cases run no rate check and take no `--tolerance`: on the uniform case the fit of one bracket
+# misses its closed form by more than `5 %` (`docs/src/collisions.md`).
 #
 # `--quick` takes 200 particles and the final time 0.05 for `shifted-normal`, the final time 0.05
 # for `double-maxwellian`, and the step 1e-3 and the final time 0.05 for `uniform`. The
@@ -70,7 +70,8 @@ const NAME = "lenard_bernstein_metriplectic"
 const CASES = Dict(
     "shifted-normal" =>
         (example = ShiftedNormalV((-5.0, 5.0), 2.0), xdomain = (-5.0, 5.0),
-            paper = (npart = 1000, nbasis = 41, tstep = 8e-4, final_time = 1.0, nu = 1.0),
+            paper = (npart = 1000, nbasis = 41, tstep = 8e-4, final_time = 1.0, nu = 1.0,
+                tolerance = 0.05),
             quick = (npart = 200, final_time = 0.05)),
     "double-maxwellian" =>
         (example = DoubleMaxwellian(; domain = (-5.0, 5.0), shift = 2.0),
@@ -191,10 +192,10 @@ end
 """
     relax_frozen(initial, bracket, options) -> NamedTuple
 
-The rate check's run: the particles of `initial` dilated about their mean to the temperature
-`T₀ = RATE_TEMPERATURE`, then contracted about it by `1 / √2` to `T₀ / 2`, and marched by the
-implicit midpoint rule on `frozen_rhs!` of `bracket` with the density and the mean of `initial`
-and the temperature `T₀`, for the steps of `options`.
+The rate check's run: the particles of `initial` scaled about their mean to the temperature
+`T₀ / 2`, with `T₀ = RATE_TEMPERATURE`, and marched by the implicit midpoint rule on
+`frozen_rhs!` of `bracket` with the density and the mean of `initial` and the temperature `T₀`,
+for the steps of `options`.
 
 Each step solves `x = vⁿ + h v̇((x + vⁿ) / 2)` by the fixed-point iteration damped by
 `RATE_SOLVER_DAMPING`, `x ← x + β r` with the residual `r = vⁿ + h v̇((x + vⁿ) / 2) − x`, until
@@ -214,13 +215,12 @@ function relax_frozen(initial, bracket, options)
     n₀ = sum(w)
     u₀ = dot(w, v₀) / n₀
     T₀ = RATE_TEMPERATURE
-    v₀ = u₀ .+ (v₀ .- u₀) .* sqrt(T₀ / temperature(v₀, w))
     model = MetriplecticLenardBernstein(dist,
         CollisionEntropy(spline_distribution(options.nbasis)); ν = options.nu, bracket)
 
     n = nsteps(options.final_time, options.tstep)
     h = options.tstep
-    v = u₀ .+ (v₀ .- u₀) ./ sqrt(2)
+    v = u₀ .+ (v₀ .- u₀) .* sqrt(T₀ / (2 * temperature(v₀, w)))
     T = [temperature(v, w)]
     v̇ = similar(v)
     r = similar(v)
@@ -249,13 +249,15 @@ end
 """
     fit_rate(t, T, T₀)
 
-The rate `λ` of `T(t) − T₀ ∝ exp(−λ t)`: minus the least-squares slope of `ln|T(t) − T₀|`
-against `t`. Throws an `ArgumentError` where the temperature at the first sample is not positive.
+The rate `λ` of `T₀ − T(t) ∝ exp(−λ t)`, a temperature that relaxes to `T₀` from below: minus
+the least-squares slope of `ln(T₀ − T(t))` against `t`. Throws an `ArgumentError` where a sample
+of `T` reaches or crosses `T₀`.
 """
 function fit_rate(t, T, T₀)
-    first(T) > 0 || throw(ArgumentError(
-        "the temperature at the first sample of the rate check is $(first(T)), not positive"))
-    y = log.(abs.(T .- T₀))
+    all(<(T₀), T) || throw(ArgumentError(
+        "the temperature of the rate check reaches or crosses T₀ = $(T₀): " *
+        "its largest sample is $(maximum(T))"))
+    y = log.(T₀ .- T)
     t̄ = sum(t) / length(t)
     ȳ = sum(y) / length(y)
     return -sum((t .- t̄) .* (y .- ȳ)) / sum((t .- t̄) .^ 2)
@@ -319,8 +321,7 @@ function main(args)
     bracket_name = flag_value(args, "--bracket", "dougherty")
     bracket = choose(BRACKETS, "--bracket", bracket_name)
     quick, options = pd_lb_options(args;
-        paper = (; case = "shifted-normal", bracket = "dougherty", case.paper...,
-            tolerance = 0.05),
+        paper = (; case = "shifted-normal", bracket = "dougherty", case.paper...),
         quick = case.quick)
 
     @printf("%s: %s run, case %s, bracket %s, %d particles, M = %d, h = %g, t = %g\n",

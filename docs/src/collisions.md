@@ -210,9 +210,9 @@ figures 9 and 10 take. Each of the six quick runs exits 0.
 
 With the shifted normal, the driver first runs the rate check of its bracket. The bracket's
 density `n₀` and mean `u₀` are frozen at those of the initial particles and its temperature at
-`T₀ = 2`, the coefficients of the Ornstein–Uhlenbeck limit. The particles are dilated about their
-mean to the temperature `T₀` and contracted by `1 / √2`, so that they start at `T₀ / 2 = 1`. In
-the continuum limit, where `S_γ / w_γ` is `∂ᵥ log f`, the Dougherty form is
+`T₀ = 2`, the coefficients of the Ornstein–Uhlenbeck limit. The particles are scaled about their
+mean to the temperature `T₀ / 2 = 1`, from which they relax to `T₀`. In the continuum limit,
+where `S_γ / w_γ` is `∂ᵥ log f`, the Dougherty form is
 `v̇ = −ν T₀ ∂ᵥ log f − ν (v − u₀)`, and the Jeyakumar form is the same times `n₀ / T₀`, so the
 temperature relaxes to `T₀` as `exp(−λ t)` with
 
@@ -224,26 +224,27 @@ temperature relaxes to `T₀` as `exp(−λ t)` with
 The Jeyakumar rate carries the temperature and the Dougherty rate does not. The weights of the
 particles sum to `n₀ = 1`, so at `T₀ = 2` the two closed forms differ by two; at a temperature
 near `n₀`, such as the unit variance of the sample, they would be equal up to its sampling
-error. The driver fits `λ` to `ln|T(t) − T₀|` over the run and exits non-zero where the fit
-differs from the closed form of its bracket by more than `--tolerance`, 5 %, or from the
-control, the closed form of the other bracket, by less. With the parameters above:
+error. The driver fits `λ` to `ln(T₀ − T(t))` over the run, stops with an `ArgumentError` where
+a temperature reaches or crosses `T₀`, and exits non-zero where the fit differs from the closed
+form of its bracket by more than `--tolerance`, 5 %, or from the control, the closed form of the
+other bracket, by less. Only the shifted normal takes `--tolerance`. With the parameters above:
 
 | bracket | fitted `λ` | closed form | relative difference | control | control's relative difference |
 |:--|--:|--:|--:|--:|--:|
 | Dougherty | 1.989115 | `2ν` = 2.000000 | `5.4e-3` | `ν n₀` = 1.000000 | `9.9e-1` |
-| Jeyakumar | 0.993992 | `ν n₀` = 1.000000 | `6.0e-3` | `2ν` = 2.000000 | `5.0e-1` |
+| Jeyakumar | 0.993993 | `ν n₀` = 1.000000 | `6.0e-3` | `2ν` = 2.000000 | `5.0e-1` |
 
 Each step of the check solves the implicit midpoint rule by a fixed-point iteration damped by
 `1/2`. Where a particle in a sparse tail sits where `f_s` is small, the step is stiff and the
 iteration stalls; after 1000 iterations the step takes the last iterate, and the driver prints
 how many steps did so: 1 of the 1250 for the Dougherty form and 2 for the Jeyakumar form, at a
-largest residual of `1.5e-3` and `2.0e-4`. The quick run, 200 particles to `t = 0.05`, fits
+largest residual of `3.1e-3` and `2.1e-4`. The quick run, 200 particles to `t = 0.05`, fits
 `1.969792` against `2` and `0.998385` against `1`, within `1.5 %` and `0.16 %`, with controls
 `97 %` and `50 %` away, and no step at the cap. With `--quick --npart 2000` the fits are
-`1.999775` and `1.000624`, with controls `100 %` and `50 %` away.
+`1.999774` and `1.000624`, with controls `100 %` and `50 %` away.
 
 The check runs on the shifted normal only, the default case, because the closed form is not met
-at the stated tolerance on every case. With the same dilation, the same frozen `T₀ = 2` and the
+at the stated tolerance on every case. With the same scaling, the same frozen `T₀ = 2` and the
 rate check's solver, the fits differ from their closed forms by:
 
 | case | parameters | Dougherty | Jeyakumar |

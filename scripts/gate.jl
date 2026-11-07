@@ -53,10 +53,12 @@
 # these two, that the record's `rate_temperature` starts at `1`, that the fitted rate lies within a
 # relative `5 %` of the closed form, and that it lies more than `5 %` from the control. The record
 # of the double Maxwellian with the Dougherty bracket must start from the velocities that
-# `DoubleMaxwellian` draws after `Random.seed!(1)`. Five more runs check its edges:
+# `DoubleMaxwellian` draws after `Random.seed!(1)`. Six more runs check its edges:
 #
 # - `--case maxwellian` and `--bracket landau`: each exits non-zero with the `ArgumentError` that
 #   names the flag and the value, and creates neither `--runs-dir` nor `--results-dir`;
+# - `--case uniform` with `--tolerance`, an option of the shifted normal alone: it exits non-zero
+#   with the `ArgumentError` that names `--tolerance`, and creates neither directory;
 # - the shifted normal with the Dougherty bracket and 1000 particles, where the Picard solve of the
 #   sixth step does not converge: it exits non-zero, writes no figure, and writes its record with
 #   `commit`, `command`, `stopped_at = 6 * 8e-4`, the five steps reached in `t` and `z`, and the 64
@@ -67,10 +69,10 @@
 #   figures and its record, says that the rate check fails and exits non-zero.
 #
 # The gate also includes the driver in a module of its own and checks that `fit_rate` throws an
-# `ArgumentError` where the temperature at the first sample is zero or negative, that
-# `flag_value` takes the default where the flag is the last argument, and that `march` of the 200
-# particles of the quick shifted normal over three steps returns the initial particles at the
-# first column of its velocities and the final ones at the last.
+# `ArgumentError` where a temperature reaches or crosses `T₀`, that it fits the rate of an exact
+# exponential, that `flag_value` takes the default where the flag is the last argument, and that
+# `march` of the 200 particles of the quick shifted normal over three steps returns the initial
+# particles at the first column of its velocities and the final ones at the last.
 #
 # Beside the runs, the gate includes `pd_lb_common.jl` and checks `--quick`, the step count and the
 # spline basis directly.
@@ -323,6 +325,7 @@ mplb = [start(MPLB_SCRIPT, ["--quick", "--case", case, "--bracket", bracket])
         for bracket in ("dougherty", "jeyakumar")]
 unknown_case = start(MPLB_SCRIPT, ["--quick", "--case", "maxwellian"])
 unknown_bracket = start(MPLB_SCRIPT, ["--quick", "--bracket", "landau"])
+untolerant = start(MPLB_SCRIPT, ["--quick", "--case", "uniform", "--tolerance", "0.05"])
 unsolved = start(MPLB_SCRIPT, ["--quick", "--bracket", "dougherty", "--npart", "1000"])
 tight = start(MPLB_SCRIPT, ["--quick", "--tolerance", "1e-3"])
 loose = start(MPLB_SCRIPT, ["--quick", "--tolerance", "1.5"])
@@ -340,7 +343,7 @@ atexit(() -> foreach(
     job -> process_running(job.process) && kill(job.process, Base.SIGKILL),
     [jobs; mplb; landau;
      [stray, stop, other, miss, halt, unmade, unknown_case, unknown_bracket,
-         unsolved, tight, loose, landau_rate, landau_stop, landau_tight, compare]]))
+         untolerant, unsolved, tight, loose, landau_rate, landau_stop, landau_tight, compare]]))
 
 println("the helpers of pd_lb_common.jl")
 let dirs = ["--runs-dir", mktempdir(), "--results-dir", mktempdir()],
@@ -373,15 +376,19 @@ check(
     "41 cubic basis functions lie on 38 cells")
 
 println("the rate fit of lenard_bernstein_metriplectic.jl")
-for first_temperature in (0.0, -1.0)
+for (temperatures, where) in (([1.0, 2.0, 1.5], "reaches"), ([1.0, 2.5, 3.0], "crosses"))
     check(
         try
-            MPLB.fit_rate([0.0, 1.0], [first_temperature, 0.5], 1.0)
+            MPLB.fit_rate([0.0, 1.0, 2.0], temperatures, 2.0)
             false
         catch e
             e isa ArgumentError
         end,
-        "fit_rate throws an ArgumentError where the first temperature is $(first_temperature)")
+        "fit_rate throws an ArgumentError where the temperature $(where) T₀: $(temperatures)")
+end
+let t = collect(0:0.1:1), fitted = MPLB.fit_rate(t, 2.0 .- exp.(-3 .* t), 2.0)
+    check(isapprox(fitted, 3.0; rtol = 1e-12),
+        "fit_rate gives the rate 3 of T₀ − exp(−3 t): $(fitted)")
 end
 check(
     MPLB.flag_value(["--npart", "5", "--case"], "--case", "uniform") == "uniform" &&
@@ -576,6 +583,14 @@ for (job, flag, value) in ((unknown_case, "--case", "maxwellian"), (
     check(occursin("ArgumentError: unknown $(flag) `$(value)`", edge_output),
         "it stops with the ArgumentError that names $(flag) and $(value)")
     check(!ispath(job.runs) && !ispath(job.results),
+        "it creates neither --runs-dir nor --results-dir")
+end
+
+println("$(MPLB_SCRIPT) --case uniform with --tolerance, which only the shifted normal takes")
+let edge_output = finish(untolerant; fails = true, timed = false)
+    check(occursin("ArgumentError: unknown argument `--tolerance`", edge_output),
+        "it stops with the ArgumentError that names --tolerance")
+    check(!ispath(untolerant.runs) && !ispath(untolerant.results),
         "it creates neither --runs-dir nor --results-dir")
 end
 
