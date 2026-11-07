@@ -153,9 +153,11 @@ their own, except for what they removed and narrowed, which is listed in full be
   spline basis throws the projection's `DomainError` with either rule: the rule's nodes lie
   strictly inside the segment, and the state they accept can be outside the domain where none of
   them is.
-  At the state relaxed by 250 steps, after the tenth evaluation the `AVFGradient(5)` iteration
-  stays within one rounding unit of the velocities (relative increment at most `6.7e-13`), while
-  the largest increment of the `GonzalezGradient` iteration lies between `1.50e-11` and `4.71e-11`.
+  At the state relaxed by 250 steps, and at 15 copies of it moved by up to 2 ulps, the
+  evaluations 11 to 40 of the iteration have a largest increment `‖vₖ₊₁ − vₖ‖∞`, divided by the
+  step displacement `‖vₖ₊₁ − vⁿ‖∞ ≈ 6.65e-4`, of at most `6.7e-13` with `AVFGradient(5)`: one
+  rounding unit of the largest velocity, `eps(3.70) = 4.4e-16`, over the displacement. With
+  `GonzalezGradient` the same figure lies between `1.50e-11` and `4.71e-11`.
 
 ### Documentation
 
