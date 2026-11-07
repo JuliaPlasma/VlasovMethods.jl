@@ -189,8 +189,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   `f = (2πK)⁻¹ exp(−v²/(2K))[(4K − 2)/(2K) + (1 − K)v²/(2K²)]` at `K(t) = 1 − exp(−2t)/2`, which is
   the paper's `K = 1 − exp(−t/8)/2` at the rate the factor sixteen gives between its kernel
   `(|z|² I − z ⊗ z)/16` and this package's `U = |z|² (I − û ûᵀ)`. At `10⁵` particles and the seed
-  `20261107` its two variances deviate from `1` by `−3.08` and `−0.06` standard errors and its
-  fourth moment from the profile's `7.1013` by `−2.06` of the sample's own standard error, which
+  `20261107` its two variances deviate from `1` by `−1.38` and `−0.17` standard errors and its
+  fourth moment from the profile's `7.1013` by `−0.51` of the sample's own standard error, which
   tells it from a Gaussian's `8`. A time that is not finite, or that is negative, throws an
   `ArgumentError`. The new file `test/examples/reference_cases.jl` holds the three types' tests, in
   the `core` group.
@@ -262,7 +262,7 @@ their own, except for what they removed and narrowed, which is listed in full be
   and fourth moment with the equation of the fourth moment at the four times `0.1`, `0.3`, `0.6`
   and `0.9`. Every comparison agrees to `1e-10` relative, measured between `1.6e-15` and `5.6e-14`,
   and the control, the rate's constant `4` in place of `8`, misses by a relative `1.0`. The
-  profile's sample of `10⁵` particles at `t₀ = 0.2` lies within `3.08` standard errors of its
+  profile's sample of `10⁵` particles at `t₀ = 0.2` lies within `1.38` standard errors of its
   moments. The conservation of mass by the weak form is an identity of the test function — `φ = 1`
   has no gradient — and the conservation of energy an identity of the kernel, `U(u) u = 0`, so
   neither is among the checks: the file states both and checks only what can fail. A run without
