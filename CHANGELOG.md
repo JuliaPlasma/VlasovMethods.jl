@@ -144,22 +144,18 @@ their own, except for what they removed and narrowed, which is listed in full be
   nodes and weights, computed in `Float64` in the constructor by Newton's method on the Legendre
   polynomial; a weight or a node is converted to the element type of the velocities at each use,
   so the rule runs in `Float32` as in `Float64`. A call takes `nq` evaluations of `∇S_h` and no
-  `S_h`, allocates nothing after a warm call, and an `nq` below 1 throws an `ArgumentError`. Its
+  `S_h`, except at `v1 = v0`, where it takes one and returns `∇S_h(v0)` bit for bit, as
+  `GonzalezGradient` does; so the first evaluation of each step takes one `∇S_h`, not `nq`. A call
+  allocates nothing after a warm call, and an `nq` below 1 throws an `ArgumentError`. Its
   identity holds to the quadrature error and not to rounding, because `S_h` is not a polynomial,
   where the `GonzalezGradient`'s holds to rounding; `nq = 1` is the midpoint gradient. A step
   projects the accepted state before the particles take it, so a state outside the domain of the
   spline basis throws the projection's `DomainError` with either rule: the rule's nodes lie
   strictly inside the segment, and the state they accept can be outside the domain where none of
   them is.
-  On the fixture of `test/helpers/pairwise_landau.jl` at 144 particles, quadratic splines on 8 × 8
-  cells and a load of about 7, one call takes 271 µs at `nq = 5` against 121 µs for the
-  `GonzalezGradient`. The new tests check the rule's exactness on `τ^k` for `k ≤ 2nq − 1`, the
-  identity at a step's displacement and its fall with `nq`, one step's momentum and energy, 20
-  steps of the discrete H-theorem beside the midpoint rule as the control, and the increments of
-  the iteration at the state relaxed by 250 steps, where after the tenth evaluation the
-  `AVFGradient(5)` iteration stays within one rounding unit of the velocities (relative increment
-  at most `6.7e-13`), while the largest increment of the `GonzalezGradient` iteration lies between
-  `1.50e-11` and `4.71e-11`.
+  At the state relaxed by 250 steps, after the tenth evaluation the `AVFGradient(5)` iteration
+  stays within one rounding unit of the velocities (relative increment at most `6.7e-13`), while
+  the largest increment of the `GonzalezGradient` iteration lies between `1.50e-11` and `4.71e-11`.
 
 ### Documentation
 
