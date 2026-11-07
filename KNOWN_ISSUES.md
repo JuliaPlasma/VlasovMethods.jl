@@ -677,9 +677,8 @@ has left the file, or that lived only on a merged branch, stays taken.
   | 32 × 32 | the step throws, last residual 2.0e-6 |
 
   The closed rate is `8`. The 16 × 16 mesh is within the testset's 5 % clamp, and 20 × 20 is not,
-  so the agreement at 16 × 16 is not shown to be a converged one. The control of the testset,
-  `ncell = 8, L = 4.0, Δt = 1e-4`, gives 1.859; it changes the cell count, the domain and `Δt`
-  together, so it does not isolate the mesh. With `L = 4.0` at 8 × 8 cells, `Δt = 1e-5` gives
-  1.9574.
+  so the agreement at 16 × 16 is not shown to be a converged one. The control of the testset is
+  the 8 × 8 row, and it shows only that the rate depends on the mesh. On `[-4, 4]²` at 8 × 8
+  cells the rate is 1.859 at `Δt = 1e-4` and 1.9574 at `Δt = 1e-5`.
 - **kind:** defect
 - **found:** #119

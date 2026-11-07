@@ -349,9 +349,9 @@ end
     @test abs(fine.rate - 8) ≤ 0.05 * 8
     @test fine.trace_drift ≤ 1e-12
 
-    # the control: 8 × 8 cells of [-4, 4]², whose width is a Gaussian's, lose the rate, outside the
-    # clamp of the fine mesh
-    coarse = fitted_rate(reference_model(v, w; ncell = 8, L = 4.0), 1e-4, 30)
-    @test coarse.rate < 5
+    # the control: 8 × 8 cells of the same domain at the same Δt, which change only the mesh, lose
+    # the rate (10.25), outside the clamp of the fine mesh. The rate does not converge as the mesh
+    # is refined: K91 of KNOWN_ISSUES.md
+    coarse = fitted_rate(reference_model(v, w; ncell = 8, L = 3.0), 1e-5, 30)
     @test abs(coarse.rate - 8) > 0.05 * 8
 end
