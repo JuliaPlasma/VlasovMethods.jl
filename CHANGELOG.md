@@ -258,14 +258,17 @@ their own, except for what they removed and narrowed, which is listed in full be
   its Picard solve takes the absolute tolerance `8·eps·‖v⁰‖₂`, a fixed multiple of the round-off of
   the residual's norm, in place of `3e-16·√N`. With the shifted normal it first runs a rate check:
   the bracket's density and mean frozen at those of the initial particles and its temperature at
-  `T₀ = 2`, the particles dilated to `T₀` and contracted to `T₀ / 2`, and the fitted relaxation
+  `T₀ = 2`, the particles scaled about their mean to `T₀ / 2`, and the fitted relaxation
   rate of the temperature against the closed form `2ν` of the Dougherty form and
-  `2ν n₀ / T₀ = ν n₀` of the Jeyakumar form, with the other form's rate as the control. At the
-  manuscript's parameters the fits differ from the closed forms by `5.4e-3` and `6.0e-3` and from
-  the controls by `9.9e-1` and `5.0e-1`. Every run at these parameters stops where the Picard
-  solve of a step does not converge (K95), so `docs/src/collisions.md` lists the stops in place
-  of figures. `scripts/gate.jl` runs the six quick runs, the two unknown values, a stopped run
-  and two runs whose rate check fails, one on its closed form and one on its control.
+  `2ν n₀ / T₀ = ν n₀` of the Jeyakumar form, with the other form's rate as the control. The
+  driver exits non-zero where the fit differs from the closed form by more than `--tolerance`,
+  `0.05` by default, or from the control by no more than that; only the shifted normal takes
+  `--tolerance`. At the manuscript's parameters the fits differ from the closed forms by
+  `5.4e-3` and `6.0e-3` and from the controls by `9.9e-1` and `5.0e-1`. Every run at these
+  parameters stops where the Picard solve of a step does not converge (K95), so
+  `docs/src/collisions.md` lists the stops in place of figures. `scripts/gate.jl` runs the six
+  quick runs, the two unknown values, `--tolerance` on the uniform case, a stopped run and two
+  runs whose rate check fails, one on its closed form and one on its control.
 - **`scripts/reference_forms.jl` derives the two closed forms of the 2D reference cases and checks
   them against the moment equations.** The header derives the rate of the second moments at the
   Maxwell molecules of `γ = 0` — `d(T₁₁ − T₂₂)/dt = −8 (T₁₁ − T₂₂)` at density one, unit mass and
