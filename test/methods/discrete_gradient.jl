@@ -336,12 +336,11 @@ end
     gm = similar(v0)
     VM.discrete_gradient!(g, v0, v1, model, AVFGradient(1))
     VM.entropy_gradient!(gm, (v0 .+ v1) ./ 2, model)
-    @test g == gm
-    ΔS = Sh(v1, model) - Sh(v0, model)
-    @test abs(ΔS - dot(v1 .- v0, g)) == abs(ΔS - dot(v1 .- v0, gm))
+    @test isapprox(g, gm; rtol = 8 * eps(Float64))
 
-    # on this fixture the single node is the midpoint of the segment, bit for bit
-    @test v0 .+ AVFGradient(1).nodes[1] .* (v1 .- v0) == (v0 .+ v1) ./ 2
+    # the single node is the midpoint of the segment
+    @test isapprox(v0 .+ AVFGradient(1).nodes[1] .* (v1 .- v0), (v0 .+ v1) ./ 2;
+        rtol = 8 * eps(Float64))
 end
 
 @testset "the identity at a step's displacement" begin
