@@ -164,18 +164,18 @@ their own, except for what they removed and narrowed, which is listed in full be
 - **`AnisotropicBiMaxwellian`** is the centred bi-Maxwellian of two temperatures, one of the three
   2D reference cases of the Landau collision methods. `AnisotropicBiMaxwellian(σ1², σ2²; seed)`
   fills the two velocity components from `Random.MersenneTwister(seed)`, which the type holds as the
-  field `seed`, so that the sample is the seed's own and not the global RNG's, and it keeps the
-  weights the distribution holds. At `10⁵` particles and the seed `20261107` its means, variances
-  and covariance deviate from `0`, `0`, `0.5`, `0.3` and `0` by `1.37`, `0.04`, `0.44`, `−0.98` and
-  `−0.05` standard errors, and over the four seeds `20261107`, `1`, `2` and `3` none by more than
-  `2.18`. A variance that is not positive and finite throws an `ArgumentError`, and a distribution
+  field `seed`, so that the sample is the seed's own and not the global RNG's, and it sets the
+  weights to `1/N`, as the other examples in `src/examples/` do. At `10⁵` particles and the seed
+  `20261107` its means, variances and covariance deviate from `0`, `0`, `0.5`, `0.3` and `0` by
+  `1.37`, `0.04`, `0.44`, `−0.98` and `−0.05` standard errors, and over the four seeds `20261107`,
+  `1`, `2` and `3` none by more than `2.18`. A variance that is not positive and finite throws an `ArgumentError`, and a distribution
   of one or three velocity components a `DimensionMismatch`.
 - **`DoubleMaxwellian2D`** is the sum of two displaced Maxwellians, the second 2D reference case.
   `DoubleMaxwellian2D(; weights, variances, means, seed)` draws each component from the seed's own
   generator, the first taking the share `round(weights[1] * N)` of the `N` particles, and it sets
-  the weights to `1/N` as the examples above do. At `10⁵` particles its mean deviates from the
-  exact `(0.08, 0)` by `1.73` and `−0.85` standard errors and its two variances from the mixture's
-  `0.5736` and `0.38` by `0.44` and `−0.08`. Weights that are negative or sum to other than one
+  the weights to `1/N`. At `10⁵` particles its mean deviates from the exact `(0.08, 0)` by `1.73`
+  and `−0.85` standard errors and its two variances from the mixture's `0.5736` and `0.38` by
+  `0.44` and `−0.08`. Weights that are negative or sum to other than one
   throw an `ArgumentError`, as do a component count other than two, a variance or mean pair of other
   than two velocity components, a variance that is not positive and finite, and a mean that is not
   finite.

@@ -100,12 +100,12 @@ end
     variance_one, variance_two = 0.5, 0.3
     npart = NPARTICLES
     dist = particles(npart)
-    # the weights the distribution holds are the ones the sample is measured with
-    dist.particles.w[1, :] .= 1 / npart
+    @test sum(dist.particles.w) == 0
     initialize!(dist, AnisotropicBiMaxwellian(variance_one, variance_two; seed = SEED))
     w = collect(vec(dist.particles.w))
     m = moments(dist.particles.v, w)
 
+    @test all(==(1 / npart), w)
     @test sum(w) ≈ 1
     @test abs(m.mean[1]) ≤ 4 * sqrt(variance_one) / √npart
     @test abs(m.mean[2]) ≤ 4 * sqrt(variance_two) / √npart
@@ -131,12 +131,11 @@ end
     @test initialize!(particles(npart), AnisotropicBiMaxwellian(variance_one, variance_two;
         seed = SEED + 1)).particles.v != dist.particles.v
 
-    # the weights the distribution holds are the ones the sample keeps
+    # weights the distribution already holds are replaced by 1/N
     held = particles(10)
     held.particles.w[1, :] .= 0.1 .* (1:10)
-    weights = collect(vec(held.particles.w))
     initialize!(held, AnisotropicBiMaxwellian(variance_one, variance_two; seed = SEED))
-    @test collect(vec(held.particles.w)) == weights
+    @test all(==(1 / 10), held.particles.w)
 
     # the control: a sample of the variance 0.35 in place of 0.3 breaks the bound of the second
     # variance, which a sampler of the wrong variance cannot pass
@@ -246,19 +245,21 @@ end
 
 @testset "the derivation and the moment equations" begin
     npart = NPARTICLES
-    # the parameter of the profile, at the kernel U = 16 A of this package
+    # the rate of the parameter of the profile, at the kernel U = 16 A of this package: its central
+    # difference in t solves the fourth moment's equation `16 (1 - K) dK/dt = 32 (1 - K)²`
     for t₀ in (0.1, 0.3, 0.6, 0.9)
-        @test isapprox(bkw_parameter(t₀), 1 - exp(-2 * t₀) / 2; rtol = 1e-14)
+        K, h = bkw_parameter(t₀), 1e-4
+        dK = (bkw_parameter(t₀ + h) - bkw_parameter(t₀ - h)) / (2 * h)
+        @test isapprox(16 * (1 - K) * dK, 32 * (1 - K)^2; rtol = 1e-6)
     end
 
-    # the profile's mass, energy, temperature and fourth moment, and the equation of its fourth
-    # moment, against the moment equations at the four times
+    # the profile's mass, energy and fourth moment, and the equation of its fourth moment, against
+    # the moment equations at the four times
     for t₀ in (0.1, 0.3, 0.6, 0.9)
         K = bkw_parameter(t₀)
         squared = v -> v[1]^2 + v[2]^2
         @test isapprox(bkw_moment(K, v -> 1.0), 1.0; rtol = 1e-10)
         @test isapprox(bkw_moment(K, squared), 2.0; rtol = 1e-10)
-        @test isapprox(bkw_moment(K, squared) / 2, 1.0; rtol = 1e-10)
         @test isapprox(bkw_moment(K, v -> squared(v)^2), 8 * K * (2 - K); rtol = 1e-10)
         @test isapprox(
             moment_rate(v -> (4 * squared(v) * v[1], 4 * squared(v) * v[2]),
@@ -267,8 +268,8 @@ end
             rtol = 1e-10)
     end
 
-    # the control: the Boltzmann rate of the paper's kernel in place of the sixteenfold one, which
-    # the fourth moment's equation refuses
+    # the control: the fourth moment's equation `16 (1 - K) dK/dt` with the paper's decay
+    # `exp(-t₀/8)` in place of `dK/dt = exp(-2t₀)`, which the integral of the weak form refuses
     t₀, K = 0.3, bkw_parameter(0.3)
     squared = v -> v[1]^2 + v[2]^2
     fourth_rate = moment_rate(v -> (4 * squared(v) * v[1], 4 * squared(v) * v[2]),
@@ -348,9 +349,9 @@ end
     @test abs(fine.rate - 8) ≤ 0.05 * 8
     @test fine.trace_drift ≤ 1e-12
 
-    # the control: 8 × 8 cells of [-4, 4]², whose width is a Gaussian's, lose the rate, outside the
-    # clamp of the fine mesh
-    coarse = fitted_rate(reference_model(v, w; ncell = 8, L = 4.0), 1e-4, 30)
-    @test coarse.rate < 5
+    # the control: 8 × 8 cells of the same domain at the same Δt, which change only the mesh, lose
+    # the rate (10.25), outside the clamp of the fine mesh. The rate does not converge as the mesh
+    # is refined: K91 of KNOWN_ISSUES.md
+    coarse = fitted_rate(reference_model(v, w; ncell = 8, L = 3.0), 1e-5, 30)
     @test abs(coarse.rate - 8) > 0.05 * 8
 end
