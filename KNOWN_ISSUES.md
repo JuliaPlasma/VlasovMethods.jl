@@ -711,3 +711,21 @@ has left the file, or that lived only on a merged branch, stays taken.
   not a contraction.
 - **kind:** defect
 - **found:** 2026-11-07
+
+### K96 · `collisional_vectorfield!` of `Landau` returns `v̇ = +ν K⁺LJ`, where the appendix of the Landau manuscript and its implicit midpoint step give `−K⁺LJ`, and it solves each velocity component alone, where the appendix inverts the stacked matrix `K`.
+
+- **location:** `src/models/landau.jl:589-593`
+- **evidence:** `eq:particle_ode_final` and `eq:particle_ode_midpoint` of the manuscript's
+  appendix give `v̇ = −K⁺ L J`; the code solves `v̇[c, :] = K_c \ LJ` for each component `c` and
+  scales by `ν`, with no minus sign. On the weighted lattice of `N = 60²` particles on
+  `[−3.4, 3.4]²` with `16 × 16` quadratic cells on `[−3.5, 3.5]²` (`M = 324`), at `γ = 0`,
+  `julia --project=scripts scripts/landau_compare.jl` measures the instantaneous
+  `(d gap/dt) / gap` of `gap = T₁₁ − T₂₂` at `+8.0055` for `Landau` and at `−8.0095` for
+  `PairwiseLandau`, against the closed form `−8` of `scripts/reference_forms.jl`: under `Landau`
+  the anisotropy grows at the rate at which it should decay. On the same particles, after one
+  evaluation, `rank(K₁) = 302` and `rank(K₂) = 306` of `M = 324`, while the stacked `[K₁ K₂]` has
+  the rank `323 = M − 1` that `dN ≥ M − 1` gives; each `K_c K_c⁺` projects onto the range of `K_c`
+  alone, so `‖K₁ v̇₁ + K₂ v̇₂ − LJ‖ / ‖LJ‖ = 0.73` where `K K⁺ = I` of the appendix would make it
+  zero. `scripts/landau_cases.jl` therefore refuses `--rate-check` with `--method spline`.
+- **kind:** defect
+- **found:** 2026-11-07

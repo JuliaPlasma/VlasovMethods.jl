@@ -282,6 +282,33 @@ their own, except for what they removed and narrowed, which is listed in full be
   has no gradient — and the conservation of energy an identity of the kernel, `U(u) u = 0`, so
   neither is among the checks: the file states both and checks only what can fail. A run without
   `--check` prints the same table and writes it, with the command line, into `--results-dir`.
+- **`scripts/landau_cases.jl` runs the three 2D reference cases of the Landau operator under
+  either method, and `scripts/landau_compare.jl` sets the two methods side by side.**
+  `landau_cases.jl` takes `--method pairwise` (`PairwiseLandau` with its discrete gradient step)
+  or `--method spline` (`Landau`, the appendix method, with its implicit midpoint step); the flag
+  has no default. `--case` takes `bimaxwellian`, the default, `double-maxwellian` or `bkw`, drawn
+  by `AnisotropicBiMaxwellian`, `DoubleMaxwellian2D` and `BKWDistribution`, and `--gamma` the
+  exponent of the kernel, `−3` by default. A method or a case that is none of these stops the
+  script with an `ArgumentError` that names the flag and the value, and a missing method with one
+  that names the flag, before any directory is created. Each run writes one HDF5 file with
+  `commit`, `command`, `script` and one attribute per option, and the figures `conservation` and
+  `entropy` through `plot_drift` and `plot_entropy`; a step that throws stops the run as a PD-LB
+  run stops. `--rate-check` checks the pairwise method at `γ = 0` on a weighted lattice of `60²`
+  particles with `16 × 16` quadratic cells: the instantaneous `λ = −(d gap/dt) / gap` of
+  `gap = T₁₁ − T₂₂` at `t = 0` against the closed rate `8` that `rate_checks` of
+  `reference_forms.jl` gives, within `2 %`, with the constant `4` as the control. It measures
+  `8.009493`, `1.2e-3` from `8`. The check refuses `γ ≠ 0`, where no closed rate exists, and
+  `--method spline`, whose vector field has the opposite sign of the appendix's: on the same
+  particles its `(d gap/dt) / gap` is `+8.0055`, where the pairwise method's is `−8.0095` (K96 of
+  `KNOWN_ISSUES.md`). `landau_compare.jl` measures both methods at `γ = 0` over lattices of `N`
+  particles and splines of `M` basis functions: the instantaneous `(d gap/dt) / gap` with its
+  sign, its relative error against the closed form `−8`, the wall-clock time of one evaluation of
+  the vector field, the appendix's rank condition `dN ≥ M − 1` on every row and whether every
+  support holds a particle, in a Markdown table and one figure per method through `plot_cost`.
+  `scripts/gate.jl` runs the quick runs of both scripts, the rate check, a stopped run and a rate
+  check that fails, and checks the refused rate checks, the unknown and missing values, the rank
+  column of every row and a search for ranking words over the output, the tables, the docs
+  section and this entry.
 
 ### Documentation
 
