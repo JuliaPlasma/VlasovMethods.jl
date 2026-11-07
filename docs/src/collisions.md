@@ -12,8 +12,8 @@ the `git rev-parse HEAD` of the checkout or `"unknown"` outside one, the attribu
 driver's arguments joined by spaces, the attribute `script`, the driver's file name, and one
 attribute per option. A directory that does not exist is created.
 
-A driver loads `CairoMakie` and draws each figure with one of the plotting functions below; it
-builds no figure itself.
+A driver loads `CairoMakie` and draws each figure with one of the collision figures' plotting
+functions, which the page [Plotting](plotting.md) documents; it builds no figure itself.
 
 The flag `--quick` replaces some of the manuscript's parameters with smaller ones.
 `scripts/gate.jl` runs every driver with it, in a process of its own and into a temporary
@@ -26,17 +26,6 @@ julia --startup-file=no --project=scripts scripts/gate.jl
 
 The measured times below are of one run each on an Apple M4 Max with Julia 1.13.3, one driver at
 a time.
-
-## The plotting functions
-
-```@docs
-plot_collision_distribution
-plot_drift
-plot_entropy
-plot_error
-plot_convergence
-plot_cost
-```
 
 ## Particle discretisation of the Lenard–Bernstein operator
 
@@ -106,8 +95,8 @@ seeded with `--seed 1`. Figure 7 is the initial and the final distribution, and 
 entropy. Files: `pd_lb_fig7.pdf`, `pd_lb_fig8.pdf`, `pd_lb_fig7_8.hdf5`.
 
 The run with the manuscript's parameters, 6250 steps, stops after 289 s, in the step 1768 to
-`t = 1.4144`: the projection of the particles is `-1.58e-7` at `v = -6.42`, so `f_s'/f_s` of the
-conservative operator is undefined and the run throws the projection's `DomainError`. As the rule
+`t = 1.4144`: the projection of the particles is `-1.58e-7` at `v = -6.42`, and the conservative
+operator, which requires `f_s > 0`, throws the `DomainError` of `compute_coefficients`. As the rule
 above says for a single run, the driver writes `pd_lb_fig7_8.hdf5` with `stopped_at = 1.4144`
 and the 1767 steps reached, writes no figure and exits non-zero; K94 records the stop.
 

@@ -164,20 +164,21 @@ their own, except for what they removed and narrowed, which is listed in full be
 - **`AnisotropicBiMaxwellian`** is the centred bi-Maxwellian of two temperatures, one of the three
   2D reference cases of the Landau collision methods. `AnisotropicBiMaxwellian(σ1², σ2²; seed)`
   fills the two velocity components from `Random.MersenneTwister(seed)`, which the type holds as the
-  field `seed`, so that the sample is the seed's own and not the global RNG's, and it keeps the
-  weights the distribution holds. At `10⁵` particles and the seed `20261107` its means, variances
-  and covariance deviate from `0`, `0`, `0.5`, `0.3` and `0` by `1.37`, `0.04`, `0.44`, `−0.98` and
-  `−0.05` standard errors, and over the four seeds `20261107`, `1`, `2` and `3` none by more than
-  `2.18`. A variance that is not positive and finite throws an `ArgumentError`, and a distribution
+  field `seed`, so that the sample is the seed's own and not the global RNG's, and it sets the
+  weights to `1/N`, as the other examples in `src/examples/` do. At `10⁵` particles and the seed
+  `20261107` its means, variances and covariance deviate from `0`, `0`, `0.5`, `0.3` and `0` by
+  `1.37`, `0.04`, `0.44`, `−0.98` and `−0.05` standard errors, and over the four seeds `20261107`,
+  `1`, `2` and `3` none by more than `2.18`. A variance that is not positive and finite throws an `ArgumentError`, and a distribution
   of one or three velocity components a `DimensionMismatch`.
 - **`DoubleMaxwellian2D`** is the sum of two displaced Maxwellians, the second 2D reference case.
   `DoubleMaxwellian2D(; weights, variances, means, seed)` draws each component from the seed's own
   generator, the first taking the share `round(weights[1] * N)` of the `N` particles, and it sets
-  the weights to `1/N` as the examples above do. At `10⁵` particles its mean deviates from the
-  exact `(0.08, 0)` by `1.73` and `−0.85` standard errors and its two variances from the mixture's
-  `0.5736` and `0.38` by `0.44` and `−0.08`. Weights that are negative or sum to other than one
-  throw an `ArgumentError`, as do a component count other than two, a variance or mean pair of other
-  than two velocity components, a variance that is not positive and finite, and a mean that is not
+  the weights to `1/N`. At `10⁵` particles its mean deviates from the exact `(0.08, 0)` by `2.02`
+  and `−0.85` of the standard errors `√(0.42/N)` and `√(0.38/N)` of a sample of fixed component
+  counts, and its two variances from the mixture's `0.5736` and `0.38` by `0.44` and `−0.08` of
+  the Gaussian standard error `σ²√(2/N)`. Weights that are negative or sum to other than one throw
+  an `ArgumentError`, as do a component count other than two, a variance or mean pair of other than
+  two velocity components, a variance that is not positive and finite, and a mean that is not
   finite.
 - **`BKWDistribution`** samples the two-dimensional BKW solution of Carrillo, Hu, Wang and Wu
   (2020), Appendix A, at the time `t₀`, the third 2D reference case: mass one and temperature one,
@@ -206,14 +207,17 @@ their own, except for what they removed and narrowed, which is listed in full be
   against the wall-clock time of each run. These five share their edges: an empty argument throws
   an `ArgumentError` that names it, and arguments of different lengths a `DimensionMismatch` that
   names the shorter one; a pair with a `NaN` or an `Inf` is dropped; a series of one value is a
-  marker; on a logarithmic axis a zero is drawn at `floatmin` of the element type, while a
-  negative value, or the single value zero, throws an `ArgumentError`. A logarithmic axis whose
-  every value is the same `c` spans a decade on each side of `c`: Makie's own limits span the
-  decades between `c²` and one, and `c²` is zero for the clipped zero of an exactly conserved
-  quantity in `Float64`, so the figure would not save. A relative drift whose initial value is
-  zero or not finite is not defined and throws an `ArgumentError`; the drift of a series of one
-  value is the single value zero, which is refused; and `plot_convergence` throws one with fewer
-  than two positive finite pairs to fit.
+  marker; on a logarithmic axis a zero is dropped from a series that has a positive value, such as
+  the drift at `t₁`, and a series that is zero throughout, such as the drift of an exactly
+  conserved quantity, is drawn one decade below the smallest positive value on the axis, or at
+  `floatmin` of the element type where the axis has none, while a negative value, or the single
+  value zero, throws an `ArgumentError`. A logarithmic axis whose every value is the same `c`
+  spans a decade on each side of `c`: Makie's own limits span the decades between `c²` and one,
+  and `c²` is zero for `floatmin` of `Float64`, so the figure would not save. A relative drift
+  whose initial value is zero or not finite is not defined and throws an `ArgumentError`; the
+  drift of a series of one value is the single value zero, which is refused; `plot_convergence`
+  throws one with fewer than two positive finite pairs to fit, and `plot_cost` one where no run
+  has a place on both axes.
 
 ### Scripts
 
@@ -226,11 +230,9 @@ their own, except for what they removed and narrowed, which is listed in full be
   cubic basis functions, so the manuscript's "41 elements" are 41 basis functions on 38 cells. A
   projection that is not positive at a particle stops a run with its `DomainError`: the driver
   writes the HDF5 file of that run with the attribute `stopped_at`, the time of the step that
-  threw, and the steps reached, writes no figure for that run and exits non-zero. At the
-  manuscript's parameters the run of figures 7 and 8 stops so at `t = 1.4144` of 5, after 289 s.
-  The sweeps of figures 1 and 2 leave such a point out of their figure, record the first one as
-  `stopped_at` and exit 0: at the manuscript's parameters figure 1 stops at `M = 25` and figure 2
-  at `N = 5623` and `N = 31623`. K94 of `KNOWN_ISSUES.md` records these stops. A `--runs-dir` or
+  threw, and the steps reached, writes no figure for that run and exits non-zero. The sweeps of
+  figures 1 and 2 leave such a point out of their figure, record the first one as `stopped_at` and
+  exit 0. K94 of `KNOWN_ISSUES.md` records these stops. A `--runs-dir` or
   `--results-dir` that cannot be created stops a driver with an `ArgumentError` that names the
   flag and the path given.
   `pd_lb_fig11.jl` is the cumulant experiment of the appendix, so K11 leaves `KNOWN_ISSUES.md`: it
@@ -284,11 +286,14 @@ their own, except for what they removed and narrowed, which is listed in full be
   `entropy_gradient!`, `apply_G!`, the discrete gradients and `discrete_gradient_step!` for the
   main-text method. The home page no longer renders them, which keeps its HTML under Documenter's
   size threshold.
-- **The figures of the collision manuscripts have a page of their own**, `collisions.md`, with the
-  docstrings of the six plotting functions of the collision figures and one section per driver of
-  the Lenard–Bernstein manuscript: its command, its parameters, its files and its measured time.
-  The home page no longer renders the six docstrings, which keeps its HTML under Documenter's size
-  threshold.
+- **The figures of the collision manuscripts have a page of their own**, `collisions.md`, with one
+  section per driver of the Lenard–Bernstein manuscript: its command, its parameters, its files and
+  its measured time. The six plotting functions of the collision figures are documented on the
+  Plotting page, `plotting.md`.
+- **The plotting functions have a page of their own**, `plotting.md`, with the docstrings of
+  `plot_distribution`, `plot_particles` and `plot_series` and of the six collision figures. The
+  home page no longer renders them: with them, its HTML was 199.54 KiB of the 200 KiB that
+  Documenter allows.
 
 ### Internal
 
