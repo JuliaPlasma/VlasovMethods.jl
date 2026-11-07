@@ -67,12 +67,12 @@ function initialize!(dist::ParticleDistribution, params::BKWDistribution,
     # is that Gaussian weighted by v²/(2K), whose v² is 2K times a Gamma(2, 1) variate
     A = (2K - 1) / K
     for α in 1:npart
-        if rand(rng) < A
-            v[1, α] = sqrt(K) * randn(rng)
-            v[2, α] = sqrt(K) * randn(rng)
+        if rand(rng, T) < A
+            v[1, α] = sqrt(K) * randn(rng, T)
+            v[2, α] = sqrt(K) * randn(rng, T)
         else
-            θ = 2 * T(π) * rand(rng)
-            r = sqrt(2 * K * (randexp(rng) + randexp(rng)))
+            θ = 2 * T(π) * rand(rng, T)
+            r = sqrt(2 * K * (randexp(rng, T) + randexp(rng, T)))
             v[1, α] = r * cos(θ)
             v[2, α] = r * sin(θ)
         end

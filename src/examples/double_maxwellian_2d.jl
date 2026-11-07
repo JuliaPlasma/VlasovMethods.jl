@@ -91,7 +91,7 @@ function initialize!(dist::ParticleDistribution, params::DoubleMaxwellian2D,
         c = α ≤ nfirst ? 1 : 2
         for d in 1:2
             v[d, α] = T(params.means[c][d]) +
-                      sqrt(T(params.variances[c][d])) * randn(rng)
+                      sqrt(T(params.variances[c][d])) * randn(rng, T)
         end
     end
     w[1, :] .= 1 / npart

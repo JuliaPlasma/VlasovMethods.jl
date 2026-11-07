@@ -193,7 +193,9 @@ their own, except for what they removed and narrowed, which is listed in full be
   fourth moment from the profile's `7.1013` by `−0.51` of the sample's own standard error, which
   tells it from a Gaussian's `8`. A time that is not finite, or that is negative, throws an
   `ArgumentError`. The new file `test/examples/reference_cases.jl` holds the three types' tests, in
-  the `core` group.
+  the `core` group. All three draw their random numbers in the element type of the particle list,
+  so that a `Float32` list is sampled in `Float32`, and a `Float64` list gets the same values as
+  from an untyped draw.
 - **`plot_collision_distribution`, `plot_drift`, `plot_entropy`, `plot_error`, `plot_convergence`
   and `plot_cost`** draw the figures of the collision runs, each into a `Figure` that a script
   saves without building a figure itself. They are defined in the package extension, so

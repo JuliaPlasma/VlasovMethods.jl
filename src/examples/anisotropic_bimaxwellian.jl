@@ -70,8 +70,8 @@ function initialize!(dist::ParticleDistribution, params::AnisotropicBiMaxwellian
     T = eltype(v)
     npart = size(v, 2)
     rng = MersenneTwister(params.seed)
-    v[1, :] .= sqrt(T(params.variance_one)) .* randn(rng, npart)
-    v[2, :] .= sqrt(T(params.variance_two)) .* randn(rng, npart)
+    v[1, :] .= sqrt(T(params.variance_one)) .* randn(rng, T, npart)
+    v[2, :] .= sqrt(T(params.variance_two)) .* randn(rng, T, npart)
     w[1, :] .= 1 / npart
     return dist
 end
