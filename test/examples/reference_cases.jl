@@ -100,12 +100,12 @@ end
     variance_one, variance_two = 0.5, 0.3
     npart = NPARTICLES
     dist = particles(npart)
-    # the weights the distribution holds are the ones the sample is measured with
-    dist.particles.w[1, :] .= 1 / npart
+    @test sum(dist.particles.w) == 0
     initialize!(dist, AnisotropicBiMaxwellian(variance_one, variance_two; seed = SEED))
     w = collect(vec(dist.particles.w))
     m = moments(dist.particles.v, w)
 
+    @test all(==(1 / npart), w)
     @test sum(w) ≈ 1
     @test abs(m.mean[1]) ≤ 4 * sqrt(variance_one) / √npart
     @test abs(m.mean[2]) ≤ 4 * sqrt(variance_two) / √npart
@@ -131,12 +131,11 @@ end
     @test initialize!(particles(npart), AnisotropicBiMaxwellian(variance_one, variance_two;
         seed = SEED + 1)).particles.v != dist.particles.v
 
-    # the weights the distribution holds are the ones the sample keeps
+    # weights the distribution already holds are replaced by 1/N
     held = particles(10)
     held.particles.w[1, :] .= 0.1 .* (1:10)
-    weights = collect(vec(held.particles.w))
     initialize!(held, AnisotropicBiMaxwellian(variance_one, variance_two; seed = SEED))
-    @test collect(vec(held.particles.w)) == weights
+    @test all(==(1 / 10), held.particles.w)
 
     # the control: a sample of the variance 0.35 in place of 0.3 breaks the bound of the second
     # variance, which a sampler of the wrong variance cannot pass
