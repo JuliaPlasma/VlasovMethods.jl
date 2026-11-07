@@ -221,7 +221,7 @@ their own, except for what they removed and narrowed, which is listed in full be
   `scripts/pd_lb_fig1_2.jl`, `pd_lb_fig3_6.jl`, `pd_lb_fig7_8.jl`, `pd_lb_fig9_10.jl` and
   `pd_lb_fig11.jl` default to the manuscript's parameters, draw each figure with the plotting
   functions of the Makie extension into `--results-dir`, write one HDF5 file per run into
-  `--runs-dir` with the attributes `commit`, `command` and one per option, and print their
+  `--runs-dir` with the attributes `commit`, `command`, `script` and one per option, and print their
   wall-clock time; `--quick` replaces some parameters with smaller ones. `M` is the number of
   cubic basis functions, so the manuscript's "41 elements" are 41 basis functions on 38 cells. A
   projection that is not positive at a particle stops a run with its `DomainError`: the driver

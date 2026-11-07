@@ -4,13 +4,13 @@ CurrentModule = VlasovMethods
 
 # The figures of the collision manuscripts
 
-Each figure of a collision manuscript has one driver in `scripts/` and one command that makes it.
+Each figure on this page has one driver in `scripts/` and one command that makes it.
 A driver reads its flags through `scripts/options.jl`, defaults to the manuscript's parameters,
 writes its figures into `--results-dir` and one HDF5 file per run into `--runs-dir`, and prints
 its wall-clock time, the package loads included. Each HDF5 file carries the attribute `commit`,
 the `git rev-parse HEAD` of the checkout or `"unknown"` outside one, the attribute `command`, the
-driver's arguments joined by spaces, and one attribute per option. A directory that does not exist
-is created.
+driver's arguments joined by spaces, the attribute `script`, the driver's file name, and one
+attribute per option. A directory that does not exist is created.
 
 A driver loads `CairoMakie` and draws each figure with one of the plotting functions below; it
 builds no figure itself.
@@ -109,8 +109,7 @@ The run with the manuscript's parameters, 6250 steps, stops after 289 s, in the 
 `t = 1.4144`: the projection of the particles is `-1.58e-7` at `v = -6.42`, so `f_s'/f_s` of the
 conservative operator is undefined and the run throws the projection's `DomainError`. As the rule
 above says for a single run, the driver writes `pd_lb_fig7_8.hdf5` with `stopped_at = 1.4144`
-and the 1767 steps reached, writes no figure and exits non-zero; K94 records the stop. 100 steps
-of the same configuration take 20 s.
+and the 1767 steps reached, writes no figure and exits non-zero; K94 records the stop.
 
 `--quick` takes 200 particles and `t = 0.2`.
 
