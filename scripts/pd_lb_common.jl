@@ -89,26 +89,39 @@ gives 14 steps and `0.05 / 8e-4` gives 63.
 nsteps(final_time, tstep) = ceil(Int, round(final_time / tstep; digits = 8))
 
 """
-    integrate!(method::GeometricIntegrator, final_time, tstep) -> (t, z)
+    integrate!(stopped, method::GeometricIntegrator, final_time, tstep) -> (t, z)
 
 `nsteps(final_time, tstep)` steps of the integrator of `method` from its initial condition, and
 the velocities of the particles at each step, written back into the model's particles at the end.
 `t` holds the `n + 1` times `k * tstep`, and `z` the velocities, one column per time.
 
+Where a step throws a `DomainError`, the model's own error, `stopped(t, z, time)` is called with
+the times and the velocities of the steps reached and the time `k * tstep` of the step `k` that
+threw, and the error is rethrown. The first step includes the extrapolation that starts the
+solve, so a stop there gives `t = [0]`. Any other error passes through.
+
 The steps are taken here and not by `run!`, because `run!` indexes the times of
 `t₀:Δt:t_end` by the step count of the equation, which can be one longer (K93).
 """
-function integrate!(method::GeometricIntegrator, final_time, tstep)
+function integrate!(stopped, method::GeometricIntegrator, final_time, tstep)
     problem = method.equation
     n = nsteps(final_time, tstep)
     z = zeros(length(problem.ics.q), n + 1)
     z[:, 1] = problem.ics.q
-    step = GeometricIntegrators.GeometricIntegratorsBase.solutionstep(
-        method.integrator, VlasovMethods.GeometricEquations.initialstate(problem))
-    for k in 1:n
-        GeometricIntegrators.reset!(step, k * tstep)
-        GeometricIntegrators.integrate!(step, method.integrator)
-        z[:, k + 1] = step.q
+    reached = 0
+    try
+        step = GeometricIntegrators.GeometricIntegratorsBase.solutionstep(
+            method.integrator, VlasovMethods.GeometricEquations.initialstate(problem))
+        for k in 1:n
+            GeometricIntegrators.reset!(step, k * tstep)
+            GeometricIntegrators.integrate!(step, method.integrator)
+            z[:, k + 1] = step.q
+            reached = k
+        end
+    catch e
+        times = collect(0:reached) .* tstep
+        e isa DomainError && stopped(times, z[:, 1:(reached + 1)], (reached + 1) * tstep)
+        rethrow()
     end
     method.model.dist.particles.v[1, :] .= z[:, end]
     return collect(0:n) .* tstep, z
@@ -133,26 +146,32 @@ function diagnostics(z, dist, sdist)
 end
 
 """
-    relax(example, npart, options; seed = nothing, model = ConservativeLenardBernstein,
+    relax(example, npart, options; record, seed = nothing, model = ConservativeLenardBernstein,
         integrator = GeometricIntegrator) -> NamedTuple
 
 One run of a collision operator from `npart` particles of `example`: the cubic spline of
 `options.nbasis` functions, the collision frequency `options.nu`, and the integrator
 `integrator(model, (0, options.final_time), options.tstep)`, by default the model's own, the
 implicit midpoint rule for `ConservativeLenardBernstein`. Returns the initial and the final
-particles, the times `t`, the velocities `z` and the `diagnostics`.
+particles, the times `t`, the velocities `z` and the `diagnostics`; the driver writes the record
+`record` of a run that completes.
 
 A projection that throws, on `f_s ≤ 0` at a particle or on a particle that left the velocity
-domain, stops the run with its error, before anything of the run is written.
+domain, stops the run with its error. The record `record` is then written with the attribute
+`stopped_at`, the time of the step that threw, and the datasets `t` and `z` of the steps reached,
+before the error is rethrown, so that the driver writes no figure and exits non-zero.
 """
-function relax(example, npart::Integer, options; seed = nothing,
+function relax(example, npart::Integer, options; record, seed = nothing,
         model = ConservativeLenardBernstein, integrator = GeometricIntegrator)
     dist = initial_distribution(example, npart; seed)
     initial = deepcopy(dist)
     sdist = spline_distribution(options.nbasis)
     collisions = model(dist, CollisionEntropy(sdist); ν = options.nu)
     method = integrator(collisions, (0.0, options.final_time), options.tstep)
-    t, z = integrate!(method, options.final_time, options.tstep)
+    t, z = integrate!(method, options.final_time, options.tstep) do t, z, time
+        @printf("  the operator stops at t = %g, after %d steps\n", time, length(t) - 1)
+        write_record(record, merge(options, (; stopped_at = time)); t, z)
+    end
     return (initial, final = dist, t, z, diagnostics = diagnostics(z, dist, sdist))
 end
 

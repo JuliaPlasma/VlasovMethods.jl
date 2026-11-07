@@ -19,7 +19,7 @@
 # `Random.seed!(1)`, and the quick records of `pd_lb_fig1_2.jl` must hold no `stopped_at`, because
 # neither quick sweep stops.
 #
-# Four more runs check the edges of the drivers:
+# Six more runs check the edges of the drivers:
 #
 # - `pd_lb_fig11.jl` in an empty working directory, with `--runs-dir` and `--results-dir` two
 #   levels below a directory that does not have them, and with `GIT_DIR` naming a path that does
@@ -33,7 +33,13 @@
 # - `pd_lb_fig1_2.jl` with `M ∈ {24, 3, 41}`, where `M = 3` throws an `ArgumentError`, which is
 #   not the model's: it exits non-zero with that error and writes no figure 1;
 # - `pd_lb_fig11.jl` with `--tolerance 1e-4`, below the relative errors of the quick run, which
-#   are above `4e-4`: it prints the three relative errors and exits non-zero.
+#   are above `4e-4`: it prints the three relative errors and exits non-zero;
+# - `pd_lb_fig7_8.jl` with 60 particles, the step `0.03` and `--seed 4`, where the projection is
+#   not positive at a particle in the fifth step: it exits non-zero with the `DomainError`, writes
+#   no figure, and writes `pd_lb_fig7_8.hdf5` with `commit`, `command`, `stopped_at = 5 * 0.03`,
+#   the four steps reached in `t` and `z`, and the velocities of the seed 4 in the first column;
+# - `pd_lb_fig11.jl` with `--runs-dir` below a regular file, which cannot be created: it exits
+#   non-zero with an error that names the path given.
 #
 # The quick record of `pd_lb_fig11.jl` must hold the tolerance `0.05`.
 #
@@ -171,11 +177,16 @@ stop = start("pd_lb_fig1_2.jl",
         "1000,5623,10000,31623"])
 other = start("pd_lb_fig1_2.jl", ["--quick", "--nbasis", "24,3,41"])
 miss = start("pd_lb_fig11.jl", ["--quick", "--tolerance", "1e-4"])
+halt = start("pd_lb_fig7_8.jl",
+    ["--quick", "--npart", "60", "--tstep", "0.03", "--seed", "4"])
+const NOT_A_DIRECTORY = joinpath(mktempdir(), "file")
+touch(NOT_A_DIRECTORY)
+unmade = start("pd_lb_fig11.jl", ["--quick"]; out = joinpath(NOT_A_DIRECTORY, "sub"))
 
 # A driver still running when the gate exits, after an error of the gate itself, is killed.
 atexit(() -> foreach(
     job -> process_running(job.process) && kill(job.process, Base.SIGKILL),
-    [jobs; [stray, stop, other, miss]]))
+    [jobs; [stray, stop, other, miss, halt, unmade]]))
 
 println("the helpers of pd_lb_common.jl")
 let dirs = ["--runs-dir", mktempdir(), "--results-dir", mktempdir()],
@@ -287,6 +298,29 @@ println("pd_lb_fig11.jl with a tolerance below its relative errors")
 output = finish(miss; fails = true)
 times, _ = cumulant_rows(output)
 check(times == [0.01, 0.02, 0.03], "it prints the three relative errors: $(times)")
+
+println("pd_lb_fig7_8.jl with a run that the projection stops")
+output = finish(halt; fails = true, timed = false)
+check(occursin("DomainError", output), "it stops with the DomainError of the projection")
+foreach(name -> check(!isfile(joinpath(halt.results, name)), "$(name) is not written"),
+    ["pd_lb_fig7.pdf", "pd_lb_fig8.pdf"])
+check_record(joinpath(halt.runs, "pd_lb_fig7_8.hdf5"), halt.args,
+    (npart = 60, tstep = 0.03, seed = 4, stopped_at = 5 * 0.03))
+if isfile(joinpath(halt.runs, "pd_lb_fig7_8.hdf5"))
+    Random.seed!(4)
+    drawn = initialize!(ParticleDistribution(1, 1, 60),
+        DoubleMaxwellian(; domain = (-5.0, 5.0), shift = 2.0))
+    t = h5read(joinpath(halt.runs, "pd_lb_fig7_8.hdf5"), "t")
+    z = h5read(joinpath(halt.runs, "pd_lb_fig7_8.hdf5"), "z")
+    check(t == collect(0:4) .* 0.03 && size(z) == (60, 5),
+        "it records the four steps reached: t = $(t), z of size $(size(z))")
+    check(z[:, 1] == drawn.particles.v[1, :], "it records the velocities of the seed 4 first")
+end
+
+println("pd_lb_fig11.jl with a --runs-dir that cannot be created")
+output = finish(unmade; fails = true, timed = false)
+check(occursin("--runs-dir `$(unmade.runs)` cannot be created", output),
+    "it names the path given: $(unmade.runs)")
 
 @printf("gate: %d failures, wall-clock time %.1f s\n", length(FAILURES), time() - STARTED)
 exit(isempty(FAILURES) ? 0 : 1)

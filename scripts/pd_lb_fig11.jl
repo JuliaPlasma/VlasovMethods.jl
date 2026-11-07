@@ -22,8 +22,10 @@
 # figure.
 #
 # Figure 11 is the error `|κ₄(t) − κ₄(0) exp(−4 ν t)| / |κ₄(0)|` and the closed form
-# `exp(−4 ν t)`, both relative to `κ₄(0)`, against `t`. The manuscript also draws `κ₅`, whose
-# initial value is sampling noise, because the bi-Maxwellian is symmetric; this script does not.
+# `exp(−4 ν t)`, both relative to `κ₄(0)`, against `t`, as `plot_error` draws them. It departs
+# from the manuscript's figure, which draws `κ₄` and `κ₅` themselves, each divided by its initial
+# value, against their closed forms as dashed lines. This script draws no `κ₅`: its initial value
+# is sampling noise, because the bi-Maxwellian is symmetric.
 #
 # `--quick` takes 200 particles, the step 1e-2 and the final time 0.1.
 
@@ -59,8 +61,8 @@ end
 @printf("pd_lb_fig11: %s run, %d particles, M = %d, h = %g, t = %g, seed %d\n",
     QUICK ? "quick" : "paper", OPT.npart, OPT.nbasis, OPT.tstep, OPT.final_time, OPT.seed)
 
-relaxed = relax(EXAMPLE, OPT.npart, OPT; seed = OPT.seed, model = LenardBernstein,
-    integrator = implicit_midpoint)
+relaxed = relax(EXAMPLE, OPT.npart, OPT; record = "pd_lb_fig11.hdf5", seed = OPT.seed,
+    model = LenardBernstein, integrator = implicit_midpoint)
 w = relaxed.initial.particles.w[1, :]
 κ₄ = [fourth_cumulant(v, w) for v in eachcol(relaxed.z)]
 closed = first(κ₄) .* exp.(-4 * OPT.nu .* relaxed.t)

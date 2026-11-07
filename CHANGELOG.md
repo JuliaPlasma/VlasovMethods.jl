@@ -224,10 +224,15 @@ their own, except for what they removed and narrowed, which is listed in full be
   `--runs-dir` with the attributes `commit`, `command` and one per option, and print their
   wall-clock time; `--quick` replaces some parameters with smaller ones. `M` is the number of
   cubic basis functions, so the manuscript's "41 elements" are 41 basis functions on 38 cells. A
-  projection that is not positive at a particle stops a run with its `DomainError`, and the driver
-  writes no figure for that run and exits non-zero. The sweeps of figures 1 and 2 leave such a
-  point out of their figure, record the first one as `stopped_at` and exit 0: at the manuscript's
-  parameters figure 1 stops at `M = 25` and figure 2 at `N = 5623` and `N = 31623`.
+  projection that is not positive at a particle stops a run with its `DomainError`: the driver
+  writes the HDF5 file of that run with the attribute `stopped_at`, the time of the step that
+  threw, and the steps reached, writes no figure for that run and exits non-zero. At the
+  manuscript's parameters the run of figures 7 and 8 stops so at `t = 1.4144` of 5, after 289 s.
+  The sweeps of figures 1 and 2 leave such a point out of their figure, record the first one as
+  `stopped_at` and exit 0: at the manuscript's parameters figure 1 stops at `M = 25` and figure 2
+  at `N = 5623` and `N = 31623`. K94 of `KNOWN_ISSUES.md` records these stops. A `--runs-dir` or
+  `--results-dir` that cannot be created stops a driver with an `ArgumentError` that names the
+  flag and the path given.
   `pd_lb_fig11.jl` is the cumulant experiment of the appendix, so K11 leaves `KNOWN_ISSUES.md`: it
   runs `LenardBernstein`, whose coefficients are fixed at `A₁ = 0` and `A₂ = 1`, with the implicit
   midpoint rule of the manuscript in place of the model's own `RK438`, and compares the fourth
@@ -238,8 +243,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   figure 11 sends a particle out of the velocity domain (K94). The drivers take their steps
   themselves, because `run!` throws a `BoundsError` on a time span that is not a whole number of
   its steps (K93). `scripts/gate.jl` runs each driver with `--quick` and checks its files, its
-  records and its edges, in 45 s on an Apple M4 Max. `docs/src/collisions.md` gives each command
-  and its measured time.
+  records and its edges, a forced stop of figures 7 and 8 among them. `docs/src/collisions.md`
+  gives each command and its measured time.
 - **`scripts/reference_forms.jl` derives the two closed forms of the 2D reference cases and checks
   them against the moment equations.** The header derives the rate of the second moments at the
   Maxwell molecules of `γ = 0` — `d(T₁₁ − T₂₂)/dt = −8 (T₁₁ − T₂₂)` at density one, unit mass and

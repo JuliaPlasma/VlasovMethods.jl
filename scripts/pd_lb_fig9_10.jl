@@ -11,7 +11,8 @@
 # midpoint rule (`sec:time_discretisation`) at the step `--tstep` to `--final-time`.
 #
 # Figure 9 is the initial and the final distribution (`fig:initial_final_dists_uniform`), and
-# figure 10 the entropy `S_h` (`fig:entropy_ex3`, which the manuscript divides by `|S_h(0)|`).
+# figure 10 the entropy `S_h` (`fig:entropy_ex3`). Figure 10 departs from the manuscript's: the
+# manuscript draws `S_h / |S_h(0)|`, and this script draws `S_h` itself, as `plot_entropy` does.
 #
 # `--quick` takes the step 1e-3 and the final time 0.05.
 
@@ -26,7 +27,7 @@ const EXAMPLE = UniformDistribution((0.0, 1.0), (-2.0, 2.0))
 @printf("pd_lb_fig9_10: %s run, %d particles, M = %d, h = %g, t = %g, seed %d\n",
     QUICK ? "quick" : "paper", OPT.npart, OPT.nbasis, OPT.tstep, OPT.final_time, OPT.seed)
 
-relaxed = relax(EXAMPLE, OPT.npart, OPT; seed = OPT.seed)
+relaxed = relax(EXAMPLE, OPT.npart, OPT; record = "pd_lb_fig9_10.hdf5", seed = OPT.seed)
 write_run("pd_lb_fig9_10.hdf5", OPT, relaxed)
 save_distribution("pd_lb_fig9.pdf", relaxed, EXAMPLE.xdomain)
 save_figure("pd_lb_fig10.pdf", plot_entropy(relaxed.t, relaxed.diagnostics.entropy))

@@ -12,9 +12,12 @@
 #
 # Figures 3, 4 and 5 come from the run of `--npart` particles: the initial and the final
 # distribution (`fig:shifted_normal_example`), the relative drift of the mass, the momentum and
-# the energy (`fig:conservation`), and the entropy `S_h` (`fig:entropy_ex1`, which the manuscript
-# divides by `|S_h(0)|`). Figure 6 is the initial and the final distribution of the same run with
-# `--npart-fig6` particles (`fig:shifted_normal_ex2`).
+# the energy (`fig:conservation`), and the entropy `S_h` (`fig:entropy_ex1`). Figure 6 is the
+# initial and the final distribution of the same run with `--npart-fig6` particles
+# (`fig:shifted_normal_ex2`).
+#
+# Figure 5 departs from the manuscript's: the manuscript draws `S_h / |S_h(0)|`, and this script
+# draws `S_h` itself, as `plot_entropy` does.
 #
 # `--quick` takes 200 particles and the final time 0.05. `ShiftedNormalV` seeds the random number
 # generator itself, so the velocities are the same in every run.
@@ -32,15 +35,16 @@ const EXAMPLE = ShiftedNormalV((-5.0, 5.0), 2.0)
     QUICK ? "quick" : "paper", OPT.npart, OPT.npart_fig6, OPT.nbasis, OPT.tstep,
     OPT.final_time)
 
-relaxed = relax(EXAMPLE, OPT.npart, OPT)
+relaxed = relax(EXAMPLE, OPT.npart, OPT; record = "pd_lb_fig3_5.hdf5")
 d = relaxed.diagnostics
 write_run("pd_lb_fig3_5.hdf5", OPT, relaxed)
 save_distribution("pd_lb_fig3.pdf", relaxed, EXAMPLE.domain)
 save_figure("pd_lb_fig4.pdf", plot_drift(relaxed.t, (d.mass, d.momentum, d.energy)))
 save_figure("pd_lb_fig5.pdf", plot_entropy(relaxed.t, d.entropy))
 
-relaxed6 = relax(EXAMPLE, OPT.npart_fig6, OPT)
-write_run("pd_lb_fig6.hdf5", merge(OPT, (; npart = OPT.npart_fig6)), relaxed6)
+const OPT6 = merge(OPT, (; npart = OPT.npart_fig6))
+relaxed6 = relax(EXAMPLE, OPT6.npart, OPT6; record = "pd_lb_fig6.hdf5")
+write_run("pd_lb_fig6.hdf5", OPT6, relaxed6)
 save_distribution("pd_lb_fig6.pdf", relaxed6, EXAMPLE.domain)
 
 report_time()

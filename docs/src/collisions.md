@@ -45,11 +45,13 @@ The drivers `scripts/pd_lb_*.jl` make the eleven figures of the Lenard–Bernste
 `[−10, 10]`, and `M`, the flag `--nbasis`, is the number of its basis functions: a cubic basis on
 `ncell` cells has `ncell + 3` of them, so the manuscript's "41 elements" are 41 basis functions on
 38 cells. Where a projection is not positive at a particle, or a particle leaves the velocity
-domain, a run stops with the model's `DomainError`, and the driver writes no figure for that run
-and exits non-zero. The sweeps of figures 1 and 2 are the exception: a point of a sweep where the
-operator stops is left out of its figure, and the driver exits 0. A run to the time `t` with the
-step `h` takes `t / h` steps, rounded up, so the quick run of figures 3 to 6 takes 63 steps of
-`8e-4` and ends at `t = 0.0504`.
+domain, a run stops with the model's `DomainError`: the driver writes the HDF5 file of that run
+with the attribute `stopped_at`, the time of the step that threw, and the times `t` and the
+velocities `z` of the steps reached, writes no figure for that run, and exits non-zero. The
+sweeps of figures 1 and 2 are the exception: a point of a sweep where the operator stops is left
+out of its figure, and the driver exits 0. A run to the time `t` with the step `h` takes `t / h`
+steps, rounded up, so the quick run of figures 3 to 6 takes 63 steps of `8e-4` and ends at
+`t = 0.0504`. K94 of `KNOWN_ISSUES.md` records each stop at the manuscript's parameters.
 
 ### Figures 1 and 2
 
@@ -103,11 +105,12 @@ The relaxation of the bi-Maxwellian of the two normal distributions of mean `±2
 seeded with `--seed 1`. Figure 7 is the initial and the final distribution, and figure 8 the
 entropy. Files: `pd_lb_fig7.pdf`, `pd_lb_fig8.pdf`, `pd_lb_fig7_8.hdf5`.
 
-The run with the manuscript's parameters, 6250 steps, stops after 289 s: the projection of the
-particles is `-1.58e-7` at `v = -6.42`, so `f_s'/f_s` of the conservative operator is undefined and
-the run throws the projection's `DomainError` before `t = 5`. The script exits non-zero and writes
-no figure, as the rule above says for a single run; the stop is what K94 records. 100 steps of the
-same configuration take 20 s.
+The run with the manuscript's parameters, 6250 steps, stops after 289 s, in the step 1768 to
+`t = 1.4144`: the projection of the particles is `-1.58e-7` at `v = -6.42`, so `f_s'/f_s` of the
+conservative operator is undefined and the run throws the projection's `DomainError`. As the rule
+above says for a single run, the driver writes `pd_lb_fig7_8.hdf5` with `stopped_at = 1.4144`
+and the 1767 steps reached, writes no figure and exits non-zero; K94 records the stop. 100 steps
+of the same configuration take 20 s.
 
 `--quick` takes 200 particles and `t = 0.2`.
 
