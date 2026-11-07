@@ -170,7 +170,7 @@ their own, except for what they removed and narrowed, which is listed in full be
 - **`DoubleMaxwellian2D`** is the sum of two displaced Maxwellians, the second 2D reference case.
   `DoubleMaxwellian2D(; weights, variances, means, seed)` draws each component from the seed's own
   generator, the first taking the share `round(weights[1] * N)` of the `N` particles, and it sets
-  the weights to `1/N` as the examples above do. At `10⁵` particles its mean deviates from the
+  the weights to `1/N` as the examples in `src/examples/` do. At `10⁵` particles its mean deviates from the
   exact `(0.08, 0)` by `1.73` and `−0.85` standard errors and its two variances from the mixture's
   `0.5736` and `0.38` by `0.44` and `−0.08`. Weights that are negative or sum to other than one
   throw an `ArgumentError`, as do a component count other than two, a variance or mean pair of other

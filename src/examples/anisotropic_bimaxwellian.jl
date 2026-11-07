@@ -14,12 +14,13 @@ rate `8`, which `scripts/reference_forms.jl` derives from the moment equations.
 
 `initialize!` fills the two velocity components of a `ParticleDistribution` with a sample of `f`
 drawn from `Random.MersenneTwister(seed)`, one stream of `N` normal variates per component, so that
-the same seed gives the same sample. The weights and the positions of the distribution are not
-touched: the second moments of a sample are those of the weights it already holds. The sample's
-means, variances and covariance approach the exact `0`, `0`, `σ1²`, `σ2²` and `0` at the standard
-errors `σ/√N`, `σ²√(2/N)` and `σ₁σ₂/√N` of its `N` particles. A variance that is not positive and
-finite throws an `ArgumentError`, and an `initialize!` of a distribution whose velocities are not
-two components a `DimensionMismatch`: neither is a bi-Maxwellian this package can sample.
+the same seed gives the same sample within one Julia version. The weights and the positions of the
+distribution are not touched: the second moments of a sample are those of the weights it already
+holds. The sample's means, variances and covariance approach the exact `0`, `0`, `σ1²`, `σ2²` and
+`0` at the standard errors `σ/√N`, `σ²√(2/N)` and `σ₁σ₂/√N` of its `N` particles. A variance that
+is not positive and finite throws an `ArgumentError`, and an `initialize!` of a distribution whose
+velocities are not two components a `DimensionMismatch`: neither is a bi-Maxwellian this package
+can sample.
 """
 struct AnisotropicBiMaxwellian{T} <: VlasovExample
     variance_one::T

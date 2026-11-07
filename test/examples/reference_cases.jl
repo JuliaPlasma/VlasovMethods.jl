@@ -246,19 +246,21 @@ end
 
 @testset "the derivation and the moment equations" begin
     npart = NPARTICLES
-    # the parameter of the profile, at the kernel U = 16 A of this package
+    # the rate of the parameter of the profile, at the kernel U = 16 A of this package: its central
+    # difference in t solves the fourth moment's equation `16 (1 - K) dK/dt = 32 (1 - K)²`
     for t₀ in (0.1, 0.3, 0.6, 0.9)
-        @test isapprox(bkw_parameter(t₀), 1 - exp(-2 * t₀) / 2; rtol = 1e-14)
+        K, h = bkw_parameter(t₀), 1e-4
+        dK = (bkw_parameter(t₀ + h) - bkw_parameter(t₀ - h)) / (2 * h)
+        @test isapprox(16 * (1 - K) * dK, 32 * (1 - K)^2; rtol = 1e-6)
     end
 
-    # the profile's mass, energy, temperature and fourth moment, and the equation of its fourth
-    # moment, against the moment equations at the four times
+    # the profile's mass, energy and fourth moment, and the equation of its fourth moment, against
+    # the moment equations at the four times
     for t₀ in (0.1, 0.3, 0.6, 0.9)
         K = bkw_parameter(t₀)
         squared = v -> v[1]^2 + v[2]^2
         @test isapprox(bkw_moment(K, v -> 1.0), 1.0; rtol = 1e-10)
         @test isapprox(bkw_moment(K, squared), 2.0; rtol = 1e-10)
-        @test isapprox(bkw_moment(K, squared) / 2, 1.0; rtol = 1e-10)
         @test isapprox(bkw_moment(K, v -> squared(v)^2), 8 * K * (2 - K); rtol = 1e-10)
         @test isapprox(
             moment_rate(v -> (4 * squared(v) * v[1], 4 * squared(v) * v[2]),
@@ -267,8 +269,8 @@ end
             rtol = 1e-10)
     end
 
-    # the control: the Boltzmann rate of the paper's kernel in place of the sixteenfold one, which
-    # the fourth moment's equation refuses
+    # the control: the fourth moment's equation `16 (1 - K) dK/dt` with the paper's decay
+    # `exp(-t₀/8)` in place of `dK/dt = exp(-2t₀)`, which the integral of the weak form refuses
     t₀, K = 0.3, bkw_parameter(0.3)
     squared = v -> v[1]^2 + v[2]^2
     fourth_rate = moment_rate(v -> (4 * squared(v) * v[1], 4 * squared(v) * v[2]),

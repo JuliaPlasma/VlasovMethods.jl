@@ -16,7 +16,8 @@ less the square of that mean.
 
 `initialize!` gives the first component the share `round(weights[1] * N)` of the `N` particles,
 draws each from `Random.MersenneTwister(seed)` and gives the rest to the second, so that the
-realised weights are those counts over `N` and the same seed gives the same sample. The positions
+realised weights are those counts over `N` and the same seed gives the same sample within one
+Julia version. The positions
 are not touched, and the weights are set to `1/N`. The constructor refuses what a mixture of two
 components cannot be, each with an `ArgumentError`: other than two weights, variances or means, a
 variance or mean pair of other than two velocity components, a weight that is negative or that does
