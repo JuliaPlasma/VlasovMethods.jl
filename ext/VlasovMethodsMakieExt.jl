@@ -160,7 +160,8 @@ function VlasovMethods.plot_collision_distribution(f::ParticleDistribution{DT, 1
         g::ParticleDistribution{DT, 1, 1};
         xdomain, vdomain, nx::Integer = 100, nv::Integer = 100) where {DT}
     # `_histogram` checks neither the orientation of the domains nor the cell counts (K57), nor
-    # that the domains' ends are finite, where a cell index is `NaN` or `range` refuses the edges
+    # that the domains' ends are finite (K92), where a cell index is `NaN` or `range` refuses the
+    # edges
     nx ≥ 1 && nv ≥ 1 || throw(ArgumentError("the cell counts must be positive"))
     all(isfinite, (first(xdomain), last(xdomain), first(vdomain), last(vdomain))) ||
         throw(ArgumentError("each domain must have finite ends"))
