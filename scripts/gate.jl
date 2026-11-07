@@ -16,7 +16,8 @@
 # `5e-3`, where the quick run measures `4.4e-4` to `1.5e-3`, and its first step must solve the
 # implicit midpoint rule to a relative residual below `1e-10`, where it measures `7e-15`.
 # `pd_lb_fig7_8.jl` must start from the velocities that `DoubleMaxwellian` draws after
-# `Random.seed!(1)`.
+# `Random.seed!(1)`, and the quick records of `pd_lb_fig1_2.jl` must hold no `stopped_at`, because
+# neither quick sweep stops.
 #
 # Four more runs check the edges of the drivers:
 #
@@ -40,7 +41,8 @@
 # spline basis directly.
 #
 # The drivers run at once, so the gate takes about as long as the slowest of them. It prints the
-# size of each file and its own wall-clock time, and exits 1 when a check fails.
+# size of each file and its own wall-clock time, and exits 1 when a check fails. A driver still
+# running when the gate exits is killed.
 
 include(joinpath(@__DIR__, "pd_lb_common.jl"))
 
@@ -145,10 +147,11 @@ end
 
 # The residual of the implicit midpoint rule `z₁ = z₀ + h v̇((z₀ + z₁) / 2)` over the first step
 # of the record of `pd_lb_fig11.jl` at `path`, with `v̇` the right-hand side of `LenardBernstein`
-# for `npart` particles of 41 basis functions, relative to the largest change `|z₁ − z₀|`.
-function midpoint_residual(path, npart, tstep)
+# for the particles of the record on 41 basis functions, relative to the largest change
+# `|z₁ − z₀|`.
+function midpoint_residual(path, tstep)
     z = h5read(path, "z")
-    dist = initialize!(ParticleDistribution(1, 1, npart),
+    dist = initialize!(ParticleDistribution(1, 1, size(z, 1)),
         DoubleMaxwellian(; domain = (-5.0, 5.0), shift = 2.0))
     model = LenardBernstein(dist, CollisionEntropy(spline_distribution(41)))
     parameters = (ν = model.ν, idist = model.dist, fdist = model.ent.dist, model)
@@ -169,6 +172,11 @@ stop = start("pd_lb_fig1_2.jl",
 other = start("pd_lb_fig1_2.jl", ["--quick", "--nbasis", "24,3,41"])
 miss = start("pd_lb_fig11.jl", ["--quick", "--tolerance", "1e-4"])
 
+# A driver still running when the gate exits, after an error of the gate itself, is killed.
+atexit(() -> foreach(
+    job -> process_running(job.process) && kill(job.process, Base.SIGKILL),
+    [jobs; [stray, stop, other, miss]]))
+
 println("the helpers of pd_lb_common.jl")
 let dirs = ["--runs-dir", mktempdir(), "--results-dir", mktempdir()],
     paper = (npart = 1000, tstep = 8e-4), quick = (npart = 200,)
@@ -188,10 +196,12 @@ let dirs = ["--runs-dir", mktempdir(), "--results-dir", mktempdir()],
     check(isquick && options.npart == 200 && options.tstep == 8e-4,
         "`--quick` replaces the options it names and keeps the others")
 end
+# `0.07 / 5e-3` is `14.000000000000002` in floating point, which the rounding takes to 14 steps
 check(
     nsteps(1.0, 8e-4) == 1250 && nsteps(5.0, 8e-4) == 6250 && nsteps(1.0, 1e-4) == 10_000 &&
-        nsteps(1.0, 5e-3) == 200 && nsteps(0.05, 8e-4) == 63 && nsteps(0.1, 1e-2) == 10,
-    "nsteps gives 1250, 6250, 10000, 200, 63 and 10 steps")
+        nsteps(1.0, 5e-3) == 200 && nsteps(0.05, 8e-4) == 63 && nsteps(0.1, 1e-2) == 10 &&
+        nsteps(0.07, 5e-3) == 14,
+    "nsteps gives 1250, 6250, 10000, 200, 63, 10 and 14 steps")
 check(
     nbasis(spline_distribution(41).basis) == 41 &&
         ncells(spline_distribution(41).basis) == 38,
@@ -213,7 +223,7 @@ for job in jobs
             "pd_lb_fig11.jl's relative errors lie below 5e-3: $(errors)")
         record = joinpath(job.runs, "pd_lb_fig11.hdf5")
         if isfile(record)
-            residual = midpoint_residual(record, 200, 1e-2)
+            residual = midpoint_residual(record, 1e-2)
             check(residual < MIDPOINT_RESIDUAL,
                 "the first step of pd_lb_fig11.jl solves the implicit midpoint rule: $(residual)")
         end
@@ -225,6 +235,13 @@ for job in jobs
         z = h5read(joinpath(job.runs, "pd_lb_fig7_8.hdf5"), "z")
         check(z[:, 1] == drawn.particles.v[1, :],
             "pd_lb_fig7_8.jl starts from the velocities of the seed 1")
+    elseif job.script == "pd_lb_fig1_2.jl"
+        for record in ("pd_lb_fig1.hdf5", "pd_lb_fig2.hdf5")
+            path = joinpath(job.runs, record)
+            isfile(path) || continue
+            check(!h5open(file -> haskey(HDF5.attrs(file), "stopped_at"), path, "r"),
+                "$(record) records no stopped_at where the sweep does not stop")
+        end
     end
 end
 

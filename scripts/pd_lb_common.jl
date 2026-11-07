@@ -83,7 +83,8 @@ end
     nsteps(final_time, tstep)
 
 The number of steps of a run to `final_time`: `final_time / tstep` rounded up, after rounding the
-quotient to eight digits, so that `1.0 / 8e-4` gives 1250 steps and `0.05 / 8e-4` gives 63.
+quotient to eight digits, so that `0.07 / 5e-3`, which is `14.000000000000002` in floating point,
+gives 14 steps and `0.05 / 8e-4` gives 63.
 """
 nsteps(final_time, tstep) = ceil(Int, round(final_time / tstep; digits = 8))
 
