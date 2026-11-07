@@ -103,9 +103,11 @@ The relaxation of the bi-Maxwellian of the two normal distributions of mean `±2
 seeded with `--seed 1`. Figure 7 is the initial and the final distribution, and figure 8 the
 entropy. Files: `pd_lb_fig7.pdf`, `pd_lb_fig8.pdf`, `pd_lb_fig7_8.hdf5`.
 
-The run with the manuscript's parameters, 6250 steps, takes longer than 5 minutes and is the
-dispatcher's: its measured time is not in this page yet. 100 steps of the same configuration take
-20 s.
+The run with the manuscript's parameters, 6250 steps, stops after 289 s: the projection of the
+particles is `-1.58e-7` at `v = -6.42`, so `f_s'/f_s` of the conservative operator is undefined and
+the run throws the projection's `DomainError` before `t = 5`. The script exits non-zero and writes
+no figure, as the rule above says for a single run; the stop is what K94 records. 100 steps of the
+same configuration take 20 s.
 
 `--quick` takes 200 particles and `t = 0.2`.
 
