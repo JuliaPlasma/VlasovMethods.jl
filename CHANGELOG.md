@@ -207,14 +207,17 @@ their own, except for what they removed and narrowed, which is listed in full be
   against the wall-clock time of each run. These five share their edges: an empty argument throws
   an `ArgumentError` that names it, and arguments of different lengths a `DimensionMismatch` that
   names the shorter one; a pair with a `NaN` or an `Inf` is dropped; a series of one value is a
-  marker; on a logarithmic axis a zero is drawn at `floatmin` of the element type, while a
-  negative value, or the single value zero, throws an `ArgumentError`. A logarithmic axis whose
-  every value is the same `c` spans a decade on each side of `c`: Makie's own limits span the
-  decades between `c²` and one, and `c²` is zero for the clipped zero of an exactly conserved
-  quantity in `Float64`, so the figure would not save. A relative drift whose initial value is
-  zero or not finite is not defined and throws an `ArgumentError`; the drift of a series of one
-  value is the single value zero, which is refused; and `plot_convergence` throws one with fewer
-  than two positive finite pairs to fit.
+  marker; on a logarithmic axis a zero is dropped from a series that has a positive value, such as
+  the drift at `t₁`, and a series that is zero throughout, such as the drift of an exactly
+  conserved quantity, is drawn one decade below the smallest positive value on the axis, or at
+  `floatmin` of the element type where the axis has none, while a negative value, or the single
+  value zero, throws an `ArgumentError`. A logarithmic axis whose every value is the same `c`
+  spans a decade on each side of `c`: Makie's own limits span the decades between `c²` and one,
+  and `c²` is zero for `floatmin` of `Float64`, so the figure would not save. A relative drift
+  whose initial value is zero or not finite is not defined and throws an `ArgumentError`; the
+  drift of a series of one value is the single value zero, which is refused; `plot_convergence`
+  throws one with fewer than two positive finite pairs to fit, and `plot_cost` one where no run
+  has a place on both axes.
 
 ### Scripts
 

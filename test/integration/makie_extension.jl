@@ -539,24 +539,27 @@ end
     @test length(ax.scene.plots) == 3
     @test [p.label[] for p in ax.scene.plots] == ["mass", "momentum", "energy"]
 
-    # `|Q - Q(t₁)| / |Q(t₁)|`, with each zero at the floor of the element type
-    tiny = floatmin(T)
-    expected = (fill(tiny, 5), T[tiny, 0.5, 0.5, tiny, 2], T[tiny, 0.25, 0.5, 0.5, tiny])
-    for (plot, drift) in zip(ax.scene.plots, expected)
+    # `|Q - Q(t₁)| / |Q(t₁)|`: a zero is dropped from a line with a positive drift, and the line
+    # of the conserved mass, zero at every time, is a decade below the smallest drift, 0.25
+    floor = T(0.25) / 10
+    expected = ((t, fill(floor, 5)), (t[[2, 3, 5]], T[0.5, 0.5, 2]),
+        (t[[2, 3, 4]], T[0.25, 0.5, 0.5]))
+    for (plot, (times, drift)) in zip(ax.scene.plots, expected)
         @test plot isa Lines
         points = plot[1][]
-        @test first.(points) == t
+        @test first.(points) == times
         @test last.(points) == drift
-        @test all(isfinite, log10.(last.(points)))
     end
 
+    # the axis spans the drawn values, and not the hundreds of decades down to `floatmin`
     file = tempname() * ".png"
     save(file, fig)
     @test filesize(file) > 0
+    @test ax.finallimits[].origin[2] > floor / 10
 
     # a non-finite value or time drops its pair, and the rest of the line is drawn
-    dropped = plot_drift(t, (T[2, 2, NaN, 2, 3],); labels = ["mass"])
-    @test first.(only(dropped.content[1].scene.plots)[1][]) == t[[1, 2, 4, 5]]
+    dropped = plot_drift(t, (T[2, 3, NaN, 4, 3],); labels = ["mass"])
+    @test first.(only(dropped.content[1].scene.plots)[1][]) == t[[2, 4, 5]]
     t_inf = copy(t)
     t_inf[2] = Inf
     dropped = plot_drift(t_inf, (mass,); labels = ["mass"])
@@ -637,8 +640,9 @@ end
     @test all(p -> p isa Lines, ax.scene.plots)
     @test [p.label[] for p in ax.scene.plots] == ["error", "closed form"]
     error_line, closed_line = ax.scene.plots
-    @test first.(error_line[1][]) == t
-    @test last.(error_line[1][]) == T[floatmin(T), 1e-3, 2e-3, 1e-3, 5e-4]
+    # the zero error at `t₁` is dropped from the error's line
+    @test first.(error_line[1][]) == t[2:end]
+    @test last.(error_line[1][]) == err[2:end]
     @test last.(closed_line[1][]) == closed
 
     file = tempname() * ".png"
@@ -703,10 +707,11 @@ end
     save(file, fig)
     @test filesize(file) > 0
 
-    # a zero error is drawn at the floor and left out of the fit
+    # a zero error is neither drawn nor fitted
     zeroed = plot_convergence(h, T[0.17, 0.035, 0.011, 0])
     zax = zeroed.content[1]
-    @test last.(zax.scene.plots[1][1][]) == T[0.17, 0.035, 0.011, floatmin(T)]
+    @test first.(zax.scene.plots[1][1][]) == h[1:3]
+    @test last.(zax.scene.plots[1][1][]) == T[0.17, 0.035, 0.011]
     p3 = last(A[1:3, :] \ log.(Float64.(err[1:3])))
     @test abs(parse(Float64, match(r"p = (\S+)$", zax.ylabel[]).captures[1]) - p3) ≤ 0.006
 
@@ -758,6 +763,13 @@ end
     @test occursin("`cost` holds no value", message_of(() -> plot_cost(T[], T[])))
     @test_throws ArgumentError plot_cost(-cost, err)
     @test occursin("`cost` holds a negative value", message_of(() -> plot_cost(-cost, err)))
+
+    # a run with a zero error is dropped where another error is positive, and no run is left
+    # where the zero cost and the zero error fall on different runs
+    @test first.(only_plot(plot_cost(cost, T[1e-2, 0, 1e-3, 2e-4]))[1][]) == cost[[1, 3, 4]]
+    @test_throws ArgumentError plot_cost(T[1, 0], T[0, 1])
+    @test occursin("no run has a positive `cost` and a positive `err`",
+        message_of(() -> plot_cost(T[1, 0], T[0, 1])))
 end
 
 # The limits that are set on the axis of `fig`, `(x, y)` with `nothing` where Makie chooses them,
@@ -783,7 +795,7 @@ end
     t = collect(T, 0:0.5:1)
     tiny = Float64(floatmin(T))
 
-    # exactly conserved quantities: every drift is the clipped zero
+    # exactly conserved quantities: every drift is zero, drawn at `floatmin`
     xlims, ylims = saved_log_limits(plot_drift(t, (T[2, 2, 2],); labels = ["mass"]))
     @test isnothing(xlims)
     test_flat_limits(ylims, tiny)

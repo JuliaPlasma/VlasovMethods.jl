@@ -166,14 +166,15 @@ its line is the drift relative to the initial value, ``|Q(t) - Q(t_1)| / |Q(t_1)
 `labels` names the lines in a legend, one label per quantity, in the same order; the default
 names three, so fewer or more quantities need their own.
 
-The drift at `t[1]` is zero, which a logarithmic axis cannot show, so a zero drift is clipped to
-the smallest positive value of the element type, `floatmin`, and the line starts at the axis'
-floor. A pair whose time or drift is `NaN` or `Inf` is dropped, and the rest of the line is drawn.
-A series of one value has the single drift zero, and is refused. Where every drift on the axis is
-the same value `c`, as where each quantity is conserved exactly, the axis spans a decade on each
-side of `c`, within the positive finite `Float64`s. Makie's own limits would span the decades
-between `c²` and one, and `c²` is zero for the clipped zero drift of a `Float64` series, so the
-figure would not save.
+The drift at `t[1]` is zero, which a logarithmic axis cannot show. A zero drift is dropped from a
+line that has a positive drift, as a pair whose time or drift is `NaN` or `Inf` is, and the rest
+of the line is drawn. The line of a quantity whose drift is zero at every time, a quantity
+conserved exactly, is drawn one decade below the smallest positive drift on the axis, or at the
+smallest positive value of the element type, `floatmin`, where no drift is positive. A series of
+one value has the single drift zero, and is refused. Where every value on the axis is the same
+`c`, as where each quantity is conserved exactly, the axis spans a decade on each side of `c`,
+within the positive finite `Float64`s. Makie's own limits would span the decades between `c²` and
+one, and `c²` is zero for `floatmin` of `Float64`, so the figure would not save.
 
 # Throws
 
@@ -222,10 +223,11 @@ fig = plot_error(t, abs.(T_run .- T_closed), T_closed)
 ```
 
 A pair whose time or value is `NaN` or `Inf` is dropped, and the rest of the line is drawn. A zero
-in a series of more than one value is clipped to the smallest positive value of the element type,
-`floatmin`, the axis' floor. A series of one value is drawn as a marker. Where every value on the
-axis is the same, as where both series are zero, the axis spans a decade on each side of it, as
-[`plot_drift`](@ref) describes.
+is dropped from a series that has a positive value; a series that is zero at every time is drawn
+one decade below the smallest positive value on the axis, or at `floatmin` of its element type
+where no value is positive, as [`plot_drift`](@ref) describes. A series of one value is drawn as
+a marker. Where every value on the axis is the same, as where both series are zero, the axis
+spans a decade on each side of it.
 
 # Throws
 
@@ -253,9 +255,8 @@ fig = plot_convergence([0.4, 0.2, 0.1, 0.05], errors)
 ``(\ln h_i, \ln e_i)`` whose `h` and `err` are positive and finite, and the label shows `p` to
 three significant digits.
 
-A pair whose `h` or `err` is `NaN` or `Inf` is dropped. A zero is drawn at the smallest positive
-value of the element type, `floatmin`, the axis' floor, and takes no part in the fit, because it
-has no logarithm. Where every error is the same value, as for an error that does not depend on
+A pair whose `h` or `err` is `NaN` or `Inf` is dropped, and so is a pair with a zero, which has no
+logarithm: it is neither drawn nor fitted. Where every error is the same value, as for an error that does not depend on
 `h`, the `y` axis spans a decade on each side of it, as [`plot_drift`](@ref) describes.
 
 # Throws
@@ -280,16 +281,17 @@ using VlasovMethods, CairoMakie
 fig = plot_cost(seconds, errors)
 ```
 
-A run whose cost or error is `NaN` or `Inf` is dropped. A zero in a series of more than one value
-is clipped to the smallest positive value of the element type, `floatmin`, the axis' floor. An
-axis whose every value is the same, such as an error that is zero in every run, spans a decade on
-each side of it, as [`plot_drift`](@ref) describes.
+A run whose cost or error is `NaN` or `Inf` is dropped. A run with a zero cost or error is dropped
+where that series has a positive value; a series that is zero in every run is drawn at `floatmin`
+of its element type. An axis whose every value is the same, such as an error that is zero in
+every run, spans a decade on each side of it, as [`plot_drift`](@ref) describes.
 
 # Throws
 
 - `ArgumentError` when `cost` or `err` holds no value, when no pair of them is finite, when
-  either holds a negative value, and when either is the single value zero: `log10` has no value
-  there.
+  either holds a negative value, when either is the single value zero, because `log10` has no
+  value there, and when no run that is left has both a place on the cost axis and a place on the
+  error axis.
 - `DimensionMismatch` when `cost` and `err` differ in length; the message names the shorter one.
 """
 function plot_cost end

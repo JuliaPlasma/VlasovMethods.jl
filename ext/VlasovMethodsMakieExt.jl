@@ -222,8 +222,7 @@ function _finite_pairs(x, y, xname, yname)
 end
 
 # The values of `y` on a logarithmic axis. `log10` has no value at a negative number, nor at the
-# zero of a series of one value, so both are refused; a zero in a longer series, such as a drift
-# at `t = 0`, is clipped to the smallest positive value of the element type, the axis' floor.
+# zero of a series of one value, so both are refused.
 function _log_values(y, name)
     any(<(0), y) && throw(ArgumentError(
         "`$name` holds a negative value, which a logarithmic axis cannot show"))
@@ -231,13 +230,29 @@ function _log_values(y, name)
         throw(ArgumentError(
             "`$name` holds the single value zero, which a logarithmic axis cannot show"))
     end
-    return max.(float.(y), floatmin(float(eltype(y))))
+    return float.(y)
+end
+
+# The series `ys` that share one logarithmic axis, each as the mask of its pairs that are drawn
+# and the values they are drawn at. A zero has no logarithm: in a series with a positive value it
+# is dropped, as a non-finite value is, such as a drift at `t = 0`. A series that is zero at every
+# pair, such as the drift of an exactly conserved quantity, is drawn one decade below the smallest
+# positive value on the axis, or at `floatmin` of its element type where the axis holds none.
+function _log_axis(ys)
+    positive = (v for y in ys for v in y if v > 0)
+    floor = isempty(positive) ? nothing : minimum(positive) / 10
+    return map(ys) do y
+        any(>(0), y) && return (y .> 0, y)
+        T = eltype(y)
+        level = isnothing(floor) ? floatmin(T) : max(T(floor), floatmin(T))
+        return (trues(length(y)), fill(level, length(y)))
+    end
 end
 
 # Makie widens a logarithmic range of zero width, every value at one `c`, to the decades between
-# `c²` and one. The square underflows to zero for a `c` below about `1e-162`, such as the clipped
-# zero of an exactly conserved quantity, and overflows for a `c` above about `1e154`; Makie then
-# refuses the limits when the figure is saved. `setlims!` gives such an axis one decade on each
+# `c²` and one. The square underflows to zero for a `c` below about `1e-162`, such as the
+# `floatmin` of an axis whose every series is zero, and overflows for a `c` above about `1e154`;
+# Makie then refuses the limits when the figure is saved. `setlims!` gives such an axis one decade on each
 # side of `c` instead, within the positive finite `Float64`s. `plotted` holds the values of each
 # series on the axis.
 function _flat_log_limits!(setlims!, ax, plotted)
@@ -264,14 +279,16 @@ function VlasovMethods.plot_drift(t::AbstractVector, quantities;
 
     fig = Figure()
     ax = Axis(fig[1, 1]; xlabel = "t", ylabel = "relative drift", yscale = log10)
-    plotted = map(zip(labels, quantities)) do (label, Q)
+    series = map(zip(labels, quantities)) do (label, Q)
         Q₀ = first(Q)
         isfinite(Q₀) && !iszero(Q₀) || throw(ArgumentError(
             "the initial value of `$label` is $Q₀, so its relative drift is not defined"))
         x, drift = _finite_pairs(t, abs.(Q .- Q₀) ./ abs(Q₀), "t", label)
-        y = _log_values(drift, label)
-        _series!(ax, x, y; label = string(label))
-        y
+        (string(label), x, _log_values(drift, label))
+    end
+    plotted = map(series, _log_axis(map(last, series))) do (label, x, _), (keep, y)
+        _series!(ax, x[keep], y[keep]; label = label)
+        y[keep]
     end
     _flat_log_limits!(ylims!, ax, plotted)
     axislegend(ax)
@@ -294,11 +311,13 @@ function VlasovMethods.plot_error(t::AbstractVector, err::AbstractVector,
     fig = Figure()
     ax = Axis(fig[1, 1]; xlabel = "t", ylabel = "error", yscale = log10)
     series = (("err", err, "error"), ("closed", closed, "closed form"))
-    plotted = map(series) do (name, values, label)
+    checked = map(series) do (name, values, label)
         x, finite = _finite_pairs(t, values, "t", name)
-        y = _log_values(finite, name)
-        _series!(ax, x, y; label = label)
-        y
+        (label, x, _log_values(finite, name))
+    end
+    plotted = map(checked, _log_axis(map(last, checked))) do (label, x, _), (keep, y)
+        _series!(ax, x[keep], y[keep]; label = label)
+        y[keep]
     end
     _flat_log_limits!(ylims!, ax, plotted)
     axislegend(ax)
@@ -312,9 +331,9 @@ function VlasovMethods.plot_convergence(h::AbstractVector, err::AbstractVector)
     # such and not as a pair that the fit cannot use
     xs, ys = _log_values(x, "h"), _log_values(y, "err")
 
-    # the least-squares line through the pairs whose logarithms are finite; a zero is drawn at
-    # the axis' floor but has no logarithm to fit
-    fitted = findall((x .> 0) .& (y .> 0))
+    # the least-squares line through the pairs whose logarithms are finite; a pair with a zero
+    # has no logarithm, and is neither drawn nor fitted
+    fitted = findall((xs .> 0) .& (ys .> 0))
     length(fitted) ≥ 2 || throw(ArgumentError(
         "fewer than two pairs of positive finite `h` and `err`, so no slope can be fitted"))
     lnh, lnerr = log.(x[fitted]), log.(y[fitted])
@@ -327,12 +346,12 @@ function VlasovMethods.plot_convergence(h::AbstractVector, err::AbstractVector)
     fig = Figure()
     ylabel = "error ∝ h^p, p = $(round(p; sigdigits = 3))"
     ax = Axis(fig[1, 1]; xlabel = "h", ylabel = ylabel, xscale = log10, yscale = log10)
-    scatter!(ax, xs, ys)
+    scatter!(ax, xs[fitted], ys[fitted])
     hs = sort(x[fitted])
     lines!(ax, hs, C .* hs .^ p)
     # the widths differ, so only the `y` axis can be flat: an error that is the same at each
     # width, which the fitted line of slope zero meets within rounding
-    _flat_log_limits!(ylims!, ax, (ys,))
+    _flat_log_limits!(ylims!, ax, (ys[fitted],))
     return fig
 end
 
@@ -343,10 +362,14 @@ function VlasovMethods.plot_cost(cost::AbstractVector, err::AbstractVector)
     fig = Figure()
     ax = Axis(fig[1, 1]; xlabel = "wall-clock time", ylabel = "error",
         xscale = log10, yscale = log10)
-    xs, ys = _log_values(x, "cost"), _log_values(y, "err")
-    scatter!(ax, xs, ys)
-    _flat_log_limits!(xlims!, ax, (xs,))
-    _flat_log_limits!(ylims!, ax, (ys,))
+    (xkeep, xs), = _log_axis((_log_values(x, "cost"),))
+    (ykeep, ys), = _log_axis((_log_values(y, "err"),))
+    keep = xkeep .& ykeep
+    any(keep) || throw(ArgumentError(
+        "no run has a positive `cost` and a positive `err`, so none has a place on both axes"))
+    scatter!(ax, xs[keep], ys[keep])
+    _flat_log_limits!(xlims!, ax, (xs[keep],))
+    _flat_log_limits!(ylims!, ax, (ys[keep],))
     return fig
 end
 
