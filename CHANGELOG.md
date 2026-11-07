@@ -158,6 +158,54 @@ their own, except for what they removed and narrowed, which is listed in full be
   step displacement `‖vₖ₊₁ − vⁿ‖∞ ≈ 6.65e-4`, of at most `6.7e-13` with `AVFGradient(5)`: one
   rounding unit of the largest velocity, `eps(3.70) = 4.4e-16`, over the displacement. With
   `GonzalezGradient` the same figure lies between `1.50e-11` and `4.71e-11`.
+- **`AnisotropicBiMaxwellian`** is the centred bi-Maxwellian of two temperatures, one of the three
+  2D reference cases of the Landau collision methods. `AnisotropicBiMaxwellian(σ1², σ2²; seed)`
+  fills the two velocity components from `Random.MersenneTwister(seed)`, which the type holds as the
+  field `seed`, so that the sample is the seed's own and not the global RNG's, and it sets the
+  weights to `1/N`, as the other examples in `src/examples/` do. At `10⁵` particles and the seed
+  `20261107` its means, variances and covariance deviate from `0`, `0`, `0.5`, `0.3` and `0` by
+  `1.37`, `0.04`, `0.44`, `−0.98` and `−0.05` standard errors, and over the four seeds `20261107`,
+  `1`, `2` and `3` none by more than `2.18`. A variance that is not positive and finite throws an `ArgumentError`, and a distribution
+  of one or three velocity components a `DimensionMismatch`.
+- **`DoubleMaxwellian2D`** is the sum of two displaced Maxwellians, the second 2D reference case.
+  `DoubleMaxwellian2D(; weights, variances, means, seed)` draws each component from the seed's own
+  generator, the first taking the share `round(weights[1] * N)` of the `N` particles, and it sets
+  the weights to `1/N`. At `10⁵` particles its mean deviates from the exact `(0.08, 0)` by `2.02`
+  and `−0.85` of the standard errors `√(0.42/N)` and `√(0.38/N)` of a sample of fixed component
+  counts, and its two variances from the mixture's `0.5736` and `0.38` by `0.44` and `−0.08` of
+  the Gaussian standard error `σ²√(2/N)`. Weights that are negative or sum to other than one throw
+  an `ArgumentError`, as do a component count other than two, a variance or mean pair of other than
+  two velocity components, a variance that is not positive and finite, and a mean that is not
+  finite.
+- **`BKWDistribution`** samples the two-dimensional BKW solution of Carrillo, Hu, Wang and Wu
+  (2020), Appendix A, at the time `t₀`, the third 2D reference case: mass one and temperature one,
+  `f = (2πK)⁻¹ exp(−v²/(2K))[(4K − 2)/(2K) + (1 − K)v²/(2K²)]` at `K(t) = 1 − exp(−2t)/2`, which is
+  the paper's `K = 1 − exp(−t/8)/2` at the rate the factor sixteen gives between its kernel
+  `(|z|² I − z ⊗ z)/16` and this package's `U = |z|² (I − û ûᵀ)`. At `10⁵` particles and the seed
+  `20261107` its two variances deviate from `1` by `−3.08` and `−0.06` standard errors and its
+  fourth moment from the profile's `7.1013` by `−2.06` of the sample's own standard error, which
+  tells it from a Gaussian's `8`. A time that is not finite, or that is negative, throws an
+  `ArgumentError`. The new file `test/examples/reference_cases.jl` holds the three types' tests, in
+  the `core` group.
+
+### Scripts
+
+- **`scripts/reference_forms.jl` derives the two closed forms of the 2D reference cases and checks
+  them against the moment equations.** The header derives the rate of the second moments at the
+  Maxwell molecules of `γ = 0` — `d(T₁₁ − T₂₂)/dt = −8 (T₁₁ − T₂₂)` at density one, unit mass and
+  `ν = 1`, from the weak form of the Landau operator over the bi-Maxwellian — and the BKW profile
+  above with its fourth moment `8K(2 − K)` and the equation of that moment, `dM₄/dt = 32 (1 − K)²`,
+  which is what fixes the rate of `K(t)` and not only its value. `--check` integrates the weak form
+  by a product Gauss–Hermite rule of the envelope: the rate of `φ = v₁²` and of `φ = v₂²` at the
+  four temperature ratios `1.2`, `1.5`, `2` and `3`, and the profile's mass, energy, temperature
+  and fourth moment with the equation of the fourth moment at the four times `0.1`, `0.3`, `0.6`
+  and `0.9`. Every comparison agrees to `1e-10` relative, measured between `1.6e-15` and `5.6e-14`,
+  and the control, the rate's constant `4` in place of `8`, misses by a relative `1.0`. The
+  profile's sample of `10⁵` particles at `t₀ = 0.2` lies within `3.08` standard errors of its
+  moments. The conservation of mass by the weak form is an identity of the test function — `φ = 1`
+  has no gradient — and the conservation of energy an identity of the kernel, `U(u) u = 0`, so
+  neither is among the checks: the file states both and checks only what can fail. A run without
+  `--check` prints the same table and writes it, with the command line, into `--results-dir`.
 
 ### Documentation
 

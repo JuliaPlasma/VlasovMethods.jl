@@ -174,8 +174,18 @@ include("examples/doublemaxwellian.jl")
 include("examples/bump.jl")
 include("examples/sum_maxwellian.jl")
 
+# The 2D reference cases of the Landau collision methods: the seeded bi-Maxwellian and double
+# Maxwellian, whose moments `test/examples/reference_cases.jl` checks, and the BKW solution, whose
+# closed form `scripts/reference_forms.jl` derives. They sample from the seed they hold rather than
+# from the global RNG, which the types above seed, so that a sample survives the order in which a
+# test run reaches them.
+include("examples/anisotropic_bimaxwellian.jl")
+include("examples/double_maxwellian_2d.jl")
+include("examples/bkw_distribution.jl")
+
 export BumpOnTail, NormalDistribution, UniformDistribution, ShiftedNormalV,
        ShiftedUniformDistribution, DoubleMaxwellian, Bump, SumMaxwellian
+export AnisotropicBiMaxwellian, DoubleMaxwellian2D, BKWDistribution
 
 # grid-based phase-space discretisation
 
