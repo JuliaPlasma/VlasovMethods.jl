@@ -113,10 +113,9 @@
 # any case.
 #
 # The drivers run at once, so the gate takes about as long as the slowest of them. `BUDGET` is
-# 400 s, measured from the gate's start: whole gate runs have taken from 180 s to 229 s, so 240 s
-# leaves too little room for a loaded machine. The gate prints the size of each file and its own
-# wall-clock time, and exits 1 when a check fails. A driver still running when the gate exits is
-# killed.
+# 400 s, measured from the gate's start, because whole gate runs take from 173 s to 229 s and a
+# loaded machine slows them. The gate prints the size of each file and its own wall-clock time,
+# and exits 1 when a check fails. A driver still running when the gate exits is killed.
 
 include(joinpath(@__DIR__, "pd_lb_common.jl"))
 
