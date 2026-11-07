@@ -58,6 +58,9 @@ their own, except for what they removed and narrowed, which is listed in full be
   guess of `ti ≥ 4` promote `t` and `Δt` to one type; before, a `Float64` `Δt` beside a `Float32`
   `t` threw a `MethodError` in either. Each step gives the particles of the same step from a
   `Matrix`, or from a `t` of the type of `Δt`.
+- **The particle histogram of `plot_distribution` drops a particle whose weight is `NaN` or
+  `Inf`**, as it drops one whose position is not finite. Before, such a weight became the value
+  of its whole cell, and the finite weights beside it in that cell were lost.
 
 ### Breaking Changes
 
@@ -193,18 +196,23 @@ their own, except for what they removed and narrowed, which is listed in full be
   initial and the final particle histogram in two panels, each as `plot_distribution` computes it,
   with the Maxwellian that carries `f`'s mass, momentum and energy as a contour on both; unlike
   `plot_distribution` (K57), it refuses a reversed or empty domain and a cell count below one with
-  an `ArgumentError`. `plot_drift(t, (mass, momentum, energy))` draws `|Q − Q(t₁)|/|Q(t₁)|` of
-  each quantity on a logarithmic axis, `plot_entropy` draws `S_h` against `t`, `plot_error` an
-  error and its closed form on a logarithmic axis, `plot_convergence` the error against the cell
-  width on logarithmic axes with the least-squares line `C h^p` and `p` in the axis label, and
-  `plot_cost` the error against the wall-clock time of each run. These five share their edges: an
-  empty argument throws an `ArgumentError` that names it, and arguments of different lengths a
-  `DimensionMismatch` that names the shorter one; a pair with a `NaN` or an `Inf` is dropped; a
-  series of one value is a marker; on a logarithmic axis a zero is drawn at `floatmin` of the
-  element type, while a negative value, or the single value zero, throws an `ArgumentError`. A
-  relative drift whose initial value is zero or not finite is not defined and throws an
-  `ArgumentError`; the drift of a series of one value is the single value zero, which is refused;
-  and `plot_convergence` throws one with fewer than two positive finite pairs to fit.
+  an `ArgumentError`, and an `f` or a `g` with no particle with one that names it; a particle
+  whose position, velocity or weight is not finite takes no part in the Maxwellian's moments.
+  `plot_drift(t, (mass, momentum, energy))` draws `|Q − Q(t₁)|/|Q(t₁)|` of each quantity on a
+  logarithmic axis, `plot_entropy` draws `S_h` against `t`, `plot_error` an error and its closed
+  form on a logarithmic axis, `plot_convergence` the error against the cell width on logarithmic
+  axes with the least-squares line `C h^p` and `p` in the axis label, and `plot_cost` the error
+  against the wall-clock time of each run. These five share their edges: an empty argument throws
+  an `ArgumentError` that names it, and arguments of different lengths a `DimensionMismatch` that
+  names the shorter one; a pair with a `NaN` or an `Inf` is dropped; a series of one value is a
+  marker; on a logarithmic axis a zero is drawn at `floatmin` of the element type, while a
+  negative value, or the single value zero, throws an `ArgumentError`. A logarithmic axis whose
+  every value is the same `c` spans a decade on each side of `c`: Makie's own limits run from `c²`
+  to one, which is zero for the clipped zero of an exactly conserved quantity in `Float64`, and
+  the figure would not save. A relative drift whose initial value is zero or not finite is not
+  defined and throws an `ArgumentError`; the drift of a series of one value is the single value
+  zero, which is refused; and `plot_convergence` throws one with fewer than two positive finite
+  pairs to fit.
 
 ### Scripts
 

@@ -408,11 +408,12 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K58 · A particle whose `v` is `NaN` is dropped from the histogram without a word.
 
-- **location:** `src/plotting.jl:34-36`
+- **location:** `src/plotting.jl:34-37`
 - **evidence:** A particle whose `v` is `NaN` is also dropped, because `va ≤ v` is false for it.
-  Neither the docstring nor the CHANGELOG mentions this case; both name only `v` outside
-  `[va, vb)` and a non-finite `x`. Probe (the review of #74, finding 6): particles `(0.5, NaN,
-  w = 1)` and `(0.5, 0.0, w = 0.25)`, and `sum(F)·hx·hv == 0.25` passes.
+  Neither the docstring nor the CHANGELOG mentions this case; both name `v` outside `[va, vb)`
+  and a non-finite `x`, and the docstring a non-finite weight. Probe (the review of #74, finding
+  6): particles `(0.5, NaN, w = 1)` and `(0.5, 0.0, w = 0.25)`, and `sum(F)·hx·hv == 0.25`
+  passes.
 - **kind:** defect
 - **found:** #74
 
@@ -492,7 +493,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K69 · The legend of `plot_series` overflows its axis for many labelled series.
 
-- **location:** `ext/VlasovMethodsMakieExt.jl:137`, `plot_series`
+- **location:** `ext/VlasovMethodsMakieExt.jl:139`, `plot_series`
 - **evidence:** at the default figure size of `600 × 450`, the legend of 20 labelled series is
   481 px high in an axis of 375 px, on `05431f10`; 10 series give 251 px.
   `scripts/bump_on_tail_testing.jl` draws its 30-series figures of items 26 and 27 without

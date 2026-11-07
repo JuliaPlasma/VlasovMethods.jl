@@ -34,14 +34,16 @@ function _histogram(dist::ParticleDistribution{DT, 1, 1}, xdomain, vdomain,
     for k in eachindex(dist.particles)
         x = dist.particles.x[1, k]
         v = dist.particles.v[1, k]
-        # the wrap cannot place a non-finite position, and no cell holds a `v` outside the domain
-        isfinite(x) && va ≤ v < vb || continue
+        w = dist.particles.w[1, k]
+        # the wrap cannot place a non-finite position, no cell holds a `v` outside the domain,
+        # and a non-finite weight would be the value of its whole cell
+        isfinite(x) && va ≤ v < vb && isfinite(w) || continue
         # `mod(-1e-20, 2π) == 2π` in `Float64`, so the last cell needs the clamp.
         i = min(floor(Int, (_wrap(x, xdomain) - xa) / hx) + 1, nx)
         # `(v - va)/hv` can round up to `nv` for `v = prevfloat(vb)`, so the last cell needs the
         # clamp as well.
         j = min(floor(Int, (v - va) / hv) + 1, nv)
-        F[i, j] += dist.particles.w[1, k] / (hx * hv)
+        F[i, j] += w / (hx * hv)
     end
 
     return range(xa, xb; length = nx + 1), range(va, vb; length = nv + 1), F
@@ -139,9 +141,11 @@ function VlasovMethods.plot_series(t::AbstractVector, series;
 end
 
 # The density, the mean velocity and the temperature of the Maxwellian that carries the mass, the
-# momentum and the energy of `dist`, over the particles whose position and velocity are finite.
+# momentum and the energy of `dist`, over the particles whose position, velocity and weight are
+# finite.
 function _maxwellian_moments(dist::ParticleDistribution{DT, 1, 1}, xdomain) where {DT}
-    finite = isfinite.(dist.particles.x[1, :]) .& isfinite.(dist.particles.v[1, :])
+    finite = isfinite.(dist.particles.x[1, :]) .& isfinite.(dist.particles.v[1, :]) .&
+             isfinite.(dist.particles.w[1, :])
     w = dist.particles.w[1, finite]
     v = dist.particles.v[1, finite]
     W = sum(w; init = zero(DT))
@@ -159,6 +163,10 @@ function VlasovMethods.plot_collision_distribution(f::ParticleDistribution{DT, 1
     nx ≥ 1 && nv ≥ 1 || throw(ArgumentError("the cell counts must be positive"))
     first(xdomain) < last(xdomain) && first(vdomain) < last(vdomain) ||
         throw(ArgumentError("each domain must run from its lower to its upper end"))
+    # `_histogram` refuses an empty distribution without naming it, and `isempty` raises
+    # `BoundsError` on an empty `ParticleList` (ParticleMethods K2)
+    iszero(length(f.particles)) && throw(ArgumentError("`f` holds no particle"))
+    iszero(length(g.particles)) && throw(ArgumentError("`g` holds no particle"))
     histograms = map(dist -> _histogram(dist, xdomain, vdomain, nx, nv), (f, g))
     n, u, T = _maxwellian_moments(f, xdomain)
 
@@ -219,6 +227,19 @@ function _log_values(y, name)
     return max.(float.(y), floatmin(float(eltype(y))))
 end
 
+# Makie widens a logarithmic range of zero width, every value at one `c`, to the decades between
+# `c²` and one. The square underflows to zero for a `c` below about `1e-162`, such as the clipped
+# zero of an exactly conserved quantity, and overflows for a `c` above about `1e154`; Makie then
+# refuses the limits when the figure is saved. `setlims!` gives such an axis one decade on each
+# side of `c` instead, within the positive finite `Float64`s. `plotted` holds the values of each
+# series on the axis.
+function _flat_log_limits!(setlims!, ax, plotted)
+    c = Float64(first(first(plotted)))
+    all(y -> all(==(c), y), plotted) || return nothing
+    setlims!(ax, max(c / 10, floatmin(Float64)), min(c * 10, floatmax(Float64)))
+    return nothing
+end
+
 # One series on `ax`: a line, or a marker where the series holds one value, which a line cannot
 # show.
 function _series!(ax, x, y; kwargs...)
@@ -236,13 +257,16 @@ function VlasovMethods.plot_drift(t::AbstractVector, quantities;
 
     fig = Figure()
     ax = Axis(fig[1, 1]; xlabel = "t", ylabel = "relative drift", yscale = log10)
+    plotted = AbstractVector[]
     for (label, Q) in zip(labels, quantities)
         Q₀ = first(Q)
         isfinite(Q₀) && !iszero(Q₀) || throw(ArgumentError(
             "the initial value of `$label` is $Q₀, so its relative drift is not defined"))
         x, y = _finite_pairs(t, abs.(Q .- Q₀) ./ abs(Q₀), "t", label)
-        _series!(ax, x, _log_values(y, label); label = string(label))
+        push!(plotted, _log_values(y, label))
+        _series!(ax, x, last(plotted); label = string(label))
     end
+    _flat_log_limits!(ylims!, ax, plotted)
     axislegend(ax)
     return fig
 end
@@ -262,10 +286,14 @@ function VlasovMethods.plot_error(t::AbstractVector, err::AbstractVector,
 
     fig = Figure()
     ax = Axis(fig[1, 1]; xlabel = "t", ylabel = "error", yscale = log10)
-    for (name, y, label) in (("err", err, "error"), ("closed", closed, "closed form"))
+    series = (("err", err, "error"), ("closed", closed, "closed form"))
+    plotted = map(series) do (name, y, label)
         x, y = _finite_pairs(t, y, "t", name)
-        _series!(ax, x, _log_values(y, name); label = label)
+        y = _log_values(y, name)
+        _series!(ax, x, y; label = label)
+        y
     end
+    _flat_log_limits!(ylims!, ax, plotted)
     axislegend(ax)
     return fig
 end
@@ -289,9 +317,13 @@ function VlasovMethods.plot_convergence(h::AbstractVector, err::AbstractVector)
     fig = Figure()
     ylabel = "error ∝ h^p, p = $(round(p; sigdigits = 3))"
     ax = Axis(fig[1, 1]; xlabel = "h", ylabel = ylabel, xscale = log10, yscale = log10)
-    scatter!(ax, _log_values(x, "h"), _log_values(y, "err"))
+    ys = _log_values(y, "err")
+    scatter!(ax, _log_values(x, "h"), ys)
     hs = sort(x[fitted])
     lines!(ax, hs, C .* hs .^ p)
+    # the widths differ, so only the `y` axis can be flat: an error that is the same at each
+    # width, which the fitted line of slope zero meets within rounding
+    _flat_log_limits!(ylims!, ax, (ys,))
     return fig
 end
 
@@ -302,7 +334,10 @@ function VlasovMethods.plot_cost(cost::AbstractVector, err::AbstractVector)
     fig = Figure()
     ax = Axis(fig[1, 1]; xlabel = "wall-clock time", ylabel = "error",
         xscale = log10, yscale = log10)
-    scatter!(ax, _log_values(x, "cost"), _log_values(y, "err"))
+    xs, ys = _log_values(x, "cost"), _log_values(y, "err")
+    scatter!(ax, xs, ys)
+    _flat_log_limits!(xlims!, ax, (xs,))
+    _flat_log_limits!(ylims!, ax, (ys,))
     return fig
 end
 

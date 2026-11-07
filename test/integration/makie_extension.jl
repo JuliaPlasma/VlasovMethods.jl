@@ -199,6 +199,21 @@ end
     @test count(!iszero, F) == 1
 end
 
+@testset "a non-finite weight is dropped from the histogram" begin
+    # the particles share one cell with a finite one, whose weight a `NaN` or `Inf` would hide
+    w_inside = 0.25
+    dist = ParticleDistribution(1, 1,
+        ParticleList([0.5, 0.5, 0.5], [0.0, 0.0, 0.0], [NaN, Inf, w_inside]))
+    nx, nv = 8, 8
+    hx = (last(XDOMAIN) - first(XDOMAIN)) / nx
+    hv = (last(VDOMAIN) - first(VDOMAIN)) / nv
+    F = plotted_matrix(plot_distribution(dist;
+        xdomain = XDOMAIN, vdomain = VDOMAIN, nx = nx, nv = nv))
+
+    @test sum(F) * hx * hv == w_inside
+    @test count(!iszero, F) == 1
+end
+
 @testset "plot_particles wraps x into the domain" begin
     period = last(XDOMAIN) - first(XDOMAIN)
     dist = ParticleDistribution(1, 1,
@@ -438,11 +453,14 @@ end
     save(file, fig)
     @test filesize(file) > 0
 
-    # no particle leaves nothing to draw, and one particle has no temperature and no Maxwellian
+    # no particle leaves nothing to draw, and the error names the empty distribution; one
+    # particle has no temperature and no Maxwellian
     empty = ParticleDistribution(1, 1, 0)
     @test_throws ArgumentError plot_collision_distribution(empty, g; keywords...)
+    @test occursin("`f` holds no particle",
+        message_of(() -> plot_collision_distribution(empty, g; keywords...)))
     @test_throws ArgumentError plot_collision_distribution(f, empty; keywords...)
-    @test occursin("no particles to plot",
+    @test occursin("`g` holds no particle",
         message_of(() -> plot_collision_distribution(f, empty; keywords...)))
     @test_throws ArgumentError plot_collision_distribution(particle(0.5, 0.0), g; keywords...)
     @test occursin("no positive temperature",
@@ -454,6 +472,22 @@ end
     @test_throws ArgumentError plot_collision_distribution(unplaced, g; keywords...)
     @test occursin("no positive mass",
         message_of(() -> plot_collision_distribution(unplaced, g; keywords...)))
+
+    # a particle whose weight is not finite is dropped from the histogram and from the moments,
+    # so both panels are those of the distributions without it
+    for w in (NaN, Inf)
+        f_w = ParticleDistribution(1, 1,
+            ParticleList([0.1, 0.4, 0.6, 0.9, 0.3], [-1.0, 1.0, -1.0, 1.0, 0.5],
+                [0.75, 0.75, 1.0, 1.0, w]))
+        g_w = ParticleDistribution(1, 1,
+            ParticleList([0.2, 0.5, 0.7, 0.3], [0.0, 0.5, -0.5, 0.5], [1.0, 1.0, 1.0, w]))
+        (_, hf_w, cf_w), (_, hg_w, cg_w) = collision_panels(
+            plot_collision_distribution(f_w, g_w; keywords...))
+        @test hf_w[3][] == hf[3][]
+        @test hg_w[3][] == hg[3][]
+        @test cf_w[3][] ≈ M
+        @test cg_w[3][] ≈ M
+    end
 
     # a reversed or empty domain would give a negative or an infinite density, and no cell
     # holds a particle where a cell count is zero
@@ -525,6 +559,7 @@ end
 
     # nothing to draw, an initial value with no relative drift, and the single drift zero
     @test_throws ArgumentError plot_drift(t, ())
+    @test occursin("`quantities` holds no quantity", message_of(() -> plot_drift(t, ())))
     @test_throws ArgumentError plot_drift(T[], (T[], T[], T[]))
     @test occursin("`t` holds no value", message_of(() -> plot_drift(T[], (T[], T[], T[]))))
     @test_throws ArgumentError plot_drift(t, (T[0, 1, 1, 1, 1],); labels = ["momentum"])
@@ -612,6 +647,7 @@ end
     @test occursin("`closed` is shorter than `t`",
         message_of(() -> plot_error(t, err, closed[1:(end - 1)])))
     @test_throws ArgumentError plot_error(T[], T[], T[])
+    @test occursin("`t` holds no value", message_of(() -> plot_error(T[], T[], T[])))
 end
 
 @testset "plot_convergence fits C h^p by least squares, $T" for T in (Float64, Float32)
@@ -659,6 +695,7 @@ end
 
     # fewer than two finite pairs, or one width only, leave no slope
     @test_throws ArgumentError plot_convergence(T[0.1], T[0.01])
+    @test occursin("fewer than two pairs", message_of(() -> plot_convergence(T[0.1], T[0.01])))
     @test occursin("fewer than two pairs",
         message_of(() -> plot_convergence(T[0.1, NaN], T[0.01, 0.02])))
     @test_throws ArgumentError plot_convergence(T[0.1, 0.1], T[0.01, 0.02])
@@ -669,6 +706,7 @@ end
     @test occursin("`err` is shorter than `h`",
         message_of(() -> plot_convergence(h, err[1:(end - 1)])))
     @test_throws ArgumentError plot_convergence(T[], T[])
+    @test occursin("`h` holds no value", message_of(() -> plot_convergence(T[], T[])))
 end
 
 @testset "plot_cost draws one marker per run on logarithmic axes, $T" for T in (Float64, Float32)
@@ -696,6 +734,74 @@ end
     @test occursin("`err` is shorter than `cost`",
         message_of(() -> plot_cost(cost, err[1:(end - 1)])))
     @test_throws ArgumentError plot_cost(T[], T[])
+    @test occursin("`cost` holds no value", message_of(() -> plot_cost(T[], T[])))
     @test_throws ArgumentError plot_cost(-cost, err)
     @test occursin("`cost` holds a negative value", message_of(() -> plot_cost(-cost, err)))
+end
+
+# The limits that are set on the axis of `fig`, `(x, y)` with `nothing` where Makie chooses them,
+# after `fig` is saved.
+function saved_log_limits(fig)
+    ax = fig.content[1]
+    file = tempname() * ".png"
+    save(file, fig)
+    @test filesize(file) > 0
+    return ax.limits[]
+end
+
+# The limits of an axis whose every value is `c`: a range of positive width around `c`, within
+# the positive finite `Float64`s, so that neither end is zero or infinite.
+function test_flat_limits(limits, c)
+    @test limits isa Tuple{Real, Real}
+    lo, hi = limits
+    @test floatmin(Float64) ≤ lo ≤ c ≤ hi ≤ floatmax(Float64)
+    @test lo < hi
+end
+
+@testset "a log axis whose every value is one value is saved, $T" for T in (Float64, Float32)
+    t = collect(T, 0:0.5:1)
+    tiny = Float64(floatmin(T))
+
+    # exactly conserved quantities: every drift is the clipped zero
+    xlims, ylims = saved_log_limits(plot_drift(t, (T[2, 2, 2],); labels = ["mass"]))
+    @test isnothing(xlims)
+    test_flat_limits(ylims, tiny)
+    _, ylims = saved_log_limits(plot_drift(t, (T[2, 2, 2], T[1, 1, 1], T[4, 4, 4])))
+    test_flat_limits(ylims, tiny)
+
+    # an error and a closed form that are zero, or one value of each that is the same
+    _, ylims = saved_log_limits(plot_error(t, zeros(T, 3), zeros(T, 3)))
+    test_flat_limits(ylims, tiny)
+    _, ylims = saved_log_limits(plot_error(T[0], T[1e-30], T[1e-30]))
+    test_flat_limits(ylims, Float64(T(1e-30)))
+
+    # the costs and the errors of runs, each axis on its own
+    xlims, ylims = saved_log_limits(plot_cost(T[1, 2, 4], zeros(T, 3)))
+    @test isnothing(xlims)
+    test_flat_limits(ylims, tiny)
+    xlims, ylims = saved_log_limits(plot_cost(zeros(T, 3), T[1e-2, 1e-3, 1e-4]))
+    test_flat_limits(xlims, tiny)
+    @test isnothing(ylims)
+    _, ylims = saved_log_limits(plot_cost(T[1, 2, 4], fill(floatmax(T), 3)))
+    test_flat_limits(ylims, Float64(floatmax(T)))
+
+    # an error that is the same at each width, which the fitted line of slope zero meets; at
+    # `1e-170` Makie's own limits reach zero
+    xlims, ylims = saved_log_limits(plot_convergence(T[0.5, 2], T[1, 1]))
+    @test isnothing(xlims)
+    test_flat_limits(ylims, 1.0)
+    if T == Float64
+        _, ylims = saved_log_limits(plot_convergence([0.5, 2.0], [1e-170, 1e-170]))
+        test_flat_limits(ylims, 1e-170)
+    end
+
+    # where the values differ, Makie's own limits stay: a conserved mass beside a drifting
+    # energy, an error beside a closed form of another value, and errors that fall with `h`
+    drifting = (T[2, 2, 2], T[4, 5, 4])
+    _, ylims = saved_log_limits(plot_drift(t, drifting; labels = ["m", "e"]))
+    @test isnothing(ylims)
+    _, ylims = saved_log_limits(plot_error(t, zeros(T, 3), T[1, 0.5, 0.25]))
+    @test isnothing(ylims)
+    _, ylims = saved_log_limits(plot_convergence(T[0.4, 0.2, 0.1], T[0.1, 0.02, 0.005]))
+    @test isnothing(ylims)
 end

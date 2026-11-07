@@ -33,7 +33,8 @@ it keeps. A cell is half-open, `[x_a + (i-1) h_x, x_a + i h_x)` and likewise in 
 
 `xdomain` is periodic and `x` wraps into it. `vdomain` is bounded, and a particle outside it —
 `v < v_a` or `v >= v_b` — is dropped from the histogram rather than clamped into an end cell.
-A particle with a non-finite `x`, which the wrap cannot place, is dropped as well.
+A particle with a non-finite `x`, which the wrap cannot place, is dropped as well, and so is a
+particle with a non-finite weight, which would make its whole cell `NaN` or infinite.
 A distribution with no particles throws an `ArgumentError`.
 
 There are no other keywords, and the two domains are required. Use the returned `Figure` to set
@@ -133,9 +134,10 @@ u = \frac{1}{W} \sum_k w_k v_k , \quad
 T = \frac{1}{W} \sum_k w_k (v_k - u)^2 ,
 ```
 
-with ``W = \sum_k w_k``, the sums running over the particles of `f` whose position and velocity
-are finite. A collision operator that conserves mass, momentum and energy relaxes a spatially
-uniform `f` towards this Maxwellian, so the final panel shows how close `g` has come to it.
+with ``W = \sum_k w_k``, the sums running over the particles of `f` whose position, velocity and
+weight are finite. A collision operator that conserves mass, momentum and energy relaxes a
+spatially uniform `f` towards this Maxwellian, so the final panel shows how close `g` has come to
+it.
 
 # Throws
 
@@ -165,7 +167,11 @@ its line is the drift relative to the initial value, ``|Q(t) - Q(t_1)| / |Q(t_1)
 The drift at `t[1]` is zero, which a logarithmic axis cannot show, so a zero drift is clipped to
 the smallest positive value of the element type, `floatmin`, and the line starts at the axis'
 floor. A pair whose time or drift is `NaN` or `Inf` is dropped, and the rest of the line is drawn.
-A series of one value has the single drift zero, and is refused.
+A series of one value has the single drift zero, and is refused. Where every drift on the axis is
+the same value `c`, as where each quantity is conserved exactly, the axis spans a decade on each
+side of `c`, within the positive finite `Float64`s. Makie's own limits would run from `c²` to
+one, which is zero for the clipped zero drift of a `Float64` series, and the figure would not
+save.
 
 # Throws
 
@@ -215,7 +221,9 @@ fig = plot_error(t, abs.(T_run .- T_closed), T_closed)
 
 A pair whose time or value is `NaN` or `Inf` is dropped, and the rest of the line is drawn. A zero
 in a series of more than one value is clipped to the smallest positive value of the element type,
-`floatmin`, the axis' floor. A series of one value is drawn as a marker.
+`floatmin`, the axis' floor. A series of one value is drawn as a marker. Where every value on the
+axis is the same, as where both series are zero, the axis spans a decade on each side of it, as
+[`plot_drift`](@ref) describes.
 
 # Throws
 
@@ -245,7 +253,8 @@ three significant digits.
 
 A pair whose `h` or `err` is `NaN` or `Inf` is dropped. A zero is drawn at the smallest positive
 value of the element type, `floatmin`, the axis' floor, and takes no part in the fit, because it
-has no logarithm.
+has no logarithm. Where every error is the same value, as for an error that does not depend on
+`h`, the `y` axis spans a decade on each side of it, as [`plot_drift`](@ref) describes.
 
 # Throws
 
@@ -270,7 +279,9 @@ fig = plot_cost(seconds, errors)
 ```
 
 A run whose cost or error is `NaN` or `Inf` is dropped. A zero in a series of more than one value
-is clipped to the smallest positive value of the element type, `floatmin`, the axis' floor.
+is clipped to the smallest positive value of the element type, `floatmin`, the axis' floor. An
+axis whose every value is the same, such as an error that is zero in every run, spans a decade on
+each side of it, as [`plot_drift`](@ref) describes.
 
 # Throws
 
