@@ -35,7 +35,9 @@ it keeps. A cell is half-open, `[x_a + (i-1) h_x, x_a + i h_x)` and likewise in 
 `v < v_a` or `v >= v_b` — is dropped from the histogram rather than clamped into an end cell.
 A particle with a non-finite `x`, which the wrap cannot place, is dropped as well, and so is a
 particle with a non-finite weight, which would make its whole cell `NaN` or infinite.
-A distribution with no particles throws an `ArgumentError`.
+A distribution with no particles throws an `ArgumentError`, and so does a cell count that is not
+positive, or a domain that does not run from its lower to its upper end or has an end that is not
+finite.
 
 There are no other keywords, and the two domains are required. Use the returned `Figure` to set
 a title, a size or an axis label.

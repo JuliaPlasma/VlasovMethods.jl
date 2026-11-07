@@ -260,6 +260,28 @@ end
     @test_throws ArgumentError plot_particles(empty; xdomain = XDOMAIN, vdomain = VDOMAIN)
 end
 
+@testset "plot_distribution refuses a domain or a cell count that has no cells" begin
+    dist = particle(0.5, 0.0)
+    # a reversed or empty domain would give a negative or an infinite density
+    for (xdomain, vdomain) in (((1.0, 0.0), VDOMAIN), (XDOMAIN, (4.0, -4.0)),
+        (XDOMAIN, (4.0, 4.0)))
+        @test occursin("each domain must run from its lower to its upper end",
+            message_of(() -> plot_distribution(dist; xdomain, vdomain)))
+    end
+    # an infinite end gives a `NaN` cell index, or edges that `range` refuses without naming the
+    # domain
+    for (xdomain, vdomain) in ((XDOMAIN, (-Inf, 1.0)), ((0.0, Inf), VDOMAIN),
+        ((NaN, 1.0), VDOMAIN), (XDOMAIN, (-1.0, NaN)))
+        @test occursin("each domain must have finite ends",
+            message_of(() -> plot_distribution(dist; xdomain, vdomain)))
+    end
+    for (nx, nv) in ((0, 4), (4, 0))
+        @test occursin("the cell counts must be positive",
+            message_of(() -> plot_distribution(dist; xdomain = XDOMAIN, vdomain = VDOMAIN,
+                nx, nv)))
+    end
+end
+
 @testset "the axes are labelled x and v and carry no title" begin
     grid = GridDistribution(reshape(1.0:15.0, 5, 3), XDOMAIN, VDOMAIN)
     middle = particle(0.5, 0.0)
@@ -723,6 +745,10 @@ end
     @test_throws ArgumentError plot_convergence(T[0.1, 0.1], T[0.01, 0.02])
     @test occursin("every `h` is the same",
         message_of(() -> plot_convergence(T[0.1, 0.1], T[0.01, 0.02])))
+    # the rounded mean of three `log(0.06)` in `Float64` misses each of them by an ulp, so a test
+    # of the deviations from the mean fits a slope of about -9e15
+    @test occursin("every `h` is the same",
+        message_of(() -> plot_convergence(T[0.06, 0.06, 0.06], T[0.01, 0.02, 0.03])))
     # a negative error is named as such, also where it leaves fewer than two pairs to fit
     @test_throws ArgumentError plot_convergence(T[0.2, 0.1], T[-1, 0.01])
     @test occursin("`err` holds a negative value",
