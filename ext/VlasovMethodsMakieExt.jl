@@ -20,7 +20,7 @@ end
 # density of each of the `nx × nv` cells.
 function _histogram(dist::ParticleDistribution{DT, 1, 1}, xdomain, vdomain,
         nx::Integer, nv::Integer) where {DT}
-    # `isempty` iterates a `ParticleList` and raises `BoundsError` on an empty list, so both
+    # `isempty` iterates a `ParticleList` and raises `BoundsError` on an empty list, so the
     # particle methods check its length directly. ParticleMethods K2 records the defect; the
     # fix is on its `main` and is not released.
     iszero(length(dist.particles)) && throw(ArgumentError("no particles to plot"))
@@ -155,6 +155,10 @@ end
 function VlasovMethods.plot_collision_distribution(f::ParticleDistribution{DT, 1, 1},
         g::ParticleDistribution{DT, 1, 1};
         xdomain, vdomain, nx::Integer = 100, nv::Integer = 100) where {DT}
+    # `_histogram` checks neither the orientation of the domains nor the cell counts (K57)
+    nx ≥ 1 && nv ≥ 1 || throw(ArgumentError("the cell counts must be positive"))
+    first(xdomain) < last(xdomain) && first(vdomain) < last(vdomain) ||
+        throw(ArgumentError("each domain must run from its lower to its upper end"))
     histograms = map(dist -> _histogram(dist, xdomain, vdomain, nx, nv), (f, g))
     n, u, T = _maxwellian_moments(f, xdomain)
 

@@ -188,21 +188,23 @@ their own, except for what they removed and narrowed, which is listed in full be
   the `core` group.
 - **`plot_collision_distribution`, `plot_drift`, `plot_entropy`, `plot_error`, `plot_convergence`
   and `plot_cost`** draw the figures of the collision runs, each into a `Figure` that a script
-  saves, so that a script builds no figure itself. They are defined in the package extension, so
+  saves without building a figure itself. They are defined in the package extension, so
   `CairoMakie` must be loaded. `plot_collision_distribution(f, g; xdomain, vdomain)` draws the
   initial and the final particle histogram in two panels, each as `plot_distribution` computes it,
-  with the Maxwellian that carries `f`'s mass, momentum and energy as a contour on both.
-  `plot_drift(t, (mass, momentum, energy))` draws `|Q − Q(t₁)|/|Q(t₁)|` of each quantity on a
-  logarithmic axis, `plot_entropy` draws `S_h` against `t`, `plot_error` an error and its closed
-  form on a logarithmic axis, `plot_convergence` the error against the cell width on logarithmic
-  axes with the least-squares line `C h^p` and `p` in the axis label, and `plot_cost` the error
-  against the wall-clock time of each run. The six share their edges: an empty argument throws an
-  `ArgumentError` that names it, and arguments of different lengths a `DimensionMismatch` that
-  names the shorter one; a pair with a `NaN` or an `Inf` is dropped; a series of one value is a
-  marker; on a logarithmic axis a zero is drawn at `floatmin` of the element type, while a
-  negative value, or the single value zero, throws an `ArgumentError`. A relative drift whose
-  initial value is zero is not defined and throws an `ArgumentError`, and `plot_convergence`
-  throws one with fewer than two positive finite pairs to fit.
+  with the Maxwellian that carries `f`'s mass, momentum and energy as a contour on both; unlike
+  `plot_distribution` (K57), it refuses a reversed or empty domain and a cell count below one with
+  an `ArgumentError`. `plot_drift(t, (mass, momentum, energy))` draws `|Q − Q(t₁)|/|Q(t₁)|` of
+  each quantity on a logarithmic axis, `plot_entropy` draws `S_h` against `t`, `plot_error` an
+  error and its closed form on a logarithmic axis, `plot_convergence` the error against the cell
+  width on logarithmic axes with the least-squares line `C h^p` and `p` in the axis label, and
+  `plot_cost` the error against the wall-clock time of each run. These five share their edges: an
+  empty argument throws an `ArgumentError` that names it, and arguments of different lengths a
+  `DimensionMismatch` that names the shorter one; a pair with a `NaN` or an `Inf` is dropped; a
+  series of one value is a marker; on a logarithmic axis a zero is drawn at `floatmin` of the
+  element type, while a negative value, or the single value zero, throws an `ArgumentError`. A
+  relative drift whose initial value is zero or not finite is not defined and throws an
+  `ArgumentError`; the drift of a series of one value is the single value zero, which is refused;
+  and `plot_convergence` throws one with fewer than two positive finite pairs to fit.
 
 ### Scripts
 

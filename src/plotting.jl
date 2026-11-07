@@ -134,12 +134,13 @@ T = \frac{1}{W} \sum_k w_k (v_k - u)^2 ,
 ```
 
 with ``W = \sum_k w_k``, the sums running over the particles of `f` whose position and velocity
-are finite. A collision operator that conserves mass, momentum and energy relaxes `f` towards this
-Maxwellian, so the final panel shows how close `g` has come to it.
+are finite. A collision operator that conserves mass, momentum and energy relaxes a spatially
+uniform `f` towards this Maxwellian, so the final panel shows how close `g` has come to it.
 
 # Throws
 
-- `ArgumentError` when `f` or `g` holds no particle, and when `f` has no positive mass or no
+- `ArgumentError` when `nx` or `nv` is not positive, when a domain does not run from its lower
+  to its upper end, when `f` or `g` holds no particle, and when `f` has no positive mass or no
   positive temperature, which leaves no Maxwellian to draw.
 """
 function plot_collision_distribution end

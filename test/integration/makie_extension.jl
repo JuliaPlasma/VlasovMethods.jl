@@ -447,6 +447,29 @@ end
     @test_throws ArgumentError plot_collision_distribution(particle(0.5, 0.0), g; keywords...)
     @test occursin("no positive temperature",
         message_of(() -> plot_collision_distribution(particle(0.5, 0.0), g; keywords...)))
+
+    # a particle with a non-finite velocity takes no part in the moments, so a distribution of
+    # such particles alone has no mass
+    unplaced = ParticleDistribution(1, 1, ParticleList([0.5, 0.25], [NaN, Inf], [1.0, 1.0]))
+    @test_throws ArgumentError plot_collision_distribution(unplaced, g; keywords...)
+    @test occursin("no positive mass",
+        message_of(() -> plot_collision_distribution(unplaced, g; keywords...)))
+
+    # a reversed or empty domain would give a negative or an infinite density, and no cell
+    # holds a particle where a cell count is zero
+    for (xdomain, vdomain) in (((1.0, 0.0), VDOMAIN), (XDOMAIN, (4.0, -4.0)),
+        (XDOMAIN, (4.0, 4.0)))
+        @test_throws ArgumentError plot_collision_distribution(f, g; xdomain, vdomain)
+        @test occursin("each domain must run from its lower to its upper end",
+            message_of(() -> plot_collision_distribution(f, g; xdomain, vdomain)))
+    end
+    for (nx, nv) in ((0, 4), (4, 0))
+        @test_throws ArgumentError plot_collision_distribution(f, g;
+            xdomain = XDOMAIN, vdomain = VDOMAIN, nx, nv)
+        @test occursin("the cell counts must be positive",
+            message_of(() -> plot_collision_distribution(f, g;
+                xdomain = XDOMAIN, vdomain = VDOMAIN, nx, nv)))
+    end
 end
 
 @testset "plot_drift draws the relative drift on a log axis, $T" for T in (Float64, Float32)
@@ -507,6 +530,9 @@ end
     @test_throws ArgumentError plot_drift(t, (T[0, 1, 1, 1, 1],); labels = ["momentum"])
     @test occursin("relative drift is not defined",
         message_of(() -> plot_drift(t, (T[0, 1, 1, 1, 1],); labels = ["momentum"])))
+    @test_throws ArgumentError plot_drift(t, (T[NaN, 1, 1, 1, 1],); labels = ["mass"])
+    @test occursin("relative drift is not defined",
+        message_of(() -> plot_drift(t, (T[NaN, 1, 1, 1, 1],); labels = ["mass"])))
     @test_throws ArgumentError plot_drift(T[0], (T[2],); labels = ["mass"])
     @test occursin("single value zero",
         message_of(() -> plot_drift(T[0], (T[2],); labels = ["mass"])))
@@ -628,7 +654,7 @@ end
     zeroed = plot_convergence(h, T[0.17, 0.035, 0.011, 0])
     zax = zeroed.content[1]
     @test last.(zax.scene.plots[1][1][]) == T[0.17, 0.035, 0.011, floatmin(T)]
-    lnC3, p3 = A[1:3, :] \ log.(Float64.(err[1:3]))
+    p3 = last(A[1:3, :] \ log.(Float64.(err[1:3])))
     @test abs(parse(Float64, match(r"p = (\S+)$", zax.ylabel[]).captures[1]) - p3) ≤ 0.006
 
     # fewer than two finite pairs, or one width only, leave no slope

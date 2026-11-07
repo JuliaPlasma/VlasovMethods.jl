@@ -396,7 +396,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K57 · `plot_distribution` checks neither the orientation of the two domains nor the cell counts.
 
-- **location:** `ext/VlasovMethodsMakieExt.jl:19-28`
+- **location:** `ext/VlasovMethodsMakieExt.jl:21-31`
 - **evidence:** A reversed `xdomain` gives a histogram with a negative "density" and no error, and
   `nx = 0` fails with an indexing error; every other edge case of the two methods raises
   `ArgumentError`. Probe, CairoMakie 0.15.15 on Julia 1.13.1 (the review of #74, finding 3):
@@ -492,7 +492,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K69 · The legend of `plot_series` overflows its axis for many labelled series.
 
-- **location:** `ext/VlasovMethodsMakieExt.jl:128`, `plot_series`
+- **location:** `ext/VlasovMethodsMakieExt.jl:137`, `plot_series`
 - **evidence:** at the default figure size of `600 × 450`, the legend of 20 labelled series is
   481 px high in an axis of 375 px, on `05431f10`; 10 series give 251 px.
   `scripts/bump_on_tail_testing.jl` draws its 30-series figures of items 26 and 27 without
