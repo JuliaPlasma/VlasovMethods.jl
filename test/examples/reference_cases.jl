@@ -151,14 +151,21 @@ end
     @test_throws DimensionMismatch initialize!(ParticleDistribution(1, 3, 10),
         AnisotropicBiMaxwellian(variance_one, variance_two))
 
-    # a variance must be positive and finite, and the constructor refuses one that is not: a
-    # negative one would fill the sample with `NaN` and a non-finite one with `NaN` or `Inf`
+    # a variance that is not positive and finite raises an `ArgumentError`: `-0.1`, `0.0`, `NaN`
+    # and `Inf` as `σ2²` raise one each, and `NaN` as `σ1²` raises one whose message names `σ1²`
+    # and says it must be positive and finite
     @test_throws ArgumentError AnisotropicBiMaxwellian(variance_one, -0.1)
     @test_throws ArgumentError AnisotropicBiMaxwellian(variance_one, 0.0)
     @test_throws ArgumentError AnisotropicBiMaxwellian(variance_one, NaN)
     @test_throws ArgumentError AnisotropicBiMaxwellian(variance_one, Inf)
+    @test_throws "σ1² must be positive and finite" AnisotropicBiMaxwellian(NaN, variance_two)
 
-    # the two variances may be of different types, and the type keeps their promotion
+    # the two variances may be of different types, and the type parameter is their promotion:
+    # `(Float64, Int)` and `(Int, Float64)` give `Float64`, `(Int, Int)` gives `Int`, and each value
+    # is converted to that type
+    @test AnisotropicBiMaxwellian(variance_one, 1) isa AnisotropicBiMaxwellian{Float64}
+    @test AnisotropicBiMaxwellian(1, 2.5) isa AnisotropicBiMaxwellian{Float64}
+    @test AnisotropicBiMaxwellian(1, 2) isa AnisotropicBiMaxwellian{Int}
     @test AnisotropicBiMaxwellian(variance_one, 1).variance_two == 1.0
     @test AnisotropicBiMaxwellian(1, 2.5).variance_two == 2.5
     @test AnisotropicBiMaxwellian(1, 2).variance_two == 2
@@ -216,17 +223,24 @@ end
     @test abs(moments(swapped.particles.v, w).mean[1] - exact_mean[1]) >
           4 * sqrt(exact_variance[1]) / √npart
 
-    # the mixture is two components whose weights are the shares of the particles: a weight of 0.6
-    # with its twin at 0.6 would realise (0.6, 0.4), and a negative one would take every particle
+    # the mixture is two components, each of one weight, one pair of variances and one pair of
+    # means, with non-negative weights that sum to one: three weights, a variance pair of one
+    # number, a mean pair of three numbers, a negative variance, a mean that is not finite, weights
+    # of (0.6, 0.6) and a negative weight each raise an `ArgumentError`, the mean pair's message
+    # gives the two pairs' lengths, and a zero weight is accepted
     @test_throws ArgumentError DoubleMaxwellian2D(; weights = (0.6, 0.6), variances, means)
     @test_throws ArgumentError DoubleMaxwellian2D(; weights = (1.5, -0.5), variances, means)
     @test_throws ArgumentError DoubleMaxwellian2D(; weights = (0.5, 0.3, 0.2), variances, means)
     @test_throws ArgumentError DoubleMaxwellian2D(; weights, variances = (
         (0.5, 0.3), (0.3,)))
+    @test_throws "mean pairs of lengths (3, 2)" DoubleMaxwellian2D(; weights, variances,
+        means = ((0.4, 0.0, 0.0), (-0.4, 0.0)))
     @test_throws ArgumentError DoubleMaxwellian2D(; weights,
         variances = ((0.5, 0.3), (0.3, -0.5)), means)
     @test_throws ArgumentError DoubleMaxwellian2D(; weights, variances,
         means = ((0.4, 0.0), (NaN, 0.0)))
+    @test DoubleMaxwellian2D(; weights = (0.0, 1.0), variances, means) isa
+          DoubleMaxwellian2D
 end
 
 @testset "the derivation and the moment equations" begin
@@ -301,8 +315,9 @@ end
     @test BKWDistribution(0.0).time == 0
     @test all(isfinite, initialize!(particles(10), BKWDistribution(0.0)).particles.v)
 
-    # the script's own check, which no test ran before: every closed form against the moment
-    # equations, and a flag that `options.jl` does not know refused in either mode
+    # the script's check returns its table, which it does only when every row of the closed forms
+    # is within its tolerance and each control row misses, and a flag that `options.jl` does not
+    # know raises an `ArgumentError` in either mode
     @test check() isa String
     @test_throws ArgumentError main(["--check", "--bogus"])
     @test_throws ArgumentError main(["--bogus"])
