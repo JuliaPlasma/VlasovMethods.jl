@@ -258,7 +258,7 @@ their own, except for what they removed and narrowed, which is listed in full be
   themselves, `final_time / tstep` rounded up after rounding the quotient to eight digits.
   `scripts/gate.jl` runs each driver with `--quick` and checks its files, its
   records and its edges, a forced stop of figures 7 and 8 among them. `docs/src/collisions.md`
-  gives each command and its measured time.
+  gives each command.
 - **`scripts/reference_forms.jl` derives the two closed forms of the 2D reference cases and checks
   them against the moment equations.** The header derives the rate of the second moments at the
   Maxwell molecules of `γ = 0` — `d(T₁₁ − T₂₂)/dt = −8 (T₁₁ − T₂₂)` at density one, unit mass and
@@ -300,8 +300,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   size threshold.
 - **The figures of the collision manuscripts have a page of their own**, `collisions.md`, with one
   section per driver of the Lenard–Bernstein manuscript: its command, its parameters, its files and
-  its measured time. The six plotting functions of the collision figures are documented on the
-  Plotting page, `plotting.md`.
+  how its figures differ from the manuscript's. The six plotting functions of the collision
+  figures are documented on the Plotting page, `plotting.md`.
 - **The plotting functions have a page of their own**, `plotting.md`, with the docstrings of
   `plot_distribution`, `plot_particles` and `plot_series` and of the six collision figures. The
   home page no longer renders them: with them, its HTML was 199.54 KiB of the 200 KiB that

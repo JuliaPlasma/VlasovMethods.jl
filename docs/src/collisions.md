@@ -24,9 +24,6 @@ records `commit`, `command` and the parameters of `--quick`:
 julia --startup-file=no --project=scripts scripts/gate.jl
 ```
 
-The measured times below are of one run each on an Apple M4 Max with Julia 1.13.3, one driver at
-a time.
-
 ## Particle discretisation of the Lenard–Bernstein operator
 
 The drivers `scripts/pd_lb_*.jl` make the eleven figures of the Lenard–Bernstein manuscript
@@ -52,9 +49,13 @@ Figure 1 is the norm `‖v̇‖₂` of the right-hand side at `10⁵` normal vel
 projected, with the Maxwellian projected onto `M = 24, …, 78` basis functions, against the cell
 width. Figure 2 is the sample variance `Σ v̇² / N` of `N` projected normal velocities on 41 basis
 functions, against `1 / N`, for `N` from `10²` to `10⁵` in steps of a quarter decade. Files:
-`pd_lb_fig1.pdf`, `pd_lb_fig2.pdf`, `pd_lb_fig1.hdf5`, `pd_lb_fig2.hdf5`.
+`pd_lb_fig1.pdf`, `pd_lb_fig2.pdf`, `pd_lb_fig1.hdf5`, `pd_lb_fig2.hdf5`. Both figures depart
+from the PD-LB manuscript's, which draws `‖v̇‖₂` against `M` with the reference curve `M⁻⁴` and
+the sample variance against `N` with the reference curve `1 / N`, where these draw them against
+the cell width and against `1 / N`, with the least-squares line `C h^p` of `plot_convergence` and
+its exponent `p`.
 
-Measured: 24.0 s, and the driver exits 0. Where the projection is not positive at a particle, the
+With the defaults the driver exits 0. Where the projection is not positive at a particle, the
 `DomainError` of `compute_coefficients`, the operator stops at that point of the sweep: the
 driver prints the stop, leaves the point out of the figure and goes on, and the HDF5 file of the
 figure records the first such `M` or `N` as the attribute `stopped_at` beside the points it
@@ -77,9 +78,14 @@ implicit midpoint rule: 1000 particles, 41 basis functions, `h = 8e-4`, `ν = 1`
 Figure 3 is the initial and the final distribution, figure 4 the relative drift of the mass, the
 momentum and the energy, figure 5 the entropy `S_h`, and figure 6 the initial and the final
 distribution of the same run with 200 particles. Files: `pd_lb_fig3.pdf` to `pd_lb_fig6.pdf`,
-`pd_lb_fig3_5.hdf5`, `pd_lb_fig6.hdf5`.
+`pd_lb_fig3_5.hdf5`, `pd_lb_fig6.hdf5`. The figures depart from the PD-LB manuscript's: there,
+figures 3 and 6 are histograms over `v` with the projected spline `f_s`, here histograms over
+`(x, v)` with the contour of the Maxwellian of the initial moments; figure 4 there is the signed
+relative error of the momentum and the energy on a linear axis, here the absolute relative drift
+of the mass, the momentum and the energy on a logarithmic axis; and figure 5 there is
+`S_h / |S_h(0)|`, here `S_h`.
 
-Measured: 381.4 s, and the driver exits 0.
+With the defaults the driver exits 0.
 
 `--quick` takes 200 particles and `t = 0.05`.
 
@@ -92,9 +98,12 @@ julia --project=scripts scripts/pd_lb_fig7_8.jl
 The relaxation of the bi-Maxwellian of the two normal distributions of mean `±2` under
 `ConservativeLenardBernstein`: 1000 particles, `h = 8e-4`, to `t = 5`, the random number generator
 seeded with `--seed 1`. Figure 7 is the initial and the final distribution, and figure 8 the
-entropy. Files: `pd_lb_fig7.pdf`, `pd_lb_fig8.pdf`, `pd_lb_fig7_8.hdf5`.
+entropy. Files: `pd_lb_fig7.pdf`, `pd_lb_fig8.pdf`, `pd_lb_fig7_8.hdf5`. Both figures depart from
+the PD-LB manuscript's: there, figure 7 is a histogram over `v` with the projected spline `f_s`,
+here a histogram over `(x, v)` with the contour of the Maxwellian of the initial moments, and
+figure 8 there is `S_h / |S_h(0)|`, here `S_h`.
 
-The run with the manuscript's parameters, 6250 steps, stops after 289 s, in the step 1768 to
+The run with the manuscript's parameters, 6250 steps, stops in the step 1768 to
 `t = 1.4144`: the projection of the particles is `-1.58e-7` at `v = -6.42`, and the conservative
 operator, which requires `f_s > 0`, throws the `DomainError` of `compute_coefficients`. As the rule
 above says for a single run, the driver writes `pd_lb_fig7_8.hdf5` with `stopped_at = 1.4144`
@@ -111,9 +120,12 @@ julia --project=scripts scripts/pd_lb_fig9_10.jl
 The relaxation of the uniform distribution on `[−2, 2]` under `ConservativeLenardBernstein`: 200
 particles, `h = 1e-4`, to `t = 1`, seeded with `--seed 1`. Figure 9 is the initial and the final
 distribution, and figure 10 the entropy. Files: `pd_lb_fig9.pdf`, `pd_lb_fig10.pdf`,
-`pd_lb_fig9_10.hdf5`.
+`pd_lb_fig9_10.hdf5`. Both figures depart from the PD-LB manuscript's: there, figure 9 is a
+histogram over `v` with the projected spline `f_s`, here a histogram over `(x, v)` with the
+contour of the Maxwellian of the initial moments, and figure 10 there is `S_h / |S_h(0)|`, here
+`S_h`.
 
-Measured: 379.7 s, while other Julia processes ran on the machine, and the driver exits 0.
+With the defaults the driver exits 0.
 
 `--quick` takes `h = 1e-3` and `t = 0.05`.
 
@@ -131,10 +143,12 @@ The closed form of the appendix is `κ₄(t) = κ₄(0) exp(−4 ν t)` at the e
 `1 / A₂ = 1`. The driver prints the relative error of the particles' fourth cumulant against it at
 the first three steps, and exits non-zero where one exceeds `--tolerance`, 5 %. Figure 11 is the
 error and the closed form, both relative to `κ₄(0)`. Files: `pd_lb_fig11.pdf`, `pd_lb_fig11.hdf5`.
-With `--seed 1234`, the implicit midpoint step sends a particle out of the velocity domain at
-`t = 0.035`, and the run stops (K94 of `KNOWN_ISSUES.md`).
+The figure departs from the PD-LB manuscript's, which draws `κ₄` and `κ₅`, each divided by its
+initial value, with their closed forms as dashed lines: this figure draws the error of `κ₄` and
+no `κ₅`. With `--seed 1234`, the implicit midpoint step sends a particle out of the velocity
+domain at `t = 0.035`, and the run stops (K94 of `KNOWN_ISSUES.md`).
 
-Measured: 79.0 s, and the driver exits 0. The three relative errors are `8.4e-4`, `1.5e-3` and
+With the defaults the driver exits 0, and the three relative errors are `8.4e-4`, `1.5e-3` and
 `1.8e-3`.
 
 `--quick` takes 200 particles, `h = 1e-2` and `t = 0.1`.
