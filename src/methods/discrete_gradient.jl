@@ -261,8 +261,8 @@ particles are not written.
 One evaluation of ``f`` is one [`apply_G!`](@ref) of ``O(N^2)`` and the gradient it multiplies:
 one ``\nabla S_h`` and, from the second evaluation, two ``S_h`` for the
 [`GonzalezGradient`](@ref); `nq` ``\nabla S_h`` and no ``S_h`` for the [`AVFGradient`](@ref). A
-step allocates four `2 × N` arrays, and each ``S_h`` of [`CollisionEntropy`](@ref) allocates:
-92 kB on 8 × 8 quadratic cells.
+step allocates four `2 × N` arrays and takes one projection of the accepted state, for either
+rule, and each ``S_h`` of [`CollisionEntropy`](@ref) allocates: 92 kB on 8 × 8 quadratic cells.
 """
 function discrete_gradient_step!(model::PairwiseLandau, Δt; abstol,
         max_iters::Integer = 100, gradient::DiscreteGradient = GonzalezGradient())

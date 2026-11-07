@@ -158,7 +158,7 @@ their own, except for what they removed and narrowed, which is listed in full be
   the iteration at the state relaxed by 250 steps, where after the tenth evaluation the
   `AVFGradient(5)` iteration stays within one rounding unit of the velocities (relative increment
   at most `6.7e-13`), while the largest increment of the `GonzalezGradient` iteration lies between
-  `1.5e-11` and `4.7e-11`.
+  `1.50e-11` and `4.71e-11`.
 
 ### Documentation
 
