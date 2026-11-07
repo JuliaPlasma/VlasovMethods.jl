@@ -504,6 +504,13 @@ end
             message_of(() -> plot_collision_distribution(f, g;
                 xdomain = XDOMAIN, vdomain = VDOMAIN, nx, nv)))
     end
+    # an infinite end gives a `NaN` cell index, or edges that `range` refuses without naming the
+    # domain
+    for (xdomain, vdomain) in ((XDOMAIN, (-Inf, Inf)), ((0.0, Inf), VDOMAIN))
+        @test_throws ArgumentError plot_collision_distribution(f, g; xdomain, vdomain)
+        @test occursin("each domain must have finite ends",
+            message_of(() -> plot_collision_distribution(f, g; xdomain, vdomain)))
+    end
 end
 
 @testset "plot_drift draws the relative drift on a log axis, $T" for T in (Float64, Float32)

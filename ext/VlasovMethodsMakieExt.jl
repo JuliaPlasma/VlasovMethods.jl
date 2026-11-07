@@ -159,10 +159,13 @@ end
 function VlasovMethods.plot_collision_distribution(f::ParticleDistribution{DT, 1, 1},
         g::ParticleDistribution{DT, 1, 1};
         xdomain, vdomain, nx::Integer = 100, nv::Integer = 100) where {DT}
-    # `_histogram` checks neither the orientation of the domains nor the cell counts (K57)
+    # `_histogram` checks neither the orientation of the domains nor the cell counts (K57), nor
+    # that the domains' ends are finite, where a cell index is `NaN` or `range` refuses the edges
     nx ≥ 1 && nv ≥ 1 || throw(ArgumentError("the cell counts must be positive"))
     first(xdomain) < last(xdomain) && first(vdomain) < last(vdomain) ||
         throw(ArgumentError("each domain must run from its lower to its upper end"))
+    all(isfinite, (first(xdomain), last(xdomain), first(vdomain), last(vdomain))) ||
+        throw(ArgumentError("each domain must have finite ends"))
     # `_histogram` refuses an empty distribution without naming it, and `isempty` raises
     # `BoundsError` on an empty `ParticleList` (ParticleMethods K2)
     iszero(length(f.particles)) && throw(ArgumentError("`f` holds no particle"))
@@ -177,7 +180,7 @@ function VlasovMethods.plot_collision_distribution(f::ParticleDistribution{DT, 1
         # the Maxwellian on the cell centres, where the histogram holds its values
         xc = (xedges[1:(end - 1)] .+ xedges[2:end]) ./ 2
         vc = (vedges[1:(end - 1)] .+ vedges[2:end]) ./ 2
-        M = [n / sqrt(2 * DT(π) * T) * exp(-(v - u)^2 / (2 * T)) for x in xc, v in vc]
+        M = [n / sqrt(2 * DT(π) * T) * exp(-(v - u)^2 / (2 * T)) for _ in xc, v in vc]
         contour!(ax, xc, vc, M; color = :white)
     end
     return fig

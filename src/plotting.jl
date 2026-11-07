@@ -142,8 +142,8 @@ it.
 # Throws
 
 - `ArgumentError` when `nx` or `nv` is not positive, when a domain does not run from its lower
-  to its upper end, when `f` or `g` holds no particle, and when `f` has no positive mass or no
-  positive temperature, which leaves no Maxwellian to draw.
+  to its upper end or has an end that is not finite, when `f` or `g` holds no particle, and when
+  `f` has no positive mass or no positive temperature, which leaves no Maxwellian to draw.
 """
 function plot_collision_distribution end
 
@@ -162,7 +162,8 @@ fig = plot_drift(t, (mass, momentum, energy))
 
 Each element of the second argument is the series of one quantity ``Q`` at the times `t`, and
 its line is the drift relative to the initial value, ``|Q(t) - Q(t_1)| / |Q(t_1)|``.
-`labels` names the lines in a legend, one label per quantity, in the same order.
+`labels` names the lines in a legend, one label per quantity, in the same order; the default
+names three, so fewer or more quantities need their own.
 
 The drift at `t[1]` is zero, which a logarithmic axis cannot show, so a zero drift is clipped to
 the smallest positive value of the element type, `floatmin`, and the line starts at the axis'

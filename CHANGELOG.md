@@ -195,9 +195,10 @@ their own, except for what they removed and narrowed, which is listed in full be
   `CairoMakie` must be loaded. `plot_collision_distribution(f, g; xdomain, vdomain)` draws the
   initial and the final particle histogram in two panels, each as `plot_distribution` computes it,
   with the Maxwellian that carries `f`'s mass, momentum and energy as a contour on both; unlike
-  `plot_distribution` (K57), it refuses a reversed or empty domain and a cell count below one with
-  an `ArgumentError`, and an `f` or a `g` with no particle with one that names it; a particle
-  whose position, velocity or weight is not finite takes no part in the Maxwellian's moments.
+  `plot_distribution` (K57), it refuses a reversed, empty or infinite domain and a cell count
+  below one with an `ArgumentError`, and an `f` or a `g` with no particle with one that names it;
+  a particle whose position, velocity or weight is not finite takes no part in the Maxwellian's
+  moments.
   `plot_drift(t, (mass, momentum, energy))` draws `|Q − Q(t₁)|/|Q(t₁)|` of each quantity on a
   logarithmic axis, `plot_entropy` draws `S_h` against `t`, `plot_error` an error and its closed
   form on a logarithmic axis, `plot_convergence` the error against the cell width on logarithmic
