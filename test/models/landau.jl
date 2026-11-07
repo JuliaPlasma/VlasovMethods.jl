@@ -9,6 +9,8 @@ using VlasovMethods
 
 const VM = VlasovMethods
 
+include("../helpers/allocation_barriers.jl")
+
 # `n1²` particles of uniform weight at the cell centres of an `n1 × n1` grid on the velocity
 # domain `[-2, 2]²`, so that the L² projection stays positive (KNOWN_ISSUES.md, K8), and a cubic
 # clamped basis of 8 × 8 cells: M = 121 basis functions, Q = 1600 quadrature points.
@@ -35,10 +37,6 @@ end
 function bytes4(f::F, a::A, b::B, c::C, d::D) where {F, A, B, C, D}
     f(a, b, c, d)
     return @allocated f(a, b, c, d)
-end
-function bytes5(f::F, a::A, b::B, c::C, d::D, e::E) where {F, A, B, C, D, E}
-    f(a, b, c, d, e)
-    return @allocated f(a, b, c, d, e)
 end
 function bytes6(f::F, a::A, b::B, c::C, d::D, e::E, g::G) where {F, A, B, C, D, E, G}
     f(a, b, c, d, e, g)
@@ -85,7 +83,7 @@ solve(K, LJ, _, _) = K \ LJ
     if Base.JLOptions().code_coverage == 0
         @test bytes3(VM.compute_L!, cache.L, sdist, landau) == 0
         @test bytes3(VM.compute_J!, cache.J, sdist, landau) == 0
-        @test bytes5(VM.compute_K!, cache.K1, cache.K2, v, sdist, landau) == 0
+        @test _alloc5(VM.compute_K!, cache.K1, cache.K2, v, sdist, landau) == 0
         @test bytes6(
             VM._projection!, cache.rhs, cache.vals, cache.mwork, v, pdist, sdist) ==
               0
@@ -94,7 +92,7 @@ solve(K, LJ, _, _) = K \ LJ
     # the controls: each barrier sees an allocation
     @test bytes3(projection, v, pdist, sdist) > 0
     @test ceiling > 0
-    @test bytes5(copy_first, v, v, v, v, v) > 0
+    @test _alloc5(copy_first, v, v, v, v, v) > 0
     @test bytes6(copy_first, v, v, v, v, v, v) > 0
 end
 
