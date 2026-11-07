@@ -1,9 +1,10 @@
-# The `@allocated` barriers the electric-field, reduced-march, model, moment and collision test
-# files share. It is included by `test/electric_field.jl`, `test/particles/electric_field.jl`,
-# `test/particles/time_marching.jl`, `test/particles/reduced_equations.jl`,
-# `test/models/vlasov_poisson.jl`, `test/models/vlasov_with_external_fields.jl`,
-# `test/gridbased/moments.jl`, `test/gridbased/collisions.jl` and
-# `test/methods/discrete_gradient.jl`, and is listed in no `runtests.jl`.
+# The `@allocated` barriers the electric-field, reduced-march, model, moment, collision and
+# discrete-gradient test files share. It is included by `test/electric_field.jl`,
+# `test/particles/electric_field.jl`, `test/particles/time_marching.jl`,
+# `test/particles/reduced_equations.jl`, `test/models/vlasov_poisson.jl`,
+# `test/models/vlasov_with_external_fields.jl`, `test/gridbased/moments.jl`,
+# `test/gridbased/collisions.jl` and `test/methods/discrete_gradient.jl`, and is listed in no
+# `runtests.jl`.
 
 # `@allocated` through a fixed-arity barrier whose arguments have concrete types, so that a Julia
 # 1.11 closure or splat boxing is not counted. Each call runs once before it is measured.

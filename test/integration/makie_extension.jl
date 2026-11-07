@@ -262,7 +262,8 @@ end
 
 @testset "plot_distribution refuses a domain or a cell count that has no cells" begin
     dist = particle(0.5, 0.0)
-    # a reversed or empty domain would give a negative or an infinite density
+    # a reversed domain gives a negative density, an empty `x` domain a `NaN` cell index, and an
+    # empty `v` domain a histogram that drops every particle
     for (xdomain, vdomain) in (((1.0, 0.0), VDOMAIN), (XDOMAIN, (4.0, -4.0)),
         (XDOMAIN, (4.0, 4.0)))
         @test occursin("each domain must run from its lower to its upper end",

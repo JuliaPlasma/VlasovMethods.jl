@@ -220,8 +220,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   and `c²` is zero for `floatmin` of `Float64`, so the figure would not save. A relative drift
   whose initial value is zero or not finite is not defined and throws an `ArgumentError`; the
   drift of a series of one value is the single value zero, which is refused; `plot_convergence`
-  throws one with fewer than two positive finite pairs to fit, and `plot_cost` one where no run
-  has a place on both axes.
+  throws one with fewer than two positive finite pairs to fit or with one width only, and
+  `plot_cost` one where no run has a place on both axes.
 
 ### Scripts
 
