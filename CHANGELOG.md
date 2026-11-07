@@ -257,6 +257,10 @@ their own, except for what they removed and narrowed, which is listed in full be
   `entropy_gradient!`, `apply_G!`, the discrete gradients and `discrete_gradient_step!` for the
   main-text method. The home page no longer renders them, which keeps its HTML under Documenter's
   size threshold.
+- **The plotting functions have a page of their own**, `plotting.md`, with the docstrings of
+  `plot_distribution`, `plot_particles` and `plot_series` and of the six collision figures. The
+  home page no longer renders them: with them, its HTML was 199.54 KiB of the 200 KiB that
+  Documenter allows.
 
 ### Internal
 
