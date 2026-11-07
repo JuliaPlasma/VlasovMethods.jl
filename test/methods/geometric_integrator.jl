@@ -42,6 +42,35 @@ end
     @test all(z[:, n + 1] == sol.q[n] for n in 0:ntime(method.equation))
 end
 
+@testset "the method keyword of GeometricIntegrator(::LenardBernstein, …)" begin
+    tspan = (0.0, 5e-3)
+    tstep = 1e-3
+    build(; kwargs...) = VlasovMethods.GeometricIntegrator(
+        lenard_bernstein(LenardBernstein), tspan, tstep; kwargs...)
+
+    default = build()
+    midpoint = build(; method = GeometricIntegrators.ImplicitMidpoint())
+    @test GeometricIntegrators.Integrators.method(midpoint.integrator) isa
+          GeometricIntegrators.ImplicitMidpoint
+
+    # the default is `RK438`: its run is that of `method = RK438()`, step for step
+    rk = GeometricIntegrators.integrate(default.integrator)
+    rk438 = GeometricIntegrators.integrate(build(; method = GeometricIntegrators.RK438()).integrator)
+    @test all(rk.q[n] == rk438.q[n] for n in 0:ntime(rk))
+
+    # the first step of the keyword's method solves the implicit midpoint rule, to a relative
+    # residual of 4e-14, and the default's does not, at 6e-5
+    sol = GeometricIntegrators.integrate(midpoint.integrator)
+    problem = midpoint.equation
+    residual(q) =
+        let v̇ = similar(q[0])
+            problem.equation.v(v̇, 0.0, (q[0] .+ q[1]) ./ 2, problem.parameters)
+            maximum(abs, q[1] .- q[0] .- tstep .* v̇) / maximum(abs, q[1] .- q[0])
+        end
+    @test residual(sol.q) < 1e-10
+    @test residual(rk.q) > 1e-6
+end
+
 # `ntime` rounds the step count of `0.05 / 8e-4` up to 63, and the range `0.0:8e-4:0.05` has 63
 # points, so 62 steps; a loop over `1:ntime` reads past its end.
 @testset "run! of a GeometricIntegrator over a span that is not a whole number of steps" begin

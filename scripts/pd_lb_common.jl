@@ -5,8 +5,8 @@
 #
 # Every HDF5 file a driver writes carries the attributes `commit`, the `git rev-parse HEAD` of
 # the checkout that holds this file or `"unknown"` outside a git checkout, and `command`, the
-# driver's own arguments joined by spaces, plus `script` and one attribute per option, so that the
-# file names the command that regenerates it.
+# driver's own arguments as `Base.shell_escape` quotes them for the shell, plus `script` and one
+# attribute per option, so that the file names the command that regenerates it.
 
 const STARTED = time()
 
@@ -26,7 +26,7 @@ const VELOCITY_DOMAIN = (-10.0, 10.0)
 # The order of the B-splines, 4 for the cubic splines of every figure.
 const ORDER = 4
 
-const COMMAND = join(ARGS, " ")
+const COMMAND = Base.shell_escape(ARGS...)
 const SCRIPT = basename(PROGRAM_FILE)
 
 function git_commit()

@@ -9,10 +9,10 @@
 # The appendix runs `eq:velocity_ode` with the coefficients fixed at `A₁ = 0` and `A₂ = 1`, in place
 # of `eq:coefficient_lin_system`, "in our method": the implicit midpoint scheme of
 # `sec:time_discretisation`. `LenardBernstein` is that right-hand side; its own `GeometricIntegrator`
-# takes `RK438`, so this script integrates it with `ImplicitMidpoint` instead, as
-# `implicit_midpoint` below builds it. The velocities are those of `pd_lb_fig7_8.jl`, half drawn
-# from the normal distribution of mean 2 and half from that of mean −2, after seeding the random
-# number generator with `--seed`, and the spline has `--nbasis` cubic basis functions on [−10, 10].
+# takes `RK438` by default, so this script passes `method = ImplicitMidpoint()`. The velocities
+# are those of `pd_lb_fig7_8.jl`, half drawn from the normal distribution of mean 2 and half from
+# that of mean −2, after seeding the random number generator with `--seed`, and the spline has
+# `--nbasis` cubic basis functions on [−10, 10].
 #
 # The closed form: with the coefficients fixed, the cumulants `κ_k` of order `k > 2` decay as
 # `κ_k(t) = κ_k(0) exp(−k ν t / σ²)`, where `σ² = 1 / A₂ = 1` is the variance of the equilibrium.
@@ -38,15 +38,10 @@ const QUICK, OPT = pd_lb_options(ARGS;
 
 const EXAMPLE = DoubleMaxwellian(; domain = (-5.0, 5.0), shift = 2.0)
 
-# The implicit midpoint rule on the right-hand side of `LenardBernstein`, with the parameters of
-# the model's own `GeometricIntegrator`.
+# The implicit midpoint rule on the right-hand side of `LenardBernstein`.
 function implicit_midpoint(model::LenardBernstein, tspan, tstep)
-    parameters = (ν = model.ν, idist = model.dist, fdist = model.ent.dist, model = model)
-    equation = VlasovMethods.GeometricEquations.ODEProblem(VlasovMethods.LB_rhs_GI!, tspan,
-        tstep, copy(model.dist.particles.v[1, :]); parameters)
-    integrator = GeometricIntegrators.Integrators.GeometricIntegrator(equation,
-        GeometricIntegrators.Integrators.ImplicitMidpoint())
-    return GeometricIntegrator(model, equation, integrator)
+    return GeometricIntegrator(model, tspan, tstep;
+        method = GeometricIntegrators.Integrators.ImplicitMidpoint())
 end
 
 # The fourth cumulant `μ₄ − 3 μ₂²` of the velocities `v` with the weights `w`.

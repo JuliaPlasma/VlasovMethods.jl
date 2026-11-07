@@ -103,6 +103,11 @@ their own, except for what they removed and narrowed, which is listed in full be
 
 ### New Features
 
+- **`GeometricIntegrator(model::LenardBernstein, tspan, tstep; method = RK438())` takes the time
+  integrator as the keyword `method`.** The default is the former fixed `RK438()`, so a call
+  without the keyword gives the same run. `scripts/pd_lb_fig11.jl` passes
+  `method = ImplicitMidpoint()` and `scripts/gate.jl` evaluates the right-hand side through the
+  constructor's problem, in place of their copies of its parameters and of `LB_rhs_GI!`.
 - **`LenardBernsteinBracket`, `DoughertyBracket` and `JeyakumarBracket`** select the metric
   bracket of `MetriplecticLenardBernstein` through its keyword `bracket`. `DoughertyBracket()`, the
   default, is the manuscript's form; `JeyakumarBracket()` is that form times `n/(ε − u²)`. Both
@@ -238,7 +243,7 @@ their own, except for what they removed and narrowed, which is listed in full be
   `pd_lb_fig11.jl` default to the manuscript's parameters, draw each figure with the plotting
   functions of the Makie extension into `--results-dir`, write one HDF5 file per run into
   `--runs-dir` with the attributes `commit`, `command`, `script` and one per option, and print their
-  wall-clock time; `--quick` replaces some parameters with smaller ones. `M` is the number of
+  wall-clock time; `command` holds the driver's arguments as `Base.shell_escape` quotes them; `--quick` replaces some parameters with smaller ones. `M` is the number of
   cubic basis functions, so the manuscript's "41 elements" are 41 basis functions on 38 cells. A
   projection that is not positive at a particle stops a run with its `DomainError`: the driver
   writes the HDF5 file of that run with the attribute `stopped_at`, the time of the step that

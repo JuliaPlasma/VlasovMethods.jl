@@ -276,8 +276,8 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K47 · Twelve lines of commented-out code remain in three collision model files.
 
-- **location:** `src/models/lenard_bernstein.jl:96`
-- **evidence:** The lines are `src/models/lenard_bernstein.jl:96` and `:106`;
+- **location:** `src/models/lenard_bernstein.jl:97`
+- **evidence:** The lines are `src/models/lenard_bernstein.jl:97` and `:107`;
   `src/models/lenard_bernstein_conservative.jl:228`, `:238-240` and `:244`;
   `src/models/rescaled_lenard_bernstein_conservative.jl:149`, `:162-164` and `:168`. Each is an
   old assignment, call or `return` behind `#`, such as `# int = Integrators.Integrator(equ,

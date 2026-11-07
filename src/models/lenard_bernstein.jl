@@ -91,7 +91,8 @@ function LB_rhs(v, params, fs::Spline)
     return -params.ν .* (dfdv.(v) ./ fs.(v) .+ v)
 end
 
-function GeometricIntegrator(model::LenardBernstein{1, 1}, tspan::Tuple, tstep::Real)
+function GeometricIntegrator(model::LenardBernstein{1, 1}, tspan::Tuple, tstep::Real;
+        method = Integrators.RK438())
     # collect parameters
     # params = (ϕ = model.potential, model = model)
     params = (ν = model.ν, idist = model.dist, fdist = model.ent.dist, model = model)
@@ -102,7 +103,7 @@ function GeometricIntegrator(model::LenardBernstein{1, 1}, tspan::Tuple, tstep::
         parameters = params)
 
     # create integrator
-    int = Integrators.GeometricIntegrator(equ, Integrators.RK438())
+    int = Integrators.GeometricIntegrator(equ, method)
     # int = Integrators.GeometricIntegrator(equ, Integrators.CrankNicolson())
 
     # put together splitting method
