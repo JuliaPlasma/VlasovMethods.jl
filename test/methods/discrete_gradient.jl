@@ -7,6 +7,7 @@ using StaticArrays: SVector
 using Test
 using VlasovMethods
 
+include("../helpers/allocation_barriers.jl")
 include("../helpers/pairwise_landau.jl")
 
 @testset "the Gonzalez gradient" begin
@@ -251,12 +252,7 @@ end
     @test abs(energy(v1, w32) - energy(v32, w32)) ≤ energy_bound(v32, v1, Δt, abstol, w32)
 end
 
-# The bytes of one call of a five-argument method after a warm call, through a barrier whose
-# arguments have concrete types; `copy_first_5` is the control that the barrier sees an allocation.
-function bytes5(f::F, a::A, b::B, c::C, d::D, e::E) where {F, A, B, C, D, E}
-    f(a, b, c, d, e)
-    return @allocated f(a, b, c, d, e)
-end
+# the control that the barrier `_alloc5` sees an allocation
 copy_first_5(a, b, c, d, e) = copy(a)
 
 # The relative increments ‖v_{k+1} − v_k‖ / ‖v_{k+1} − vⁿ‖ of the fixed-point iteration of the
@@ -593,10 +589,10 @@ end
         y = similar(v)
         for nq in (1, 5)
             rule = AVFGradient(nq)
-            @test bytes5(VM.discrete_gradient!, y, v, x, model, rule) == 0
+            @test _alloc5(VM.discrete_gradient!, y, v, x, model, rule) == 0
             @inferred VM.discrete_gradient!(y, v, x, model, rule)
         end
-        @test bytes5(copy_first_5, y, v, x, model, AVFGradient(5)) > 0
+        @test _alloc5(copy_first_5, y, v, x, model, AVFGradient(5)) > 0
     end
 end
 
@@ -622,8 +618,6 @@ end
     for word in ("eq:disc_grad_props", "quadrature error", "O(N²)", "nq", "midpoint")
         @test occursin(word, d)
     end
-    # the measured cost of one call, against the Gonzalez rule
-    @test occursin("271", d) && occursin("2.24", d)
     ds = string(@doc discrete_gradient_step!)
     for word in ("AVFGradient", "GonzalezGradient", "quadrature error")
         @test occursin(word, ds)

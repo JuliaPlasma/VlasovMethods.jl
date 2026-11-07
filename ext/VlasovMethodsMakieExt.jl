@@ -20,6 +20,13 @@ end
 # density of each of the `nx × nv` cells.
 function _histogram(dist::ParticleDistribution{DT, 1, 1}, xdomain, vdomain,
         nx::Integer, nv::Integer) where {DT}
+    # a domain end that is not finite leaves a cell index `NaN` or makes `range` refuse the
+    # edges, and a reversed domain gives a negative density
+    nx ≥ 1 && nv ≥ 1 || throw(ArgumentError("the cell counts must be positive"))
+    all(isfinite, (first(xdomain), last(xdomain), first(vdomain), last(vdomain))) ||
+        throw(ArgumentError("each domain must have finite ends"))
+    first(xdomain) < last(xdomain) && first(vdomain) < last(vdomain) ||
+        throw(ArgumentError("each domain must run from its lower to its upper end"))
     # `isempty` iterates a `ParticleList` and raises `BoundsError` on an empty list, so the
     # particle methods check its length directly. ParticleMethods K2 records the defect; the
     # fix is on its `main` and is not released.
@@ -159,14 +166,6 @@ end
 function VlasovMethods.plot_collision_distribution(f::ParticleDistribution{DT, 1, 1},
         g::ParticleDistribution{DT, 1, 1};
         xdomain, vdomain, nx::Integer = 100, nv::Integer = 100) where {DT}
-    # `_histogram` checks neither the orientation of the domains nor the cell counts (K57), nor
-    # that the domains' ends are finite (K92), where a cell index is `NaN` or `range` refuses the
-    # edges
-    nx ≥ 1 && nv ≥ 1 || throw(ArgumentError("the cell counts must be positive"))
-    all(isfinite, (first(xdomain), last(xdomain), first(vdomain), last(vdomain))) ||
-        throw(ArgumentError("each domain must have finite ends"))
-    first(xdomain) < last(xdomain) && first(vdomain) < last(vdomain) ||
-        throw(ArgumentError("each domain must run from its lower to its upper end"))
     # `_histogram` refuses an empty distribution without naming it, and `isempty` raises
     # `BoundsError` on an empty `ParticleList` (ParticleMethods K2)
     iszero(length(f.particles)) && throw(ArgumentError("`f` holds no particle"))
@@ -337,9 +336,12 @@ function VlasovMethods.plot_convergence(h::AbstractVector, err::AbstractVector)
     length(fitted) ≥ 2 || throw(ArgumentError(
         "fewer than two pairs of positive finite `h` and `err`, so no slope can be fitted"))
     lnh, lnerr = log.(x[fitted]), log.(y[fitted])
+    # a test of the deviations from the mean cannot see equal widths: the rounded mean of three
+    # or more equal values can miss each of them by an ulp
+    allequal(lnh) &&
+        throw(ArgumentError("every `h` is the same, so no slope can be fitted"))
     dh = lnh .- sum(lnh) / length(lnh)
     Shh = sum(abs2, dh)
-    Shh > 0 || throw(ArgumentError("every `h` is the same, so no slope can be fitted"))
     p = sum(dh .* lnerr) / Shh
     C = exp(sum(lnerr) / length(lnerr) - p * sum(lnh) / length(lnh))
 

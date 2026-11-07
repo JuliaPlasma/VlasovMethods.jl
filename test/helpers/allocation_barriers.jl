@@ -1,8 +1,9 @@
-# The `@allocated` barriers the electric-field, reduced-march, model, moment and collision test
-# files share. It is included by `test/electric_field.jl`, `test/particles/electric_field.jl`,
-# `test/particles/time_marching.jl`, `test/particles/reduced_equations.jl`,
-# `test/models/vlasov_poisson.jl`, `test/models/vlasov_with_external_fields.jl`,
-# `test/gridbased/moments.jl` and `test/gridbased/collisions.jl`, and is listed in no
+# The `@allocated` barriers the electric-field, reduced-march, model, moment, collision and
+# discrete-gradient test files share. It is included by `test/electric_field.jl`,
+# `test/particles/electric_field.jl`, `test/particles/time_marching.jl`,
+# `test/particles/reduced_equations.jl`, `test/models/vlasov_poisson.jl`,
+# `test/models/vlasov_with_external_fields.jl`, `test/gridbased/moments.jl`,
+# `test/gridbased/collisions.jl` and `test/methods/discrete_gradient.jl`, and is listed in no
 # `runtests.jl`.
 
 # `@allocated` through a fixed-arity barrier whose arguments have concrete types, so that a Julia
@@ -24,7 +25,8 @@ function _alloc4(f::F, a::A, b::B, c::C, d::D) where {F, A, B, C, D}
     (f(a, b, c, d); @allocated f(a, b, c, d))
 end
 
-# A call of five arguments: the advection solution `s_advection!(z, t, z̄, t̄, params)`.
+# A call of five arguments: the advection solution `s_advection!(z, t, z̄, t̄, params)`, and the
+# discrete gradient `discrete_gradient!(∇̄S, v0, v1, model, rule)`.
 function _alloc5(f::F, a::A, b::B, c::C, d::D, e::E) where {F, A, B, C, D, E}
     (f(a, b, c, d, e); @allocated f(a, b, c, d, e))
 end
