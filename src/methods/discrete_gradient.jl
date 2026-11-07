@@ -252,9 +252,9 @@ names the number of evaluations and the last residual. A residual that is not fi
 meets `abstol`. The exceptions of the vector field pass through: a `DomainError` for two equal
 velocities and, for ``\gamma < -2``, for two velocities too close, and the projection's
 `DomainError` for a velocity outside the domain of the spline basis, which the step evaluates at
-the accepted state before the particles take it. A rule's evaluations lie at its own points, and
-the state they accept can be outside the domain where none of those points is. In each case the
-particles are not written.
+the accepted state before the particles take it. The `AVFGradient`'s nodes lie strictly inside the
+segment, so the state they accept can be outside the domain where none of them is. In each case
+the particles are not written.
 
 # Cost
 
@@ -298,9 +298,9 @@ function discrete_gradient_step!(model::PairwiseLandau, Δt; abstol,
         end
 
         if residual ≤ abstol
-            # The accepted state is projected before the particles take it: a rule evaluates at
-            # its own points, and the state it accepts can lie outside the domain where none of
-            # them does.
+            # The accepted state is projected before the particles take it: the `AVFGradient`'s
+            # nodes lie strictly inside the segment, and the state they accept can lie outside
+            # the domain where none of them does.
             m .= vn .+ h .* f
             _projection!(cache.rhs, cache.vals, cache.mwork, m, landau.dist, cache.sdist)
             vn .= m

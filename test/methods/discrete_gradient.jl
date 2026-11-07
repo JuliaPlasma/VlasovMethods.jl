@@ -340,7 +340,7 @@ end
     ΔS = Sh(v1, model) - Sh(v0, model)
     @test abs(ΔS - dot(v1 .- v0, g)) == abs(ΔS - dot(v1 .- v0, gm))
 
-    # the single node is the midpoint of the segment, bit for bit
+    # on this fixture the single node is the midpoint of the segment, bit for bit
     @test v0 .+ AVFGradient(1).nodes[1] .* (v1 .- v0) == (v0 .+ v1) ./ 2
 end
 

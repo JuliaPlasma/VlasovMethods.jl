@@ -148,8 +148,9 @@ their own, except for what they removed and narrowed, which is listed in full be
   identity holds to the quadrature error and not to rounding, because `S_h` is not a polynomial,
   where the `GonzalezGradient`'s holds to rounding; `nq = 1` is the midpoint gradient. A step
   projects the accepted state before the particles take it, so a state outside the domain of the
-  spline basis throws the projection's `DomainError` with either rule: the nodes of the rule lie
-  at its own points, and the state they accept can be outside the domain where none of them is.
+  spline basis throws the projection's `DomainError` with either rule: the rule's nodes lie
+  strictly inside the segment, and the state they accept can be outside the domain where none of
+  them is.
   On the fixture of `test/helpers/pairwise_landau.jl` at 144 particles, quadratic splines on 8 × 8
   cells and a load of about 7, one call takes 271 µs at `nq = 5` against 121 µs for the
   `GonzalezGradient`. The new tests check the rule's exactness on `τ^k` for `k ≤ 2nq − 1`, the
