@@ -2,10 +2,10 @@ using Test
 using TOML
 using VlasovMethods
 
-# `plot_distribution` and `plot_particles` are declared in `src/plotting.jl` and every method of
-# them is in `ext/VlasovMethodsMakieExt.jl`. This file asserts the half of that split a caller
-# without CairoMakie has: neither name has a method, and each call raises the plain `MethodError`
-# of a function with no methods.
+# Every plotting function is declared in `src/plotting.jl` and every method of it is in
+# `ext/VlasovMethodsMakieExt.jl`. This file asserts the half of that split a caller without
+# CairoMakie has: no plotting name has a method, and each call raises the plain `MethodError` of a
+# function with no methods.
 #
 # That half needs a fresh environment, because the environment this file runs in holds CairoMakie,
 # which is a test dependency. The check therefore runs in a subprocess whose own manifest has no
@@ -30,9 +30,13 @@ using VlasovMethods
         using VlasovMethods
 
         @assert Base.get_extension(VlasovMethods, :VlasovMethodsMakieExt) === nothing
-        @assert isempty(methods(VlasovMethods.plot_distribution))
-        @assert isempty(methods(VlasovMethods.plot_particles))
-        @assert isempty(methods(VlasovMethods.plot_series))
+        const PLOTTING = (VlasovMethods.plot_distribution, VlasovMethods.plot_particles,
+            VlasovMethods.plot_series, VlasovMethods.plot_collision_distribution,
+            VlasovMethods.plot_drift, VlasovMethods.plot_entropy, VlasovMethods.plot_error,
+            VlasovMethods.plot_convergence, VlasovMethods.plot_cost)
+        for f in PLOTTING
+            @assert isempty(methods(f)) "\$f has a method"
+        end
 
         grid = VlasovMethods.GridDistribution(4, 3, (0.0, 1.0), (-1.0, 1.0))
         particles = VlasovMethods.ParticleDistribution(1, 1, 1)
@@ -40,7 +44,14 @@ using VlasovMethods
             () -> VlasovMethods.plot_distribution(grid),
             () -> VlasovMethods.plot_distribution(particles; xdomain = (0.0, 1.0), vdomain = (-1.0, 1.0)),
             () -> VlasovMethods.plot_particles(particles; xdomain = (0.0, 1.0), vdomain = (-1.0, 1.0)),
-            () -> VlasovMethods.plot_series([0.0, 1.0], ([0.5, 0.5],)))
+            () -> VlasovMethods.plot_series([0.0, 1.0], ([0.5, 0.5],)),
+            () -> VlasovMethods.plot_collision_distribution(particles, particles;
+                xdomain = (0.0, 1.0), vdomain = (-1.0, 1.0)),
+            () -> VlasovMethods.plot_drift([0.0, 1.0], ([1.0, 1.0], [1.0, 1.0], [1.0, 1.0])),
+            () -> VlasovMethods.plot_entropy([0.0, 1.0], [0.5, 0.4]),
+            () -> VlasovMethods.plot_error([0.0, 1.0], [0.1, 0.2], [0.1, 0.2]),
+            () -> VlasovMethods.plot_convergence([0.2, 0.1], [0.04, 0.01]),
+            () -> VlasovMethods.plot_cost([1.0, 2.0], [0.04, 0.01]))
             exception = try
                 call()
                 nothing
@@ -50,7 +61,7 @@ using VlasovMethods
             @assert exception isa MethodError "an unloaded plotting call threw \$(typeof(exception))"
         end
 
-        print("no Makie in the environment: the extension is not loaded and neither name has a method")
+        print("no Makie in the environment: the extension is not loaded and no plotting name has a method")
         """
 
     # `JULIA_LOAD_PATH` without `@v1.x`, so that a CairoMakie of the shared environment cannot
@@ -73,6 +84,13 @@ end
     @test occursin("load `CairoMakie`", string(@doc VlasovMethods.plot_particles))
     @test occursin("package extension", string(@doc VlasovMethods.plot_series))
     @test occursin("load `CairoMakie`", string(@doc VlasovMethods.plot_series))
+    for doc in (@doc(VlasovMethods.plot_collision_distribution), @doc(VlasovMethods.plot_drift),
+        @doc(VlasovMethods.plot_entropy), @doc(VlasovMethods.plot_error),
+        @doc(VlasovMethods.plot_convergence), @doc(VlasovMethods.plot_cost))
+        @test occursin("package extension", string(doc))
+        @test occursin("load `CairoMakie`", string(doc))
+        @test occursin("-> Figure", string(doc))
+    end
 end
 
 @testset "CairoMakie is a weak dependency" begin

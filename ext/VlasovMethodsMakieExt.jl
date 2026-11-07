@@ -16,8 +16,10 @@ function VlasovMethods.plot_distribution(dist::GridDistribution)
     return fig
 end
 
-function VlasovMethods.plot_distribution(dist::ParticleDistribution{DT, 1, 1};
-        xdomain, vdomain, nx::Integer = 100, nv::Integer = 100) where {DT}
+# The weighted particle histogram of `plot_distribution`: the cell edges in `x` and `v`, and the
+# density of each of the `nx × nv` cells.
+function _histogram(dist::ParticleDistribution{DT, 1, 1}, xdomain, vdomain,
+        nx::Integer, nv::Integer) where {DT}
     # `isempty` iterates a `ParticleList` and raises `BoundsError` on an empty list, so both
     # particle methods check its length directly. ParticleMethods K2 records the defect; the
     # fix is on its `main` and is not released.
@@ -42,9 +44,16 @@ function VlasovMethods.plot_distribution(dist::ParticleDistribution{DT, 1, 1};
         F[i, j] += dist.particles.w[1, k] / (hx * hv)
     end
 
+    return range(xa, xb; length = nx + 1), range(va, vb; length = nv + 1), F
+end
+
+function VlasovMethods.plot_distribution(dist::ParticleDistribution{DT, 1, 1};
+        xdomain, vdomain, nx::Integer = 100, nv::Integer = 100) where {DT}
+    xedges, vedges, F = _histogram(dist, xdomain, vdomain, nx, nv)
+
     fig = Figure()
     ax = Axis(fig[1, 1]; xlabel = "x", ylabel = "v")
-    heatmap!(ax, range(xa, xb; length = nx + 1), range(va, vb; length = nv + 1), F)
+    heatmap!(ax, xedges, vedges, F)
     return fig
 end
 
@@ -126,6 +135,170 @@ function VlasovMethods.plot_series(t::AbstractVector, series;
         end
     end
     isnothing(labels) || axislegend(ax)
+    return fig
+end
+
+# The density, the mean velocity and the temperature of the Maxwellian that carries the mass, the
+# momentum and the energy of `dist`, over the particles whose position and velocity are finite.
+function _maxwellian_moments(dist::ParticleDistribution{DT, 1, 1}, xdomain) where {DT}
+    finite = isfinite.(dist.particles.x[1, :]) .& isfinite.(dist.particles.v[1, :])
+    w = dist.particles.w[1, finite]
+    v = dist.particles.v[1, finite]
+    W = sum(w; init = zero(DT))
+    W > 0 || throw(ArgumentError("the initial distribution has no positive mass"))
+    u = sum(w .* v) / W
+    T = sum(w .* (v .- u) .^ 2) / W
+    T > 0 || throw(ArgumentError("the initial distribution has no positive temperature"))
+    return W / (last(xdomain) - first(xdomain)), u, T
+end
+
+function VlasovMethods.plot_collision_distribution(f::ParticleDistribution{DT, 1, 1},
+        g::ParticleDistribution{DT, 1, 1};
+        xdomain, vdomain, nx::Integer = 100, nv::Integer = 100) where {DT}
+    histograms = map(dist -> _histogram(dist, xdomain, vdomain, nx, nv), (f, g))
+    n, u, T = _maxwellian_moments(f, xdomain)
+
+    fig = Figure()
+    for (column, (xedges, vedges, F), title) in zip(1:2, histograms, ("initial", "final"))
+        ax = Axis(fig[1, column]; xlabel = "x", ylabel = "v", title = title)
+        heatmap!(ax, xedges, vedges, F)
+        # the Maxwellian on the cell centres, where the histogram holds its values
+        xc = (xedges[1:(end - 1)] .+ xedges[2:end]) ./ 2
+        vc = (vedges[1:(end - 1)] .+ vedges[2:end]) ./ 2
+        M = [n / sqrt(2 * DT(π) * T) * exp(-(v - u)^2 / (2 * T)) for x in xc, v in vc]
+        contour!(ax, xc, vc, M; color = :white)
+    end
+    return fig
+end
+
+# The error of two series of different lengths, which names the shorter one: `a` and `b` pair a
+# name with a length, and `what` names the entries that are counted.
+function _mismatch(a::Pair, b::Pair, what)
+    (short, nshort), (long, nlong) = last(a) < last(b) ? (a, b) : (b, a)
+    return DimensionMismatch(
+        "`$short` is shorter than `$long`: it holds $nshort $what, and `$long` holds $nlong")
+end
+
+# The arguments of a collision figure's series, checked before anything is drawn: each pairs its
+# name with its values, an empty one holds nothing to draw, and one of another length than the
+# first would pair its values with the wrong abscissae.
+function _check_lengths(named::Pair...)
+    for (name, y) in named
+        isempty(y) && throw(ArgumentError("`$name` holds no value"))
+    end
+    first_name, first_values = first(named)
+    for (name, y) in named
+        length(y) == length(first_values) ||
+            throw(_mismatch(name => length(y), first_name => length(first_values), "values"))
+    end
+    return nothing
+end
+
+# The pairs of `x` and `y` that have a place on the axes: a pair with a non-finite value is
+# dropped. `xname` and `yname` name the two in the error of a series that keeps no pair.
+function _finite_pairs(x, y, xname, yname)
+    keep = isfinite.(x) .& isfinite.(y)
+    any(keep) || throw(ArgumentError("no pair of `$xname` and `$yname` is finite"))
+    return x[keep], y[keep]
+end
+
+# The values of `y` on a logarithmic axis. `log10` has no value at a negative number, nor at the
+# zero of a series of one value, so both are refused; a zero in a longer series, such as a drift
+# at `t = 0`, is clipped to the smallest positive value of the element type, the axis' floor.
+function _log_values(y, name)
+    any(<(0), y) && throw(ArgumentError(
+        "`$name` holds a negative value, which a logarithmic axis cannot show"))
+    if length(y) == 1 && iszero(only(y))
+        throw(ArgumentError(
+            "`$name` holds the single value zero, which a logarithmic axis cannot show"))
+    end
+    return max.(float.(y), floatmin(float(eltype(y))))
+end
+
+# One series on `ax`: a line, or a marker where the series holds one value, which a line cannot
+# show.
+function _series!(ax, x, y; kwargs...)
+    length(x) == 1 ? scatter!(ax, x, y; kwargs...) : lines!(ax, x, y; kwargs...)
+    return nothing
+end
+
+function VlasovMethods.plot_drift(t::AbstractVector, quantities;
+        labels = ("mass", "momentum", "energy"))
+    isempty(quantities) && throw(ArgumentError("`quantities` holds no quantity"))
+    length(labels) == length(quantities) ||
+        throw(_mismatch(
+            "labels" => length(labels), "quantities" => length(quantities), "entries"))
+    _check_lengths("t" => t, (string(l) => Q for (l, Q) in zip(labels, quantities))...)
+
+    fig = Figure()
+    ax = Axis(fig[1, 1]; xlabel = "t", ylabel = "relative drift", yscale = log10)
+    for (label, Q) in zip(labels, quantities)
+        Q₀ = first(Q)
+        isfinite(Q₀) && !iszero(Q₀) || throw(ArgumentError(
+            "the initial value of `$label` is $Q₀, so its relative drift is not defined"))
+        x, y = _finite_pairs(t, abs.(Q .- Q₀) ./ abs(Q₀), "t", label)
+        _series!(ax, x, _log_values(y, label); label = string(label))
+    end
+    axislegend(ax)
+    return fig
+end
+
+function VlasovMethods.plot_entropy(t::AbstractVector, S::AbstractVector)
+    _check_lengths("t" => t, "S" => S)
+
+    fig = Figure()
+    ax = Axis(fig[1, 1]; xlabel = "t", ylabel = "S_h")
+    _series!(ax, _finite_pairs(t, S, "t", "S")...)
+    return fig
+end
+
+function VlasovMethods.plot_error(t::AbstractVector, err::AbstractVector,
+        closed::AbstractVector)
+    _check_lengths("t" => t, "err" => err, "closed" => closed)
+
+    fig = Figure()
+    ax = Axis(fig[1, 1]; xlabel = "t", ylabel = "error", yscale = log10)
+    for (name, y, label) in (("err", err, "error"), ("closed", closed, "closed form"))
+        x, y = _finite_pairs(t, y, "t", name)
+        _series!(ax, x, _log_values(y, name); label = label)
+    end
+    axislegend(ax)
+    return fig
+end
+
+function VlasovMethods.plot_convergence(h::AbstractVector, err::AbstractVector)
+    _check_lengths("h" => h, "err" => err)
+    x, y = _finite_pairs(h, err, "h", "err")
+
+    # the least-squares line through the pairs whose logarithms are finite; a zero is drawn at
+    # the axis' floor but has no logarithm to fit
+    fitted = findall((x .> 0) .& (y .> 0))
+    length(fitted) ≥ 2 || throw(ArgumentError(
+        "fewer than two pairs of positive finite `h` and `err`, so no slope can be fitted"))
+    lnh, lnerr = log.(x[fitted]), log.(y[fitted])
+    dh = lnh .- sum(lnh) / length(lnh)
+    Shh = sum(abs2, dh)
+    Shh > 0 || throw(ArgumentError("every `h` is the same, so no slope can be fitted"))
+    p = sum(dh .* lnerr) / Shh
+    C = exp(sum(lnerr) / length(lnerr) - p * sum(lnh) / length(lnh))
+
+    fig = Figure()
+    ylabel = "error ∝ h^p, p = $(round(p; sigdigits = 3))"
+    ax = Axis(fig[1, 1]; xlabel = "h", ylabel = ylabel, xscale = log10, yscale = log10)
+    scatter!(ax, _log_values(x, "h"), _log_values(y, "err"))
+    hs = sort(x[fitted])
+    lines!(ax, hs, C .* hs .^ p)
+    return fig
+end
+
+function VlasovMethods.plot_cost(cost::AbstractVector, err::AbstractVector)
+    _check_lengths("cost" => cost, "err" => err)
+    x, y = _finite_pairs(cost, err, "cost", "err")
+
+    fig = Figure()
+    ax = Axis(fig[1, 1]; xlabel = "wall-clock time", ylabel = "error",
+        xscale = log10, yscale = log10)
+    scatter!(ax, _log_values(x, "cost"), _log_values(y, "err"))
     return fig
 end
 

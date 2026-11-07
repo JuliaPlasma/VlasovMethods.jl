@@ -5,9 +5,9 @@ using Test
 using VlasovMethods
 
 # The rendering tests of the plotting extension. Loading CairoMakie activates
-# `VlasovMethodsMakieExt`, where every method of `plot_distribution` and `plot_particles` is
-# defined; `test/plotting.jl` asserts the other half of that split, that neither name has a
-# method until this file's `using` has run.
+# `VlasovMethodsMakieExt`, where every method of the plotting functions is defined;
+# `test/plotting.jl` asserts the other half of that split, that no plotting name has a method
+# until this file's `using` has run.
 #
 # The axis holds the caller's plots in `ax.scene.plots` and its own furniture -- background,
 # spines, ticks -- in `ax.blockscene.plots`, so the tests read the former.
@@ -387,4 +387,289 @@ end
     SS.X[1, :, 3, 1] .= T[0.25 + period, 0.5, 0.75, 0.25, 0.5]
     wrapped = only_plot(plot_particles(SS, 3, 1; xdomain = XDOMAIN, vdomain = VDOMAIN))[1][]
     @test first.(wrapped) == T[0.25, 0.5, 0.75, 0.25, 0.5]
+end
+
+# The two panels of a collision figure, each an axis that holds a heatmap and a contour.
+function collision_panels(fig)
+    @test fig isa Figure
+    @test length(fig.content) == 2
+    return map(fig.content) do ax
+        @test ax isa Axis
+        @test length(ax.scene.plots) == 2
+        heat, contour = ax.scene.plots
+        @test heat isa Heatmap
+        @test contour isa Contour
+        (ax, heat, contour)
+    end
+end
+
+@testset "plot_collision_distribution draws both histograms and the Maxwellian of f" begin
+    nx, nv = 8, 16
+    hx = (last(XDOMAIN) - first(XDOMAIN)) / nx
+    hv = (last(VDOMAIN) - first(VDOMAIN)) / nv
+
+    # weights that sum to 3.5, at `v = ±1` with the mean zero: the Maxwellian of `f` has
+    # `n = 3.5` on the unit domain, `u = 0` and `T = 1`
+    f = ParticleDistribution(1, 1,
+        ParticleList([0.1, 0.4, 0.6, 0.9], [-1.0, 1.0, -1.0, 1.0], [0.75, 0.75, 1.0, 1.0]))
+    g = ParticleDistribution(1, 1,
+        ParticleList([0.2, 0.5, 0.7], [0.0, 0.5, -0.5], [1.0, 1.0, 1.0]))
+    keywords = (; xdomain = XDOMAIN, vdomain = VDOMAIN, nx = nx, nv = nv)
+
+    fig = plot_collision_distribution(f, g; keywords...)
+    (initial, hf, cf), (final, hg, cg) = collision_panels(fig)
+    @test (initial.title[], final.title[]) == ("initial", "final")
+
+    # each histogram is the one `plot_distribution` draws of the same input, and integrates to
+    # the particles' total weight
+    @test hf[3][] == plotted_matrix(plot_distribution(f; keywords...))
+    @test hg[3][] == plotted_matrix(plot_distribution(g; keywords...))
+    @test sum(hf[3][]) * hx * hv ≈ 3.5
+    @test sum(hg[3][]) * hx * hv ≈ 3.0
+
+    # the Maxwellian of `f` on the cell centres, on both panels
+    xc = first(XDOMAIN) .+ hx .* ((1:nx) .- 0.5)
+    vc = first(VDOMAIN) .+ hv .* ((1:nv) .- 0.5)
+    M = [3.5 / sqrt(2π) * exp(-v^2 / 2) for x in xc, v in vc]
+    @test cf[3][] ≈ M
+    @test cg[3][] ≈ M
+
+    file = tempname() * ".png"
+    save(file, fig)
+    @test filesize(file) > 0
+
+    # no particle leaves nothing to draw, and one particle has no temperature and no Maxwellian
+    empty = ParticleDistribution(1, 1, 0)
+    @test_throws ArgumentError plot_collision_distribution(empty, g; keywords...)
+    @test_throws ArgumentError plot_collision_distribution(f, empty; keywords...)
+    @test occursin("no particles to plot",
+        message_of(() -> plot_collision_distribution(f, empty; keywords...)))
+    @test_throws ArgumentError plot_collision_distribution(particle(0.5, 0.0), g; keywords...)
+    @test occursin("no positive temperature",
+        message_of(() -> plot_collision_distribution(particle(0.5, 0.0), g; keywords...)))
+end
+
+@testset "plot_drift draws the relative drift on a log axis, $T" for T in (Float64, Float32)
+    t = collect(T, 0:0.5:2)
+    mass = T[2, 2, 2, 2, 2]
+    momentum = T[1, 1.5, 0.5, 1, 3]
+    energy = T[4, 5, 6, 2, 4]
+
+    fig = plot_drift(t, (mass, momentum, energy))
+    @test fig isa Figure
+    @test length(fig.content) == 2
+    ax, legend = fig.content
+    @test ax isa Axis
+    @test legend isa Legend
+    @test ax.yscale[] === log10
+    @test length(ax.scene.plots) == 3
+    @test [p.label[] for p in ax.scene.plots] == ["mass", "momentum", "energy"]
+
+    # `|Q - Q(t₁)| / |Q(t₁)|`, with each zero at the floor of the element type
+    tiny = floatmin(T)
+    expected = (fill(tiny, 5), T[tiny, 0.5, 0.5, tiny, 2], T[tiny, 0.25, 0.5, 0.5, tiny])
+    for (plot, drift) in zip(ax.scene.plots, expected)
+        @test plot isa Lines
+        points = plot[1][]
+        @test first.(points) == t
+        @test last.(points) == drift
+        @test all(isfinite, log10.(last.(points)))
+    end
+
+    file = tempname() * ".png"
+    save(file, fig)
+    @test filesize(file) > 0
+
+    # a non-finite value or time drops its pair, and the rest of the line is drawn
+    dropped = plot_drift(t, (T[2, 2, NaN, 2, 3],); labels = ["mass"])
+    @test first.(only(dropped.content[1].scene.plots)[1][]) == t[[1, 2, 4, 5]]
+    t_inf = copy(t)
+    t_inf[2] = Inf
+    dropped = plot_drift(t_inf, (mass,); labels = ["mass"])
+    @test first.(only(dropped.content[1].scene.plots)[1][]) == t[[1, 3, 4, 5]]
+
+    # a series of another length, and a label count that differs, name the shorter one
+    @test_throws DimensionMismatch plot_drift(t, (mass, momentum[1:(end - 1)], energy))
+    @test occursin("`momentum` is shorter than `t`",
+        message_of(() -> plot_drift(t, (mass, momentum[1:(end - 1)], energy))))
+    @test_throws DimensionMismatch plot_drift(t[1:(end - 1)], (mass, momentum, energy))
+    @test occursin("`t` is shorter than `mass`",
+        message_of(() -> plot_drift(t[1:(end - 1)], (mass, momentum, energy))))
+    two_labels = ["mass", "momentum"]
+    @test_throws DimensionMismatch plot_drift(t, (mass, momentum, energy); labels = two_labels)
+    @test occursin("`labels` is shorter than `quantities`",
+        message_of(() -> plot_drift(t, (mass, momentum, energy); labels = two_labels)))
+
+    # nothing to draw, an initial value with no relative drift, and the single drift zero
+    @test_throws ArgumentError plot_drift(t, ())
+    @test_throws ArgumentError plot_drift(T[], (T[], T[], T[]))
+    @test occursin("`t` holds no value", message_of(() -> plot_drift(T[], (T[], T[], T[]))))
+    @test_throws ArgumentError plot_drift(t, (T[0, 1, 1, 1, 1],); labels = ["momentum"])
+    @test occursin("relative drift is not defined",
+        message_of(() -> plot_drift(t, (T[0, 1, 1, 1, 1],); labels = ["momentum"])))
+    @test_throws ArgumentError plot_drift(T[0], (T[2],); labels = ["mass"])
+    @test occursin("single value zero",
+        message_of(() -> plot_drift(T[0], (T[2],); labels = ["mass"])))
+end
+
+@testset "plot_entropy draws S_h on a linear axis, $T" for T in (Float64, Float32)
+    t = collect(T, 0:0.5:2)
+    S = T[1, 0.8, 0.7, 0.65, 0.62]
+
+    fig = plot_entropy(t, S)
+    ax = only_axis(fig)
+    @test ax.yscale[] === identity
+    plot = ax.scene.plots[1]
+    @test plot isa Lines
+    @test first.(plot[1][]) == t
+    @test last.(plot[1][]) == S
+
+    file = tempname() * ".png"
+    save(file, fig)
+    @test filesize(file) > 0
+
+    # a non-finite value drops its pair, and a series of one value is a marker
+    dropped = only_plot(plot_entropy(t, T[1, Inf, 0.7, NaN, 0.62]))
+    @test first.(dropped[1][]) == t[[1, 3, 5]]
+    single = only_plot(plot_entropy(T[0], T[1]))
+    @test single isa Scatter
+    @test single[1][] == [Point2(zero(T), one(T))]
+
+    @test_throws DimensionMismatch plot_entropy(t, S[1:(end - 1)])
+    @test occursin("`S` is shorter than `t`", message_of(() -> plot_entropy(t, S[1:(end - 1)])))
+    @test_throws ArgumentError plot_entropy(T[], T[])
+    @test occursin("`t` holds no value", message_of(() -> plot_entropy(T[], T[])))
+    @test_throws ArgumentError plot_entropy(t, fill(T(NaN), 5))
+    @test occursin("no pair of `t` and `S` is finite",
+        message_of(() -> plot_entropy(t, fill(T(NaN), 5))))
+end
+
+@testset "plot_error draws the error and the closed form, $T" for T in (Float64, Float32)
+    t = collect(T, 0:0.5:2)
+    closed = exp.(-t)
+    err = T[0, 1e-3, 2e-3, 1e-3, 5e-4]
+
+    fig = plot_error(t, err, closed)
+    @test fig isa Figure
+    @test length(fig.content) == 2
+    ax = fig.content[1]
+    @test ax isa Axis
+    @test ax.yscale[] === log10
+    @test length(ax.scene.plots) == 2
+    @test all(p -> p isa Lines, ax.scene.plots)
+    @test [p.label[] for p in ax.scene.plots] == ["error", "closed form"]
+    error_line, closed_line = ax.scene.plots
+    @test first.(error_line[1][]) == t
+    @test last.(error_line[1][]) == T[floatmin(T), 1e-3, 2e-3, 1e-3, 5e-4]
+    @test last.(closed_line[1][]) == closed
+
+    file = tempname() * ".png"
+    save(file, fig)
+    @test filesize(file) > 0
+
+    # a series of one value is a marker, unless that value is zero
+    single = plot_error(T[0], T[1e-3], T[1])
+    @test all(p -> p isa Scatter, single.content[1].scene.plots)
+    @test_throws ArgumentError plot_error(T[0], T[0], T[1])
+    @test occursin("`err` holds the single value zero",
+        message_of(() -> plot_error(T[0], T[0], T[1])))
+
+    # a negative value has no logarithm
+    @test_throws ArgumentError plot_error(t, -err, closed)
+    @test occursin("`err` holds a negative value", message_of(() -> plot_error(t, -err, closed)))
+
+    # a non-finite value drops its pair
+    dropped = plot_error(t, T[NaN, 1e-3, 2e-3, 1e-3, 5e-4], closed)
+    @test first.(dropped.content[1].scene.plots[1][1][]) == t[2:end]
+
+    @test_throws DimensionMismatch plot_error(t, err, closed[1:(end - 1)])
+    @test occursin("`closed` is shorter than `t`",
+        message_of(() -> plot_error(t, err, closed[1:(end - 1)])))
+    @test_throws ArgumentError plot_error(T[], T[], T[])
+end
+
+@testset "plot_convergence fits C h^p by least squares, $T" for T in (Float64, Float32)
+    h = T[0.4, 0.2, 0.1, 0.05]
+    err = T[0.17, 0.035, 0.011, 0.0026]
+
+    fig = plot_convergence(h, err)
+    @test fig isa Figure
+    @test length(fig.content) == 1
+    ax = fig.content[1]
+    @test ax isa Axis
+    @test ax.xscale[] === log10
+    @test ax.yscale[] === log10
+    @test length(ax.scene.plots) == 2
+    markers, line = ax.scene.plots
+    @test markers isa Scatter
+    @test line isa Lines
+    @test first.(markers[1][]) == h
+    @test last.(markers[1][]) == err
+
+    # the least-squares line of `ln err` against `ln h`, here from the normal equations of the
+    # design matrix rather than from the centred sums of the code
+    A = [ones(length(h)) log.(Float64.(h))]
+    lnC, p = A \ log.(Float64.(err))
+    # the line through the first and the last pair has another slope on these data, so a label
+    # that held it fails the comparison below
+    p_ends = log(err[end] / err[1]) / log(h[end] / h[1])
+    @test abs(p_ends - p) > 0.02
+    label = match(r"p = (\S+)$", ax.ylabel[])
+    @test !isnothing(label)
+    @test abs(parse(Float64, label.captures[1]) - p) ≤ 0.006
+    @test first.(line[1][]) == sort(h)
+    @test last.(line[1][]) ≈ exp(lnC) .* sort(Float64.(h)) .^ p rtol = 1e-4
+
+    file = tempname() * ".png"
+    save(file, fig)
+    @test filesize(file) > 0
+
+    # a zero error is drawn at the floor and left out of the fit
+    zeroed = plot_convergence(h, T[0.17, 0.035, 0.011, 0])
+    zax = zeroed.content[1]
+    @test last.(zax.scene.plots[1][1][]) == T[0.17, 0.035, 0.011, floatmin(T)]
+    lnC3, p3 = A[1:3, :] \ log.(Float64.(err[1:3]))
+    @test abs(parse(Float64, match(r"p = (\S+)$", zax.ylabel[]).captures[1]) - p3) ≤ 0.006
+
+    # fewer than two finite pairs, or one width only, leave no slope
+    @test_throws ArgumentError plot_convergence(T[0.1], T[0.01])
+    @test occursin("fewer than two pairs",
+        message_of(() -> plot_convergence(T[0.1, NaN], T[0.01, 0.02])))
+    @test_throws ArgumentError plot_convergence(T[0.1, 0.1], T[0.01, 0.02])
+    @test occursin("every `h` is the same",
+        message_of(() -> plot_convergence(T[0.1, 0.1], T[0.01, 0.02])))
+
+    @test_throws DimensionMismatch plot_convergence(h, err[1:(end - 1)])
+    @test occursin("`err` is shorter than `h`",
+        message_of(() -> plot_convergence(h, err[1:(end - 1)])))
+    @test_throws ArgumentError plot_convergence(T[], T[])
+end
+
+@testset "plot_cost draws one marker per run on logarithmic axes, $T" for T in (Float64, Float32)
+    cost = T[0.5, 2, 8, 30]
+    err = T[1e-2, 3e-3, 1e-3, 2e-4]
+
+    fig = plot_cost(cost, err)
+    ax = only_axis(fig)
+    @test ax.xscale[] === log10
+    @test ax.yscale[] === log10
+    plot = ax.scene.plots[1]
+    @test plot isa Scatter
+    @test first.(plot[1][]) == cost
+    @test last.(plot[1][]) == err
+
+    file = tempname() * ".png"
+    save(file, fig)
+    @test filesize(file) > 0
+
+    # a run with a non-finite cost is dropped, and a single run is one marker
+    @test first.(only_plot(plot_cost(T[0.5, Inf, 8, 30], err))[1][]) == cost[[1, 3, 4]]
+    @test length(only_plot(plot_cost(T[2], T[1e-3]))[1][]) == 1
+
+    @test_throws DimensionMismatch plot_cost(cost, err[1:(end - 1)])
+    @test occursin("`err` is shorter than `cost`",
+        message_of(() -> plot_cost(cost, err[1:(end - 1)])))
+    @test_throws ArgumentError plot_cost(T[], T[])
+    @test_throws ArgumentError plot_cost(-cost, err)
+    @test occursin("`cost` holds a negative value", message_of(() -> plot_cost(-cost, err)))
 end
