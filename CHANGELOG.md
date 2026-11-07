@@ -58,6 +58,9 @@ their own, except for what they removed and narrowed, which is listed in full be
   guess of `ti ≥ 4` promote `t` and `Δt` to one type; before, a `Float64` `Δt` beside a `Float32`
   `t` threw a `MethodError` in either. Each step gives the particles of the same step from a
   `Matrix`, or from a `t` of the type of `Δt`.
+- **The particle histogram of `plot_distribution` drops a particle whose weight is `NaN` or
+  `Inf`**, as it drops one whose position is not finite. Before, such a weight became the value
+  of its whole cell, and the finite weights beside it in that cell were lost.
 
 ### Breaking Changes
 
@@ -187,6 +190,34 @@ their own, except for what they removed and narrowed, which is listed in full be
   tells it from a Gaussian's `8`. A time that is not finite, or that is negative, throws an
   `ArgumentError`. The new file `test/examples/reference_cases.jl` holds the three types' tests, in
   the `core` group.
+- **`plot_collision_distribution`, `plot_drift`, `plot_entropy`, `plot_error`, `plot_convergence`
+  and `plot_cost`** draw the figures of the collision runs, each into a `Figure` that a script
+  saves without building a figure itself. They are defined in the package extension, so
+  `CairoMakie` must be loaded. `plot_collision_distribution(f, g; xdomain, vdomain)` draws the
+  initial and the final particle histogram in two panels, each as `plot_distribution` computes it,
+  with the Maxwellian that carries `f`'s mass, momentum and energy as a contour on both; unlike
+  `plot_distribution` (K57), it refuses a reversed, empty or infinite domain and a cell count
+  below one with an `ArgumentError`, and an `f` or a `g` with no particle with one that names it;
+  a particle whose position, velocity or weight is not finite takes no part in the Maxwellian's
+  moments.
+  `plot_drift(t, (mass, momentum, energy))` draws `|Q − Q(t₁)|/|Q(t₁)|` of each quantity on a
+  logarithmic axis, `plot_entropy` draws `S_h` against `t`, `plot_error` an error and its closed
+  form on a logarithmic axis, `plot_convergence` the error against the cell width on logarithmic
+  axes with the least-squares line `C h^p` and `p` in the axis label, and `plot_cost` the error
+  against the wall-clock time of each run. These five share their edges: an empty argument throws
+  an `ArgumentError` that names it, and arguments of different lengths a `DimensionMismatch` that
+  names the shorter one; a pair with a `NaN` or an `Inf` is dropped; a series of one value is a
+  marker; on a logarithmic axis a zero is dropped from a series that has a positive value, such as
+  the drift at `t₁`, and a series that is zero throughout, such as the drift of an exactly
+  conserved quantity, is drawn one decade below the smallest positive value on the axis, or at
+  `floatmin` of the element type where the axis has none, while a negative value, or the single
+  value zero, throws an `ArgumentError`. A logarithmic axis whose every value is the same `c`
+  spans a decade on each side of `c`: Makie's own limits span the decades between `c²` and one,
+  and `c²` is zero for `floatmin` of `Float64`, so the figure would not save. A relative drift
+  whose initial value is zero or not finite is not defined and throws an `ArgumentError`; the
+  drift of a series of one value is the single value zero, which is refused; `plot_convergence`
+  throws one with fewer than two positive finite pairs to fit, and `plot_cost` one where no run
+  has a place on both axes.
 
 ### Scripts
 
@@ -229,6 +260,10 @@ their own, except for what they removed and narrowed, which is listed in full be
   `entropy_gradient!`, `apply_G!`, the discrete gradients and `discrete_gradient_step!` for the
   main-text method. The home page no longer renders them, which keeps its HTML under Documenter's
   size threshold.
+- **The plotting functions have a page of their own**, `plotting.md`, with the docstrings of
+  `plot_distribution`, `plot_particles` and `plot_series` and of the six collision figures. The
+  home page no longer renders them: with them, its HTML was 199.54 KiB of the 200 KiB that
+  Documenter allows.
 
 ### Internal
 

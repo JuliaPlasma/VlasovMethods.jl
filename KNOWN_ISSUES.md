@@ -396,7 +396,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K57 · `plot_distribution` checks neither the orientation of the two domains nor the cell counts.
 
-- **location:** `ext/VlasovMethodsMakieExt.jl:19-28`
+- **location:** `ext/VlasovMethodsMakieExt.jl:21-31`
 - **evidence:** A reversed `xdomain` gives a histogram with a negative "density" and no error, and
   `nx = 0` fails with an indexing error; every other edge case of the two methods raises
   `ArgumentError`. Probe, CairoMakie 0.15.15 on Julia 1.13.1 (the review of #74, finding 3):
@@ -408,11 +408,11 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K58 · A particle whose `v` is `NaN` is dropped from the histogram without a word.
 
-- **location:** `src/plotting.jl:34-36`
+- **location:** `src/plotting.jl:34-37`
 - **evidence:** A particle whose `v` is `NaN` is also dropped, because `va ≤ v` is false for it.
-  Neither the docstring nor the CHANGELOG mentions this case; both name only `v` outside
-  `[va, vb)` and a non-finite `x`. Probe (the review of #74, finding 6): particles `(0.5, NaN,
-  w = 1)` and `(0.5, 0.0, w = 0.25)`, and `sum(F)·hx·hv == 0.25` passes.
+  Neither the docstring nor the CHANGELOG mentions this case; both name `v` outside `[va, vb)`,
+  a non-finite `x` and a non-finite weight. Probe (the review of #74, finding 6): particles
+  `(0.5, NaN, w = 1)` and `(0.5, 0.0, w = 0.25)`, and `sum(F)·hx·hv == 0.25` passes.
 - **kind:** defect
 - **found:** #74
 
@@ -492,7 +492,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K69 · The legend of `plot_series` overflows its axis for many labelled series.
 
-- **location:** `ext/VlasovMethodsMakieExt.jl:128`, `plot_series`
+- **location:** `ext/VlasovMethodsMakieExt.jl:139`, `plot_series`
 - **evidence:** at the default figure size of `600 × 450`, the legend of 20 labelled series is
   481 px high in an axis of 375 px, on `05431f10`; 10 series give 251 px.
   `scripts/bump_on_tail_testing.jl` draws its 30-series figures of items 26 and 27 without
@@ -682,3 +682,16 @@ has left the file, or that lived only on a merged branch, stays taken.
   cells the rate is 1.859 at `Δt = 1e-4` and 1.9574 at `Δt = 1e-5`.
 - **kind:** defect
 - **found:** #119
+
+### K92 · `plot_distribution` does not check that the ends of its two domains are finite.
+
+- **location:** `ext/VlasovMethodsMakieExt.jl`, `_histogram`
+- **evidence:** `plot_collision_distribution` refuses a domain end that is not finite with an
+  `ArgumentError` that names it, and `plot_distribution`, which shares `_histogram` with it, does
+  not. Probe on 3cdc88f, CairoMakie on Julia 1.13.3, one particle, `nx = nv = 4`:
+  `xdomain = (0.0, Inf)` and `vdomain = (-1.0, NaN)` throw Base's
+  `ArgumentError: start and stop must be finite`, from `range`; `vdomain = (-Inf, 1.0)` and
+  `xdomain = (NaN, 1.0)` throw `InexactError: Int64(NaN)`, from the cell index. The guards of
+  `plot_collision_distribution`, moved into `_histogram`, close this and K57.
+- **kind:** defect
+- **found:** #120

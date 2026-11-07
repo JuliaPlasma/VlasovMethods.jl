@@ -19,7 +19,8 @@ makedocs(;
         "Projections" => "projections.md",
         "The Landau collision operator" => "landau.md",
         "Multi-modal autoencoder frontends" => "rom.md",
-        "The paper's examples" => "paper.md"
+        "The paper's examples" => "paper.md",
+        "Plotting" => "plotting.md"
     ]
 )
 
