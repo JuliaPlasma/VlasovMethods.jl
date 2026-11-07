@@ -170,11 +170,12 @@ their own, except for what they removed and narrowed, which is listed in full be
 - **`DoubleMaxwellian2D`** is the sum of two displaced Maxwellians, the second 2D reference case.
   `DoubleMaxwellian2D(; weights, variances, means, seed)` draws each component from the seed's own
   generator, the first taking the share `round(weights[1] * N)` of the `N` particles, and it sets
-  the weights to `1/N`. At `10⁵` particles its mean deviates from the exact `(0.08, 0)` by `1.73`
-  and `−0.85` standard errors and its two variances from the mixture's `0.5736` and `0.38` by
-  `0.44` and `−0.08`. Weights that are negative or sum to other than one
-  throw an `ArgumentError`, as do a component count other than two, a variance or mean pair of other
-  than two velocity components, a variance that is not positive and finite, and a mean that is not
+  the weights to `1/N`. At `10⁵` particles its mean deviates from the exact `(0.08, 0)` by `2.02`
+  and `−0.85` of the standard errors `√(0.42/N)` and `√(0.38/N)` of a sample of fixed component
+  counts, and its two variances from the mixture's `0.5736` and `0.38` by `0.44` and `−0.08` of
+  the Gaussian standard error `σ²√(2/N)`. Weights that are negative or sum to other than one throw
+  an `ArgumentError`, as do a component count other than two, a variance or mean pair of other than
+  two velocity components, a variance that is not positive and finite, and a mean that is not
   finite.
 - **`BKWDistribution`** samples the two-dimensional BKW solution of Carrillo, Hu, Wang and Wu
   (2020), Appendix A, at the time `t₀`, the third 2D reference case: mass one and temperature one,
