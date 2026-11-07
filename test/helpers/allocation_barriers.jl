@@ -20,7 +20,8 @@ end
 
 # A call of four arguments: the leapfrog step `leapfrog_step!(IC, efield, Δt, t)`, the gradient
 # `∇H!(g, t, x, params)`, the vector fields `v_advection!`, `v_drift!` and `v_lorentz!` of
-# `(ż, t, z, params)`, and the index `getindex(ct, I, J, K)` of a `CollisionTensor`.
+# `(ż, t, z, params)`, the index `getindex(ct, I, J, K)` of a `CollisionTensor`, and the Landau
+# vector field `collisional_vectorfield!(v̇, v, params, landau)` and its solves.
 function _alloc4(f::F, a::A, b::B, c::C, d::D) where {F, A, B, C, D}
     (f(a, b, c, d); @allocated f(a, b, c, d))
 end
@@ -32,7 +33,8 @@ function _alloc5(f::F, a::A, b::B, c::C, d::D, e::E) where {F, A, B, C, D, E}
     (f(a, b, c, d, e); @allocated f(a, b, c, d, e))
 end
 
-# A call of six arguments: the moments `_apply_∫dv!(y, f, ci, li, h₁, h₂)` and `_apply_∫dvᵀ!`.
+# A call of six arguments: the moments `_apply_∫dv!(y, f, ci, li, h₁, h₂)` and `_apply_∫dvᵀ!`, and
+# the Landau projection `_projection!(rhs, vals, work, v, pdist, sdist)`.
 function _alloc6(f::F, a::A, b::B, c::C, d::D, e::E, g::G) where {F, A, B, C, D, E, G}
     (f(a, b, c, d, e, g); @allocated f(a, b, c, d, e, g))
 end

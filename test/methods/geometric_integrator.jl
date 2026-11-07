@@ -42,23 +42,23 @@ end
     @test all(z[:, n + 1] == sol.q[n] for n in 0:ntime(method.equation))
 end
 
-@testset "the method keyword of GeometricIntegrator(::LenardBernstein, …)" begin
+@testset "the method argument of GeometricIntegrator(::LenardBernstein, …)" begin
     tspan = (0.0, 5e-3)
     tstep = 1e-3
-    build(; kwargs...) = VlasovMethods.GeometricIntegrator(
-        lenard_bernstein(LenardBernstein), tspan, tstep; kwargs...)
+    build(method...) = VlasovMethods.GeometricIntegrator(
+        lenard_bernstein(LenardBernstein), tspan, tstep, method...)
 
     default = build()
-    midpoint = build(; method = GeometricIntegrators.ImplicitMidpoint())
+    midpoint = build(GeometricIntegrators.ImplicitMidpoint())
     @test GeometricIntegrators.Integrators.method(midpoint.integrator) isa
           GeometricIntegrators.ImplicitMidpoint
 
-    # the default is `RK438`: its run is that of `method = RK438()`, step for step
+    # the default is `RK438`: its run is that of `RK438()` passed as the method, step for step
     rk = GeometricIntegrators.integrate(default.integrator)
-    rk438 = GeometricIntegrators.integrate(build(; method = GeometricIntegrators.RK438()).integrator)
+    rk438 = GeometricIntegrators.integrate(build(GeometricIntegrators.RK438()).integrator)
     @test all(rk.q[n] == rk438.q[n] for n in 0:ntime(rk))
 
-    # the first step of the keyword's method solves the implicit midpoint rule, to a relative
+    # the first step of the given method solves the implicit midpoint rule, to a relative
     # residual of 4e-14, and the default's does not, at 6e-5
     sol = GeometricIntegrators.integrate(midpoint.integrator)
     problem = midpoint.equation

@@ -9,7 +9,7 @@
 # The appendix runs `eq:velocity_ode` with the coefficients fixed at `A₁ = 0` and `A₂ = 1`, in place
 # of `eq:coefficient_lin_system`, "in our method": the implicit midpoint scheme of
 # `sec:time_discretisation`. `LenardBernstein` is that right-hand side; its own `GeometricIntegrator`
-# takes `RK438` by default, so this script passes `method = ImplicitMidpoint()`. The velocities
+# takes `RK438` by default, so this script passes `ImplicitMidpoint()` as its method. The velocities
 # are those of `pd_lb_fig7_8.jl`, half drawn from the normal distribution of mean 2 and half from
 # that of mean −2, after seeding the random number generator with `--seed`, and the spline has
 # `--nbasis` cubic basis functions on [−10, 10].
@@ -40,8 +40,8 @@ const EXAMPLE = DoubleMaxwellian(; domain = (-5.0, 5.0), shift = 2.0)
 
 # The implicit midpoint rule on the right-hand side of `LenardBernstein`.
 function implicit_midpoint(model::LenardBernstein, tspan, tstep)
-    return GeometricIntegrator(model, tspan, tstep;
-        method = GeometricIntegrators.Integrators.ImplicitMidpoint())
+    return GeometricIntegrator(model, tspan, tstep,
+        GeometricIntegrators.Integrators.ImplicitMidpoint())
 end
 
 # The fourth cumulant `μ₄ − 3 μ₂²` of the velocities `v` with the weights `w`.

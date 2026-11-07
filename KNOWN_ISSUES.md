@@ -276,8 +276,8 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K47 · Twelve lines of commented-out code remain in three collision model files.
 
-- **location:** `src/models/lenard_bernstein.jl:97`
-- **evidence:** The lines are `src/models/lenard_bernstein.jl:97` and `:107`;
+- **location:** `src/models/lenard_bernstein.jl:107`
+- **evidence:** The lines are `src/models/lenard_bernstein.jl:107` and `:117`;
   `src/models/lenard_bernstein_conservative.jl:228`, `:238-240` and `:244`;
   `src/models/rescaled_lenard_bernstein_conservative.jl:149`, `:162-164` and `:168`. Each is an
   old assignment, call or `return` behind `#`, such as `# int = Integrators.Integrator(equ,
@@ -670,7 +670,7 @@ has left the file, or that lived only on a merged branch, stays taken.
   `npart =   5623` at `v = 3.799579553401782` and `npart =  31623` at `v = 4.432320203818066`; at
   `M = 25` the projected Maxwellian is `−2.4e-5` at two of the `10⁵` velocities. The sweeps leave
   these points out of figures 1 and 2, record `stopped_at = 25` and `stopped_at = 5623`, and
-  exit 0. `julia --project=scripts scripts/pd_lb_fig7_8.jl` stops after 289 s, in the step 1768
+  exit 0. `julia --project=scripts scripts/pd_lb_fig7_8.jl` stops in the step 1768
   to `t = 1.4144`, where the projection is `−1.58e-7` at `v = −6.42`; it writes
   `pd_lb_fig7_8.hdf5` with `stopped_at = 1.4144`, writes no figure and exits non-zero.
   `LB_rhs_GI!` evaluates `f_s'/f_s + v` at each particle (`src/models/lenard_bernstein.jl:82`)

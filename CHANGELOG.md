@@ -103,11 +103,12 @@ their own, except for what they removed and narrowed, which is listed in full be
 
 ### New Features
 
-- **`GeometricIntegrator(model::LenardBernstein, tspan, tstep; method = RK438())` takes the time
-  integrator as the keyword `method`.** The default is the former fixed `RK438()`, so a call
-  without the keyword gives the same run. `scripts/pd_lb_fig11.jl` passes
-  `method = ImplicitMidpoint()` and `scripts/gate.jl` evaluates the right-hand side through the
-  constructor's problem, in place of their copies of its parameters and of `LB_rhs_GI!`.
+- **`GeometricIntegrator(model::LenardBernstein, tspan, tstep, method = RK438())` takes the time
+  integrator as its fourth argument**, in the position the grid constructor of `VlasovPoisson`
+  takes it, and has a docstring. The default is the former fixed `RK438()`, so a call without it
+  gives the same run. `scripts/pd_lb_fig11.jl` passes `ImplicitMidpoint()` and `scripts/gate.jl`
+  evaluates the right-hand side through the constructor's problem, in place of their copies of
+  its parameters and of `LB_rhs_GI!`.
 - **`LenardBernsteinBracket`, `DoughertyBracket` and `JeyakumarBracket`** select the metric
   bracket of `MetriplecticLenardBernstein` through its keyword `bracket`. `DoughertyBracket()`, the
   default, is the manuscript's form; `JeyakumarBracket()` is that form times `n/(ε − u²)`. Both

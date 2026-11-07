@@ -28,19 +28,11 @@ function landau_setup(::Type{T}, n1; γ = -3) where {T}
     return Landau(pdist, CollisionEntropy(sdist); γ), pdist
 end
 
-# The bytes of one call after a warm call, through barriers of fixed arity whose arguments have
-# concrete types.
+# The bytes of one call of three arguments after a warm call, through a barrier whose arguments
+# have concrete types; the shared helper has no barrier of this arity.
 function bytes3(f::F, a::A, b::B, c::C) where {F, A, B, C}
     f(a, b, c)
     return @allocated f(a, b, c)
-end
-function bytes4(f::F, a::A, b::B, c::C, d::D) where {F, A, B, C, D}
-    f(a, b, c, d)
-    return @allocated f(a, b, c, d)
-end
-function bytes6(f::F, a::A, b::B, c::C, d::D, e::E, g::G) where {F, A, B, C, D, E, G}
-    f(a, b, c, d, e, g)
-    return @allocated f(a, b, c, d, e, g)
 end
 
 # The controls: calls of each arity that allocate.
@@ -60,10 +52,10 @@ solve(K, LJ, _, _) = K \ LJ
     v = copy(pdist.particles.v)
     v̇ = similar(v)
 
-    vf = bytes4(VM.collisional_vectorfield!, v̇, v, nothing, landau)
+    vf = _alloc4(VM.collisional_vectorfield!, v̇, v, nothing, landau)
     # the two solves on the matrices that the evaluation leaves in the cache
-    ceiling = bytes4(solve, cache.K1, cache.LJ, nothing, nothing) +
-              bytes4(solve, cache.K2, cache.LJ, nothing, nothing)
+    ceiling = _alloc4(solve, cache.K1, cache.LJ, nothing, nothing) +
+              _alloc4(solve, cache.K2, cache.LJ, nothing, nothing)
 
     @test @inferred(VM.collisional_vectorfield!(v̇, v, nothing, landau)) === nothing
     @test @inferred(VM.compute_L!(cache.L, sdist, landau)) === cache.L
@@ -84,7 +76,7 @@ solve(K, LJ, _, _) = K \ LJ
         @test bytes3(VM.compute_L!, cache.L, sdist, landau) == 0
         @test bytes3(VM.compute_J!, cache.J, sdist, landau) == 0
         @test _alloc5(VM.compute_K!, cache.K1, cache.K2, v, sdist, landau) == 0
-        @test bytes6(
+        @test _alloc6(
             VM._projection!, cache.rhs, cache.vals, cache.mwork, v, pdist, sdist) ==
               0
         @test 0 < vf ≤ ceiling
@@ -93,7 +85,7 @@ solve(K, LJ, _, _) = K \ LJ
     @test bytes3(projection, v, pdist, sdist) > 0
     @test ceiling > 0
     @test _alloc5(copy_first, v, v, v, v, v) > 0
-    @test bytes6(copy_first, v, v, v, v, v, v) > 0
+    @test _alloc6(copy_first, v, v, v, v, v, v) > 0
 end
 
 @testset "the in-place 2D projection is the allocating one" begin
