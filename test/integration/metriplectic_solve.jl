@@ -14,7 +14,7 @@ const NKNOT = 17
 const ΔT = 1e-3
 const REFERENCE = joinpath(@__DIR__, "..", "data", "lenard_bernstein_metriplectic_reference.txt")
 
-# The example tolerance `3e-16·√N`, about `eps(Float64)·‖v‖₂` for this file's particles on
+# The absolute tolerance `3e-16·√N`, about `eps(Float64)·‖v‖₂` for this file's particles on
 # [-2, 2]. The `Float32` solve scales it by `eps(Float32)/eps(Float64)`. `reltol` is
 # fixed at `1e-50`, so `abstol` is the only active tolerance; the solve passes `reltol` through to
 # `SimpleSolvers`.
