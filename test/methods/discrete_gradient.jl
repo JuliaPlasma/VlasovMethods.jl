@@ -478,7 +478,7 @@ end
         s == 0 && return v
         rng = StableRNG(s)
         for i in eachindex(v)
-            k = rand(rng, -2:2)
+            k = floor(Int, 5 * rand(rng)) - 2
             for _ in 1:abs(k)
                 v[i] = k > 0 ? nextfloat(v[i]) : prevfloat(v[i])
             end
