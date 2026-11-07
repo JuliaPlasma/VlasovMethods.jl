@@ -238,7 +238,7 @@ their own, except for what they removed and narrowed, which is listed in full be
   figure 11 sends a particle out of the velocity domain (K94). The drivers take their steps
   themselves, because `run!` throws a `BoundsError` on a time span that is not a whole number of
   its steps (K93). `scripts/gate.jl` runs each driver with `--quick` and checks its files, its
-  records and its edges, in 70 s on an Apple M4 Max. `docs/src/collisions.md` gives each command
+  records and its edges, in 45 s on an Apple M4 Max. `docs/src/collisions.md` gives each command
   and its measured time.
 - **`scripts/reference_forms.jl` derives the two closed forms of the 2D reference cases and checks
   them against the moment equations.** The header derives the rate of the second moments at the
