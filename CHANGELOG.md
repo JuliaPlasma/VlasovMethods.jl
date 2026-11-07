@@ -207,12 +207,12 @@ their own, except for what they removed and narrowed, which is listed in full be
   names the shorter one; a pair with a `NaN` or an `Inf` is dropped; a series of one value is a
   marker; on a logarithmic axis a zero is drawn at `floatmin` of the element type, while a
   negative value, or the single value zero, throws an `ArgumentError`. A logarithmic axis whose
-  every value is the same `c` spans a decade on each side of `c`: Makie's own limits run from `c²`
-  to one, which is zero for the clipped zero of an exactly conserved quantity in `Float64`, and
-  the figure would not save. A relative drift whose initial value is zero or not finite is not
-  defined and throws an `ArgumentError`; the drift of a series of one value is the single value
-  zero, which is refused; and `plot_convergence` throws one with fewer than two positive finite
-  pairs to fit.
+  every value is the same `c` spans a decade on each side of `c`: Makie's own limits span the
+  decades between `c²` and one, and `c²` is zero for the clipped zero of an exactly conserved
+  quantity in `Float64`, so the figure would not save. A relative drift whose initial value is
+  zero or not finite is not defined and throws an `ArgumentError`; the drift of a series of one
+  value is the single value zero, which is refused; and `plot_convergence` throws one with fewer
+  than two positive finite pairs to fit.
 
 ### Scripts
 

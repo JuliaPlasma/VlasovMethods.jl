@@ -169,9 +169,9 @@ the smallest positive value of the element type, `floatmin`, and the line starts
 floor. A pair whose time or drift is `NaN` or `Inf` is dropped, and the rest of the line is drawn.
 A series of one value has the single drift zero, and is refused. Where every drift on the axis is
 the same value `c`, as where each quantity is conserved exactly, the axis spans a decade on each
-side of `c`, within the positive finite `Float64`s. Makie's own limits would run from `c²` to
-one, which is zero for the clipped zero drift of a `Float64` series, and the figure would not
-save.
+side of `c`, within the positive finite `Float64`s. Makie's own limits would span the decades
+between `c²` and one, and `c²` is zero for the clipped zero drift of a `Float64` series, so the
+figure would not save.
 
 # Throws
 

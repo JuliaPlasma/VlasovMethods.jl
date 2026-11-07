@@ -410,10 +410,9 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 - **location:** `src/plotting.jl:34-37`
 - **evidence:** A particle whose `v` is `NaN` is also dropped, because `va ≤ v` is false for it.
-  Neither the docstring nor the CHANGELOG mentions this case; both name `v` outside `[va, vb)`
-  and a non-finite `x`, and the docstring a non-finite weight. Probe (the review of #74, finding
-  6): particles `(0.5, NaN, w = 1)` and `(0.5, 0.0, w = 0.25)`, and `sum(F)·hx·hv == 0.25`
-  passes.
+  Neither the docstring nor the CHANGELOG mentions this case; both name `v` outside `[va, vb)`,
+  a non-finite `x` and a non-finite weight. Probe (the review of #74, finding 6): particles
+  `(0.5, NaN, w = 1)` and `(0.5, 0.0, w = 0.25)`, and `sum(F)·hx·hv == 0.25` passes.
 - **kind:** defect
 - **found:** #74
 
