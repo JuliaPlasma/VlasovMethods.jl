@@ -387,14 +387,12 @@ end
     v0 = copy(model.landau.dist.particles.v)
     g0 = similar(v0)
     VM.entropy_gradient!(g0, v0, model)
-    scale = maximum(abs, g0)
     g = similar(v0)
-    for nq in (5, 1)
+    # one evaluation at `v0`, bit for bit, for every rule
+    for nq in (1, 2, 5)
         VM.discrete_gradient!(g, v0, copy(v0), model, AVFGradient(nq))
-        @test maximum(abs, g .- g0) ≤ 8 * eps() * scale
+        @test g == g0
     end
-    VM.discrete_gradient!(g, v0, copy(v0), model, AVFGradient(1))
-    @test g == g0
 end
 
 @testset "one AVF step" begin
