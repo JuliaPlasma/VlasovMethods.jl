@@ -21,6 +21,7 @@ end
     ConservativeLenardBernstein, RescaledConservativeLenardBernstein)
     tspan = (0.0, 5e-3)
     tstep = 1e-3
+    times = tspan[1]:tstep:tspan[2]
 
     model = lenard_bernstein(M)
     v₀ = copy(model.dist.particles.v[1, :])
@@ -30,8 +31,8 @@ end
     z = h5read(h5file, "z")
     t = h5read(h5file, "t")
 
-    @test size(z) == (length(v₀), ntime(method.equation) + 1)
-    @test t ≈ 0.0:tstep:tspan[2]
+    @test size(z) == (length(v₀), length(times))
+    @test t ≈ times
     @test z[:, 1] == v₀
     @test z[:, 2] != z[:, 1]
     # the last slice is the final integration state, written back into the model's particles
@@ -39,7 +40,8 @@ end
     # each slice is the state of the same step of `integrate` on the same problem
     sol = GeometricIntegrators.integrate(
         VlasovMethods.GeometricIntegrator(lenard_bernstein(M), tspan, tstep).integrator)
-    @test all(z[:, n + 1] == sol.q[n] for n in 0:ntime(method.equation))
+    @test ntime(sol) + 1 == length(times)
+    @test all(z[:, n + 1] == sol.q[n] for n in 0:ntime(sol))
 end
 
 @testset "the method argument of GeometricIntegrator(::LenardBernstein, …)" begin

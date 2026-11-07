@@ -28,13 +28,6 @@ function landau_setup(::Type{T}, n1; γ = -3) where {T}
     return Landau(pdist, CollisionEntropy(sdist); γ), pdist
 end
 
-# The bytes of one call of three arguments after a warm call, through a barrier whose arguments
-# have concrete types; the shared helper has no barrier of this arity.
-function bytes3(f::F, a::A, b::B, c::C) where {F, A, B, C}
-    f(a, b, c)
-    return @allocated f(a, b, c)
-end
-
 # The controls: calls of each arity that allocate.
 copy_first(a, b, c, d, e) = copy(a)
 copy_first(a, b, c, d, e, g) = copy(a)
@@ -73,8 +66,8 @@ solve(K, LJ, _, _) = K \ LJ
     # coverage instrumentation allocates on every counted line, so under it the assertions
     # do not run rather than being weakened
     if Base.JLOptions().code_coverage == 0
-        @test bytes3(VM.compute_L!, cache.L, sdist, landau) == 0
-        @test bytes3(VM.compute_J!, cache.J, sdist, landau) == 0
+        @test _alloc_efield(VM.compute_L!, cache.L, sdist, landau) == 0
+        @test _alloc_efield(VM.compute_J!, cache.J, sdist, landau) == 0
         @test _alloc5(VM.compute_K!, cache.K1, cache.K2, v, sdist, landau) == 0
         @test _alloc6(
             VM._projection!, cache.rhs, cache.vals, cache.mwork, v, pdist, sdist) ==
@@ -82,7 +75,7 @@ solve(K, LJ, _, _) = K \ LJ
         @test 0 < vf ≤ ceiling
     end
     # the controls: each barrier sees an allocation
-    @test bytes3(projection, v, pdist, sdist) > 0
+    @test _alloc_efield(projection, v, pdist, sdist) > 0
     @test ceiling > 0
     @test _alloc5(copy_first, v, v, v, v, v) > 0
     @test _alloc6(copy_first, v, v, v, v, v, v) > 0

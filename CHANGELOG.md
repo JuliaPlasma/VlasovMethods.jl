@@ -71,8 +71,11 @@ their own, except for what they removed and narrowed, which is listed in full be
   whole number of steps in floating point: a run to `0.05` with the step `8e-4` threw a
   `BoundsError` before its last step. The datasets now hold one slice per point of the range, and
   the loop takes the steps that `GeometricIntegrators.integrate` takes, as
-  `run!(::SplittingMethod, h5file)` does. A span that is a whole number of steps gives the same
-  file as before.
+  `run!(::SplittingMethod, h5file)` does. `run!` writes its last slice at `last(t₀:Δt:t₁)`, the last
+  whole step at or below `t₁`, so a span that is not a whole number of steps ends short of `t₁` —
+  for `t₁ = 0.05` and `Δt = 8e-4` the last time written is `0.0496` (62 steps), as for
+  `GeometricIntegrators.integrate`. A span that is a whole number of steps gives the same file as
+  before.
 
 ### Breaking Changes
 
@@ -263,9 +266,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   number generator take `--seed 1`, because with the seed `1234` the implicit midpoint step of
   figure 11 sends a particle out of the velocity domain (K94). The drivers take their steps
   themselves, `final_time / tstep` rounded up after rounding the quotient to eight digits.
-  `scripts/gate.jl` runs each driver with `--quick` and checks its files, its
-  records and its edges, a forced stop of figures 7 and 8 among them. `docs/src/collisions.md`
-  gives each command.
+  `scripts/gate.jl` runs each driver with `--quick` and checks its files, its records and its edges,
+  a forced stop of figures 7 and 8 among them. `docs/src/collisions.md` gives each command.
 - **`scripts/reference_forms.jl` derives the two closed forms of the 2D reference cases and checks
   them against the moment equations.** The header derives the rate of the second moments at the
   Maxwell molecules of `γ = 0` — `d(T₁₁ − T₂₂)/dt = −8 (T₁₁ − T₂₂)` at density one, unit mass and
