@@ -217,6 +217,28 @@ their own, except for what they removed and narrowed, which is listed in full be
 
 ### Scripts
 
+- **The eleven figures of the Lenard–Bernstein manuscript have one driver per figure group.**
+  `scripts/pd_lb_fig1_2.jl`, `pd_lb_fig3_6.jl`, `pd_lb_fig7_8.jl`, `pd_lb_fig9_10.jl` and
+  `pd_lb_fig11.jl` default to the manuscript's parameters, draw each figure with the plotting
+  functions of the Makie extension into `--results-dir`, write one HDF5 file per run into
+  `--runs-dir` with the attributes `commit`, `command` and one per option, and print their
+  wall-clock time; `--quick` replaces some parameters with smaller ones. `M` is the number of
+  cubic basis functions, so the manuscript's "41 elements" are 41 basis functions on 38 cells. A
+  projection that is not positive at a particle stops a run with its `DomainError`, and the driver
+  writes no figure for that run and exits non-zero: at the manuscript's parameters the sweep of
+  figure 1 stops at `M = 25` and that of figure 2 at `N = 5623`, and each records the value where it
+  stopped as `stopped_at`. `pd_lb_fig11.jl` is the cumulant experiment of the appendix, so K11
+  leaves `KNOWN_ISSUES.md`: it runs `LenardBernstein`, whose coefficients are fixed at `A₁ = 0`
+  and `A₂ = 1`, with the implicit midpoint rule of the manuscript in place of the model's own
+  `RK438`, and compares the fourth cumulant of the particles with the closed form
+  `κ₄(0) exp(−4 ν t)` at the first three steps, exiting non-zero above a relative `5 %`; at the
+  manuscript's parameters the three relative errors are `8.4e-4`, `1.5e-3` and `1.8e-3`. The
+  drivers that draw velocities from the global random number generator take `--seed 1`, because
+  with the seed `1234` the implicit midpoint step of figure 11 sends a particle out of the
+  velocity domain (K94). The drivers take their steps themselves, because `run!` throws a
+  `BoundsError` on a time span that is not a whole number of its steps (K93). `scripts/gate.jl`
+  runs each driver with `--quick` and checks its files, its records and its edges, in 70 s on an
+  Apple M4 Max. `docs/src/collisions.md` gives each command and its measured time.
 - **`scripts/reference_forms.jl` derives the two closed forms of the 2D reference cases and checks
   them against the moment equations.** The header derives the rate of the second moments at the
   Maxwell molecules of `γ = 0` — `d(T₁₁ − T₂₂)/dt = −8 (T₁₁ − T₂₂)` at density one, unit mass and
@@ -256,6 +278,11 @@ their own, except for what they removed and narrowed, which is listed in full be
   `entropy_gradient!`, `apply_G!`, the discrete gradients and `discrete_gradient_step!` for the
   main-text method. The home page no longer renders them, which keeps its HTML under Documenter's
   size threshold.
+- **The figures of the collision manuscripts have a page of their own**, `collisions.md`, with the
+  docstrings of the six plotting functions of the collision figures and one section per driver of
+  the Lenard–Bernstein manuscript: its command, its parameters, its files and its measured time.
+  The home page no longer renders the six docstrings, which keeps its HTML under Documenter's size
+  threshold.
 
 ### Internal
 

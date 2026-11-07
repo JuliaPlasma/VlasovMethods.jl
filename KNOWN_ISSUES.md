@@ -84,17 +84,6 @@ has left the file, or that lived only on a merged branch, stays taken.
   migration. None of these are regressions; each is either a numerical-methods decision or work
   the migration deliberately did not take on.
 
-### K11 · The cumulant-scaling experiment is not implemented.
-
-- **location:** —
-- **evidence:** The appendix fixes `A₀ = 0`, `A₁ = 1` by hand; no code does. The name occurs once
-  in the package, in the docstring of the rescaled conservative operator, where it says the
-  operator is *not* that experiment; no computation of it exists anywhere.
-- **kind:** missing test
-- **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
-  migration. None of these are regressions; each is either a numerical-methods decision or work
-  the migration deliberately did not take on.
-
 ### K14 · `fatou lint` reports `unused-binding` locals and no `unused-import`.
 
 - **location:** `src/gridbased/moments.jl:18`
@@ -658,3 +647,34 @@ has left the file, or that lived only on a merged branch, stays taken.
   `test/models/lenard_bernstein_metriplectic.jl` assert the throw for both brackets.
 - **kind:** defect
 - **found:** #112
+
+### K93 · `run!(::GeometricIntegrator, h5file)` throws a `BoundsError` where the time span is not a whole number of steps of its own range.
+
+- **location:** `src/methods/geometric_integrator.jl:34`
+- **evidence:** `run!` steps `n in 1:ntime(prob)` and reads `times[n + 1]` of
+  `times = t₀:Δt:t_end` (`:34`, `:38`). `ntime` rounds the quotient `(t_end − t₀)/Δt` up, and the
+  range ends at the last whole step at or below `t_end`, so where the quotient is not a whole
+  number in floating point the range is one element short. `t_end = 0.05` with `Δt = 8e-4` gives
+  `ntime = 63` and a range of 63 elements, and so do `0.05` with `1e-3` (51 and 51), `0.1` with
+  `1e-2` (11 and 11) and `0.2` with `8e-4` (251 and 251); a run of `ConservativeLenardBernstein`
+  at `0.05` and `8e-4` stops with `BoundsError: attempt to access 63-element StepRangeLen … at
+  index [64]`. `run!(::SplittingMethod, h5file)` takes its step count from the range
+  (`src/methods/splitting.jl:42-47`) and does not have the defect. The drivers
+  `scripts/pd_lb_*.jl` take their steps in `integrate!` of `scripts/pd_lb_common.jl` instead.
+- **kind:** defect
+- **found:** 2026-11-07
+
+### K94 · The right-hand side of `LenardBernstein` divides by `f_s` at a particle without checking its sign, so an implicit midpoint step can move a particle out of the velocity domain.
+
+- **location:** `src/models/lenard_bernstein.jl:82`
+- **evidence:** `LB_rhs_GI!` evaluates `f_s'/f_s + v` at each particle (`:82`), and unlike
+  `compute_coefficients` of `ConservativeLenardBernstein` it does not refuse `f_s ≤ 0` (K8). Where
+  an iterate of the Newton solve of the implicit midpoint rule meets a small or negative `f_s` in
+  the tail, the ratio sends a particle out of `[−10, 10]`, and the projection throws its
+  `DomainError` naming the domain rather than the sign of `f_s`.
+  `julia --project=scripts scripts/pd_lb_fig11.jl --seed 1234` stops at step 7 (`t = 0.035`)
+  with `DomainError with -10.0 .. 10.0: 1 of 1000 particles left the velocity domain`, while the
+  seeds 1, 2 and 3 complete the 200 steps, and the same run with the package's own `RK438`
+  integrator and the seed 1234 completes them.
+- **kind:** defect
+- **found:** 2026-11-07
