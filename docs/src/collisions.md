@@ -17,7 +17,7 @@ builds no figure itself.
 
 The flag `--quick` replaces some of the manuscript's parameters with smaller ones.
 `scripts/gate.jl` runs every driver with it, in a process of its own and into a temporary
-directory, and checks that each exits 0 within 240 s, writes its figures and its HDF5 files, and
+directory, and checks that each exits 0 within 400 s, writes its figures and its HDF5 files, and
 records `commit`, `command` and the parameters of `--quick`:
 
 ```
@@ -312,10 +312,11 @@ Each of the six runs reaches `t = 100 h` and exits 0:
 The pairwise method's `S_h` falls in each run. The spline method's rises in the runs of the
 bi-Maxwellian and the BKW profile, and changes by less than `1e-6` in that of the double
 Maxwellian: its vector field has the opposite sign of the appendix's `−K⁺LJ`. K96 of
-`KNOWN_ISSUES.md` records the sign and that the method solves each velocity component alone.
-`--quick` takes 200 particles and 5 steps; each of the four quick runs of the gate exits 0, and
-with `--method pairwise --tstep 1e-3` the third step does not converge and the run stops at
-`t = 0.003`.
+`KNOWN_ISSUES.md` records the sign, that the method solves each velocity component alone, and the
+energy drifts of the table. `--quick` takes 200 particles, 5 steps and 4 cells per axis, `M = 36`;
+each of the four quick runs of the gate exits 0. With
+`--quick --method pairwise --tstep 1e-3 --ncell 8` the third step does not converge and the run
+stops at `t = 0.003`; on 4 cells the same run reaches `t = 0.005`.
 
 ### The rate check
 

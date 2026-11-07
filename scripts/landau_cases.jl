@@ -59,7 +59,8 @@
 # appendix's `v̇ = −K⁺LJ`, so its instantaneous `λ` lies near `−8` where the closed one is `8` (K96
 # of `KNOWN_ISSUES.md`); `scripts/landau_compare.jl` reports it as measured.
 #
-# `--quick` takes 200 particles and 5 steps.
+# `--quick` takes 200 particles, 5 steps and 4 cells per axis, `M = 36`. The rate check keeps its
+# own lattice and cells.
 
 include(joinpath(@__DIR__, "pd_lb_common.jl"))
 
@@ -363,7 +364,7 @@ function landau_options(args)
         paper = (
             method = method_name, case = "bimaxwellian", gamma = -3.0, seed = 20261107,
             npart = 1000, nsteps = 100, tstep = method.tstep, ncell = 8, tolerance = 0.02),
-        quick = (npart = 200, nsteps = 5))
+        quick = (npart = 200, nsteps = 5, ncell = 4))
     return method_name, case_name, rate, quick, options
 end
 

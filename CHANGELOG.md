@@ -308,7 +308,9 @@ their own, except for what they removed and narrowed, which is listed in full be
   `scripts/gate.jl` runs the quick runs of both scripts, the rate check, a stopped run and a rate
   check that fails, and checks the refused rate checks, the unknown and missing values, the rank
   column of every row and a search for ranking words over the output, the tables, the docs
-  section and this entry.
+  section and this entry. `--quick` of `landau_cases.jl` takes 200 particles, 5 steps and 4 cells
+  per axis. The gate's time limit for every driver rises from 240 s to 400 s, because whole gate
+  runs take up to 229 s.
 
 ### Documentation
 

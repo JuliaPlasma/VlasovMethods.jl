@@ -85,9 +85,10 @@
 # than `2 %` from `4`, and that its record carries the measured rate. Two more runs check its
 # edges:
 #
-# - `--method pairwise --tstep 1e-3`, whose third step does not converge: it exits non-zero, writes
-#   no figure, and writes its record with `commit`, `command`, `stopped_at = 3e-3` and the two
-#   steps reached;
+# - `--method pairwise --tstep 1e-3 --ncell 8`, whose third step does not converge: it exits
+#   non-zero, writes no figure, and writes its record with `commit`, `command`, `ncell = 8`,
+#   `stopped_at = 3e-3` and the two steps reached. On the 4 cells of `--quick` the same steps
+#   converge;
 # - the rate check with `--tolerance 1e-4`, below the relative difference `1.2e-3` of the rate: it
 #   writes its files, says that the rate check fails and exits non-zero.
 #
@@ -111,9 +112,11 @@
 # other: the gate fails on `faster`, `better`, `slower`, `cheaper`, `outperforms` and `wins` in
 # any case.
 #
-# The drivers run at once, so the gate takes about as long as the slowest of them. It prints the
-# size of each file and its own wall-clock time, and exits 1 when a check fails. A driver still
-# running when the gate exits is killed.
+# The drivers run at once, so the gate takes about as long as the slowest of them. `BUDGET` is
+# 400 s, measured from the gate's start: whole gate runs have taken from 180 s to 229 s, so 240 s
+# leaves too little room for a loaded machine. The gate prints the size of each file and its own
+# wall-clock time, and exits 1 when a check fails. A driver still running when the gate exits is
+# killed.
 
 include(joinpath(@__DIR__, "pd_lb_common.jl"))
 
@@ -126,12 +129,12 @@ include(joinpath(@__DIR__, "landau_cases.jl"))
 end
 
 const ROOT = dirname(@__DIR__)
-const BUDGET = 240.0
+const BUDGET = 400.0
 const MIDPOINT_RESIDUAL = 1e-10
 const EXPECTED_COMMIT = readchomp(`git -C $(ROOT) rev-parse HEAD`)
 
 const LANDAU_SCRIPT = "landau_cases.jl"
-const LANDAU_QUICK = (npart = 200, nsteps = 5)
+const LANDAU_QUICK = (npart = 200, nsteps = 5, ncell = 4)
 const LANDAU_RUNS = (("pairwise", "bimaxwellian"), ("spline", "bimaxwellian"),
     ("pairwise", "double-maxwellian"), ("spline", "bkw"))
 const LANDAU_FIGURES = ("conservation", "entropy")
@@ -328,7 +331,7 @@ landau = [start(LANDAU_SCRIPT, ["--quick", "--method", method, "--case", case])
           for (method, case) in LANDAU_RUNS]
 landau_rate = start(LANDAU_SCRIPT,
     ["--quick", "--method", "pairwise", "--gamma", "0", "--rate-check"])
-landau_stop = start(LANDAU_SCRIPT, split("--quick --method pairwise --tstep 1e-3"))
+landau_stop = start(LANDAU_SCRIPT, split("--quick --method pairwise --tstep 1e-3 --ncell 8"))
 landau_tight = start(LANDAU_SCRIPT,
     split("--quick --method pairwise --gamma 0 --rate-check --tolerance 1e-4"))
 compare = start(COMPARE_SCRIPT, ["--quick"])
@@ -684,7 +687,7 @@ let stop_output = finish(landau_stop; fails = true, timed = false),
             "$(stem)_$(name).pdf is not written"),
         LANDAU_FIGURES)
     check_record(record, landau_stop.args,
-        (npart = 200, tstep = 1e-3, stopped_at = 3 * 1e-3))
+        (npart = 200, ncell = 8, tstep = 1e-3, stopped_at = 3 * 1e-3))
     if isfile(record)
         t = h5read(record, "t")
         v = h5read(record, "v")
