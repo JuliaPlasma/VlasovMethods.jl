@@ -14,6 +14,7 @@
 # "the sample's moments" below.
 
 using ParticleMethods: ParticleList
+using Random: randn
 using SimpleSplines: BSplineBasis, UniformMesh, Free, TensorProductBasis,
                      TensorProductQuadrature
 using StableRNGs: StableRNG
@@ -149,6 +150,18 @@ end
         AnisotropicBiMaxwellian(variance_one, variance_two))
     @test_throws DimensionMismatch initialize!(ParticleDistribution(1, 3, 10),
         AnisotropicBiMaxwellian(variance_one, variance_two))
+
+    # a variance must be positive and finite, and the constructor refuses one that is not: a
+    # negative one would fill the sample with `NaN` and a non-finite one with `NaN` or `Inf`
+    @test_throws ArgumentError AnisotropicBiMaxwellian(variance_one, -0.1)
+    @test_throws ArgumentError AnisotropicBiMaxwellian(variance_one, 0.0)
+    @test_throws ArgumentError AnisotropicBiMaxwellian(variance_one, NaN)
+    @test_throws ArgumentError AnisotropicBiMaxwellian(variance_one, Inf)
+
+    # the two variances may be of different types, and the type keeps their promotion
+    @test AnisotropicBiMaxwellian(variance_one, 1).variance_two == 1.0
+    @test AnisotropicBiMaxwellian(1, 2.5).variance_two == 2.5
+    @test AnisotropicBiMaxwellian(1, 2).variance_two == 2
 end
 
 @testset "the double Maxwellian's moments" begin
@@ -202,6 +215,18 @@ end
         DoubleMaxwellian2D(; weights = (0.4, 0.6), variances, means, seed = SEED))
     @test abs(moments(swapped.particles.v, w).mean[1] - exact_mean[1]) >
           4 * sqrt(exact_variance[1]) / √npart
+
+    # the mixture is two components whose weights are the shares of the particles: a weight of 0.6
+    # with its twin at 0.6 would realise (0.6, 0.4), and a negative one would take every particle
+    @test_throws ArgumentError DoubleMaxwellian2D(; weights = (0.6, 0.6), variances, means)
+    @test_throws ArgumentError DoubleMaxwellian2D(; weights = (1.5, -0.5), variances, means)
+    @test_throws ArgumentError DoubleMaxwellian2D(; weights = (0.5, 0.3, 0.2), variances, means)
+    @test_throws ArgumentError DoubleMaxwellian2D(; weights, variances = (
+        (0.5, 0.3), (0.3,)))
+    @test_throws ArgumentError DoubleMaxwellian2D(; weights,
+        variances = ((0.5, 0.3), (0.3, -0.5)), means)
+    @test_throws ArgumentError DoubleMaxwellian2D(; weights, variances,
+        means = ((0.4, 0.0), (NaN, 0.0)))
 end
 
 @testset "the derivation and the moment equations" begin
@@ -254,27 +279,37 @@ end
         fourth = sum(w .* squared_radius .^ 2)
         fourth_error = sqrt(sum((w .* (squared_radius .^ 2 .- fourth)) .^ 2))
         @test abs(fourth - 8 * K * (2 - K)) ≤ 4 * fourth_error
+
+        # the control at t₀ = 0.2, on this sample: a Gaussian of temperature one, whose first two
+        # moments are the profile's and whose fourth moment is 8, breaks the bound of the fourth
+        # moment
+        if t₀ == 0.2
+            gaussian = randn(StableRNG(SEED), 2, npart)
+            gaussian_radius = gaussian[1, :] .^ 2 .+ gaussian[2, :] .^ 2
+            @test abs(sum(w .* gaussian_radius .^ 2) - 8 * K * (2 - K)) > 4 * fourth_error
+            @test abs(8 - 8 * K * (2 - K)) > 4 * fourth_error
+        end
     end
 
-    # the control at t₀ = 0.2: a Gaussian of temperature one, whose first two moments are the
-    # profile's and whose fourth moment is 8, breaks the bound of the fourth moment
-    t₀, K = 0.2, bkw_parameter(0.2)
-    dist = initialize!(particles(npart), BKWDistribution(t₀; seed = SEED))
-    w = collect(vec(dist.particles.w))
-    squared_radius = dist.particles.v[1, :] .^ 2 .+ dist.particles.v[2, :] .^ 2
-    fourth = sum(w .* squared_radius .^ 2)
-    fourth_error = sqrt(sum((w .* (squared_radius .^ 2 .- fourth)) .^ 2))
-    gaussian = randn(StableRNG(SEED), 2, npart)
-    gaussian_radius = gaussian[1, :] .^ 2 .+ gaussian[2, :] .^ 2
-    @test abs(sum(w .* gaussian_radius .^ 2) - 8 * K * (2 - K)) > 4 * fourth_error
-    @test abs(8 - 8 * K * (2 - K)) > 4 * fourth_error
-
-    # the profile is no distribution at a negative time, where its quadratic factor changes sign
+    # the profile is no distribution at a negative time, where its quadratic factor changes sign,
+    # and a time that is not finite is refused as such and not as a negative one
     @test_throws ArgumentError BKWDistribution(-0.1)
+    @test_throws "t₀ must be finite" BKWDistribution(NaN)
+
+    # t₀ = 0 is a distribution, whose K is 1/2: the profile vanishes quadratically at the origin
+    # and every particle takes the branch weighted by |v|²
+    @test BKWDistribution(0.0).time == 0
+    @test all(isfinite, initialize!(particles(10), BKWDistribution(0.0)).particles.v)
+
+    # the script's own check, which no test ran before: every closed form against the moment
+    # equations, and a flag that `options.jl` does not know refused in either mode
+    @test check() isa String
+    @test_throws ArgumentError main(["--check", "--bogus"])
+    @test_throws ArgumentError main(["--bogus"])
 
     # the script's own sample of the profile at t₀ = 0.2: each deviation of its first two moments,
     # and of its fourth, within four standard errors
-    @test all(r -> abs(r.value) ≤ 4, sample_rows(t₀))
+    @test all(r -> abs(r.value) ≤ 4, sample_rows(0.2))
 end
 
 @testset "the rate's derivation" begin

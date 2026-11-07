@@ -23,14 +23,17 @@ the fraction `(2K - 1)/K`, and that Gaussian weighted by `|v|²` for the rest, w
 `2K` times a `Gamma(2, 1)` variate: a sum of two standard exponentials. The sample's means are `0`
 and its variances `1` to the standard errors `1/√N` and `√(2/N)` of its `N` particles, and its
 fourth moment is that of the profile rather than the Gaussian's `8`. The positions are not touched,
-and the weights are set to `1/N`. A negative `t₀` throws an `ArgumentError`: the quadratic factor of
-the profile is negative near `v = 0` there, and the profile is no distribution.
+and the weights are set to `1/N`. A non-finite `t₀` throws an `ArgumentError`, and a negative one
+too: the quadratic factor of the profile is negative near `v = 0` there, and the profile is no
+distribution.
 """
 struct BKWDistribution{T} <: VlasovExample
     time::T
     seed::Int
 
     function BKWDistribution(time::T = 0.2; seed::Integer = 20261107) where {T <: Real}
+        isfinite(time) ||
+            throw(ArgumentError("t₀ must be finite, got $time"))
         time ≥ 0 ||
             throw(ArgumentError("the BKW profile is a distribution only at the times " *
                                 "t₀ ≥ 0, and t₀ = $time is negative"))

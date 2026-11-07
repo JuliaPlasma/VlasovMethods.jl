@@ -72,19 +72,22 @@
 # ## What is checked
 #
 # `--check` evaluates both derivations and writes nothing. The rate: `rate_checks` integrates the
-# weak form for `φ = v₁²` and `φ = v₂²` over the bi-Maxwellian at four temperature ratios inside
-# `(1.1, 3)`, and compares each with `4 (T₂ - T₁)` and `4 (T₁ - T₂)`, and their difference with
-# `-8 (T₁ - T₂)`, to the relative tolerance `TOLERANCE`; the control's constant `4` must miss by
-# more than `1e-3` relative. The BKW: `bkw_rows` takes the profile's mass, energy, temperature and
-# fourth moment by quadrature at four times inside `(0, 1)` and compares them with `1`, `2`, `1` and
-# `8K(2 - K)`, and compares the fourth moment's equation — the quadrature of the weak form — with
-# `16 (1 - K) dK/dt`, each to `TOLERANCE` relative. `sample_rows` samples the profile at `t₀ = 0.2`
-# and requires each of the sample's first two moments within four standard errors, and its fourth
-# moment within four of the sample's own standard errors.
+# weak form for `φ = v₁²` and `φ = v₂²` over the bi-Maxwellian at the four temperature ratios
+# `1.2`, `1.5`, `2` and `3`, and compares each with `4 (T₂ - T₁)` and `4 (T₁ - T₂)`, and their
+# difference with `-8 (T₁ - T₂)`, to the relative tolerance `TOLERANCE`; the control's constant `4`
+# must miss by more than `1e-3` relative. The BKW: `bkw_rows` takes the profile's mass, energy,
+# temperature and fourth moment by quadrature at four times inside `(0, 1)` and compares them with
+# `1`, `2`, `1` and `8K(2 - K)`, and compares the fourth moment's equation — the quadrature of the
+# weak form — with `16 (1 - K) dK/dt`, each to `TOLERANCE` relative. `sample_rows` samples the
+# profile through `BKWDistribution` at `t₀ = 0.2` and requires each of the sample's first two moments
+# within four standard errors, and its fourth moment within four of the sample's own standard
+# errors.
 #
 # A run without `--check` prints the same numbers without failing, and writes them with the command
-# line into `results_path("reference_forms.txt")`. The flags are those of `options.jl`; the script
-# writes no run file, and `--check` writes nothing at all, so that it may run inside a checkout.
+# line into `results_path("reference_forms.txt")`. The flags are those of `options.jl`, and every
+# one of them but `--check` is read in either mode, so a mistyped flag is refused instead of run at
+# its default; a bare `--check` reads none of them, so that it writes nothing at all and may run
+# inside a checkout.
 #
 # ## Running it
 #
@@ -94,7 +97,7 @@
 include(joinpath(@__DIR__, "options.jl"))
 
 using LinearAlgebra: SymTridiagonal, eigen
-using Random: MersenneTwister, rand, randn
+using VlasovMethods: BKWDistribution, ParticleDistribution, bkw_parameter, initialize!
 
 "The relative tolerance of every comparison of a closed form with the moment equations."
 const TOLERANCE = 1e-10
@@ -102,7 +105,7 @@ const TOLERANCE = 1e-10
 "The number of Gauss–Hermite nodes per dimension of every quadrature of the checks."
 const NODES = 16
 
-"The temperature ratios of the rate check, all inside `(1.1, 3)`."
+"The temperature ratios of the rate check, `T₁/T₂` from `1.2` to `3`."
 const TEMPERATURES = ((1.2, 1.0), (1.5, 1.0), (2.0, 1.0), (3.0, 1.0))
 
 "The times of the BKW check, all inside `(0, 1)`."
@@ -186,16 +189,6 @@ end
 ## the BKW profile
 
 """
-    bkw_parameter(t) -> Float64
-
-`K(t) = 1 - exp(-2t)/2`, the parameter of the BKW profile at the time `t` for the kernel
-`U(z) = |z|² (I - ẑ ẑᵀ)`: the paper's `K(t) = 1 - exp(-t/8)/2` at sixteen times its rate, since
-`U = 16 A` for the paper's `A`. `K(0) = 1/2` is the profile that vanishes quadratically at the
-origin, and `K(t) → 1` is the Maxwellian of temperature one.
-"""
-bkw_parameter(t) = 1 - exp(-2 * t) / 2
-
-"""
     bkw_parameter_rate(t) -> Float64
 
 `dK/dt = exp(-2t)`, the derivative in `t` of `bkw_parameter`. It stands as its own function because
@@ -254,33 +247,6 @@ function bkw_moment(K, φ; n = NODES)
         total += weights[a] * weights[b] * φ(v) * weight(v)
     end
     return total / π
-end
-
-"""
-    bkw_sample(t₀; npart = 100_000, seed = 20261107) -> (v, w)
-
-A sample of the profile of the time `t₀` on `npart` particles, as the `2 × npart` velocities `v` and
-the weights `w`. The fraction `A` of the particles is drawn from the Gaussian of covariance `K I`,
-and the rest from that Gaussian weighted by `|v|²/(2K)`, whose squared radius is `2K` times a
-`Gamma(2, 1)` variate — a sum of two standard exponentials — in a uniform direction.
-"""
-function bkw_sample(t₀; npart = 100_000, seed = 20261107)
-    K = bkw_parameter(t₀)
-    A, _ = bkw_coefficients(K)
-    rng = MersenneTwister(seed)
-    v = zeros(2, npart)
-    for α in 1:npart
-        if rand(rng) < A
-            v[1, α] = sqrt(K) * randn(rng)
-            v[2, α] = sqrt(K) * randn(rng)
-        else
-            θ = 2 * π * rand(rng)
-            r = sqrt(2 * K * (-log(rand(rng)) - log(rand(rng))))
-            v[1, α] = r * cos(θ)
-            v[2, α] = r * sin(θ)
-        end
-    end
-    return v, fill(1 / npart, npart)
 end
 
 ## the checks
@@ -359,10 +325,13 @@ end
 The rows of the sample check at the time `t₀`: the deviations of the sample's two means and two
 variances from the profile's `0` and `1`, in standard errors — `σ/√N` for a mean and `σ²√(2/N)` for
 a variance — and the deviation of its fourth moment in the sample's own standard error, each bounded
-by four.
+by four. The sample is the one `initialize!` draws for a `BKWDistribution`, so that this check covers
+the type the package exports.
 """
 function sample_rows(t₀; npart = 100_000, seed = 20261107)
-    v, w = bkw_sample(t₀; npart, seed)
+    dist = initialize!(ParticleDistribution(1, 2, npart), BKWDistribution(t₀; seed))
+    v = dist.particles.v
+    w = collect(vec(dist.particles.w))
     means = vec(sum(v .* w'; dims = 2))
     centered = v .- means
     variances = [sum(w .* centered[d, :] .^ 2) for d in 1:2]
@@ -448,7 +417,13 @@ same table and writes it, with the command line, to `results_path("reference_for
 """
 function main(args = ARGS)
     check_only = "--check" in args
-    check_only || parse_arguments(filter(!=("--check"), args))
+    rest = filter(!=("--check"), args)
+    # every argument but `--check` is a flag of `options.jl`, in either mode, so that a mistyped one
+    # is refused instead of run at its default. A bare `--check` reads none of them, and
+    # `parse_arguments` would create the two output directories, which `--check` must not.
+    if !(check_only && isempty(rest))
+        parse_arguments(rest)
+    end
     text = check()
     print(stdout, text)
     check_only && return nothing
