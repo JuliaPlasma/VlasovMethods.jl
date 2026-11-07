@@ -449,6 +449,15 @@ end
     @test cf[3][] ≈ M
     @test cg[3][] ≈ M
 
+    # weights that differ and a mean that is not zero, so that the weighted moments differ from
+    # the unweighted ones and from a temperature about zero: `n = W = 4` on the unit domain,
+    # `u = (3·0 + 1·2)/4 = 1/2` and `T = (3·(1/2)² + 1·(3/2)²)/4 = 3/4`, where the unweighted
+    # mean, the unweighted temperature and the temperature about zero are each `1`
+    skewed = ParticleDistribution(1, 1, ParticleList([0.25, 0.75], [0.0, 2.0], [3.0, 1.0]))
+    (_, _, cs), _ = collision_panels(plot_collision_distribution(skewed, g; keywords...))
+    @test cs[3][] ≈
+          [4 / sqrt(2π * 0.75) * exp(-(v - 0.5)^2 / (2 * 0.75)) for x in xc, v in vc]
+
     file = tempname() * ".png"
     save(file, fig)
     @test filesize(file) > 0
@@ -505,8 +514,9 @@ end
                 xdomain = XDOMAIN, vdomain = VDOMAIN, nx, nv)))
     end
     # an infinite end gives a `NaN` cell index, or edges that `range` refuses without naming the
-    # domain
-    for (xdomain, vdomain) in ((XDOMAIN, (-Inf, Inf)), ((0.0, Inf), VDOMAIN))
+    # domain; a `NaN` end is no end, and its orientation is not defined
+    for (xdomain, vdomain) in ((XDOMAIN, (-Inf, Inf)), ((0.0, Inf), VDOMAIN),
+        ((NaN, 1.0), VDOMAIN))
         @test_throws ArgumentError plot_collision_distribution(f, g; xdomain, vdomain)
         @test occursin("each domain must have finite ends",
             message_of(() -> plot_collision_distribution(f, g; xdomain, vdomain)))
@@ -708,6 +718,10 @@ end
     @test_throws ArgumentError plot_convergence(T[0.1, 0.1], T[0.01, 0.02])
     @test occursin("every `h` is the same",
         message_of(() -> plot_convergence(T[0.1, 0.1], T[0.01, 0.02])))
+    # a negative error is named as such, also where it leaves fewer than two pairs to fit
+    @test_throws ArgumentError plot_convergence(T[0.2, 0.1], T[-1, 0.01])
+    @test occursin("`err` holds a negative value",
+        message_of(() -> plot_convergence(T[0.2, 0.1], T[-1, 0.01])))
 
     @test_throws DimensionMismatch plot_convergence(h, err[1:(end - 1)])
     @test occursin("`err` is shorter than `h`",

@@ -119,7 +119,8 @@ using VlasovMethods, CairoMakie
 fig = plot_collision_distribution(f, g; xdomain = (0.0, 1.0), vdomain = (-10.0, 10.0))
 ```
 
-`f` and `g` are `ParticleDistribution`s of one position and one velocity dimension. Each panel
+`f` and `g` are `ParticleDistribution`s of one position and one velocity dimension, and of one
+element type. Each panel
 is the weighted particle histogram of [`plot_distribution`](@ref) on `nx × nv` cells of
 `xdomain` and `vdomain`, with the same cells, the same normalisation and the same particles
 dropped, so each integrates to the total weight of the particles it keeps.

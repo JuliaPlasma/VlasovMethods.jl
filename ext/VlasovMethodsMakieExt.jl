@@ -162,10 +162,10 @@ function VlasovMethods.plot_collision_distribution(f::ParticleDistribution{DT, 1
     # `_histogram` checks neither the orientation of the domains nor the cell counts (K57), nor
     # that the domains' ends are finite, where a cell index is `NaN` or `range` refuses the edges
     nx ≥ 1 && nv ≥ 1 || throw(ArgumentError("the cell counts must be positive"))
-    first(xdomain) < last(xdomain) && first(vdomain) < last(vdomain) ||
-        throw(ArgumentError("each domain must run from its lower to its upper end"))
     all(isfinite, (first(xdomain), last(xdomain), first(vdomain), last(vdomain))) ||
         throw(ArgumentError("each domain must have finite ends"))
+    first(xdomain) < last(xdomain) && first(vdomain) < last(vdomain) ||
+        throw(ArgumentError("each domain must run from its lower to its upper end"))
     # `_histogram` refuses an empty distribution without naming it, and `isempty` raises
     # `BoundsError` on an empty `ParticleList` (ParticleMethods K2)
     iszero(length(f.particles)) && throw(ArgumentError("`f` holds no particle"))
@@ -173,14 +173,17 @@ function VlasovMethods.plot_collision_distribution(f::ParticleDistribution{DT, 1
     histograms = map(dist -> _histogram(dist, xdomain, vdomain, nx, nv), (f, g))
     n, u, T = _maxwellian_moments(f, xdomain)
 
+    # the Maxwellian on the cell centres, where the histograms hold their values; the two
+    # histograms share their cells
+    xedges, vedges = first(histograms)
+    xc = (xedges[1:(end - 1)] .+ xedges[2:end]) ./ 2
+    vc = (vedges[1:(end - 1)] .+ vedges[2:end]) ./ 2
+    M = [n / sqrt(2 * DT(π) * T) * exp(-(v - u)^2 / (2 * T)) for _ in xc, v in vc]
+
     fig = Figure()
-    for (column, (xedges, vedges, F), title) in zip(1:2, histograms, ("initial", "final"))
+    for (column, (_, _, F), title) in zip(1:2, histograms, ("initial", "final"))
         ax = Axis(fig[1, column]; xlabel = "x", ylabel = "v", title = title)
         heatmap!(ax, xedges, vedges, F)
-        # the Maxwellian on the cell centres, where the histogram holds its values
-        xc = (xedges[1:(end - 1)] .+ xedges[2:end]) ./ 2
-        vc = (vedges[1:(end - 1)] .+ vedges[2:end]) ./ 2
-        M = [n / sqrt(2 * DT(π) * T) * exp(-(v - u)^2 / (2 * T)) for _ in xc, v in vc]
         contour!(ax, xc, vc, M; color = :white)
     end
     return fig
@@ -260,14 +263,14 @@ function VlasovMethods.plot_drift(t::AbstractVector, quantities;
 
     fig = Figure()
     ax = Axis(fig[1, 1]; xlabel = "t", ylabel = "relative drift", yscale = log10)
-    plotted = AbstractVector[]
-    for (label, Q) in zip(labels, quantities)
+    plotted = map(zip(labels, quantities)) do (label, Q)
         Q₀ = first(Q)
         isfinite(Q₀) && !iszero(Q₀) || throw(ArgumentError(
             "the initial value of `$label` is $Q₀, so its relative drift is not defined"))
-        x, y = _finite_pairs(t, abs.(Q .- Q₀) ./ abs(Q₀), "t", label)
-        push!(plotted, _log_values(y, label))
-        _series!(ax, x, last(plotted); label = string(label))
+        x, drift = _finite_pairs(t, abs.(Q .- Q₀) ./ abs(Q₀), "t", label)
+        y = _log_values(drift, label)
+        _series!(ax, x, y; label = string(label))
+        y
     end
     _flat_log_limits!(ylims!, ax, plotted)
     axislegend(ax)
@@ -290,9 +293,9 @@ function VlasovMethods.plot_error(t::AbstractVector, err::AbstractVector,
     fig = Figure()
     ax = Axis(fig[1, 1]; xlabel = "t", ylabel = "error", yscale = log10)
     series = (("err", err, "error"), ("closed", closed, "closed form"))
-    plotted = map(series) do (name, y, label)
-        x, y = _finite_pairs(t, y, "t", name)
-        y = _log_values(y, name)
+    plotted = map(series) do (name, values, label)
+        x, finite = _finite_pairs(t, values, "t", name)
+        y = _log_values(finite, name)
         _series!(ax, x, y; label = label)
         y
     end
@@ -304,6 +307,9 @@ end
 function VlasovMethods.plot_convergence(h::AbstractVector, err::AbstractVector)
     _check_lengths("h" => h, "err" => err)
     x, y = _finite_pairs(h, err, "h", "err")
+    # the values on the logarithmic axes, before the fit, so that a negative value is named as
+    # such and not as a pair that the fit cannot use
+    xs, ys = _log_values(x, "h"), _log_values(y, "err")
 
     # the least-squares line through the pairs whose logarithms are finite; a zero is drawn at
     # the axis' floor but has no logarithm to fit
@@ -320,8 +326,7 @@ function VlasovMethods.plot_convergence(h::AbstractVector, err::AbstractVector)
     fig = Figure()
     ylabel = "error ∝ h^p, p = $(round(p; sigdigits = 3))"
     ax = Axis(fig[1, 1]; xlabel = "h", ylabel = ylabel, xscale = log10, yscale = log10)
-    ys = _log_values(y, "err")
-    scatter!(ax, _log_values(x, "h"), ys)
+    scatter!(ax, xs, ys)
     hs = sort(x[fitted])
     lines!(ax, hs, C .* hs .^ p)
     # the widths differ, so only the `y` axis can be flat: an error that is the same at each
