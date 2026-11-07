@@ -33,25 +33,28 @@
 # (`plot_drift`), and `<stem>_entropy_log.pdf`, the relative change `|S_h(t) − S_h(0)| / |S_h(0)|`
 # of the entropy on a logarithmic axis (`plot_drift`). Where a step throws — the `DomainError` of
 # the projection or the `ErrorException` of a Picard solve that does not converge — the run stops:
-# the record is written with the attribute `stopped_at`, the time of that step, and the steps
-# reached, no figure is written, and the script exits non-zero.
+# the record is written with the attribute `stopped_at`, the time of that step, the steps reached
+# and, after a rate check, its datasets, no figure is written, and the script exits non-zero.
 #
 # The rate check runs with `--case shifted-normal`, before the run itself. Its bracket keeps the
-# density `n₀`, the mean `u₀` and the temperature `T₀` of the initial particles in place of the
-# moments of the current ones: the frozen coefficients of the Ornstein–Uhlenbeck limit. In the
+# density `n₀` and the mean `u₀` of the initial particles and the temperature `T₀ = 2` in place of
+# the moments of the current ones: the frozen coefficients of the Ornstein–Uhlenbeck limit. In the
 # continuum limit, where `S_γ / w_γ` is `∂ᵥ log f` at the particle, the bracket's equation of motion
 # is then `v̇ = −ν T₀ ∂ᵥ log f − ν (v − u₀)` for the Dougherty form and the same times `n₀ / T₀`
 # for the Jeyakumar form, so the temperature relaxes to `T₀` as `T(t) − T₀ ∝ exp(−λ t)` with the
-# closed form `λ = 2ν` for the Dougherty form and `λ = 2ν n₀ / T₀` for the Jeyakumar form. The
-# check starts from the initial particles contracted about their mean by `1 / √2`, at the
-# temperature `T₀ / 2`, takes the steps of the run with the implicit midpoint rule, fits `λ` to
-# `ln|T(t) − T₀|` by least squares, and prints the fitted value, the closed form and their relative
-# difference, the control, the other form's rate, and its relative difference to the fit, and the
-# count of the steps whose fixed-point solve stops at its iteration cap (`relax_frozen`). The
-# script exits non-zero, after it has written its files, where the relative difference exceeds
-# `--tolerance` or the control's does not. The table goes to `<stem>_rate.md` in `--results-dir`,
-# the values to attributes of the record, and the times and the temperatures of the check to its
-# datasets `rate_t` and `rate_temperature`. The other two cases run no rate check.
+# closed form `λ = 2ν` for the Dougherty form and `λ = 2ν n₀ / T₀ = ν n₀` for the Jeyakumar form.
+# The weights of the initial particles sum to `n₀ = 1`, so the two closed forms differ by two; at
+# `T₀ = n₀` they would be equal. The check dilates the initial particles about their mean to the
+# temperature `T₀`, contracts them by `1 / √2` to `T₀ / 2`, takes the steps of the run with the
+# implicit midpoint rule, fits `λ` to `ln|T(t) − T₀|` by least squares, and prints the fitted
+# value, the closed form and their relative difference, the control, the other form's rate, and
+# its relative difference to the fit, and the count of the steps whose fixed-point solve stops at
+# its iteration cap (`relax_frozen`). The script exits non-zero, after it has written its files,
+# where the relative difference exceeds `--tolerance` or the control's does not. The table goes to
+# `<stem>_rate.md` in `--results-dir`, the values to attributes of the record, and the times and
+# the temperatures of the check to its datasets `rate_t` and `rate_temperature`. The other two
+# cases run no rate check: on the uniform case the fit of one bracket misses its closed form by
+# more than `5 %` (`docs/src/collisions.md`).
 #
 # `--quick` takes 200 particles and the final time 0.05 for `shifted-normal`, the final time 0.05
 # for `double-maxwellian`, and the step 1e-3 and the final time 0.05 for `uniform`. The
@@ -83,8 +86,10 @@ const CASES = Dict(
 
 const BRACKETS = Dict("dougherty" => DoughertyBracket(), "jeyakumar" => JeyakumarBracket())
 
-# The case of the rate check.
+# The case of the rate check, and the temperature `T₀` at which it freezes the coefficients: away
+# from the density `n₀ = 1` of the unit weights, so that the two closed forms differ by two.
 const RATE_CASE = "shifted-normal"
+const RATE_TEMPERATURE = 2.0
 
 # The multiple of `eps · ‖v⁰‖₂` that the residual of each Picard solve must reach.
 const SOLVER_SCALE = 8
@@ -107,7 +112,7 @@ function flag_value(args, flag, default)
 end
 
 """
-    march(case, bracket, options; record) -> NamedTuple
+    march(case, bracket, options; record, data = (;)) -> NamedTuple
 
 The run of `MetriplecticLenardBernstein` with `bracket` from `options.npart` particles of
 `case.example`, seeded with `options.seed` where the case takes one, on the cubic spline of
@@ -115,10 +120,10 @@ The run of `MetriplecticLenardBernstein` with `bracket` from `options.npart` par
 initial and the final particles, the times `t`, the velocities `z` and the `diagnostics`.
 
 Where a step throws a `DomainError` or an `ErrorException`, the record `record` is written with
-the attribute `stopped_at`, the time of that step, and the times and the velocities of the steps
-reached, and the error is rethrown.
+the attribute `stopped_at`, the time of that step, the times and the velocities of the steps
+reached, and the datasets `data`, and the error is rethrown.
 """
-function march(case, bracket, options; record)
+function march(case, bracket, options; record, data = (;))
     dist = initial_distribution(case.example, options.npart; seed = get(options, :seed, nothing))
     initial = deepcopy(dist)
     sdist = spline_distribution(options.nbasis)
@@ -145,7 +150,7 @@ function march(case, bracket, options; record)
         stopped_at = (reached + 1) * options.tstep
         @printf("  the operator stops at t = %g, after %d steps\n", stopped_at, reached)
         write_record(record, merge(options, (; stopped_at));
-            t = collect(0:reached) .* options.tstep, z = z[:, 1:(reached + 1)])
+            t = collect(0:reached) .* options.tstep, z = z[:, 1:(reached + 1)], data...)
         rethrow()
     end
     dist.particles.v[1, :] .= z[:, end]
@@ -186,9 +191,10 @@ end
 """
     relax_frozen(initial, bracket, options) -> NamedTuple
 
-The rate check's run: the particles of `initial` contracted about their mean by `1 / √2`, marched
-by the implicit midpoint rule on `frozen_rhs!` of `bracket` with the moments of `initial`, for
-the steps of `options`.
+The rate check's run: the particles of `initial` dilated about their mean to the temperature
+`T₀ = RATE_TEMPERATURE`, then contracted about it by `1 / √2` to `T₀ / 2`, and marched by the
+implicit midpoint rule on `frozen_rhs!` of `bracket` with the density and the mean of `initial`
+and the temperature `T₀`, for the steps of `options`.
 
 Each step solves `x = vⁿ + h v̇((x + vⁿ) / 2)` by the fixed-point iteration damped by
 `RATE_SOLVER_DAMPING`, `x ← x + β r` with the residual `r = vⁿ + h v̇((x + vⁿ) / 2) − x`, until
@@ -197,8 +203,8 @@ the step is stiff and the iteration can stall above that tolerance: after
 `RATE_SOLVER_ITERATIONS` iterations the step takes the last iterate, and the run counts the step
 and keeps the largest residual of such a step.
 
-Returns the times `t`, the temperature `T` at each time, the density `n₀` and the temperature
-`T₀` of `initial`, the count `stalled` of the steps that stopped at the iteration cap and the
+Returns the times `t`, the temperature `T` at each time, the density `n₀` of `initial`, the
+temperature `T₀`, the count `stalled` of the steps that stopped at the iteration cap and the
 largest residual `residual` of those, zero where none did.
 """
 function relax_frozen(initial, bracket, options)
@@ -207,7 +213,8 @@ function relax_frozen(initial, bracket, options)
     v₀ = dist.particles.v[1, :]
     n₀ = sum(w)
     u₀ = dot(w, v₀) / n₀
-    T₀ = temperature(v₀, w)
+    T₀ = RATE_TEMPERATURE
+    v₀ = u₀ .+ (v₀ .- u₀) .* sqrt(T₀ / temperature(v₀, w))
     model = MetriplecticLenardBernstein(dist,
         CollisionEntropy(spline_distribution(options.nbasis)); ν = options.nu, bracket)
 
@@ -259,7 +266,7 @@ end
 
 The closed form of the rate of the temperature under the frozen coefficients: `2ν` for
 `DoughertyBracket`, and `2ν n₀ / T₀` for `JeyakumarBracket`, whose equation of motion is the
-Dougherty one times `n₀ / T₀`.
+Dougherty one times `n₀ / T₀`. At the rate check's `T₀ = 2` the second is `ν n₀`.
 """
 closed_rate(::DoughertyBracket, ν, n₀, T₀) = 2ν
 closed_rate(::JeyakumarBracket, ν, n₀, T₀) = 2ν * n₀ / T₀
@@ -341,10 +348,10 @@ function main(args)
                 rate_stalled = rate.stalled, rate_residual = rate.residual))
     end
 
-    relaxed = march(case, bracket, attributes; record = stem * ".hdf5")
-    d = relaxed.diagnostics
     rate_data = rate === nothing ? (;) :
                 (rate_t = rate.t, rate_temperature = rate.T)
+    relaxed = march(case, bracket, attributes; record = stem * ".hdf5", data = rate_data)
+    d = relaxed.diagnostics
     write_record(stem * ".hdf5", attributes; relaxed.t, relaxed.z, d..., rate_data...)
     save_distribution(stem * "_initial_final_distribution.pdf", relaxed, case.xdomain)
     save_figure(stem * "_conservation.pdf", plot_drift(relaxed.t, (

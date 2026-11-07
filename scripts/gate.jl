@@ -46,23 +46,24 @@
 # `lenard_bernstein_metriplectic.jl` runs with `--quick` six times, once for each of its three
 # cases and two brackets, each in a process of its own. Each run must exit 0, print its wall-clock
 # time, write its three figures and its record with the quick parameters, its case and its bracket,
-# and no `stopped_at`. The two runs of the shifted normal also print the rate check: the gate
-# computes the temperature `T₀` of the first column of the record's `z`, takes the closed form
-# `2ν` for the Dougherty bracket and `2ν / T₀` for the Jeyakumar bracket, at density one, from the
-# bracket that it passed, and checks that the printed closed form and control are these two, that
-# the fitted rate lies within a relative `5 %` of the closed form, and that it lies more than
-# `5 %` from the control. The record of the double Maxwellian with the Dougherty bracket must start
-# from the velocities that `DoubleMaxwellian` draws after `Random.seed!(1)`. Five more runs check
-# its edges:
+# and no `stopped_at`. The two runs of the shifted normal also print the rate check, which relaxes
+# from the temperature `1` to `T₀ = 2` at the density `n₀ = 1` of the weights `1 / N`: the gate
+# takes the closed form `2ν` for the Dougherty bracket and `2ν n₀ / T₀ = ν` for the Jeyakumar
+# bracket, from the bracket that it passed, and checks that the printed closed form and control are
+# these two, that the record's `rate_temperature` starts at `1`, that the fitted rate lies within a
+# relative `5 %` of the closed form, and that it lies more than `5 %` from the control. The record
+# of the double Maxwellian with the Dougherty bracket must start from the velocities that
+# `DoubleMaxwellian` draws after `Random.seed!(1)`. Five more runs check its edges:
 #
 # - `--case maxwellian` and `--bracket landau`: each exits non-zero with the `ArgumentError` that
 #   names the flag and the value, and creates neither `--runs-dir` nor `--results-dir`;
 # - the shifted normal with the Dougherty bracket and 1000 particles, where the Picard solve of the
 #   sixth step does not converge: it exits non-zero, writes no figure, and writes its record with
-#   `commit`, `command`, `stopped_at = 6 * 8e-4`, and the five steps reached in `t` and `z`;
+#   `commit`, `command`, `stopped_at = 6 * 8e-4`, the five steps reached in `t` and `z`, and the 64
+#   samples of its rate check in `rate_t` and `rate_temperature`;
 # - the shifted normal with `--tolerance 1e-3`, below the relative difference of the quick fit to
-#   its closed form, which is `3.1e-2`, and with `--tolerance 0.2`, above the relative difference
-#   of the fit to its control, which is `0.125`: each prints its wall-clock time, writes its three
+#   its closed form, which is `1.5e-2`, and with `--tolerance 1.5`, above the relative difference
+#   of the fit to its control, which is `0.97`: each prints its wall-clock time, writes its three
 #   figures and its record, says that the rate check fails and exits non-zero.
 #
 # The gate also includes the driver in a module of its own and checks that `fit_rate` throws an
@@ -231,7 +232,7 @@ unknown_case = start(MPLB_SCRIPT, ["--quick", "--case", "maxwellian"])
 unknown_bracket = start(MPLB_SCRIPT, ["--quick", "--bracket", "landau"])
 unsolved = start(MPLB_SCRIPT, ["--quick", "--bracket", "dougherty", "--npart", "1000"])
 tight = start(MPLB_SCRIPT, ["--quick", "--tolerance", "1e-3"])
-loose = start(MPLB_SCRIPT, ["--quick", "--tolerance", "0.2"])
+loose = start(MPLB_SCRIPT, ["--quick", "--tolerance", "1.5"])
 
 # A driver still running when the gate exits, after an error of the gate itself, is killed.
 atexit(() -> foreach(
@@ -429,9 +430,10 @@ for job in mplb
         continue
     fitted, closed = parse.(Float64, rate.captures)
     alternative_closed = parse(Float64, control[1])
-    z₀ = h5read(run_record, "z")[:, 1]
-    T₀ = sum(abs2, z₀ .- sum(z₀) / length(z₀)) / length(z₀)
-    expected, alternative = bracket == "dougherty" ? (2.0, 2.0 / T₀) : (2.0 / T₀, 2.0)
+    expected, alternative = bracket == "dougherty" ? (2.0, 1.0) : (1.0, 2.0)
+    rate_temperature = h5read(run_record, "rate_temperature")
+    check(isapprox(first(rate_temperature), 1.0; rtol = 1e-12),
+        "the rate check starts at the temperature 1: $(first(rate_temperature))")
     check(
         isapprox(closed, expected; rtol = 1e-5) &&
             isapprox(alternative_closed, alternative; rtol = 1e-5),
@@ -475,6 +477,14 @@ let unsolved_output = finish(unsolved; fails = true, timed = false),
         z = h5read(record, "z")
         check(t == collect(0:5) .* 8e-4 && size(z) == (1000, 6),
             "it records the five steps reached: t = $(t), z of size $(size(z))")
+        check(
+            h5open(
+                file -> haskey(file, "rate_t") &&
+                        length(read(file, "rate_t")) == 64 &&
+                        length(read(file, "rate_temperature")) == 64,
+                record,
+                "r"),
+            "it records the 64 samples of its rate check")
     end
 end
 

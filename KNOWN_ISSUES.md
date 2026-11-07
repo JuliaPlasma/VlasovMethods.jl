@@ -702,11 +702,12 @@ has left the file, or that lived only on a merged branch, stays taken.
   `--quick --case double-maxwellian --bracket dougherty --npart 200`, the run completes at
   `h = 8e-4` and stops at `t = 0.0036` with `--tstep 4e-4`, and with `--bracket jeyakumar` and 200
   particles it stops at `t = 0.016`. The damped fixed-point solve of the driver's rate check,
-  which freezes the bracket's moments, stalls on 2 of its 1250 steps under the Dougherty form and
-  on 4 under the Jeyakumar form at the shifted normal's parameters; a probe of the first stalled
-  step, the step 714 of the Dougherty form, finds its largest residual at the particle
-  `v = −1.13`, with 3 particles within `±0.5` and `f_s = 1.9e-3` there. Where a particle in a
-  sparse tail sits where `f_s` is small, the score of `log|f_s|` changes fast across it, and the
-  fixed-point map of the implicit midpoint step is not a contraction.
+  which freezes the bracket's moments, stalls on 1 of its 1250 steps under the Dougherty form and
+  on 2 under the Jeyakumar form at the shifted normal's parameters; a probe of each stalled step
+  finds its largest residual at a particle in the lower tail, `v = −1.19`, `−1.56` and `−1.18`
+  against the mean `1.98` and the standard deviation `1.07` to `1.20`, with 10, 2 and 10
+  particles within `±0.5`. Where a particle in a sparse tail sits where `f_s` is small, the score
+  of `log|f_s|` changes fast across it, and the fixed-point map of the implicit midpoint step is
+  not a contraction.
 - **kind:** defect
 - **found:** 2026-11-07

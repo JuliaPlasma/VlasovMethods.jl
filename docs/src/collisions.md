@@ -174,8 +174,8 @@ stem: `_initial_final_distribution.pdf`, `_conservation.pdf`, the relative drift
 momentum and the energy, and `_entropy_log.pdf`, the relative change `|S_h(t) − S_h(0)| / |S_h(0)|`
 of the entropy on a logarithmic axis. A step that throws, the `DomainError` of the projection or
 the error of a Picard solve that does not converge, stops the run as a single run of PD-LB stops:
-the HDF5 file carries `stopped_at` and the steps reached, no figure is written, and the driver exits
-non-zero.
+the HDF5 file carries `stopped_at`, the steps reached and, with the shifted normal, the times and
+temperatures of the rate check, no figure is written, and the driver exits non-zero.
 
 ### The six commands
 
@@ -194,8 +194,8 @@ records the stops:
 
 | case | bracket | stops at | steps reached | measured |
 |:--|:--|--:|--:|--:|
-| shifted normal | Dougherty | `t = 0.0048` | 5 of 1250 | 23 s |
-| shifted normal | Jeyakumar | `t = 0.2208` | 275 of 1250 | 24 s |
+| shifted normal | Dougherty | `t = 0.0048` | 5 of 1250 | 28 s |
+| shifted normal | Jeyakumar | `t = 0.2208` | 275 of 1250 | 27 s |
 | double Maxwellian | Dougherty | `t = 0.1248` | 155 of 6250 | 21 s |
 | double Maxwellian | Jeyakumar | `t = 0.2968` | 370 of 6250 | 21 s |
 | uniform | Dougherty | `t = 0.0399` | 398 of 10000 | 21 s |
@@ -209,30 +209,48 @@ figures 9 and 10 take. Each of the six quick runs exits 0.
 ### The rate check
 
 With the shifted normal, the driver first runs the rate check of its bracket. The bracket's
-density `n₀`, mean `u₀` and temperature `T₀` are frozen at those of the initial particles, the
-coefficients of the Ornstein–Uhlenbeck limit, and the particles start contracted about their mean
-by `1 / √2`, at the temperature `T₀ / 2`. In the continuum limit, where `S_γ / w_γ` is
-`∂ᵥ log f`, the Dougherty form is `v̇ = −ν T₀ ∂ᵥ log f − ν (v − u₀)`, and the Jeyakumar form is
-the same times `n₀ / T₀`, so the temperature relaxes to `T₀` as `exp(−λ t)` with
+density `n₀` and mean `u₀` are frozen at those of the initial particles and its temperature at
+`T₀ = 2`, the coefficients of the Ornstein–Uhlenbeck limit. The particles are dilated about their
+mean to the temperature `T₀` and contracted by `1 / √2`, so that they start at `T₀ / 2 = 1`. In
+the continuum limit, where `S_γ / w_γ` is `∂ᵥ log f`, the Dougherty form is
+`v̇ = −ν T₀ ∂ᵥ log f − ν (v − u₀)`, and the Jeyakumar form is the same times `n₀ / T₀`, so the
+temperature relaxes to `T₀` as `exp(−λ t)` with
 
 ```math
-\lambda_\mathrm{Dougherty} = 2 \nu , \qquad \lambda_\mathrm{Jeyakumar} = \frac{2 \nu n_0}{T_0} .
+\lambda_\mathrm{Dougherty} = 2 \nu , \qquad
+\lambda_\mathrm{Jeyakumar} = \frac{2 \nu n_0}{T_0} = \nu n_0 .
 ```
 
-The Jeyakumar rate carries the temperature and the Dougherty rate does not. The driver fits `λ` to
-`ln|T(t) − T₀|` over the run and exits non-zero where the fit differs from the closed form of its
-bracket by more than `--tolerance`, 5 %, or from the control, the closed form of the other
-bracket, by less. With the parameters above, `n₀ = 1` and `T₀ = 1.1001`:
+The Jeyakumar rate carries the temperature and the Dougherty rate does not. The weights of the
+particles sum to `n₀ = 1`, so at `T₀ = 2` the two closed forms differ by two; at a temperature
+near `n₀`, such as the unit variance of the sample, they would be equal up to its sampling
+error. The driver fits `λ` to `ln|T(t) − T₀|` over the run and exits non-zero where the fit
+differs from the closed form of its bracket by more than `--tolerance`, 5 %, or from the
+control, the closed form of the other bracket, by less. With the parameters above:
 
 | bracket | fitted `λ` | closed form | relative difference | control | control's relative difference |
 |:--|--:|--:|--:|--:|--:|
-| Dougherty | 1.990803 | `2ν` = 2.000000 | `4.6e-3` | `2ν n₀ / T₀` = 1.818014 | `9.5e-2` |
-| Jeyakumar | 1.809035 | `2ν n₀ / T₀` = 1.818014 | `4.9e-3` | `2ν` = 2.000000 | `9.5e-2` |
+| Dougherty | 1.989115 | `2ν` = 2.000000 | `5.4e-3` | `ν n₀` = 1.000000 | `9.9e-1` |
+| Jeyakumar | 0.993992 | `ν n₀` = 1.000000 | `6.0e-3` | `2ν` = 2.000000 | `5.0e-1` |
 
 Each step of the check solves the implicit midpoint rule by a fixed-point iteration damped by
 `1/2`. Where a particle in a sparse tail sits where `f_s` is small, the step is stiff and the
 iteration stalls; after 1000 iterations the step takes the last iterate, and the driver prints
-how many steps did so: 2 of the 1250 for the Dougherty form and 4 for the Jeyakumar form, at a
-largest residual of `9.5e-4` and `6.2e-4`. The quick run, 200 particles to `t = 0.05`, fits
-`1.938277` against `2` and `1.670312` against `1.722512`, both within `3.1 %`, with controls
-`12.5 %` and `16.5 %` away, and no step at the cap.
+how many steps did so: 1 of the 1250 for the Dougherty form and 2 for the Jeyakumar form, at a
+largest residual of `1.5e-3` and `2.0e-4`. The quick run, 200 particles to `t = 0.05`, fits
+`1.969792` against `2` and `0.998385` against `1`, within `1.5 %` and `0.16 %`, with controls
+`97 %` and `50 %` away, and no step at the cap. With `--quick --npart 2000` the fits are
+`1.999775` and `1.000624`, with controls `100 %` and `50 %` away.
+
+The check runs on the shifted normal only, the default case, because the closed form is not met
+at the stated tolerance on every case. With the same dilation, the same frozen `T₀ = 2` and the
+rate check's solver, the fits differ from their closed forms by:
+
+| case | parameters | Dougherty | Jeyakumar |
+|:--|:--|--:|--:|
+| double Maxwellian | 1000 particles, `--seed 1`, `h = 8e-4`, `t = 0.05` | `4.2e-3` | `3.3e-3` |
+| uniform | 200 particles, `--seed 1`, `h = 1e-3`, `t = 0.05` | `8.5e-2` | `9.6e-3` |
+| uniform | 200 particles, `--seed 1`, `h = 1e-3`, `t = 1` | `3.7e-2` | `6.9e-2` |
+
+The uniform case misses the 5 % tolerance at one bracket of each set, and the double Maxwellian
+meets it at both; the controls lie between `49 %` and `99 %` away in every row.
