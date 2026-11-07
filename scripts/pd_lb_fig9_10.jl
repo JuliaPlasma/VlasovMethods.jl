@@ -11,8 +11,8 @@
 # midpoint rule (`sec:time_discretisation`) at the step `--tstep` to `--final-time`.
 #
 # Figure 9 is the initial and the final distribution (`fig:initial_final_dists_uniform`), and
-# figure 10 the entropy `S_h` (`fig:entropy_ex3`). Figure 10 departs from the manuscript's: the
-# manuscript draws `S_h / |S_h(0)|`, and this script draws `S_h` itself, as `plot_entropy` does.
+# figure 10 the entropy `S_h` (`fig:entropy_ex3`). The page `docs/src/collisions.md` states how
+# each figure departs from the manuscript's.
 #
 # `--quick` takes the step 1e-3 and the final time 0.05.
 

@@ -243,8 +243,9 @@ their own, except for what they removed and narrowed, which is listed in full be
   `pd_lb_fig11.jl` default to the manuscript's parameters, draw each figure with the plotting
   functions of the Makie extension into `--results-dir`, write one HDF5 file per run into
   `--runs-dir` with the attributes `commit`, `command`, `script` and one per option, and print their
-  wall-clock time; `command` holds the driver's arguments as `Base.shell_escape` quotes them; `--quick` replaces some parameters with smaller ones. `M` is the number of
-  cubic basis functions, so the manuscript's "41 elements" are 41 basis functions on 38 cells. A
+  wall-clock time; `command` holds the driver's arguments as `Base.shell_escape` quotes them;
+  `--quick` replaces some parameters with smaller ones. `M` is the number of cubic basis
+  functions, so the manuscript's "41 elements" are 41 basis functions on 38 cells. A
   projection that is not positive at a particle stops a run with its `DomainError`: the driver
   writes the HDF5 file of that run with the attribute `stopped_at`, the time of the step that
   threw, and the steps reached, writes no figure for that run and exits non-zero. The sweeps of
