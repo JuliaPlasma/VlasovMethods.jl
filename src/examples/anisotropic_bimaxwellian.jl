@@ -8,9 +8,9 @@ f(v) = \frac{1}{2 \pi \sigma_1 \sigma_2}
   \exp\left(-\frac{v_1^2}{2 \sigma_1^2} - \frac{v_2^2}{2 \sigma_2^2}\right) ,
 ```
 
-the 2D reference case whose second moments isotropise: at the Maxwell molecules of `γ = 0` the
-difference `T₁₁ − T₂₂` of its second moments decays at the rate `8`, which
-`scripts/reference_forms.jl` derives from the moment equations.
+the 2D reference case whose second moments isotropise: at the Maxwell molecules of `γ = 0`, with
+`ν = 1` and weights that sum to one, the difference `T₁₁ − T₂₂` of its second moments decays at the
+rate `8`, which `scripts/reference_forms.jl` derives from the moment equations.
 
 `initialize!` fills the two velocity components of a `ParticleDistribution` with a sample of `f`
 drawn from `Random.MersenneTwister(seed)`, one stream of `N` normal variates per component, so that

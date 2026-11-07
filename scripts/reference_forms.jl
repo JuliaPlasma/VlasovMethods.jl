@@ -7,7 +7,7 @@
 #
 # For the homogeneous Landau equation
 #
-#     ∂_t f = ∇ · ∫ U(v - v_*) [ f_*(v) ∇f(v) - f(v) ∇_* f_*(v_*) ] dv_*
+#     ∂_t f = ∇ · ∫ U(v - v_*) [ f(v_*) ∇f(v) - f(v) ∇_* f(v_*) ] dv_*
 #
 # with the kernel `U(u) = |u|² (I - û ûᵀ)` of the exponent `γ = 0` — the Maxwell molecules — a test
 # function `φ` gives the weak form
@@ -15,11 +15,12 @@
 #     d/dt ∫ φ f dv = - ½ ∫∫ f(v) f(v_*) U_ij(v - v_*) (∂_i φ(v) - ∂_i φ(v_*))
 #                                                  (∂_j log f(v) - ∂_j log f(v_*)) dv dv_* ,
 #
-# which `moment_rate` evaluates. With `φ = |v|²` the φ-difference is `2u`, and `U(u) u = 0` for the
-# kernel `|u|² (I - û ûᵀ)`, so the right side vanishes pointwise: the energy — the trace
-# `T₁₁ + T₂₂` — is conserved for every `f`, as an identity of the kernel and not as a property of
-# the profile. No check below rests on it; what is checked is the profile's energy, which is a
-# quadrature of the profile and not of the weak form.
+# which `moment_rate` evaluates. Two test functions make the right side vanish for every `f`:
+# `φ = 1`, whose φ-difference is zero — the mass — and `φ = |v|²`, whose φ-difference is `2u`
+# against the kernel's `U(u) u = 0` — the energy, the trace `T₁₁ + T₂₂`. Each is an identity of
+# the test function or of the kernel and not a property of the profile. No check below rests on
+# either: what is checked is the profile's mass and energy, which are quadratures of the profile
+# and not of the weak form.
 #
 # ## The rate of the second moments
 #
@@ -59,9 +60,9 @@
 #
 # solves this package's equation at `ν = 1`. At `K = 1` it is the Maxwellian of temperature one; at
 # `K = 1/2` it is `exp(-|v|²) |v|²/π`, which vanishes quadratically at the origin and is why the
-# checks below take their times `t₀ > 0`. Its second moment is the identity at every `t`, by the
-# moment equation above with `T₁ = T₂ = 1`, and its fourth moment is `M₄(K) = 8K(2 - K)`. The fourth
-# moment's equation,
+# checks below take their times `t₀ > 0`. Its second moment is the identity at every `t`: the
+# profile is radial, so its second moment is a multiple of the identity, and the trace, the energy,
+# is conserved. Its fourth moment is `M₄(K) = 8K(2 - K)`. The fourth moment's equation,
 #
 #     dM₄/dt = 16 (1 - K) dK/dt = 32 (1 - K)² ,
 #
@@ -83,8 +84,9 @@
 # within four standard errors, and its fourth moment within four of the sample's own standard
 # errors.
 #
-# A run without `--check` prints the same numbers without failing, and writes them with the command
-# line into `results_path("reference_forms.txt")`. The flags are those of `options.jl`, and every
+# `--check` and a run without it evaluate the same checks, which throw on a miss in either mode; the
+# run without `--check` then writes the table, with the command line, into
+# `results_path("reference_forms.txt")`. The flags are those of `options.jl`, and every
 # one of them but `--check` is read in either mode, so a mistyped flag is refused instead of run at
 # its default; a bare `--check` reads none of them, so that it writes nothing at all and may run
 # inside a checkout.
@@ -201,7 +203,7 @@ bkw_parameter_rate(t) = exp(-2 * t)
     bkw_coefficients(K) -> (A, B)
 
 The coefficients `A = (2K - 1)/K` and `B = (1 - K)/(2K²)` of the profile's quadratic factor
-`A + B |v|²`, at `d = 2`. At `K ≤ 1/2` the factor is negative near the origin and the profile is no
+`A + B |v|²`, at `d = 2`. At `K < 1/2` the factor is negative near the origin and the profile is no
 distribution.
 """
 bkw_coefficients(K) = ((2K - 1) / K, (1 - K) / (2K^2))

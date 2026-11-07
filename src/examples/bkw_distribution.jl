@@ -2,8 +2,9 @@
     BKWDistribution(t₀; seed = 20261107)
 
 The two-dimensional BKW solution of the homogeneous Landau equation at the time `t₀`, the third 2D
-reference case: at the Maxwell molecules of `γ = 0` it is an exact solution, and its departure from
-the Maxwellian decays at a rate that `scripts/reference_forms.jl` derives from the moment equations.
+reference case: at the Maxwell molecules of `γ = 0` and `ν = 1` it is an exact solution, and its
+departure from the Maxwellian decays at a rate that `scripts/reference_forms.jl` derives from the
+moment equations.
 
 At `d = 2` the profile of Carrillo, Hu, Wang and Wu (2020), Appendix A, is
 
@@ -21,7 +22,8 @@ states `K(t) = 1 - e^{-t/8}/2` for its kernel `A(z) = (|z|² I - z ⊗ z)/16`; t
 profile drawn from `Random.MersenneTwister(seed)`. The profile is a Gaussian of covariance `K I` of
 the fraction `(2K - 1)/K`, and that Gaussian weighted by `|v|²` for the rest, whose squared radius is
 `2K` times a `Gamma(2, 1)` variate: a sum of two standard exponentials. The sample's means are `0`
-and its variances `1` to the standard errors `1/√N` and `√(2/N)` of its `N` particles, and its
+and its variances `1`, within the standard errors `1/√N` and `√(2/N)` that a Gaussian sample of its
+`N` particles has: the profile's own error of a variance is the smaller `√((3K(2 - K) - 1)/N)`. Its
 fourth moment is that of the profile rather than the Gaussian's `8`. The positions are not touched,
 and the weights are set to `1/N`. A non-finite `t₀` throws an `ArgumentError`, and a negative one
 too: the quadratic factor of the profile is negative near `v = 0` there, and the profile is no
@@ -45,9 +47,9 @@ end
     bkw_parameter(t) -> Float64
 
 The parameter `K(t) = 1 - exp(-2t)/2` of the BKW profile at the time `t`, at the kernel
-`U(z) = |z|² (I - ẑ ẑᵀ)` of `γ = 0`: the paper's `K(t) = 1 - exp(-t/8)/2` at a rate sixteen times
-its own, since `U = 16 A` for its kernel `A`. `K(0) = 1/2` is the profile that vanishes
-quadratically at `v = 0`, and `K(t) → 1` is the Maxwellian.
+`U(z) = |z|² (I - ẑ ẑᵀ)` of `γ = 0` and `ν = 1`: the paper's `K(t) = 1 - exp(-t/8)/2` at a rate
+sixteen times its own, since `U = 16 A` for its kernel `A`. `K(0) = 1/2` is the profile that
+vanishes quadratically at `v = 0`, and `K(t) → 1` is the Maxwellian.
 """
 bkw_parameter(t) = 1 - exp(-2 * t) / 2
 

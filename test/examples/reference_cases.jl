@@ -1,17 +1,17 @@
 # The 2D reference cases of the Landau collision methods: the seeded bi-Maxwellian, double
 # Maxwellian and BKW profile of `src/examples/`, the two closed forms that
 # `scripts/reference_forms.jl` derives from the moment equations, and the isotropisation rate that
-# the particle-pair scheme of `γ = 0` reproduces at the mesh of the plan's measurement.
+# the particle-pair scheme of `γ = 0` reproduces on a mesh of 16 × 16 quadratic cells.
 #
-# Every standard error is the convention of the spec — `σ/√N` for a mean, `σ²√(2/N)` for a variance
+# Every standard error is the Gaussian one — `σ/√N` for a mean, `σ²√(2/N)` for a variance
 # and `σ₁σ₂/√N` for a covariance — and every bound on a sampled deviation is four of them; the
 # fourth moment's bound is four of the standard error that the sample itself gives.
 #
-# The rate test draws its sample with `StableRNG`, as the probe of the plan's measurement does, and
-# not through `AnisotropicBiMaxwellian`, whose `seed` streams `MersenneTwister`: the rate it compares
-# with was measured on that sample, and `StableRNGs` is a test-only dependency, so the sample here is
-# the one `bi_maxwellian(1600)` of the plan's checks draws. The type's own sample is checked by
-# "the sample's moments" below.
+# The rate test draws its sample with `StableRNG` and not through `AnisotropicBiMaxwellian`, whose
+# `seed` streams `MersenneTwister`: the rate of 1600 particles carries the anisotropy of its own
+# sample, so the 5 % clamp on the rate below is a statement about this fixed sample. `StableRNGs` is
+# a test-only dependency, so the package cannot draw this sample, and the type's own sample is
+# checked by "the sample's moments" below.
 
 using ParticleMethods: ParticleList
 using Random: randn
@@ -86,8 +86,8 @@ function fitted_rate(model, Δt, nsteps; abstol = 1e-7)
     return (rate = -slope, trace_drift = abs(last_moment.T11 + last_moment.T22 - trace))
 end
 
-# The sample of the rate test: `bi_maxwellian(1600)` of the plan's checks, a centred sample of the
-# two variances with equal weights, its velocities 2 × npart.
+# The sample of the rate test: 1600 centred particles of the two variances with equal weights, its
+# velocities 2 × npart.
 function rate_sample(npart; variance_one = 0.5, variance_two = 0.3, seed = SEED)
     rng = StableRNG(seed)
     v = zeros(2, npart)
@@ -113,7 +113,7 @@ end
     @test abs(m.T22 - variance_two) ≤ 4 * variance_two * √(2 / npart)
     @test abs(m.T12) ≤ 4 * sqrt(variance_one * variance_two) / √npart
 
-    # the four seeds of the measurement: no deviation of any exceeds four standard errors
+    # the seeds `SEED`, 1, 2 and 3: no deviation of any exceeds four standard errors
     for seed in (SEED, 1, 2, 3)
         s = initialize!(particles(npart), AnisotropicBiMaxwellian(variance_one, variance_two; seed))
         ms = moments(s.particles.v, w)
@@ -198,7 +198,7 @@ end
     @test abs(m.T11 - exact_variance[1]) ≤ 4 * exact_variance[1] * √(2 / npart)
     @test abs(m.T22 - exact_variance[2]) ≤ 4 * exact_variance[2] * √(2 / npart)
 
-    # the four seeds of the measurement
+    # the seeds `SEED`, 1, 2 and 3
     for seed in (SEED, 1, 2, 3)
         s = initialize!(particles(npart), DoubleMaxwellian2D(; weights, variances, means, seed))
         ms = moments(s.particles.v, w)
@@ -343,7 +343,7 @@ end
 @testset "the rate at 16 × 16 cells, and the 8 × 8 control" begin
     v, w = rate_sample(1600)
 
-    # the mesh of the plan's measurement, at which the scheme reproduces the closed rate 8
+    # 16 × 16 cells of `[-3, 3]²`, at which the scheme reproduces the closed rate 8
     fine = fitted_rate(reference_model(v, w; ncell = 16, L = 3.0), 1e-5, 30)
     @test abs(fine.rate - 8) ≤ 0.05 * 8
     @test fine.trace_drift ≤ 1e-12
