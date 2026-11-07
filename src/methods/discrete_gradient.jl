@@ -5,8 +5,8 @@ The discrete gradients ``\\bar{\\nabla} S(v^0, v^1)`` of the entropy that
 [`discrete_gradient_step!`](@ref) takes, each a method of `discrete_gradient!`. A discrete
 gradient is defined by the two conditions of the Landau manuscript's `eq:disc_grad_props`:
 ``S(v^1) - S(v^0) = (v^1 - v^0) \\cdot \\bar{\\nabla} S(v^0, v^1)`` and
-``\\bar{\\nabla} S(v, v) = \\nabla S(v)``. The [`GonzalezGradient`](@ref) is the one this package
-implements.
+``\\bar{\\nabla} S(v, v) = \\nabla S(v)``. The package implements two of them: the
+[`GonzalezGradient`](@ref), the manuscript's, and the [`AVFGradient`](@ref).
 """
 abstract type DiscreteGradient end
 
@@ -57,6 +57,125 @@ function discrete_gradient!(∇̄S, v0::AbstractMatrix{T}, v1::AbstractMatrix{T}
     return ∇̄S
 end
 
+# The `n`-point Gauß–Legendre rule on `[0, 1]`: the nodes in increasing order and the weights,
+# in `Float64`, by Newton's method on the Legendre polynomial, which converges in a few
+# iterations from the asymptotic position of each root.
+function _gauss_legendre_rule(n::Int)
+    ξ = zeros(Float64, n)
+    ω = zeros(Float64, n)
+    for i in 1:((n + 1) ÷ 2)
+        z = cos(Float64(π) * (i - 0.25) / (n + 0.5))
+        dP = one(Float64)
+        for _ in 1:100
+            P1, P2 = one(Float64), zero(Float64)
+            for j in 1:n
+                P3 = P2
+                P2 = P1
+                P1 = ((2j - 1) * z * P2 - (j - 1) * P3) / j
+            end
+            dP = n * (z * P1 - P2) / (z * z - 1)
+            z1 = z
+            z = z1 - P1 / dP
+            # The last Newton step is the rounding of the root, so the stop is a few ulp of `z`.
+            abs(z - z1) ≤ 4 * eps(z) && break
+        end
+        ξ[i] = -z
+        ξ[n + 1 - i] = z
+        ω[i] = 2 / ((1 - z * z) * dP * dP)
+        ω[n + 1 - i] = ω[i]
+    end
+    return (ξ .+ 1) ./ 2, ω ./ 2
+end
+
+@doc raw"""
+    AVFGradient(nq::Integer = 5)
+
+The averaged-vector-field discrete gradient: the mean of the entropy gradient along the segment
+between the two velocities,
+
+```math
+\bar{\nabla} S_h(v^0, v^1) = \int_0^1 \nabla S_h\big( (1 - \tau) \, v^0 + \tau \, v^1 \big) \,
+  d\tau ,
+```
+
+taken by the `nq`-point Gauß–Legendre rule on ``[0, 1]``,
+
+```math
+\bar{\nabla} S_h(v^0, v^1) = \sum_{i = 1}^{nq} \omega_i \,
+  \nabla S_h\big( v^0 + \tau_i \, \Delta v \big) , \qquad \Delta v = v^1 - v^0 ,
+```
+
+with the nodes ``\tau_i`` in increasing order and symmetric about ``1/2`` and the weights
+``\omega_i > 0`` summing to one. The rule integrates ``\tau^k`` exactly for ``k \le 2nq - 1``,
+because Gauß–Legendre of `nq` nodes is exact for polynomials of degree ``2nq - 1``; the
+constructor computes it in `Float64` by Newton's method on the Legendre polynomial, once per
+rule, and converts a node and a weight to the element type of the velocities at each use.
+
+The identity ``S_h(v^1) - S_h(v^0) = \Delta v \cdot \bar{\nabla} S_h`` of the Landau
+manuscript's `eq:disc_grad_props` holds to the quadrature error and not to rounding, because
+``S_h`` is not a polynomial in the velocities, and the rounding of the sum does not bound that
+error. The other condition, ``\bar{\nabla} S_h(v, v) = \nabla S_h(v)``, holds bit for bit: at
+``v^1 = v^0`` a call evaluates ``\nabla S_h`` once, at ``v^0``. At `nq = 1` the single node is
+``1/2``, so the rule is the midpoint gradient ``\nabla S_h \big( (v^0 + v^1)/2 \big)``.
+
+# Cost
+
+A call takes `nq` evaluations of ``\nabla S_h`` (one at ``v^1 = v^0``) and no ``S_h``, where the
+[`GonzalezGradient`](@ref) takes one ``\nabla S_h`` and two ``S_h``; one
+[`apply_G!`](@ref) of `O(N²)` follows either in the step. On the fixture of
+`test/helpers/pairwise_landau.jl` (144 particles, quadratic splines on 8 × 8 cells,
+`Float64`, at a load of about 7), ``\nabla S_h`` takes 54 µs and ``S_h`` 34 µs, so one call
+of the [`GonzalezGradient`](@ref) takes 121 µs and one of `AVFGradient(5)` 271 µs, 2.24 times
+as long. A call allocates nothing after a warm call: the node velocities go into the buffer `v`
+of `model.landau.cache[T]`, the accumulated gradient into `∇̄S`, and the gradient of each later
+node into the buffer `v̇`.
+
+# Errors
+
+An `nq` below 1 throws an `ArgumentError` that names it, before any node is computed; `nq` that is
+not an integer has no method.
+"""
+struct AVFGradient <: DiscreteGradient
+    nq::Int
+    nodes::Vector{Float64}
+    weights::Vector{Float64}
+
+    function AVFGradient(nq::Integer = 5)
+        nq ≥ 1 || throw(ArgumentError("nq must be at least 1, got $nq"))
+        nodes, weights = _gauss_legendre_rule(Int(nq))
+        return new(Int(nq), nodes, weights)
+    end
+end
+
+@doc raw"""
+    discrete_gradient!(∇̄S, v0::AbstractMatrix{T}, v1::AbstractMatrix{T}, model::PairwiseLandau, ::AVFGradient) where {T}
+
+The [`AVFGradient`](@ref) of the entropy `S_h` of `model` between the velocities `v0` and `v1`
+(`2 × N`), written into `∇̄S`: the `nq`-point Gauß–Legendre rule of `∇S_h` along the segment, with
+the node and the weight converted to the element type of `v0`. At `v1 == v0` it is
+`entropy_gradient!` at `v0`, bit for bit. A call evaluates no `S_h`. The node velocities go into
+the buffer `v` of `model.landau.cache[T]` and the gradient of each node after the first into the
+buffer `v̇`, so a call allocates nothing after a warm call.
+"""
+function discrete_gradient!(∇̄S, v0::AbstractMatrix{T}, v1::AbstractMatrix{T},
+        model::PairwiseLandau, rule::AVFGradient) where {T}
+    v0 == v1 && return entropy_gradient!(∇̄S, v0, model)
+    τ = rule.nodes
+    ω = rule.weights
+    cache = model.landau.cache[T]
+    vnode = cache.v
+    tmp = cache.v̇
+    vnode .= v0 .+ T(τ[1]) .* (v1 .- v0)
+    entropy_gradient!(∇̄S, vnode, model)
+    ∇̄S .*= T(ω[1])
+    for i in 2:length(τ)
+        vnode .= v0 .+ T(τ[i]) .* (v1 .- v0)
+        entropy_gradient!(tmp, vnode, model)
+        ∇̄S .+= T(ω[i]) .* tmp
+    end
+    return ∇̄S
+end
+
 @doc raw"""
     discrete_gradient_step!(model::PairwiseLandau, Δt; abstol, max_iters = 100,
         gradient = GonzalezGradient())
@@ -94,6 +213,21 @@ and so the discrete H-theorem: ``S_h`` does not increase, because ``\mathbb{G}``
 semi-definite and ``\Delta t > 0``. The H-theorem holds for the fixed point of the iteration;
 the accepted state differs from it by a residual of at most `abstol`.
 
+# The discrete gradients
+
+The keyword `gradient` takes either rule. [`GonzalezGradient`](@ref), the default, satisfies the
+identity ``S_h(v^{n+1}) - S_h(v^n) = (v^{n+1} - v^n) \cdot \bar{\nabla} S_h`` of
+`eq:disc_grad_props` to rounding, because it corrects the midpoint gradient by the two entropies
+and the displacement. [`AVFGradient`](@ref) averages the entropy gradient along the segment with
+an `nq`-point Gauß–Legendre rule, and takes that identity to the quadrature error and not to
+rounding, because ``S_h`` is not a polynomial in the velocities, and the rounding of its sum does
+not bound that error. The conservation above holds for both rules, because it comes from
+``\mathbb{G}`` at the midpoint and the weights, not from the gradient. The H-theorem holds for
+[`GonzalezGradient`](@ref) to rounding, and for [`AVFGradient`](@ref) to the quadrature error of
+its identity, which is not zero: the entropy falls where
+``\Delta v \cdot \bar{\nabla} S_h`` exceeds that error. The two rules differ in cost, in the
+section below.
+
 # Tolerance
 
 The residual stalls at the rounding of one evaluation, and `abstol` must lie above that floor,
@@ -116,19 +250,26 @@ no iterate meets `abstol` within `max_iters` evaluations, an `ErrorException` is
 names the number of evaluations and the last residual. A residual that is not finite never
 meets `abstol`. The exceptions of the vector field pass through: a `DomainError` for two equal
 velocities and, for ``\gamma < -2``, for two velocities too close, and the projection's
-`DomainError` once an iterate leaves the velocity domain. In each case the particles are not
-written.
+`DomainError` for a velocity outside the domain of the spline basis, which the step evaluates at
+the accepted state before the particles take it. The `AVFGradient`'s nodes lie strictly inside the
+segment, so the state they accept can be outside the domain where none of them is. In each case
+the particles are not written.
 
 # Cost
 
-One evaluation of ``f`` is one ``\nabla S_h``, two ``S_h`` and one [`apply_G!`](@ref) of
-``O(N^2)``; the first evaluation takes no ``S_h``. A step allocates four `2 × N` arrays, and
-each ``S_h`` of [`CollisionEntropy`](@ref) allocates: 92 kB on 8 × 8 quadratic cells.
+One evaluation of ``f`` is one [`apply_G!`](@ref) of ``O(N^2)`` and the gradient it multiplies:
+one ``\nabla S_h`` and, from the second evaluation, two ``S_h`` for the
+[`GonzalezGradient`](@ref); one ``\nabla S_h`` and, from the second evaluation, `nq` ``\nabla S_h``
+and no ``S_h`` for the [`AVFGradient`](@ref). A step allocates four `2 × N` arrays and takes one
+projection of the accepted state, for either rule, and each ``S_h`` of [`CollisionEntropy`](@ref)
+allocates: 92 kB on 8 × 8 quadratic cells.
 """
 function discrete_gradient_step!(model::PairwiseLandau, Δt; abstol,
         max_iters::Integer = 100, gradient::DiscreteGradient = GonzalezGradient())
     vn = model.landau.dist.particles.v
     T = eltype(vn)
+    landau = model.landau
+    cache = landau.cache[T]
     h = T(Δt)
     isfinite(h) && h > 0 ||
         throw(ArgumentError("Δt must be finite and positive in $T, got $Δt"))
@@ -157,7 +298,12 @@ function discrete_gradient_step!(model::PairwiseLandau, Δt; abstol,
         end
 
         if residual ≤ abstol
-            vn .+= h .* f
+            # The accepted state is projected before the particles take it: the `AVFGradient`'s
+            # nodes lie strictly inside the segment, and the state they accept can lie outside
+            # the domain where none of them does.
+            m .= vn .+ h .* f
+            _projection!(cache.rhs, cache.vals, cache.mwork, m, landau.dist, cache.sdist)
+            vn .= m
             return (iterations = k + 1, residual = residual)
         end
 

@@ -138,6 +138,26 @@ their own, except for what they removed and narrowed, which is listed in full be
 - **`GonzalezGradient`** is the discrete gradient of the step, the manuscript's
   (`eq:disc_grad_props`), and the default of its keyword `gradient`. It satisfies
   `S_h(v1) − S_h(v0) = (v1 − v0) · ∇̄S` to rounding and returns `∇S_h(v0)` at `v1 = v0`.
+- **`AVFGradient`** is the second discrete gradient of the step, the averaged-vector-field rule:
+  the mean of `∇S_h` along the segment from `vⁿ` to `vⁿ⁺¹`, taken by an `nq`-point Gauß–Legendre
+  rule on `[0, 1]`, `∇̄S = Σᵢ ωᵢ ∇S_h(vⁿ + τᵢ (vⁿ⁺¹ − vⁿ))`. `AVFGradient(nq = 5)` holds the
+  nodes and weights, computed in `Float64` in the constructor by Newton's method on the Legendre
+  polynomial; a weight or a node is converted to the element type of the velocities at each use,
+  so the rule runs in `Float32` as in `Float64`. A call takes `nq` evaluations of `∇S_h` and no
+  `S_h`, except at `v1 = v0`, where it takes one and returns `∇S_h(v0)` bit for bit, as
+  `GonzalezGradient` does; so the first evaluation of each step takes one `∇S_h`, not `nq`. A call
+  allocates nothing after a warm call, and an `nq` below 1 throws an `ArgumentError`. Its
+  identity holds to the quadrature error and not to rounding, because `S_h` is not a polynomial,
+  where the `GonzalezGradient`'s holds to rounding; `nq = 1` is the midpoint gradient. A step
+  projects the accepted state before the particles take it, so a state outside the domain of the
+  spline basis throws the projection's `DomainError` with either rule: the rule's nodes lie
+  strictly inside the segment, and the state they accept can be outside the domain where none of
+  them is.
+  At the state relaxed by 250 steps, and at 15 copies of it moved by up to 2 ulps, the
+  evaluations 11 to 40 of the iteration have a largest increment `‖vₖ₊₁ − vₖ‖∞`, divided by the
+  step displacement `‖vₖ₊₁ − vⁿ‖∞ ≈ 6.65e-4`, of at most `6.7e-13` with `AVFGradient(5)`: one
+  rounding unit of the largest velocity, `eps(3.70) = 4.4e-16`, over the displacement. With
+  `GonzalezGradient` the same figure lies between `1.50e-11` and `4.71e-11`.
 
 ### Documentation
 

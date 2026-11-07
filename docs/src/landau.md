@@ -39,6 +39,7 @@ collisional_vectorfield!(::AbstractArray{ST}, ::AbstractArray{ST}, ::Any,
     ::PairwiseLandau) where {ST}
 DiscreteGradient
 GonzalezGradient
+AVFGradient
 discrete_gradient!
 discrete_gradient_step!
 ```

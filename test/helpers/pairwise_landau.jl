@@ -6,14 +6,14 @@
 const VM = VlasovMethods
 
 # A model of the particles `v` (2 × N) with the weights `w`, on quadratic splines of 8 × 8 cells
-# of [-4, 4]².
-function build(v::AbstractMatrix{T}, w::AbstractVector{T}; γ = -3, ν = 1.0) where {T}
+# of [-L, L]².
+function build(v::AbstractMatrix{T}, w::AbstractVector{T}; γ = -3, ν = 1.0, L = 4) where {T}
     N = size(v, 2)
     vars = (x = 1:1, v = 2:3, z = 1:3, w = 4:4)
     pd = ParticleDistribution(1, 2, ParticleList(zeros(T, 4, N); variables = vars))
     pd.particles.v .= v
     pd.particles.w[1, :] .= w
-    axis = BSplineBasis(UniformMesh(8, T(-4) .. T(4)), 2, Free())
+    axis = BSplineBasis(UniformMesh(8, T(-L) .. T(L)), 2, Free())
     B = TensorProductBasis((axis, axis))
     sd = SplineDistribution(1, 2, B, TensorProductQuadrature(B), zeros(T, size(B)...))
     return PairwiseLandau(pd, CollisionEntropy(sd); γ, ν)
@@ -96,19 +96,27 @@ function eom_line3(v, model)
     return model.landau.ν .* out
 end
 
-# One step of eq:disc_grad_update_rule, written out with the Gonzalez gradient: from v_0 = vⁿ,
-# f_k = ν 𝔾(m_k) ∇̄S(vⁿ, v_k), m_k = (vⁿ + v_k)/2, accepted at ‖v_k − vⁿ − Δt f_k‖∞ ≤ abstol.
-# The controls: `G_at_old` takes 𝔾(vⁿ), `accept_iterate` returns v_k in place of vⁿ + Δt f_k.
-function written_step(model, vn, Δt, abstol; G_at_old = false, accept_iterate = false)
+# One step of eq:disc_grad_update_rule, written out with either discrete gradient: from
+# v_0 = vⁿ, f_k = ν 𝔾(m_k) ∇̄S(vⁿ, v_k), m_k = (vⁿ + v_k)/2, accepted at
+# ‖v_k − vⁿ − Δt f_k‖∞ ≤ abstol. The averaged-vector-field rule is the sum of its own nodes
+# and weights. The controls: `G_at_old` takes 𝔾(vⁿ), `accept_iterate` returns v_k in place of
+# vⁿ + Δt f_k.
+function written_step(model, vn, Δt, abstol;
+        G_at_old = false, accept_iterate = false, gradient = GonzalezGradient())
     w = weights(model)
     S0 = Sh(vn, model)
     vk = copy(vn)
     for k in 0:99
         vm = (vn .+ vk) ./ 2
-        g = gradS(vm, model)
         Δ = vk .- vn
-        n2 = sum(abs2, Δ)
-        iszero(n2) || (g = g .+ Δ .* ((Sh(vk, model) - S0 - dot(Δ, g)) / n2))
+        g = if gradient isa AVFGradient
+            sum(i -> gradient.weights[i] .* gradS(vn .+ gradient.nodes[i] .* Δ, model),
+                1:gradient.nq)
+        else
+            gm = gradS(vm, model)
+            n2 = sum(abs2, Δ)
+            iszero(n2) ? gm : gm .+ Δ .* ((Sh(vk, model) - S0 - dot(Δ, gm)) / n2)
+        end
         f = model.landau.ν .* G_written(G_at_old ? vn : vm, g, w, kernelof(model))
         vnew = vn .+ Δt .* f
         maximum(abs, vk .- vnew) ≤ abstol && return accept_iterate ? vk : vnew
