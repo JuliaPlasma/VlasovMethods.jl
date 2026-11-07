@@ -9,8 +9,8 @@ A driver reads its flags through `scripts/options.jl`, defaults to the manuscrip
 writes its figures into `--results-dir` and one HDF5 file per run into `--runs-dir`, and prints
 its wall-clock time, the package loads included. Each HDF5 file carries the attribute `commit`,
 the `git rev-parse HEAD` of the checkout or `"unknown"` outside one, the attribute `command`, the
-driver's arguments quoted for the shell by `Base.shell_escape`, the attribute `script`, the driver's file name, and one
-attribute per option. A directory that does not exist is created.
+driver's arguments quoted for the shell by `Base.shell_escape`, the attribute `script`, the
+driver's file name, and one attribute per option. A directory that does not exist is created.
 
 A driver loads `CairoMakie` and draws each figure with one of the collision figures' plotting
 functions, which the page [Plotting](plotting.md) documents; it builds no figure itself.
