@@ -65,6 +65,14 @@ their own, except for what they removed and narrowed, which is listed in full be
   with an `ArgumentError` (K57, K92).** Before, a reversed domain gave a histogram of negative
   density, a cell count of zero threw a `BoundsError`, and an infinite or `NaN` domain end threw
   Base's `ArgumentError` of `range` or an `InexactError` from the cell index.
+- **`run!(::GeometricIntegrator, h5file)` steps over the solution's own time grid (K93).** It sized
+  its datasets by `ntime(equation) + 1` and indexed the range `t₀:Δt:t₁` up to that count, but
+  `ntime` rounds the step count up, and the range is one point shorter wherever the span is not a
+  whole number of steps in floating point: a run to `0.05` with the step `8e-4` threw a
+  `BoundsError` before its last step. The datasets now hold one slice per point of the range, and
+  the loop takes the steps that `GeometricIntegrators.integrate` takes, as
+  `run!(::SplittingMethod, h5file)` does. A span that is a whole number of steps gives the same
+  file as before.
 
 ### Breaking Changes
 
@@ -247,8 +255,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   are `8.4e-4`, `1.5e-3` and `1.8e-3`. The drivers that draw velocities from the global random
   number generator take `--seed 1`, because with the seed `1234` the implicit midpoint step of
   figure 11 sends a particle out of the velocity domain (K94). The drivers take their steps
-  themselves, because `run!` throws a `BoundsError` on a time span that is not a whole number of
-  its steps (K93). `scripts/gate.jl` runs each driver with `--quick` and checks its files, its
+  themselves, `final_time / tstep` rounded up after rounding the quotient to eight digits.
+  `scripts/gate.jl` runs each driver with `--quick` and checks its files, its
   records and its edges, a forced stop of figures 7 and 8 among them. `docs/src/collisions.md`
   gives each command and its measured time.
 - **`scripts/reference_forms.jl` derives the two closed forms of the 2D reference cases and checks

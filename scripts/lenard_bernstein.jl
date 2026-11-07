@@ -55,7 +55,7 @@ run!(integrator, h5file)
 @printf("lenard_bernstein: model %s, %d particles, %d knots, order %d, dt = %g, t ∈ %s\n",
     OPT.model, OPT.npart, OPT.nknot, OPT.order, OPT.tstep, TSPAN)
 
-# `z` is `(npart, ntime + 1)`: the velocity vector the ODE steps, one column per time in `t`.
+# `z` is `(npart, length(t))`: the velocity vector the ODE steps, one column per time in `t`.
 z = h5read(h5file, "z")
 t = h5read(h5file, "t")
 @printf("  wrote %s (%d time slices)\n", h5file, length(t))

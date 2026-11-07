@@ -660,22 +660,6 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** defect
 - **found:** #119
 
-### K93 · `run!(::GeometricIntegrator, h5file)` throws a `BoundsError` where the time span is not a whole number of steps of its own range.
-
-- **location:** `src/methods/geometric_integrator.jl:34`
-- **evidence:** `run!` steps `n in 1:ntime(prob)` and reads `times[n + 1]` of
-  `times = t₀:Δt:t_end` (`:34`, `:38`). `ntime` rounds the quotient `(t_end − t₀)/Δt` up, and the
-  range ends at the last whole step at or below `t_end`, so where the quotient is not a whole
-  number in floating point the range is one element short. `t_end = 0.05` with `Δt = 8e-4` gives
-  `ntime = 63` and a range of 63 elements, and so do `0.05` with `1e-3` (51 and 51), `0.1` with
-  `1e-2` (11 and 11) and `0.2` with `8e-4` (251 and 251); a run of `ConservativeLenardBernstein`
-  at `0.05` and `8e-4` stops with `BoundsError: attempt to access 63-element StepRangeLen … at
-  index [64]`. `run!(::SplittingMethod, h5file)` takes its step count from the range
-  (`src/methods/splitting.jl:42-47`) and does not have the defect. The drivers
-  `scripts/pd_lb_*.jl` take their steps in `integrate!` of `scripts/pd_lb_common.jl` instead.
-- **kind:** defect
-- **found:** 2026-11-07
-
 ### K94 · The figure drivers of the Lenard–Bernstein manuscript stop where the projection is not positive at a particle: figures 1, 2, 7 and 8 at the manuscript's parameters, and figure 11 with the seed 1234, where the right-hand side of `LenardBernstein` divides by `f_s` without checking its sign.
 
 - **location:** `src/models/lenard_bernstein_conservative.jl:144`

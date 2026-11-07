@@ -100,8 +100,8 @@ the times and the velocities of the steps reached and the time `k * tstep` of th
 threw, and the error is rethrown. The first step includes the extrapolation that starts the
 solve, so a stop there gives `t = [0]`. Any other error passes through.
 
-The steps are taken here and not by `run!`, because `run!` indexes the times of
-`t₀:Δt:t_end` by the step count of the equation, which can be one longer (K93).
+The steps are taken here and not by `run!`, because `run!` takes the steps of the range
+`t₀:Δt:t_end`, which can hold one step fewer: 62 at `0.05` and `8e-4`, where `nsteps` gives 63.
 """
 function integrate!(stopped, method::GeometricIntegrator, final_time, tstep)
     problem = method.equation

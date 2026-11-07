@@ -18,12 +18,17 @@ function run!(int::GeometricIntegrator, h5file)
     # the length of the state
     np = size(z₀, 1)
 
+    # The time grid of a `Solution` of the same problem, as in `run!(::SplittingMethod, h5file)`:
+    # one point per state, the initial one included, which is one point fewer than
+    # `ntime(prob) + 1` wherever `ntime` rounds the step count up.
+    times = t₀:GeometricEquations.timestep(prob):GeometricEquations.finaltime(prob)
+
     # create HDF5 file and copy initial conditions
     h5 = h5open(h5file, "w")
     h5z = create_dataset(
-        h5, "z", eltype(z₀), ((np, ntime(prob)+1), (np, -1)), chunk = (np, 1))
+        h5, "z", eltype(z₀), ((np, length(times)), (np, -1)), chunk = (np, 1))
     h5t = create_dataset(
-        h5, "t", eltype(t₀), ((ntime(prob)+1,), (-1,)), chunk = (1,))
+        h5, "t", eltype(t₀), ((length(times),), (-1,)), chunk = (1,))
     h5z[:, 1] = z₀
     h5t[1] = t₀
 
@@ -31,11 +36,10 @@ function run!(int::GeometricIntegrator, h5file)
     # `run!(::SplittingMethod, h5file)`.
     solstep = GeometricIntegrators.GeometricIntegratorsBase.solutionstep(
         int.integrator, GeometricEquations.initialstate(prob))
-    times = t₀:GeometricEquations.timestep(prob):GeometricEquations.finaltime(prob)
 
     # loop over time steps showing progress bar
     try
-        @showprogress 5 for n in 1:ntime(prob)
+        @showprogress 5 for n in 1:(length(times) - 1)
             GeometricIntegrators.reset!(solstep, times[n + 1])
             GeometricIntegrators.integrate!(solstep, int.integrator)
             h5z[:, n + 1] = solstep.q

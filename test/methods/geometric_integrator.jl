@@ -41,3 +41,28 @@ end
         VlasovMethods.GeometricIntegrator(lenard_bernstein(M), tspan, tstep).integrator)
     @test all(z[:, n + 1] == sol.q[n] for n in 0:ntime(method.equation))
 end
+
+# `ntime` rounds the step count of `0.05 / 8e-4` up to 63, and the range `0.0:8e-4:0.05` has 63
+# points, so 62 steps; a loop over `1:ntime` reads past its end.
+@testset "run! of a GeometricIntegrator over a span that is not a whole number of steps" begin
+    tspan = (0.0, 0.05)
+    tstep = 8e-4
+    times = tspan[1]:tstep:tspan[2]
+
+    model = lenard_bernstein(LenardBernstein)
+    method = VlasovMethods.GeometricIntegrator(model, tspan, tstep)
+    @test ntime(method.equation) == length(times) == 63
+    h5file = joinpath(mktempdir(), "geometric_integrator.hdf5")
+    @test run!(method, h5file) === model.dist
+    z = h5read(h5file, "z")
+    t = h5read(h5file, "t")
+
+    @test size(z, 2) == length(t) == length(times)
+    @test t == collect(times)
+    @test z[:, end] == model.dist.particles.v[1, :]
+    # the slices are the states of `integrate` on the same problem, which steps over `times`
+    sol = GeometricIntegrators.integrate(
+        VlasovMethods.GeometricIntegrator(lenard_bernstein(LenardBernstein), tspan, tstep).integrator)
+    @test ntime(sol) + 1 == length(times)
+    @test all(z[:, n + 1] == sol.q[n] for n in 0:ntime(sol))
+end
