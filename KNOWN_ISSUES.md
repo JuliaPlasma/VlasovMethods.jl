@@ -84,17 +84,6 @@ has left the file, or that lived only on a merged branch, stays taken.
   migration. None of these are regressions; each is either a numerical-methods decision or work
   the migration deliberately did not take on.
 
-### K11 · The cumulant-scaling experiment is not implemented.
-
-- **location:** —
-- **evidence:** The appendix fixes `A₀ = 0`, `A₁ = 1` by hand; no code does. The name occurs once
-  in the package, in the docstring of the rescaled conservative operator, where it says the
-  operator is *not* that experiment; no computation of it exists anywhere.
-- **kind:** missing test
-- **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
-  migration. None of these are regressions; each is either a numerical-methods decision or work
-  the migration deliberately did not take on.
-
 ### K14 · `fatou lint` reports `unused-binding` locals and no `unused-import`.
 
 - **location:** `src/gridbased/moments.jl:18`
@@ -695,3 +684,43 @@ has left the file, or that lived only on a merged branch, stays taken.
   `plot_collision_distribution`, moved into `_histogram`, close this and K57.
 - **kind:** defect
 - **found:** #120
+
+### K93 · `run!(::GeometricIntegrator, h5file)` throws a `BoundsError` where the time span is not a whole number of steps of its own range.
+
+- **location:** `src/methods/geometric_integrator.jl:34`
+- **evidence:** `run!` steps `n in 1:ntime(prob)` and reads `times[n + 1]` of
+  `times = t₀:Δt:t_end` (`:34`, `:38`). `ntime` rounds the quotient `(t_end − t₀)/Δt` up, and the
+  range ends at the last whole step at or below `t_end`, so where the quotient is not a whole
+  number in floating point the range is one element short. `t_end = 0.05` with `Δt = 8e-4` gives
+  `ntime = 63` and a range of 63 elements, and so do `0.05` with `1e-3` (51 and 51), `0.1` with
+  `1e-2` (11 and 11) and `0.2` with `8e-4` (251 and 251); a run of `ConservativeLenardBernstein`
+  at `0.05` and `8e-4` stops with `BoundsError: attempt to access 63-element StepRangeLen … at
+  index [64]`. `run!(::SplittingMethod, h5file)` takes its step count from the range
+  (`src/methods/splitting.jl:42-47`) and does not have the defect. The drivers
+  `scripts/pd_lb_*.jl` take their steps in `integrate!` of `scripts/pd_lb_common.jl` instead.
+- **kind:** defect
+- **found:** 2026-11-07
+
+### K94 · The figure drivers of the Lenard–Bernstein manuscript stop where the projection is not positive at a particle: figures 1, 2, 7 and 8 at the manuscript's parameters, and figure 11 with the seed 1234, where the right-hand side of `LenardBernstein` divides by `f_s` without checking its sign.
+
+- **location:** `src/models/lenard_bernstein_conservative.jl:144`
+- **evidence:** `compute_coefficients` of `ConservativeLenardBernstein` throws a `DomainError`
+  where `f_s ≤ 0` at a particle (`:144`), and the manuscripts' parameters reach it:
+  `julia --project=scripts scripts/pd_lb_fig1_2.jl` prints `nbasis =     25: the operator stops:
+  the projected distribution is non-positive at v = 4.055196391323677`, and the same for
+  `npart =   5623` at `v = 3.799579553401782` and `npart =  31623` at `v = 4.432320203818066`; at
+  `M = 25` the projected Maxwellian is `−2.4e-5` at two of the `10⁵` velocities. The sweeps leave
+  these points out of figures 1 and 2, record `stopped_at = 25` and `stopped_at = 5623`, and
+  exit 0. `julia --project=scripts scripts/pd_lb_fig7_8.jl` stops after 289 s, in the step 1768
+  to `t = 1.4144`, where the projection is `−1.58e-7` at `v = −6.42`; it writes
+  `pd_lb_fig7_8.hdf5` with `stopped_at = 1.4144`, writes no figure and exits non-zero.
+  `LB_rhs_GI!` evaluates `f_s'/f_s + v` at each particle (`src/models/lenard_bernstein.jl:82`)
+  and does not refuse `f_s ≤ 0`. Where an iterate of the Newton solve of the implicit midpoint
+  rule meets a small or negative `f_s` in the tail, the ratio sends a particle out of `[−10, 10]`,
+  and the projection throws its `DomainError` naming the domain rather than the sign of `f_s`.
+  `julia --project=scripts scripts/pd_lb_fig11.jl --seed 1234` stops at step 7 (`t = 0.035`) with
+  `DomainError with -10.0 .. 10.0: 1 of 1000 particles left the velocity domain`, while the seeds
+  1, 2 and 3 complete the 200 steps, and the same run with the package's own `RK438` integrator
+  and the seed 1234 completes them.
+- **kind:** defect
+- **found:** 2026-11-07

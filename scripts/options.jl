@@ -29,7 +29,8 @@ unknown flag, a flag given twice, a missing value and a value that begins with `
 `ArgumentError`.
 
 Sets `RUNS_DIR` and `RESULTS_DIR` and creates both directories, so a driver calls this before it
-writes anything.
+writes anything. A directory that cannot be created throws an `ArgumentError` that names its flag
+and the path given.
 """
 function parse_arguments(args; defaults...)
     defaults = (; runs_dir = RUNS_DIR[], results_dir = RESULTS_DIR[], defaults...)
@@ -49,10 +50,21 @@ function parse_arguments(args; defaults...)
     end
 
     options = merge(defaults, NamedTuple(given))
-    RUNS_DIR[] = mkpath(options.runs_dir)
-    RESULTS_DIR[] = mkpath(options.results_dir)
+    RUNS_DIR[] = make_directory("--runs-dir", options.runs_dir)
+    RESULTS_DIR[] = make_directory("--results-dir", options.results_dir)
 
     return options
+end
+
+# `mkpath(path)`; where it fails, an `ArgumentError` naming `argument` and `path`, because the
+# `IOError` of `mkpath` names only the component of `path` that it could not make.
+function make_directory(argument, path)
+    try
+        return mkpath(path)
+    catch e
+        e isa Base.IOError || rethrow()
+        throw(ArgumentError("$(argument) `$(path)` cannot be created: $(sprint(showerror, e))"))
+    end
 end
 
 """
