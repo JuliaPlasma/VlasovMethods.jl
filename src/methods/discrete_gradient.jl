@@ -76,8 +76,7 @@ function _gauss_legendre_rule(n::Int)
             dP = n * (z * P1 - P2) / (z * z - 1)
             z1 = z
             z = z1 - P1 / dP
-            # The last Newton step is the rounding of the root, so the stop is a few ulp of `z`;
-            # a fixed 1e-16 lies below it in [0.5, 1) and fires only where `z` repeats exactly.
+            # The last Newton step is the rounding of the root, so the stop is a few ulp of `z`.
             abs(z - z1) ≤ 4 * eps(z) && break
         end
         ξ[i] = -z
@@ -112,17 +111,16 @@ because Gauß–Legendre of `nq` nodes is exact for polynomials of degree ``2nq 
 constructor computes it in `Float64` by Newton's method on the Legendre polynomial, once per
 rule, and converts a node and a weight to the element type of the velocities at each use.
 
-The two conditions of the Landau manuscript's `eq:disc_grad_props` hold to the quadrature error
-and not to rounding, because ``S_h`` is not a polynomial in the velocities:
-``S_h(v^1) - S_h(v^0) = \Delta v \cdot \bar{\nabla} S_h`` holds to the error of the rule, and
-``\bar{\nabla} S_h(v, v) = \nabla S_h(v)`` to the rounding of ``\sum_i \omega_i``. A test of the
-identity states its tolerance above the quadrature error, which the rounding does not bound. At
-`nq = 1` the single node is ``1/2``, so the rule is the midpoint gradient
-``\nabla S_h \big( (v^0 + v^1)/2 \big)``.
+The identity ``S_h(v^1) - S_h(v^0) = \Delta v \cdot \bar{\nabla} S_h`` of the Landau
+manuscript's `eq:disc_grad_props` holds to the quadrature error and not to rounding, because
+``S_h`` is not a polynomial in the velocities, and the rounding of the sum does not bound that
+error. The other condition, ``\bar{\nabla} S_h(v, v) = \nabla S_h(v)``, holds bit for bit: at
+``v^1 = v^0`` a call evaluates ``\nabla S_h`` once, at ``v^0``. At `nq = 1` the single node is
+``1/2``, so the rule is the midpoint gradient ``\nabla S_h \big( (v^0 + v^1)/2 \big)``.
 
 # Cost
 
-A call takes `nq` evaluations of ``\nabla S_h`` and no ``S_h``, where the
+A call takes `nq` evaluations of ``\nabla S_h`` (one at ``v^1 = v^0``) and no ``S_h``, where the
 [`GonzalezGradient`](@ref) takes one ``\nabla S_h`` and two ``S_h``; one
 [`apply_G!`](@ref) of `O(N²)` follows either in the step. On the fixture of
 `test/helpers/pairwise_landau.jl` (144 particles, quadratic splines on 8 × 8 cells,
@@ -154,12 +152,14 @@ end
 
 The [`AVFGradient`](@ref) of the entropy `S_h` of `model` between the velocities `v0` and `v1`
 (`2 × N`), written into `∇̄S`: the `nq`-point Gauß–Legendre rule of `∇S_h` along the segment, with
-the node and the weight converted to the element type of `v0`. A call evaluates no `S_h`. The
-node velocities go into the buffer `v` of `model.landau.cache[T]` and the gradient of each node
-after the first into the buffer `v̇`, so a call allocates nothing after a warm call.
+the node and the weight converted to the element type of `v0`. At `v1 == v0` it is
+`entropy_gradient!` at `v0`, bit for bit. A call evaluates no `S_h`. The node velocities go into
+the buffer `v` of `model.landau.cache[T]` and the gradient of each node after the first into the
+buffer `v̇`, so a call allocates nothing after a warm call.
 """
 function discrete_gradient!(∇̄S, v0::AbstractMatrix{T}, v1::AbstractMatrix{T},
         model::PairwiseLandau, rule::AVFGradient) where {T}
+    v0 == v1 && return entropy_gradient!(∇̄S, v0, model)
     τ = rule.nodes
     ω = rule.weights
     cache = model.landau.cache[T]
@@ -220,9 +220,8 @@ identity ``S_h(v^{n+1}) - S_h(v^n) = (v^{n+1} - v^n) \cdot \bar{\nabla} S_h`` of
 `eq:disc_grad_props` to rounding, because it corrects the midpoint gradient by the two entropies
 and the displacement. [`AVFGradient`](@ref) averages the entropy gradient along the segment with
 an `nq`-point Gauß–Legendre rule, and takes that identity to the quadrature error and not to
-rounding, because ``S_h`` is not a polynomial in the velocities: the rounding of its sum does not
-bound that error, so a test of the identity with this rule states its tolerance above the
-quadrature error. The conservation above holds for both rules, because it comes from
+rounding, because ``S_h`` is not a polynomial in the velocities, and the rounding of its sum does
+not bound that error. The conservation above holds for both rules, because it comes from
 ``\mathbb{G}`` at the midpoint and the weights, not from the gradient. The H-theorem holds for
 [`GonzalezGradient`](@ref) to rounding, and for [`AVFGradient`](@ref) to the quadrature error of
 its identity, which is not zero: the entropy falls where
@@ -260,9 +259,10 @@ the particles are not written.
 
 One evaluation of ``f`` is one [`apply_G!`](@ref) of ``O(N^2)`` and the gradient it multiplies:
 one ``\nabla S_h`` and, from the second evaluation, two ``S_h`` for the
-[`GonzalezGradient`](@ref); `nq` ``\nabla S_h`` and no ``S_h`` for the [`AVFGradient`](@ref). A
-step allocates four `2 × N` arrays and takes one projection of the accepted state, for either
-rule, and each ``S_h`` of [`CollisionEntropy`](@ref) allocates: 92 kB on 8 × 8 quadratic cells.
+[`GonzalezGradient`](@ref); one ``\nabla S_h`` and, from the second evaluation, `nq` ``\nabla S_h``
+and no ``S_h`` for the [`AVFGradient`](@ref). A step allocates four `2 × N` arrays and takes one
+projection of the accepted state, for either rule, and each ``S_h`` of [`CollisionEntropy`](@ref)
+allocates: 92 kB on 8 × 8 quadratic cells.
 """
 function discrete_gradient_step!(model::PairwiseLandau, Δt; abstol,
         max_iters::Integer = 100, gradient::DiscreteGradient = GonzalezGradient())
