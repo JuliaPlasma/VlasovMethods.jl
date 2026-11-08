@@ -24,7 +24,7 @@ Filter = t -> !(t in (VlasovMethods.build_spline_parity_factors,
     VlasovMethods.collisional_vectorfield!, VlasovMethods.plot_distribution,
     VlasovMethods.plot_particles, VlasovMethods.plot_series, VlasovMethods.plot_groups,
     VlasovMethods.plot_damping, VlasovMethods.plot_phase_space,
-    VlasovMethods.plot_collision_distribution, VlasovMethods.plot_drift,
+    VlasovMethods.plot_velocity_projections, VlasovMethods.plot_collision_distribution, VlasovMethods.plot_drift,
     VlasovMethods.plot_entropy, VlasovMethods.plot_error, VlasovMethods.plot_convergence,
     VlasovMethods.plot_cost))
 ```
