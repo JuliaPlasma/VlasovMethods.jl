@@ -120,14 +120,13 @@
 # options of `SHORT_RUNS`; `landau_damping_1d1v.jl` has no options and runs at its default, in
 # about 35 s alone. The bump-on-tail drivers run in turn, each in a directory of its own that holds
 # a copy of the files the one before it wrote. Each must exit 0 and write into `--runs-dir` and
-# `--results-dir` exactly the files that the same run writes at `fea6c16`, before their figures
-# moved into `VlasovMethodsMakieExt`, none of them empty. None of the eight files,
-# `bump_on_tail_common.jl` among them, may name a Makie figure, axis, legend or plot. Each driver,
-# included in a module of its own, must run nothing, so that the checkout's `runs/` and `results/`
-# stay as they were, and must take the options of `DRIVER_DEFAULTS` without a flag. The gate also
-# runs `test/plotting.jl` and `test/integration/makie_extension.jl` in the environment `test/`,
-# and `docs/make.jl` in `docs/`, which must render the document; each must exit 0, and both
-# environments must be instantiated.
+# `--results-dir` exactly the files that `SHORT_RUNS` lists, none of them empty. None of the eight
+# files, `bump_on_tail_common.jl` among them, may name a Makie figure, axis, legend or plot. Each
+# driver, included in a module of its own, must run nothing, so that the checkout's `runs/` and
+# `results/` stay as they were, and must take the options of `DRIVER_DEFAULTS` without a flag. The
+# gate also runs `test/plotting.jl` and `test/integration/makie_extension.jl` in the environment
+# `test/`, and `docs/make.jl` in `docs/`, which must render the document; each must exit 0, and
+# both environments must be instantiated.
 #
 # The drivers run at once, so the gate takes about as long as the slowest of them. `BUDGET` is
 # 900 s, measured from the gate's start. Whole gate runs take 230 s to 340 s; the limit is looser
@@ -187,9 +186,9 @@ const PLOTTING_DRIVERS = ["analytic_quadratic.jl", "bump_on_tail_common.jl",
 const MAKIE_CALL = r"\b(?:(?:Figure|Axis|Legend|LineElement|axislegend)\b|(?:lines|scatter|heatmap|contour|band|hist|barplot|hlines|vlines|text)!)"
 const BUMP_SHORT = ["--particles", "1000", "--final-time", "10.0"]
 const BUMP_ID = "bump_on_tail_np1000_nh16_p3_dt0.1_T10.0_seed1234"
-# The short run of each driver, and the files that the same run writes at `fea6c16`, before the
-# drivers' figures moved into the extension: `runs` into `--runs-dir` and `results` into
-# `--results-dir`. `bump_on_tail_common.jl` is no driver: the other four include it.
+# The short run of each driver, and the files that it writes: `runs` into `--runs-dir` and
+# `results` into `--results-dir`. `bump_on_tail_common.jl` is no driver: the other four include
+# it.
 const SHORT_RUNS = Dict(
     "analytic_quadratic.jl" => (args = ["--final-time", "1.0", "--saves", "10",
             "--particles", "100"],
