@@ -440,6 +440,13 @@ their own, except for what they removed and narrowed, which is listed in full be
   `test/methods/discrete_gradient.jl`**, which mirrors `src/methods/discrete_gradient.jl`.
   `test/models/landau_pairwise.jl` keeps the tests of `PairwiseLandau`, and both files include
   the fixture `test/helpers/pairwise_landau.jl`.
+- **GeometricIntegrators 0.19 is admitted.** `[compat]` reads `GeometricIntegrators =
+  "0.18.6, 0.19"`. The one breaking change of 0.19 exchanges the meaning of `SymplecticEulerARK`
+  and `SymplecticEulerBRK`, and of the tableaus `SymplecticEulerA` and `SymplecticEulerB` of
+  GeometricIntegratorsBase 0.7. VlasovMethods uses neither method, so its results do not change.
+  The suite passes on GeometricIntegrators 0.19.0 with GeometricIntegratorsBase 0.7.0, and at the
+  `[compat]` floors. A caller who calls a symplectic Euler method directly gets the other method
+  on 0.19.
 
 ## [0.4.1] — 2026-11-04
 

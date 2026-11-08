@@ -811,3 +811,30 @@ has left the file, or that lived only on a merged branch, stays taken.
   (`SimpleSolvers/src/base/jacobian.jl:153`), which depends on the length of `x` at run time.
 - **kind:** upstream
 - **found:** #129
+
+### K101 · On Julia 1.14.0-alpha2, Pkg refuses the multi-range `[compat]` entries of `test/Project.toml` under `force_latest_compatible_version`, so the jobs "Julia pre" and "Julia nightly" fail on every Dependabot pull request.
+
+- **location:** `test/Project.toml:52`, `JET = "0.10.1, 0.11, 0.12, 0.13"`, and `:57`,
+  `StableRNGs = "0.1, 1"`
+- **evidence:** julia-runtest sets `force_latest_compatible_version = true` on a Dependabot pull
+  request, and on Julia 1.14.0-alpha2 `Pkg.test(; force_latest_compatible_version = true)` stops
+  with `inconsistency between compat values and string representation` before any test runs (PR
+  #131, run 42444532599, job 128620570142,
+  https://github.com/JuliaPlasma/VlasovMethods.jl/actions/runs/42444532599/job/128620570142).
+  Neither job is a required check; `main` and other pull requests pass both, because the option is
+  off there. One `[compat]` entry with more than one range is enough. The CI steps of a Dependabot
+  pull request, instantiate and then
+  `Pkg.test(; force_latest_compatible_version = true, allow_reresolve = true)`, under Julia
+  1.14.0-alpha2 fail with that error on `main` at `97b1eeb` and on the head `0e11494` of #131;
+  on `main` they pass with both entries at one range and fail with only `StableRNGs = "0.1, 1"`.
+  The cause is in Pkg: `apply_force_latest_compatible_version!` narrows the value of a compat entry
+  in place and leaves its string (`Operations.jl:4910` of the Pkg in 1.14.0-alpha2), and when a
+  later step writes the project, `destructure` (`project.jl:294-295`) refuses an entry whose value
+  differs from `semver_spec` of its string. It is reported as JuliaLang/Pkg.jl#4902, which is
+  open. One more condition of the trigger is not known: a minimal package with
+  `StableRNGs = "0.1, 1"` in its test project passes. The two entries span several ranges on
+  purpose, so narrowing them is not a fix. The fix is a Pkg in a Julia 1.14 release whose
+  `apply_force_latest_compatible_version!` keeps the string of an entry consistent with its value;
+  the entry leaves this file when the pre job passes on a Dependabot pull request.
+- **kind:** upstream
+- **found:** #131
