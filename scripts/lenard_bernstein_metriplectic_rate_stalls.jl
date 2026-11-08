@@ -73,4 +73,6 @@ for name in ("dougherty", "jeyakumar")
         p.residual)
     @printf("  relax_frozen: %d stalled, largest residual %.4e, agrees: %s\n",
         d.stalled, d.residual, d.stalled == p.stalled && d.residual == p.residual)
+    d.stalled == p.stalled && d.residual == p.residual ||
+        error("$name: the probe and relax_frozen disagree")
 end
