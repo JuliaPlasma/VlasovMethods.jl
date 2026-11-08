@@ -275,7 +275,7 @@ and `spline` takes `Landau`, the appendix method, with [`Picard_iterate_Landau_n
 `h = 1e-8`; each step is solved to the absolute residual `1e-10`. `--case` takes
 
 - `bimaxwellian`, the default: case (a), `AnisotropicBiMaxwellian(0.5, 0.3)`;
-- `double-maxwellian`: case (b), `DoubleMaxwellian2D` of two equal halves of the variances
+- `double-maxwellian`: case (b), `DoubleMaxwellian2D` of two halves of the variances
   `(0.5, 0.5)` and the means `(1, 0)` and `(−1, 0)`;
 - `bkw`: case (c), `BKWDistribution(0.2)`, the BKW profile at `t₀ = 0.2`.
 
@@ -302,7 +302,9 @@ julia --project=scripts scripts/landau_cases.jl --method spline --case double-ma
 julia --project=scripts scripts/landau_cases.jl --method spline --case bkw
 ```
 
-Each of the six runs reaches `t = 100 h` and exits 0:
+Each of the six runs reaches `t = 100 h`, which is `t = 1e-3` for the pairwise method and
+`t = 1e-6` for the spline method, and exits 0. The column `measured` is the wall-clock time of one
+run:
 
 | case | method | relative energy drift | largest momentum drift | `S_h` from | to | measured |
 |:--|:--|--:|--:|--:|--:|--:|

@@ -746,7 +746,7 @@ for job in mplb
         "$(run_stem).hdf5 records no stopped_at")
     if case == "double-maxwellian" && bracket == "dougherty"
         Random.seed!(1)
-        drawn = initialize!(ParticleDistribution(1, 1, 1000),
+        local drawn = initialize!(ParticleDistribution(1, 1, 1000),
             DoubleMaxwellian(; domain = (-5.0, 5.0), shift = 2.0))
         check(h5read(run_record, "z")[:, 1] == drawn.particles.v[1, :],
             "$(run_stem).hdf5 starts from the velocities of the seed 1")

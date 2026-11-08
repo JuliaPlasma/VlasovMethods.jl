@@ -15,7 +15,7 @@
 # drawn from `Random.MersenneTwister(--seed)` by the type of `src/examples/`:
 #
 # - `bimaxwellian`, the default: `AnisotropicBiMaxwellian(0.5, 0.3)`;
-# - `double-maxwellian`: `DoubleMaxwellian2D` of two equal halves of the variances `(0.5, 0.5)` and
+# - `double-maxwellian`: `DoubleMaxwellian2D` of two halves of the variances `(0.5, 0.5)` and
 #   the means `(1, 0)` and `(−1, 0)`;
 # - `bkw`: `BKWDistribution(0.2)`, the BKW profile at `t₀ = 0.2`.
 #
@@ -56,8 +56,9 @@
 # other combination with `--rate-check` throws an `ArgumentError` that names the flag and the
 # value, before any directory is created. With `γ ≠ 0` there is no closed rate, and a run reports
 # conservation and the entropy only. The spline method's vector field has the opposite sign of the
-# appendix's `v̇ = −K⁺LJ`, so its instantaneous `λ` lies near `−8` where the closed one is `8` (K96
-# of `KNOWN_ISSUES.md`); `scripts/landau_compare.jl` reports it as measured.
+# appendix's `v̇ = −K⁺LJ`, so where `N ≥ 400` and `M ≥ 289` its instantaneous `λ` lies near `−8`
+# where the closed one is `8` (K96 of `KNOWN_ISSUES.md`); `scripts/landau_compare.jl` reports it as
+# measured.
 #
 # `--quick` takes 200 particles, 5 steps and 4 cells per axis, `M = 36`. The rate check keeps its
 # own lattice and cells.
