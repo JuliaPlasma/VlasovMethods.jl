@@ -21,7 +21,7 @@ using .MPLB: CASES, BRACKETS, RATE_TEMPERATURE, RATE_SOLVER_ITERATIONS,
              MetriplecticLenardBernstein, CollisionEntropy
 
 const CASE = CASES["shifted-normal"]
-const OPTIONS = (; CASE.paper...)
+const OPTIONS = CASE.paper
 
 function probe(initial, bracket, options)
     dist = deepcopy(initial)
