@@ -22,7 +22,8 @@ using PoissonSolvers
 using Statistics: cov, var
 using VlasovMethods
 
-parse_arguments(ARGS)
+"The options of the driver from the command line `args`: the two output directories alone."
+driver_options(args) = parse_arguments(args)
 
 const K = 0.5
 const ALPHA = 0.01
@@ -140,21 +141,16 @@ function main()
         "the fitted rate γ = $(γ₁) is not within 1.5e-3 of the textbook $(TEXTBOOK), or " *
         "halving h_v and dt moved it by $(abs(γ₁ - γ₂)) ≥ 1.5e-4 (γ = $(γ₂))")
 
-    fig = Figure(size = (1200, 500))
-    ax = Axis(fig[1, 1], xlabel = "t", ylabel = "log|E₁|",
-        title = @sprintf("k = %.2f, α = %.2f, nx = %d", K, ALPHA, NX))
-    colours = (:steelblue, :firebrick)
-    for (s, colour) in zip(series, colours)
-        lines!(ax, s.times, s.logE, color = colour,
-            label = @sprintf("nv = %d, dt = %.3f: γ = %.6f", s.nv, s.dt, s.γ))
-        scatter!(ax, s.ts, s.ys, color = colour, markersize = 8)
-    end
+    runs = [(t = s.times, y = s.logE, peak_t = s.ts, peak_y = s.ys,
+                label = @sprintf("nv = %d, dt = %.3f: γ = %.6f", s.nv, s.dt, s.γ))
+            for s in series]
     # the textbook slope, laid through the first peak of the first run: the fit's own intercept is
     # what the data decides, so the comparison is the slope and not the height
     t₀, y₀ = series[1].ts[1], series[1].ys[1]
-    lines!(ax, [8.0, 40.0], y₀ .+ TEXTBOOK .* ([8.0, 40.0] .- t₀), color = :black,
-        linestyle = :dash, label = @sprintf("γ = %.4f", TEXTBOOK))
-    axislegend(ax; position = :lb)
+    textbook = (t = [8.0, 40.0], y = y₀ .+ TEXTBOOK .* ([8.0, 40.0] .- t₀),
+        label = @sprintf("γ = %.4f", TEXTBOOK))
+    fig = plot_damping(runs, textbook;
+        title = @sprintf("k = %.2f, α = %.2f, nx = %d", K, ALPHA, NX))
 
     figure = results_path("landau_damping_1d1v.png")
     save(figure, fig)
@@ -163,4 +159,9 @@ function main()
     return nothing
 end
 
-main()
+# `scripts/gate.jl` includes this file to read `driver_options`, so `main` runs only where the file
+# is the program
+if abspath(PROGRAM_FILE) == @__FILE__
+    driver_options(ARGS)
+    main()
+end

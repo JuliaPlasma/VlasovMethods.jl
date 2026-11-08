@@ -1,5 +1,6 @@
-# The short run of the figure drivers of the collision manuscripts: each driver with `--quick`, in
-# a process of its own, into a temporary directory.
+# The short run of the figure drivers of the collision manuscripts, each driver with `--quick`, and
+# of the drivers whose figures the other plotting functions draw, each in a process of its own,
+# into a temporary directory.
 #
 #   julia --startup-file=no --project=scripts scripts/gate.jl
 #
@@ -114,6 +115,20 @@
 # other: the gate fails on `faster`, `better`, `slower`, `cheaper`, `outperforms` and `wins` in
 # any case.
 #
+# The drivers outside the collision manuscripts, `analytic_quadratic.jl`, the four
+# `bump_on_tail_*.jl` drivers, `landau_damping_1d1v.jl` and `vlasov_poisson.jl`, run with the small
+# options of `SHORT_RUNS`; `landau_damping_1d1v.jl` has no options and runs at its default, in
+# about 35 s alone. The bump-on-tail drivers run in turn, each in a directory of its own that holds
+# a copy of the files the one before it wrote. Each must exit 0 and write into `--runs-dir` and
+# `--results-dir` exactly the files that the same run writes at `fea6c16`, before their figures
+# moved into `VlasovMethodsMakieExt`, none of them empty. None of the eight files,
+# `bump_on_tail_common.jl` among them, may name a Makie figure, axis, legend or plot. Each driver,
+# included in a module of its own, must run nothing, so that the checkout's `runs/` and `results/`
+# stay as they were, and must take the options of `DRIVER_DEFAULTS` without a flag. The gate also
+# runs `test/plotting.jl` and `test/integration/makie_extension.jl` in the environment `test/`,
+# and `docs/make.jl` in `docs/`, which must render the document; each must exit 0, and both
+# environments must be instantiated.
+#
 # The drivers run at once, so the gate takes about as long as the slowest of them. `BUDGET` is
 # 400 s, measured from the gate's start, because whole gate runs take up to 229 s and a loaded
 # machine slows them. The gate prints the size of each file and its own wall-clock time,
@@ -160,6 +175,66 @@ const COMPARE_QUICK = (lattice = [12, 20], ncell = [8, 15, 16], repeats = 3)
 const COMPARE_ROW = r"^\| (pairwise|spline) \| (\d+) \| (\d+) \| (\d+) \| (holds|fails) \| ([^|]+) \| (\S+) \| (\S+) \| (\S+) \| (\S+) \|$"
 const RANKING = r"\b(faster|better|slower|cheaper|outperforms|wins)\b"i
 const LANDAU_DOCS_HEADING = "## Particle methods for the Landau operator"
+
+# The drivers outside the collision manuscripts, whose figures the plotting functions of
+# `VlasovMethodsMakieExt` draw, and the Makie names that build a figure, an axis, a legend or a
+# plot, of which none of them may name one.
+const PLOTTING_DRIVERS = ["analytic_quadratic.jl", "bump_on_tail_common.jl",
+    "bump_on_tail_projections.jl", "bump_on_tail_testing.jl", "bump_on_tail_train_hnn.jl",
+    "bump_on_tail_training.jl", "landau_damping_1d1v.jl", "vlasov_poisson.jl"]
+const MAKIE_CALL = r"\b(?:(?:Figure|Axis|Legend|LineElement|axislegend)\b|(?:lines|scatter|heatmap|contour|band|hist|barplot|hlines|vlines|text)!)"
+const BUMP_SHORT = ["--particles", "1000", "--final-time", "10.0"]
+const BUMP_ID = "bump_on_tail_np1000_nh16_p3_dt0.1_T10.0_seed1234"
+# The short run of each driver, and the files that the same run writes at `fea6c16`, before the
+# drivers' figures moved into the extension: `runs` into `--runs-dir` and `results` into
+# `--results-dir`. `bump_on_tail_common.jl` is no driver: the other four include it.
+const SHORT_RUNS = Dict(
+    "analytic_quadratic.jl" => (args = ["--final-time", "1.0", "--saves", "10",
+            "--particles", "100"],
+        runs = ["analytic_full.h5", "analytic_ode_k5.h5", "analytic_pode_k20.h5"],
+        results = ["item11_analytic_cotangent_spectrum.png",
+            "item11_analytic_pod_spectrum.png", "item24_analytic_v.png",
+            "item24_analytic_x.png", "item27_analytic_energy_drift.png"]),
+    "bump_on_tail_training.jl" => (args = BUMP_SHORT, runs = [BUMP_ID * ".h5"],
+        results = String[]),
+    "bump_on_tail_projections.jl" => (args = BUMP_SHORT,
+        runs = [BUMP_ID * "_projections.h5", BUMP_ID * "_vectorfield.h5"],
+        results = ["item11_field_spectrum.png", "item11_particle_spectrum.png"]),
+    "bump_on_tail_testing.jl" => (args = [BUMP_SHORT; "--samples"; "3"], runs = String[],
+        results = ["growth_rates.csv",
+            "item24_v2_kappa.png", "item24_v2_kappa_full.png", "item24_v2_time.png",
+            "item24_v2_time_full.png", "item24_vmax_kappa.png", "item24_vmax_kappa_full.png",
+            "item24_vmax_time.png", "item24_vmax_time_full.png", "item24_x2_kappa.png",
+            "item24_x2_kappa_full.png", "item24_x2_time.png", "item24_x2_time_full.png",
+            "item24_xmax_kappa.png", "item24_xmax_kappa_full.png", "item24_xmax_time.png",
+            "item24_xmax_time_full.png", "item25_potential_error.png",
+            "item25_potential_error_full.png", "item26_field_energy.png",
+            "item26_field_energy_best.png", "item26_field_energy_worst.png",
+            "item27_energy.png", "item27_energy_drift.png", "item27_energy_drift_kappa.png",
+            "item28_growth_rate.png", "item29_particles_T_hfm.png",
+            "item29_particles_T_rom.png", "item29_particles_T_rom_full.png",
+            "item29_particles_t0.png"]),
+    "bump_on_tail_train_hnn.jl" => (args = [BUMP_SHORT; "--epochs"; "5"], runs = String[],
+        results = ["hnn_loss.png"]),
+    "landau_damping_1d1v.jl" => (args = String[],
+        runs = ["landau_damping_1d1v_nv1025.txt", "landau_damping_1d1v_nv2049.txt"],
+        results = ["landau_damping_1d1v.png"]),
+    "vlasov_poisson.jl" => (args = ["--npart", "1000", "--final-time", "2.0"],
+        runs = ["vlasov_poisson.hdf5"], results = ["vlasov_poisson.png"]))
+# The options of each driver without a flag, which no short run may change.
+const BUMP_DEFAULTS = (
+    dt = 0.1, final_time = 25.0, particles = 10_000, cells = 16, degree = 3, seed = 1234)
+const DRIVER_DEFAULTS = Dict(
+    "analytic_quadratic.jl" => (final_time = 100.0, saves = 1000, particles = 1000),
+    "bump_on_tail_training.jl" => BUMP_DEFAULTS,
+    "bump_on_tail_projections.jl" => (; BUMP_DEFAULTS..., particle_tolerance = 1e-9,
+        field_tolerance = 1e-5),
+    "bump_on_tail_testing.jl" => (; BUMP_DEFAULTS..., samples = 10),
+    "bump_on_tail_train_hnn.jl" => (; BUMP_DEFAULTS..., m = 10, epochs = 1000,
+        batchsize = 100, eta = 1e-4),
+    "landau_damping_1d1v.jl" => NamedTuple(),
+    "vlasov_poisson.jl" => (npart = 10000, ncells = 16, order = 3, tstep = 0.1,
+        final_time = 20.0))
 
 const QUICK = Dict(
     "pd_lb_fig1_2.jl" => (figures = ["pd_lb_fig1.pdf", "pd_lb_fig2.pdf"],
@@ -210,6 +285,28 @@ function start(script, args; out = mktempdir(), dir = ROOT, env = nothing)
     process = run(pipeline(Cmd(command; dir); stdout = stream, stderr = stream); wait = false)
     return (; script, args, process, log, stream, runs = joinpath(out, "runs"),
         results = joinpath(out, "results"))
+end
+
+# A driver that reads the files of the driver `previous` writes, started as `start` does in a
+# directory of its own that holds a copy of them. Returns the job and the names of the copies, so
+# that the files it writes are those its `runs` holds beyond them.
+function start_after(script, args, previous)
+    out = mktempdir()
+    mkpath(joinpath(out, "runs"))
+    copies = readdir(previous.runs)
+    foreach(name -> cp(joinpath(previous.runs, name), joinpath(out, "runs", name)), copies)
+    return start(script, args; out), copies
+end
+
+# A Julia process of the environment `project` of this checkout, in its root, with the arguments
+# `args`; `name` names it in the checks of `finish`.
+function start_julia(name, project, args)
+    command = `$(Base.julia_cmd()) --startup-file=no --project=$(joinpath(ROOT, project)) $args`
+    log = tempname() * ".log"
+    stream = open(log, "w")
+    process = run(pipeline(Cmd(command; dir = ROOT); stdout = stream, stderr = stream);
+        wait = false)
+    return (; script = name, args, process, log, stream)
 end
 
 # Waits for a driver until `BUDGET` seconds after the gate started, kills it after that, and
@@ -338,12 +435,83 @@ landau_tight = start(LANDAU_SCRIPT,
     split("--quick --method pairwise --gamma 0 --rate-check --tolerance 1e-4"))
 compare = start(COMPARE_SCRIPT, ["--quick"])
 
+# The drivers outside the collision manuscripts: three alone, and the four bump-on-tail drivers
+# in the order in which each reads what the one before it writes, each started once that one has
+# exited 0. `PLOTTING_COPIES` holds the names of the files a driver of the chain was given.
+const PLOTTING_JOBS = Dict{String, Any}(script => start(script, SHORT_RUNS[script].args)
+for script in ("analytic_quadratic.jl", "landau_damping_1d1v.jl", "vlasov_poisson.jl"))
+const PLOTTING_COPIES = Dict{String, Vector{String}}()
+const BUMP_CHAIN = @async begin
+    training = start("bump_on_tail_training.jl", SHORT_RUNS["bump_on_tail_training.jl"].args)
+    PLOTTING_JOBS["bump_on_tail_training.jl"] = training
+    wait(training.process)
+    success(training.process) || return nothing
+    projections, PLOTTING_COPIES["bump_on_tail_projections.jl"] = start_after(
+        "bump_on_tail_projections.jl", SHORT_RUNS["bump_on_tail_projections.jl"].args, training)
+    PLOTTING_JOBS["bump_on_tail_projections.jl"] = projections
+    wait(projections.process)
+    success(projections.process) || return nothing
+    for script in ("bump_on_tail_testing.jl", "bump_on_tail_train_hnn.jl")
+        PLOTTING_JOBS[script], PLOTTING_COPIES[script] = start_after(
+            script, SHORT_RUNS[script].args, projections)
+    end
+    return nothing
+end
+# The tests of the plotting functions, with and without CairoMakie, and the docs build.
+const TEST_PROGRAM = "include(\"test/plotting.jl\"); include(\"test/integration/makie_extension.jl\")"
+const PLOTTING_TESTS = start_julia("the plotting test run", "test", ["-e", TEST_PROGRAM])
+const DOCS_BUILD = start_julia("the docs build", "docs", ["docs/make.jl"])
+
 # A driver still running when the gate exits, after an error of the gate itself, is killed.
 atexit(() -> foreach(
     job -> process_running(job.process) && kill(job.process, Base.SIGKILL),
-    [jobs; mplb; landau;
+    [jobs; mplb; landau; collect(values(PLOTTING_JOBS));
      [stray, stop, other, miss, halt, unmade, unknown_case, unknown_bracket,
-         untolerant, unsolved, tight, loose, landau_rate, landau_stop, landau_tight, compare]]))
+         untolerant, unsolved, tight, loose, landau_rate, landau_stop, landau_tight, compare,
+         PLOTTING_TESTS, DOCS_BUILD]]))
+
+# The files of the checkout's own `runs` and `results`, where a driver writes without
+# `--runs-dir` and `--results-dir`, each with its modification time.
+function checkout_output()
+    dirs = filter(isdir, [joinpath(ROOT, "runs"), joinpath(ROOT, "results")])
+    return [(name, mtime(joinpath(dir, name))) for dir in dirs for name in readdir(dir)]
+end
+
+# An include below loads its packages without yielding to `BUMP_CHAIN`, which starts each driver of
+# the chain only when the gate yields, so the gate first waits until the chain has started its last
+# drivers.
+timedwait(() -> istaskdone(BUMP_CHAIN), max(BUDGET - (time() - STARTED), 0.0); pollint = 1.0)
+
+# Each plotting driver included in a module of its own, which runs no `main`, so that the gate
+# reads its options without a flag; an include that ran one would write into the checkout.
+const OUTPUT_BEFORE_INCLUDES = checkout_output()
+module AnalyticQuadratic
+include(joinpath(@__DIR__, "analytic_quadratic.jl"))
+end
+module BumpTraining
+include(joinpath(@__DIR__, "bump_on_tail_training.jl"))
+end
+module BumpProjections
+include(joinpath(@__DIR__, "bump_on_tail_projections.jl"))
+end
+module BumpTesting
+include(joinpath(@__DIR__, "bump_on_tail_testing.jl"))
+end
+module BumpTrainHNN
+include(joinpath(@__DIR__, "bump_on_tail_train_hnn.jl"))
+end
+module LandauDamping
+include(joinpath(@__DIR__, "landau_damping_1d1v.jl"))
+end
+module VlasovPoissonDriver
+include(joinpath(@__DIR__, "vlasov_poisson.jl"))
+end
+const DRIVER_MODULES = ["analytic_quadratic.jl" => AnalyticQuadratic,
+    "bump_on_tail_training.jl" => BumpTraining,
+    "bump_on_tail_projections.jl" => BumpProjections,
+    "bump_on_tail_testing.jl" => BumpTesting, "bump_on_tail_train_hnn.jl" => BumpTrainHNN,
+    "landau_damping_1d1v.jl" => LandauDamping, "vlasov_poisson.jl" => VlasovPoissonDriver]
+const OUTPUT_AFTER_INCLUDES = checkout_output()
 
 println("the helpers of pd_lb_common.jl")
 let dirs = ["--runs-dir", mktempdir(), "--results-dir", mktempdir()],
@@ -775,6 +943,61 @@ let section = landau_docs_section(), entries = landau_changelog_entries()
     hits = [name * ": " * m.match for (name, text) in ranked_texts
             for m in eachmatch(RANKING, text)]
     check(isempty(hits), "no text ranks the two methods: $(hits)")
+end
+
+println("the figures of the plotting drivers")
+for script in PLOTTING_DRIVERS
+    hits = [m.match
+            for m in eachmatch(MAKIE_CALL, read(joinpath(ROOT, "scripts", script), String))]
+    check(isempty(hits), "$(script) builds no figure, axis, legend or plot: $(hits)")
+end
+
+println("the default options of the plotting drivers")
+check(OUTPUT_AFTER_INCLUDES == OUTPUT_BEFORE_INCLUDES,
+    "including the plotting drivers runs none of them: runs/ and results/ are unchanged")
+let dirs = ["--runs-dir", mktempdir(), "--results-dir", mktempdir()]
+    for (script, driver) in DRIVER_MODULES
+        options = Base.structdiff(driver.driver_options(dirs),
+            NamedTuple{(:runs_dir, :results_dir)})
+        check(options == DRIVER_DEFAULTS[script],
+            "$(script) defaults to $(DRIVER_DEFAULTS[script]): $(options)")
+    end
+end
+check(
+    LandauDamping.RUNS == ((1025, 0.05), (2049, 0.025)) &&
+        LandauDamping.TSPAN == (0.0, 40.0),
+    "landau_damping_1d1v.jl runs nv = 1025 at dt = 0.05 and nv = 2049 at dt = 0.025 to t = 40")
+
+for script in first.(DRIVER_MODULES)
+    expected = SHORT_RUNS[script]
+    println(join([script; expected.args], " "))
+    # a driver of the chain starts once the one before it has exited 0
+    timedwait(() -> haskey(PLOTTING_JOBS, script) || istaskdone(BUMP_CHAIN),
+        max(BUDGET - (time() - STARTED), 0.0); pollint = 1.0)
+    if !check(haskey(PLOTTING_JOBS, script), "$(script) starts")
+        istaskfailed(BUMP_CHAIN) && showerror(stdout, BUMP_CHAIN.exception)
+        continue
+    end
+    job = PLOTTING_JOBS[script]
+    finish(job; timed = false)
+    given = get(PLOTTING_COPIES, script, String[])
+    runs = isdir(job.runs) ? setdiff(readdir(job.runs), given) : String[]
+    results = isdir(job.results) ? readdir(job.results) : String[]
+    check(runs == sort(expected.runs), "it writes the files of fea6c16 into --runs-dir: $(runs)")
+    check(results == sort(expected.results),
+        "it writes the files of fea6c16 into --results-dir: $(results)")
+    check(
+        all(name -> filesize(joinpath(job.runs, name)) > 0, runs) &&
+            all(name -> filesize(joinpath(job.results, name)) > 0, results),
+        "none of them is empty")
+end
+
+println("the tests of the plotting functions")
+finish(PLOTTING_TESTS; timed = false)
+
+println("the docs build")
+let output = finish(DOCS_BUILD; timed = false)
+    check(occursin("RenderDocument: rendering document.", output), "it renders the document")
 end
 
 @printf("gate: %d failures, wall-clock time %.1f s\n", length(FAILURES), time() - STARTED)

@@ -14,7 +14,8 @@
 include("options.jl")
 include("bump_on_tail_common.jl")
 
-const OPT = parse_arguments(ARGS; BUMP_ON_TAIL...)
+"The options of the driver from the command line `args`, defaulting to the paper's parameters."
+driver_options(args) = parse_arguments(args; BUMP_ON_TAIL...)
 
 function main(o)
     particles = initial_particles(o)
@@ -43,4 +44,6 @@ function main(o)
     return nothing
 end
 
-main(OPT)
+# `scripts/gate.jl` includes this file to read `driver_options`, so `main` runs only where the file
+# is the program
+abspath(PROGRAM_FILE) == @__FILE__() && main(driver_options(ARGS))

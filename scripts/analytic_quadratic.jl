@@ -40,7 +40,10 @@ using ReducedBasisMethods: ReducedBasis, PODSVD, CotangentLiftSVD, lift, project
 using ReducedComplexityModeling: Parameter, ParameterSpace
 using VlasovMethods: AnalyticHamiltonian, energy_drift, plot_series, trajectory_errors
 
-const OPT = parse_arguments(ARGS; final_time = 100.0, saves = 1000, particles = 1000)
+"The options of the driver from the command line `args`, defaulting to the run of the header."
+function driver_options(args)
+    return parse_arguments(args; final_time = 100.0, saves = 1000, particles = 1000)
+end
 
 const TEST_β = 6.0
 const TRAINING_β = [5.95, 5.97, 5.99, 6.01, 6.03, 6.05]
@@ -147,12 +150,6 @@ function write_result(file, t, x, h; dt, nsave, report = false, datasets...)
     end
 end
 
-"The axis of a figure of `plot_series`, on a log scale."
-function log_scale!(fig)
-    only(c for c in fig.content if c isa Axis).yscale = log10
-    return fig
-end
-
 function main(o)
     # the full model, saved every `nsave` steps of `DT_FULL`
     nsave_full = steps_per_save(o, DT_FULL)
@@ -207,16 +204,18 @@ function main(o)
               for (form, x) in forms]
     for (q, name) in ((:x, "positions"), (:v, "velocities"))
         save(results_path("item24_analytic_$(q).png"),
-            log_scale!(plot_series(t[later],
+            plot_series(t[later],
                 [vec(e[Symbol(q, k)]) for (_, e) in errors for k in (2, :max)];
                 labels = ["$(form), $(q)$(k)" for (form, _) in errors for k in (2, :max)],
-                ylabel = "error of the $(name)")))
+                ylabel = "error of the $(name)", yscale = log10))
     end
     save(results_path("item27_analytic_energy_drift.png"),
-        log_scale!(plot_series(t[later],
+        plot_series(t[later],
             [abs.(energy_drift(energies(h, x))[later]) for (_, x) in forms];
-            labels = collect(first.(forms)), ylabel = "|ΔH/H|")))
+            labels = collect(first.(forms)), ylabel = "|ΔH/H|", yscale = log10))
     return nothing
 end
 
-main(OPT)
+# `scripts/gate.jl` includes this file to read `driver_options`, so `main` runs only where the file
+# is the program
+abspath(PROGRAM_FILE) == @__FILE__() && main(driver_options(ARGS))

@@ -124,11 +124,11 @@ function _check_series(t, series, labels)
 end
 
 function VlasovMethods.plot_series(t::AbstractVector, series;
-        labels = nothing, xlabel = "t", ylabel = "")
+        labels = nothing, xlabel = "t", ylabel = "", yscale = identity)
     _check_series(t, series, labels)
 
     fig = Figure()
-    ax = Axis(fig[1, 1]; xlabel = xlabel, ylabel = ylabel)
+    ax = Axis(fig[1, 1]; xlabel = xlabel, ylabel = ylabel, yscale = yscale)
     for (i, y) in enumerate(series)
         if isnothing(labels)
             lines!(ax, t, y)
@@ -341,6 +341,82 @@ function VlasovMethods.plot_cost(cost::AbstractVector, err::AbstractVector)
     scatter!(ax, xs, ys)
     _flat_log_limits!(xlims!, ax, (xs,))
     _flat_log_limits!(ylims!, ax, (ys,))
+    return fig
+end
+
+function VlasovMethods.plot_groups(t::AbstractVector, groups; xlabel = "t", ylabel = "",
+        yscale = identity, colors = (:blue, :orange, :green))
+    isempty(groups) && throw(ArgumentError("no group to plot"))
+    length(colors) ≥ length(groups) || throw(DimensionMismatch(
+        "the colours hold $(length(colors)) colours; the groups hold $(length(groups)) groups"))
+    for (_, series) in groups
+        _check_series(t, series, nothing)
+    end
+
+    fig = Figure()
+    ax = Axis(fig[1, 1]; xlabel = xlabel, ylabel = ylabel, yscale = yscale)
+    # every line of a group is drawn half transparent, so that the lines of a sweep read as a band
+    shades = [(colour, 0.5) for (colour, _) in zip(colors, groups)]
+    for ((_, series), shade) in zip(groups, shades)
+        for y in series
+            lines!(ax, t, y; color = shade)
+        end
+    end
+    axislegend(ax, [LineElement(color = shade) for shade in shades],
+        [name for (name, _) in groups])
+    return fig
+end
+
+function VlasovMethods.plot_damping(runs, reference; title = "",
+        colors = (:steelblue, :firebrick))
+    isempty(runs) && throw(ArgumentError("no run to plot"))
+    length(colors) ≥ length(runs) || throw(DimensionMismatch(
+        "the colours hold $(length(colors)) colours; the runs hold $(length(runs)) runs"))
+    for run in runs
+        _check_lengths("t" => run.t, "y" => run.y)
+        length(run.peak_y) == length(run.peak_t) || throw(_mismatch(
+            "peak_y" => length(run.peak_y), "peak_t" => length(run.peak_t), "values"))
+    end
+    _check_lengths("t" => reference.t, "y" => reference.y)
+
+    fig = Figure(size = (1200, 500))
+    ax = Axis(fig[1, 1]; xlabel = "t", ylabel = "log|E₁|", title = title)
+    for (run, colour) in zip(runs, colors)
+        lines!(ax, run.t, run.y; color = colour, label = run.label)
+        scatter!(ax, run.peak_t, run.peak_y; color = colour, markersize = 8)
+    end
+    lines!(ax, reference.t, reference.y; color = :black, linestyle = :dash,
+        label = reference.label)
+    axislegend(ax; position = :lb)
+    return fig
+end
+
+function VlasovMethods.plot_phase_space(z::AbstractArray{<:Real, 3}, slices; xdomain, titles)
+    size(z, 1) == 2 || throw(ArgumentError(
+        "`z` holds $(size(z, 1)) rows; a 1D1V trajectory holds two, `x` and `v`"))
+    size(z, 2) ≥ 1 || throw(ArgumentError("`z` holds no particle"))
+    size(z, 3) ≥ 1 || throw(ArgumentError("`z` holds no time slice"))
+    isempty(slices) && throw(ArgumentError("`slices` holds no slice"))
+    for slice in slices
+        1 ≤ slice ≤ size(z, 3) || throw(ArgumentError(
+            "the time slices of `z` are 1:$(size(z, 3)); got $slice"))
+    end
+    length(titles) == length(slices) || throw(DimensionMismatch(
+        "the titles hold $(length(titles)) titles; the slices hold $(length(slices)) slices"))
+
+    # each particle keeps the colour of the sign of its first velocity, so that each half of the
+    # cloud can be followed through the panels
+    colours = ifelse.(z[2, :, 1] .>= 0, :steelblue, :firebrick)
+    vmax = ceil(maximum(abs, z[2, :, 1]))
+    limits = ((first(xdomain), last(xdomain)), (-vmax, vmax))
+
+    fig = Figure(size = (1500, 400))
+    for (panel, (slice, title)) in enumerate(zip(slices, titles))
+        ylabel = panel == 1 ? "v" : ""
+        ax = Axis(fig[1, panel]; xlabel = "x", ylabel, title, limits)
+        x = [_wrap(x₀, xdomain) for x₀ in z[1, :, slice]]
+        scatter!(ax, x, z[2, :, slice]; color = colours, markersize = 2)
+    end
     return fig
 end
 

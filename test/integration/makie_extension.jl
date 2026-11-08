@@ -351,6 +351,225 @@ end
     @test_throws DimensionMismatch plot_series(T[], ([one(T)],))
 end
 
+@testset "plot_series draws on the scale that yscale names, $T" for T in (Float64, Float32)
+    t = collect(T, 1:5)
+    decay = exp.(-t)
+
+    # linear by default
+    @test series_axis(plot_series(t, (decay,)), 1).yscale[] === identity
+
+    labels = ["e", "2e"]
+    logarithmic = plot_series(t, (decay, 2 .* decay); labels, xlabel = "epoch",
+        ylabel = "loss", yscale = log10)
+    ax = logarithmic.content[1]
+    @test ax.yscale[] === log10
+    @test ax.xlabel[] == "epoch"
+    @test ax.ylabel[] == "loss"
+    @test [last.(p[1][]) for p in ax.scene.plots] == [decay, 2 .* decay]
+    file = tempname() * ".png"
+    save(file, logarithmic)
+    @test filesize(file) > 0
+end
+
+@testset "plot_groups draws every line of a group in its colour, $T" for T in (Float64, Float32)
+    t = collect(T, 0:0.25:2)
+    a1, a2, b1 = sin.(t), cos.(t), t .^ 2
+    shade(colour) = Makie.to_color((colour, 0.5))
+
+    fig = plot_groups(t, ["HFM" => [a1, a2], "ROM" => [b1]]; ylabel = "W")
+    @test fig isa Figure
+    @test length(fig.content) == 2
+    ax, legend = fig.content
+    @test ax isa Axis
+    @test legend isa Legend
+    @test ax.xlabel[] == "t"
+    @test ax.ylabel[] == "W"
+    @test ax.title[] == ""
+    @test ax.yscale[] === identity
+
+    # one line per series, in the order of the groups and of their series, each against `t`
+    @test length(ax.scene.plots) == 3
+    @test all(p -> p isa Lines, ax.scene.plots)
+    @test all(p -> first.(p[1][]) == t, ax.scene.plots)
+    @test [last.(p[1][]) for p in ax.scene.plots] == [a1, a2, b1]
+
+    # the lines of a group share its colour at half opacity, and the legend holds one entry
+    # per group, of that colour, in the axis' top right corner
+    @test [p.color[] for p in ax.scene.plots] == shade.([:blue, :blue, :orange])
+    entries = only(legend.entrygroups[])[2]
+    @test [e.label[] for e in entries] == ["HFM", "ROM"]
+    @test [Makie.to_color(only(e.elements).linecolor[]) for e in entries] ==
+          shade.([:blue, :orange])
+    @test (legend.halign[], legend.valign[]) == (:right, :top)
+
+    file = tempname() * ".png"
+    save(file, fig)
+    @test filesize(file) > 0
+
+    # three groups take the three default colours, and `colors` and `yscale` replace the defaults
+    three = plot_groups(t, ["a" => [a1], "b" => [a2], "c" => [b1]])
+    @test [p.color[] for p in three.content[1].scene.plots] ==
+          shade.([:blue, :orange, :green])
+    custom = plot_groups(t, ["a" => [a1 .+ 2], "b" => [b1 .+ 1]]; xlabel = "κ",
+        yscale = log10, colors = (:red, :black))
+    @test custom.content[1].yscale[] === log10
+    @test custom.content[1].xlabel[] == "κ"
+    @test [p.color[] for p in custom.content[1].scene.plots] == shade.([:red, :black])
+    save(file, custom)
+    @test filesize(file) > 0
+
+    # nothing to draw, a group with no line, an empty line, a line of another length, and more
+    # groups than colours
+    no_group = Pair{String, Vector{Vector{T}}}[]
+    @test_throws ArgumentError plot_groups(t, no_group)
+    @test occursin("no group to plot", message_of(() -> plot_groups(t, no_group)))
+    no_line = ["a" => Vector{T}[]]
+    @test_throws ArgumentError plot_groups(t, no_line)
+    @test occursin("no series to plot", message_of(() -> plot_groups(t, no_line)))
+    empty_line = ["a" => [T[]]]
+    @test_throws ArgumentError plot_groups(t, empty_line)
+    @test occursin("a line holds no value", message_of(() -> plot_groups(t, empty_line)))
+    @test_throws DimensionMismatch plot_groups(t, ["a" => [a1], "b" => [b1[1:(end - 1)]]])
+    four = ["a" => [a1], "b" => [a2], "c" => [b1], "d" => [a1]]
+    @test_throws DimensionMismatch plot_groups(t, four)
+    @test occursin("the colours hold 3 colours; the groups hold 4 groups",
+        message_of(() -> plot_groups(t, four)))
+    four_colours = plot_groups(t, four; colors = (:red, :blue, :green, :black))
+    @test length(four_colours.content[1].scene.plots) == 4
+end
+
+@testset "plot_damping draws the runs, their peaks and a reference, $T" for T in (Float64, Float32)
+    t = collect(T, 0:0.5:10)
+    run1 = (t = t, y = -T(0.15) .* t, peak_t = T[2, 6], peak_y = T[-0.3, -0.9],
+        label = "nv = 1025")
+    run2 = (t = t, y = -T(0.16) .* t, peak_t = T[3], peak_y = T[-0.48], label = "nv = 2049")
+    reference = (t = T[2, 10], y = T[-0.3, -1.5], label = "γ = -0.1533")
+
+    fig = plot_damping([run1, run2], reference; title = "k = 0.50")
+    @test fig isa Figure
+    @test fig.scene.viewport[].widths == [1200, 500]
+    @test length(fig.content) == 2
+    ax, legend = fig.content
+    @test ax isa Axis
+    @test legend isa Legend
+    @test ax.xlabel[] == "t"
+    @test ax.ylabel[] == "log|E₁|"
+    @test ax.title[] == "k = 0.50"
+
+    # a line and a scatter of the peaks per run, in its colour, then the dashed black reference
+    plots = ax.scene.plots
+    @test [typeof(p) <: Lines for p in plots] == [true, false, true, false, true]
+    @test [typeof(p) <: Scatter for p in plots] == [false, true, false, true, false]
+    @test last.(plots[1][1][]) == run1.y && first.(plots[1][1][]) == t
+    @test first.(plots[2][1][]) == run1.peak_t && last.(plots[2][1][]) == run1.peak_y
+    @test last.(plots[3][1][]) == run2.y
+    @test first.(plots[4][1][]) == run2.peak_t
+    @test first.(plots[5][1][]) == reference.t && last.(plots[5][1][]) == reference.y
+    @test [p.color[] for p in plots] ==
+          Makie.to_color.([:steelblue, :steelblue, :firebrick, :firebrick, :black])
+    @test all(==(8), plots[2].markersize[]) && all(==(8), plots[4].markersize[])
+    @test plots[1].linestyle[] === nothing
+    @test plots[5].linestyle[] !== nothing
+    @test [plots[i].label[] for i in (1, 3, 5)] == ["nv = 1025", "nv = 2049", "γ = -0.1533"]
+    @test [e.label[] for e in only(legend.entrygroups[])[2]] ==
+          ["nv = 1025", "nv = 2049", "γ = -0.1533"]
+    @test (legend.halign[], legend.valign[]) == (:left, :bottom)
+
+    file = tempname() * ".png"
+    save(file, fig)
+    @test filesize(file) > 0
+
+    # the title defaults to none, a run with no peak draws an empty scatter, and `colors`
+    # replaces the two defaults
+    bare = plot_damping([(run1..., peak_t = T[], peak_y = T[])], reference;
+        colors = (:red,))
+    @test bare.content[1].title[] == ""
+    @test isempty(bare.content[1].scene.plots[2][1][])
+    @test bare.content[1].scene.plots[1].color[] == Makie.to_color(:red)
+    save(file, bare)
+    @test filesize(file) > 0
+
+    # nothing to draw, a series or a reference of another length, peaks of two lengths, and more
+    # runs than colours
+    @test_throws ArgumentError plot_damping(typeof(run1)[], reference)
+    @test occursin("no run to plot", message_of(() -> plot_damping(typeof(run1)[], reference)))
+    @test_throws ArgumentError plot_damping([(run1..., t = T[], y = T[])], reference)
+    @test occursin("`t` holds no value",
+        message_of(() -> plot_damping([(run1..., t = T[], y = T[])], reference)))
+    @test_throws DimensionMismatch plot_damping([(run1..., y = run1.y[2:end])], reference)
+    @test occursin("`y` is shorter than `t`",
+        message_of(() -> plot_damping([(run1..., y = run1.y[2:end])], reference)))
+    @test_throws DimensionMismatch plot_damping([(run1..., peak_y = T[-0.3])], reference)
+    @test occursin("`peak_y` is shorter than `peak_t`",
+        message_of(() -> plot_damping([(run1..., peak_y = T[-0.3])], reference)))
+    @test_throws DimensionMismatch plot_damping([run1], (reference..., y = T[-0.3]))
+    @test_throws ArgumentError plot_damping([run1], (reference..., t = T[], y = T[]))
+    @test_throws DimensionMismatch plot_damping([run1, run2, run1], reference)
+    @test occursin("the colours hold 2 colours; the runs hold 3 runs",
+        message_of(() -> plot_damping([run1, run2, run1], reference)))
+end
+
+@testset "plot_phase_space draws one panel per slice, $T" for T in (Float64, Float32)
+    # three particles over four slices: the second starts at a negative velocity, the third at
+    # zero, the first leaves the domain to the right and the third to the left, and the speeds
+    # grow past those of the first slice
+    z = zeros(T, 2, 3, 4)
+    z[1, :, 1] = T[0.25, 0.5, 0.75]
+    z[2, :, 1] = T[1.5, -2.25, 0]
+    for s in 2:4
+        z[1, :, s] = z[1, :, 1] .+ T[0.5, 0, -1] .* (s - 1)
+        z[2, :, s] = T[-1, 1, 1] .* z[2, :, 1] .* s
+    end
+
+    fig = plot_phase_space(z, [1, 2, 4]; xdomain = (T(0), T(1)), titles = ["a", "b", "c"])
+    @test fig isa Figure
+    @test fig.scene.viewport[].widths == [1500, 400]
+    @test length(fig.content) == 3
+    @test all(ax -> ax isa Axis, fig.content)
+    @test [ax.title[] for ax in fig.content] == ["a", "b", "c"]
+    @test [ax.xlabel[] for ax in fig.content] == ["x", "x", "x"]
+    @test [ax.ylabel[] for ax in fig.content] == ["v", "", ""]
+    # the largest |v| of the first slice, 2.25, rounded up, where a later slice reaches 9
+    @test all(ax -> ax.limits[] == ((T(0), T(1)), (-T(3), T(3))), fig.content)
+
+    for (ax, s) in zip(fig.content, (1, 2, 4))
+        plot = only(ax.scene.plots)
+        @test plot isa Scatter
+        @test all(==(2), plot.markersize[])
+        @test first.(plot[1][]) == mod.(z[1, :, s], T(1))
+        @test last.(plot[1][]) == z[2, :, s]
+        # the colour follows the sign of the first velocity, not of the slice's own
+        @test plot.color[] == Makie.to_color.([:steelblue, :firebrick, :steelblue])
+    end
+    @test first.(only(fig.content[3].scene.plots)[1][]) == T[0.75, 0.5, 0.75]
+
+    file = tempname() * ".png"
+    save(file, fig)
+    @test filesize(file) > 0
+
+    # rows other than `x` and `v`, no particle, no slice, a slice outside `z`, and a title count
+    # that differs from the slice count
+    draw(z, slices, titles) = () -> plot_phase_space(z, slices; xdomain = (0, 1), titles)
+    @test_throws ArgumentError draw(zeros(T, 3, 3, 4), [1], ["a"])()
+    @test occursin("`z` holds 3 rows", message_of(draw(zeros(T, 3, 3, 4), [1], ["a"])))
+    @test_throws ArgumentError draw(zeros(T, 2, 0, 4), [1], ["a"])()
+    @test occursin("`z` holds no particle", message_of(draw(zeros(T, 2, 0, 4), [1], ["a"])))
+    @test_throws ArgumentError draw(zeros(T, 2, 3, 0), Int[], String[])()
+    @test occursin("`z` holds no time slice",
+        message_of(draw(zeros(T, 2, 3, 0), Int[], String[])))
+    @test_throws ArgumentError draw(z, Int[], String[])()
+    @test occursin("`slices` holds no slice", message_of(draw(z, Int[], String[])))
+    for slice in (0, 5)
+        @test_throws ArgumentError draw(z, [slice], ["a"])()
+        @test occursin("the time slices of `z` are 1:4; got $slice",
+            message_of(draw(z, [slice], ["a"])))
+    end
+    @test length(draw(z, [4], ["a"])().content) == 1
+    @test_throws DimensionMismatch draw(z, [1, 2], ["a"])()
+    @test occursin("the titles hold 1 titles; the slices hold 2 slices",
+        message_of(draw(z, [1, 2], ["a"])))
+end
+
 @testset "plot_particles draws a saved state of the snapshots, $T" for T in (Float64, Float32)
     n, nₛ, nh = 5, 3, 2
     space = ParameterSpace(Parameter(:β, T(6), T(7), 2))

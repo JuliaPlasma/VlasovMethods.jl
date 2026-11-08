@@ -214,6 +214,19 @@ their own, except for what they removed and narrowed, which is listed in full be
   zero or not finite is not defined and throws an `ArgumentError`; the drift of a series of one
   value is the single value zero, which is refused; and `plot_convergence` throws one with fewer
   than two positive finite pairs to fit.
+- **`plot_groups`, `plot_damping` and `plot_phase_space`** draw the figures of the drivers
+  outside the collision manuscripts, each into a `Figure` that a script saves; like the other
+  plotting functions they are defined in the package extension, so `CairoMakie` must be loaded.
+  `plot_groups(t, ["HFM" => series, …])` draws every line of a group in the group's colour at half
+  opacity, with one legend entry per group. `plot_damping(runs, reference)` draws `log|E₁|` of each
+  run with its fitted peaks as markers and a dashed reference line, on a figure of 1200 × 500
+  pixels. `plot_phase_space(z, slices; xdomain, titles)` draws the particles of a `(2, npart,
+  ntime)` trajectory at each slice in a row of panels of 1500 × 400 pixels, each particle coloured
+  by the sign of its first velocity. Each throws an `ArgumentError` for an empty argument, and
+  `plot_phase_space` also for a `z` of other than two rows and for a slice outside it. `plot_groups`
+  and `plot_damping` throw a `DimensionMismatch` for series of different lengths and for fewer
+  colours than they draw, and `plot_phase_space` one for a title count other than its slice count.
+  `plot_series` takes `yscale`, `identity` by default or `log10`, the scale of its `y` axis.
 
 ### Scripts
 
@@ -314,6 +327,20 @@ their own, except for what they removed and narrowed, which is listed in full be
   section and this entry. `--quick` of `landau_cases.jl` takes 200 particles, 5 steps and 4 cells
   per axis. The gate's time limit for every driver rises from 240 s to 400 s, because whole gate
   runs take up to 229 s.
+- **The drivers outside the collision manuscripts build no figure themselves.**
+  `scripts/analytic_quadratic.jl`, `bump_on_tail_testing.jl`, `bump_on_tail_train_hnn.jl`,
+  `landau_damping_1d1v.jl` and `vlasov_poisson.jl` draw each figure with `plot_series`,
+  `plot_groups`, `plot_damping` or `plot_phase_space` and save it under the name it had. Their
+  short runs write the same files as before, and the same PNG files byte for byte, except
+  `vlasov_poisson.png`: its driver draws its particles with no seed (K98 of `KNOWN_ISSUES.md`), and
+  `plot_phase_space` of a trajectory saves the PNG that the driver saved for it before. These five,
+  `bump_on_tail_training.jl` and `bump_on_tail_projections.jl` read their options through
+  `driver_options` and run `main` only where they are the program, so `vlasov_poisson.jl` now runs
+  inside a `main`. `scripts/gate.jl` runs the seven with small options and checks that each writes
+  exactly the files of the same run before the change, that none of the seven files nor
+  `bump_on_tail_common.jl` names a Makie figure, axis, legend or plot, and that each takes its
+  default options without a flag; it also runs `test/plotting.jl` with
+  `test/integration/makie_extension.jl`, and the docs build.
 
 ### Documentation
 
@@ -342,6 +369,9 @@ their own, except for what they removed and narrowed, which is listed in full be
   the Lenard–Bernstein manuscript: its command, its parameters, its files and its measured time.
   The home page no longer renders the six docstrings, which keeps its HTML under Documenter's size
   threshold.
+- **The general plotting functions have a page of their own**, `plotting.md`, with the docstrings
+  of `plot_distribution`, `plot_particles`, `plot_series`, `plot_groups`, `plot_damping` and
+  `plot_phase_space`. The home page no longer renders them.
 
 ### Internal
 

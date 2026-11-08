@@ -15,57 +15,54 @@ using HDF5
 using PoissonSolvers
 using VlasovMethods
 
-const OPT = parse_arguments(ARGS; npart = 10000, ncells = 16, order = 3, tstep = 0.1,
-    final_time = 20.0)
-const NPART = OPT.npart
-const NCELLS = OPT.ncells
-const ORDER = OPT.order
-const TSTEP = OPT.tstep
-const TSPAN = (0.0, OPT.final_time)
-const DOMAIN = (0.0, 1.0)
-
-# create and initialize particle distribution function
-dist = initialize!(ParticleDistribution(1, 1, NPART), NormalDistribution())
-
-# create electrostatic potential
-potential = Potential(PeriodicBasisSpline(DOMAIN, ORDER, NCELLS))
-
-# create Vlasov-Poisson model
-model = VlasovPoisson(dist, potential)
-
-# create integrator
-integrator = SplittingMethod(model, TSPAN, TSTEP)
-
-# integrate, writing the trajectory to the runs directory
-h5file = runs_path("vlasov_poisson.hdf5")
-run!(integrator, h5file)
-
-@printf("vlasov_poisson: %d particles, %d cells, order %d, dt = %g, t ∈ %s\n",
-    NPART, NCELLS, ORDER, TSTEP, TSPAN)
-
-# `z` is `(nd, npart, ntime)`; the two rows are `x` and `v`. `run!(::SplittingMethod, h5file)`
-# writes the trajectory alone, so the time of a slice is the step count times the step size.
-z = h5read(h5file, "z")
-@printf("  wrote %s (%d time slices)\n", h5file, size(z, 3))
-slice_time(slice) = TSPAN[1] + (slice - 1) * TSTEP
-
-# the figure shows the same cloud at four evenly spaced times, so that the filamentation the
-# scheme is meant to resolve is visible rather than asserted. The two signs of `v` are drawn in
-# two colours, split once by each particle's sign at the first slice: the filamentation of either
-# half is easier to read than the sum, and a particle that crosses `v = 0` keeps its colour
-slices = unique(round.(Int, range(1, size(z, 3); length = 4)))
-colours = ifelse.(z[2, :, 1] .>= 0, :steelblue, :firebrick)
-vmax = ceil(maximum(abs, z[2, :, 1]))
-
-fig = Figure(size = (1500, 400))
-for (panel, slice) in enumerate(slices)
-    ax = Axis(fig[1, panel], xlabel = "x", ylabel = panel == 1 ? "v" : "",
-        title = @sprintf("t = %.1f", slice_time(slice)), limits = (DOMAIN, (-vmax, vmax)))
-    # the positions wrapped into the periodic domain
-    x = DOMAIN[1] .+ mod.(z[1, :, slice] .- DOMAIN[1], DOMAIN[2] - DOMAIN[1])
-    scatter!(ax, x, z[2, :, slice], color = colours, markersize = 2)
+"The options of the driver from the command line `args`, defaulting to the values above."
+function driver_options(args)
+    return parse_arguments(args; npart = 10000, ncells = 16, order = 3, tstep = 0.1,
+        final_time = 20.0)
 end
 
-figure = results_path("vlasov_poisson.png")
-save(figure, fig)
-@printf("  wrote %s\n", figure)
+const DOMAIN = (0.0, 1.0)
+
+function main(o)
+    tspan = (0.0, o.final_time)
+
+    # create and initialize particle distribution function
+    dist = initialize!(ParticleDistribution(1, 1, o.npart), NormalDistribution())
+
+    # create electrostatic potential
+    potential = Potential(PeriodicBasisSpline(DOMAIN, o.order, o.ncells))
+
+    # create Vlasov-Poisson model
+    model = VlasovPoisson(dist, potential)
+
+    # create integrator
+    integrator = SplittingMethod(model, tspan, o.tstep)
+
+    # integrate, writing the trajectory to the runs directory
+    h5file = runs_path("vlasov_poisson.hdf5")
+    run!(integrator, h5file)
+
+    @printf("vlasov_poisson: %d particles, %d cells, order %d, dt = %g, t ∈ %s\n",
+        o.npart, o.ncells, o.order, o.tstep, tspan)
+
+    # `z` is `(nd, npart, ntime)`; the two rows are `x` and `v`. `run!(::SplittingMethod, h5file)`
+    # writes the trajectory alone, so the time of a slice is the step count times the step size.
+    z = h5read(h5file, "z")
+    @printf("  wrote %s (%d time slices)\n", h5file, size(z, 3))
+    slice_time(slice) = tspan[1] + (slice - 1) * o.tstep
+
+    # the figure shows the same cloud at four evenly spaced times, so that the filamentation the
+    # scheme is meant to resolve is visible rather than asserted
+    slices = unique(round.(Int, range(1, size(z, 3); length = 4)))
+    fig = plot_phase_space(z, slices; xdomain = DOMAIN,
+        titles = [@sprintf("t = %.1f", slice_time(slice)) for slice in slices])
+
+    figure = results_path("vlasov_poisson.png")
+    save(figure, fig)
+    @printf("  wrote %s\n", figure)
+    return nothing
+end
+
+# `scripts/gate.jl` includes this file to read `driver_options`, so `main` runs only where the file
+# is the program
+abspath(PROGRAM_FILE) == @__FILE__() && main(driver_options(ARGS))

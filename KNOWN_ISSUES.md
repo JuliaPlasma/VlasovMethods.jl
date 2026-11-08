@@ -740,3 +740,28 @@ has left the file, or that lived only on a merged branch, stays taken.
   and `3.4e-16`.
 - **kind:** defect
 - **found:** 2026-11-07
+
+### K98 · `scripts/vlasov_poisson.jl` draws its particles from the global random generator with no seed, so two runs with the same options write different trajectories and figures.
+
+- **location:** `scripts/vlasov_poisson.jl:30`
+- **evidence:** `main` draws `initialize!(ParticleDistribution(1, 1, o.npart),
+  NormalDistribution())` and no option or line sets a seed. Two runs of
+  `julia --project=scripts scripts/vlasov_poisson.jl --npart 1000 --final-time 2.0`, one at
+  `fea6c16` and one with `plot_phase_space`, write `vlasov_poisson.png` files of different MD5
+  sums; `plot_phase_space` of the first run's `vlasov_poisson.hdf5` saves that run's PNG byte for
+  byte (`fad6c14276deff75c6987e340ed0d8a5`), so the two differ by the draw alone. A figure of the
+  driver cannot be regenerated from its command.
+- **kind:** defect
+- **found:** 2026-11-08
+
+### K99 · `scripts/lenard_bernstein.jl` builds its figure itself, with a `Figure`, three `Axis` panels and their plot calls, where every other driver that draws a figure calls a plotting function of `VlasovMethodsMakieExt`.
+
+- **location:** `scripts/lenard_bernstein.jl:66-80`
+- **evidence:** `grep -n 'Figure(\|Axis(\|lines!(\|scatter!(\|heatmap!(' scripts/*.jl` finds
+  `scripts/lenard_bernstein.jl` alone, at lines 66, 68, 69, 74, 78 and 79: the right-hand side at
+  `t = 0` as a scatter, then in two panels the particle histogram (`hist!`, line 76), the spline
+  projection and its derivative, with a legend (`axislegend`, line 80). Every plotting routine is
+  to be a method of the extension, declared and documented in `src/plotting.jl`, and the driver is
+  not one of those whose figures moved there.
+- **kind:** defect
+- **found:** 2026-11-08

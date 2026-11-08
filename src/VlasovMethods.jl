@@ -104,7 +104,8 @@ export check_conservation_basis, project_function, project_Maxwellian
 
 include("plotting.jl")
 
-export plot_distribution, plot_particles, plot_series
+export plot_distribution, plot_particles, plot_series, plot_groups, plot_damping,
+       plot_phase_space
 export plot_collision_distribution, plot_drift, plot_entropy, plot_error, plot_convergence,
        plot_cost
 
