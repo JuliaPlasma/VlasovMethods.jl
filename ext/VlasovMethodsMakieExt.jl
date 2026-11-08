@@ -425,11 +425,11 @@ function VlasovMethods.plot_damping(runs, reference; title = "",
     fig = Figure(size = (1200, 500))
     ax = Axis(fig[1, 1]; xlabel = "t", ylabel = "log|E₁|", title = title)
     for (run, colour) in zip(runs, colors)
-        lines!(ax, run.t, run.y; color = colour, label = run.label)
+        lines!(ax, run.t, run.y; color = colour, label = string(run.label))
         scatter!(ax, run.peak_t, run.peak_y; color = colour, markersize = 8)
     end
     lines!(ax, reference.t, reference.y; color = :black, linestyle = :dash,
-        label = reference.label)
+        label = string(reference.label))
     axislegend(ax; position = :lb)
     return fig
 end

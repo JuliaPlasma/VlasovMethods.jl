@@ -126,13 +126,13 @@ fig = plot_groups(t, ["HFM" => eachcol(W_hfm), "ROM" => eachcol(W_rom)]; ylabel 
     yscale = log10)
 ```
 
-`groups` is a collection of `name => series` pairs, such as a vector or a `Dict`, whose
-iteration order numbers the groups, and `series` any collection of vectors of `length(t)`
-values, such as the field energy of every sample of a sweep for one
-model. Group `i` draws each of its lines in `colors[i]` at the opacity `0.5`, so that the lines
-of one group read as a band, and `string(name)` is the label of a legend entry of that colour
-in the axis' top right corner. `xlabel` and `ylabel` label the axes, and `yscale` is the scale
-of the `y` axis, as for [`plot_series`](@ref).
+`groups` is a collection of `name => series` pairs, such as a vector or a `Dict`, whose iteration
+order numbers the groups, and `series` any collection of vectors of `length(t)` values, such as the
+field energy of every sample of a sweep for one model. Group `i` draws each of its lines in
+`colors[i]` at the opacity `0.5`, so that the lines of one group read as a band, and
+`string(name)` is the label of a legend entry of that colour in the axis' top right corner.
+`xlabel` and `ylabel` label the axes, and `yscale` is the scale of the `y` axis, as for
+[`plot_series`](@ref).
 
 # Throws
 
@@ -161,10 +161,11 @@ fig = plot_damping([run], (t = [8.0, 40.0], y = y₀ .- 0.1533 .* ([8.0, 40.0] .
 ```
 
 Each element of `runs` has the fields `t` and `y`, the series drawn as a line, `peak_t` and
-`peak_y`, its peaks drawn as markers of size 8, and `label`, the legend entry of its line. Run
-`i` is drawn in `colors[i]`. `reference` has the fields `t`, `y` and `label`, a line drawn black
-and dashed, such as the textbook rate laid through a peak, so that its slope compares with the
-peaks of each run. The legend is in the axis' bottom left corner. `title` is the axis' title.
+`peak_y`, its peaks drawn as markers of size 8, and `label`, whose `string` is the legend entry of
+its line. Run `i` is drawn in `colors[i]`. `reference` has the fields `t`, `y` and `label`, a line
+drawn black and dashed, such as the textbook rate laid through a peak, so that its slope compares
+with the peaks of each run. The legend is in the axis' bottom left corner. `title` is the axis'
+title.
 
 # Throws
 

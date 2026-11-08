@@ -559,6 +559,13 @@ end
     save(file, fig)
     @test filesize(file) > 0
 
+    # a label that is not a string names its line as a string
+    by_symbol = plot_damping([(run1..., label = :run1)], (reference..., label = :textbook))
+    @test [e.label[] for e in only(by_symbol.content[2].entrygroups[])[2]] ==
+          ["run1", "textbook"]
+    save(file, by_symbol)
+    @test filesize(file) > 0
+
     # the title defaults to none, a run with no peak draws an empty scatter, and `colors`
     # replaces the two defaults
     bare = plot_damping([(run1..., peak_t = T[], peak_y = T[])], reference;
