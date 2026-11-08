@@ -7,13 +7,9 @@ using StaticArrays: SVector
 using Test
 using VlasovMethods
 
+include("../helpers/allocation_barriers.jl")
 include("../helpers/pairwise_landau.jl")
 
-# The bytes of one call after a warm call, through a barrier whose arguments have concrete types.
-function bytes4(f::F, a::A, b::B, c::C, d::D) where {F, A, B, C, D}
-    f(a, b, c, d)
-    return @allocated f(a, b, c, d)
-end
 copy_first(a, b, c, d) = copy(a)
 
 @testset "the model holds a Landau" begin
@@ -285,9 +281,9 @@ end
     for (model, v) in ((m32, v32), (m64, Float64.(v32)))
         x = ones(eltype(v), size(v))
         y = similar(v)
-        @test bytes4(VM.apply_G!, y, v, x, model) == 0
-        @test bytes4(VM.collisional_vectorfield!, y, v, nothing, model) == 0
-        @test bytes4(copy_first, y, v, x, model) > 0
+        @test _alloc4(VM.apply_G!, y, v, x, model) == 0
+        @test _alloc4(VM.collisional_vectorfield!, y, v, nothing, model) == 0
+        @test _alloc4(copy_first, y, v, x, model) > 0
         @inferred VM.apply_G!(y, v, x, model)
         @inferred VM.collisional_vectorfield!(y, v, nothing, model)
     end

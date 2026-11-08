@@ -9,6 +9,8 @@ using VlasovMethods
 
 const VM = VlasovMethods
 
+include("../helpers/allocation_barriers.jl")
+
 # `n1²` particles of uniform weight at the cell centres of an `n1 × n1` grid on the velocity
 # domain `[-2, 2]²`, so that the L² projection stays positive (KNOWN_ISSUES.md, K8), and a cubic
 # clamped basis of 8 × 8 cells: M = 121 basis functions, Q = 1600 quadrature points.
@@ -24,25 +26,6 @@ function landau_setup(::Type{T}, n1; γ = -3) where {T}
     B = TensorProductBasis((axis, axis))
     sdist = SplineDistribution(1, 2, B, TensorProductQuadrature(B), zeros(T, size(B)...))
     return Landau(pdist, CollisionEntropy(sdist); γ), pdist
-end
-
-# The bytes of one call after a warm call, through barriers of fixed arity whose arguments have
-# concrete types.
-function bytes3(f::F, a::A, b::B, c::C) where {F, A, B, C}
-    f(a, b, c)
-    return @allocated f(a, b, c)
-end
-function bytes4(f::F, a::A, b::B, c::C, d::D) where {F, A, B, C, D}
-    f(a, b, c, d)
-    return @allocated f(a, b, c, d)
-end
-function bytes5(f::F, a::A, b::B, c::C, d::D, e::E) where {F, A, B, C, D, E}
-    f(a, b, c, d, e)
-    return @allocated f(a, b, c, d, e)
-end
-function bytes6(f::F, a::A, b::B, c::C, d::D, e::E, g::G) where {F, A, B, C, D, E, G}
-    f(a, b, c, d, e, g)
-    return @allocated f(a, b, c, d, e, g)
 end
 
 # The controls: calls of each arity that allocate.
@@ -62,10 +45,10 @@ solve(K, LJ, _, _) = K \ LJ
     v = copy(pdist.particles.v)
     v̇ = similar(v)
 
-    vf = bytes4(VM.collisional_vectorfield!, v̇, v, nothing, landau)
+    vf = _alloc4(VM.collisional_vectorfield!, v̇, v, nothing, landau)
     # the two solves on the matrices that the evaluation leaves in the cache
-    ceiling = bytes4(solve, cache.K1, cache.LJ, nothing, nothing) +
-              bytes4(solve, cache.K2, cache.LJ, nothing, nothing)
+    ceiling = _alloc4(solve, cache.K1, cache.LJ, nothing, nothing) +
+              _alloc4(solve, cache.K2, cache.LJ, nothing, nothing)
 
     @test @inferred(VM.collisional_vectorfield!(v̇, v, nothing, landau)) === nothing
     @test @inferred(VM.compute_L!(cache.L, sdist, landau)) === cache.L
@@ -83,19 +66,19 @@ solve(K, LJ, _, _) = K \ LJ
     # coverage instrumentation allocates on every counted line, so under it the assertions
     # do not run rather than being weakened
     if Base.JLOptions().code_coverage == 0
-        @test bytes3(VM.compute_L!, cache.L, sdist, landau) == 0
-        @test bytes3(VM.compute_J!, cache.J, sdist, landau) == 0
-        @test bytes5(VM.compute_K!, cache.K1, cache.K2, v, sdist, landau) == 0
-        @test bytes6(
+        @test _alloc_efield(VM.compute_L!, cache.L, sdist, landau) == 0
+        @test _alloc_efield(VM.compute_J!, cache.J, sdist, landau) == 0
+        @test _alloc5(VM.compute_K!, cache.K1, cache.K2, v, sdist, landau) == 0
+        @test _alloc6(
             VM._projection!, cache.rhs, cache.vals, cache.mwork, v, pdist, sdist) ==
               0
         @test 0 < vf ≤ ceiling
     end
     # the controls: each barrier sees an allocation
-    @test bytes3(projection, v, pdist, sdist) > 0
+    @test _alloc_efield(projection, v, pdist, sdist) > 0
     @test ceiling > 0
-    @test bytes5(copy_first, v, v, v, v, v) > 0
-    @test bytes6(copy_first, v, v, v, v, v, v) > 0
+    @test _alloc5(copy_first, v, v, v, v, v) > 0
+    @test _alloc6(copy_first, v, v, v, v, v, v) > 0
 end
 
 @testset "the in-place 2D projection is the allocating one" begin

@@ -5,6 +5,8 @@ using VlasovMethods
 
 const VM = VlasovMethods
 
+include("../helpers/allocation_barriers.jl")
+
 # No other test calls `Picard_iterate_Landau_nls!`. It is called on both sides of its
 # `ti ≥ 4` branch, so an undefined global in either branch throws here.
 function landau_solver_setup(::Type{T} = Float64) where {T}
@@ -308,23 +310,15 @@ end
     @test rhs_prev == rhs_prev2
 end
 
-# The bytes of one call after a warm call, through barriers of fixed arity whose arguments have
-# concrete types: a step of the solver, the guess of its first three steps, and a least-squares
-# solve of the vector field.
+# The bytes of one step of the solver after a warm step, and its number of vector-field
+# evaluations, through a barrier whose arguments have concrete types. The guess of its first
+# three steps and a least-squares solve of the vector field go through `_alloc6` and `_alloc4`.
 function step_bytes(f::F, l::L, Δt::DT, ti::Int, t::TT, a::A, b::B, r::R,
         abstol::Float64) where {F, L, DT, TT, A, B, R}
     f(l, Δt, ti, t, a, b, r; abstol)
     local sol
     bytes = @allocated sol = f(l, Δt, ti, t, a, b, r; abstol)
     return bytes, sol.iterations
-end
-function bytes6(f::F, a::A, b::B, c::C, d::D, e::E, g::G) where {F, A, B, C, D, E, G}
-    f(a, b, c, d, e, g)
-    return @allocated f(a, b, c, d, e, g)
-end
-function bytes4(f::F, a::A, b::B, c::C, d::D) where {F, A, B, C, D}
-    f(a, b, c, d)
-    return @allocated f(a, b, c, d)
 end
 solve(K, LJ, _, _) = K \ LJ
 copy_first(a, b, c, d, e, g) = copy(a)
@@ -341,12 +335,12 @@ copy_first(a, b, c, d, e, g) = copy(a)
     picard, iterations = step_bytes(
         VM.Picard_iterate_Landau_nls!, landau, Δt, 4, t, v_prev,
         copy(v_prev), rhs_prev, abstol)
-    guess = bytes6(
+    guess = _alloc6(
         VM._landau_startup_guess!, similar(v_prev), v_prev, t, Δt, params, landau)
     # the ceiling of one vector-field evaluation: its two solves, on the matrices that the
     # last evaluation leaves in the cache
-    vf = bytes4(solve, cache.K1, cache.LJ, nothing, nothing) +
-         bytes4(solve, cache.K2, cache.LJ, nothing, nothing)
+    vf = _alloc4(solve, cache.K1, cache.LJ, nothing, nothing) +
+         _alloc4(solve, cache.K2, cache.LJ, nothing, nothing)
 
     # coverage instrumentation allocates on every counted line, so under it the assertions do
     # not run rather than being weakened
@@ -356,6 +350,6 @@ copy_first(a, b, c, d, e, g) = copy(a)
     end
     # the controls: each barrier sees an allocation
     @test vf > 0
-    @test bytes6(copy_first, v_prev, v_prev, t, Δt, params, landau) > 0
+    @test _alloc6(copy_first, v_prev, v_prev, t, Δt, params, landau) > 0
     @test picard > 0
 end

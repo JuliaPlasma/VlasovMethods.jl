@@ -6,8 +6,8 @@
 #
 # Every HDF5 file a driver writes carries the attributes `commit`, the `git rev-parse HEAD` of
 # the checkout that holds this file or `"unknown"` outside a git checkout, and `command`, the
-# driver's own arguments joined by spaces, plus `script` and one attribute per option, so that the
-# file names the command that regenerates it.
+# driver's own arguments as `Base.shell_escape` quotes them for the shell, plus `script` and one
+# attribute per option, so that the file names the command that regenerates it.
 
 const STARTED = time()
 
@@ -27,7 +27,7 @@ const VELOCITY_DOMAIN = (-10.0, 10.0)
 # The order of the B-splines, 4 for the cubic splines of every figure.
 const ORDER = 4
 
-const COMMAND = join(ARGS, " ")
+const COMMAND = Base.shell_escape(ARGS...)
 const SCRIPT = basename(PROGRAM_FILE)
 
 function git_commit()
@@ -101,8 +101,8 @@ the times and the velocities of the steps reached and the time `k * tstep` of th
 threw, and the error is rethrown. The first step includes the extrapolation that starts the
 solve, so a stop there gives `t = [0]`. Any other error passes through.
 
-The steps are taken here and not by `run!`, because `run!` indexes the times of
-`t₀:Δt:t_end` by the step count of the equation, which can be one longer (K93).
+The steps are taken here and not by `run!`, because `run!` takes the steps of the range
+`t₀:Δt:t_end`, which can hold one step fewer: 62 at `0.05` and `8e-4`, where `nsteps` gives 63.
 """
 function integrate!(stopped, method::GeometricIntegrator, final_time, tstep)
     problem = method.equation
