@@ -112,10 +112,8 @@ function compute_coefficients_rclb(
     return A1, A2
 end
 
-# `compute_coefficients_rclb`, not `compute_coefficients`. Both call sites here used the
-# *conservative* coefficients, which belong to a different parametrisation: A₁ᶜᵒⁿˢ = -u/σ²
-# was being used as the multiplier of f'/f and A₂ᶜᵒⁿˢ = 1/σ² as the constant drift, giving a
-# vector field with no conservation property at all.
+# The coefficients are those of the rescaled parametrisation, `compute_coefficients_rclb`: the
+# conservative ones of `compute_coefficients` belong to `CLB_rhs_GI!`.
 function RCLB_rhs_GI!(v, t, q::AbstractArray{ST}, params) where {ST}
     (; sdist, rhs, values) = params.model.cache[ST]
 
@@ -143,27 +141,30 @@ function RCLB_rhs(v::AbstractVector{ST}, params, fs::Spline) where {ST}
 end
 
 # The velocity space is 1D, in any spatial dimension: a scalar velocity and one weight per particle.
+@doc raw"""
+    GeometricIntegrator(model::RescaledConservativeLenardBernstein{<:Any, 1}, tspan, tstep,
+                        method = Integrators.ImplicitMidpoint())
+
+The `GeometricIntegrator` that steps the particle velocities of the rescaled conservative
+Lenard–Bernstein model `model` over `tspan` with step `tstep`, in the state
+`copy(model.dist.particles.v[1, :])`.
+
+`method` is any `GeometricIntegrators` method for an `ODEProblem`, given in the same position as
+in the constructor of `LenardBernstein`.
+"""
 function GeometricIntegrator(
-        model::RescaledConservativeLenardBernstein{<:Any, 1}, tspan::Tuple, tstep::Real)
+        model::RescaledConservativeLenardBernstein{<:Any, 1}, tspan::Tuple, tstep::Real,
+        method = Integrators.ImplicitMidpoint())
     # collect parameters
-    # params = (ϕ = model.potential, model = model)
     params = (ν = model.ν, idist = model.dist, fdist = model.ent.dist, model = model)
     # create geometric problem
     equ = GeometricEquations.ODEProblem(
-        # `RCLB_rhs_GI!`, not `CLB_rhs_GI!`. This constructor wired the *conservative*
-        # right-hand side, so every run built as a RescaledConservativeLenardBernstein
-        # actually integrated the unrescaled operator and `RCLB_rhs_GI!` was dead code.
         RCLB_rhs_GI!,
         tspan, tstep, copy(model.dist.particles.v[1, :]);
         parameters = params)
 
     # create integrator
-    int = Integrators.GeometricIntegrator(equ, Integrators.ImplicitMidpoint())
-    # int = Integrators.Integrator(equ, Integrators.ImplicitMidpoint())
-    # int = Integrators.Integrator(equ, Integrators.RK438())
-    # int = Integrators.Integrator(equ, Integrators.CrankNicolson())
+    int = Integrators.GeometricIntegrator(equ, method)
 
-    # put together splitting method
     GeometricIntegrator(model, equ, int)
-    # return int
 end

@@ -139,7 +139,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **evidence:** `LB_rhs!(v̇, v, params, t)` keeps the argument order of an ODE solver that the
   package does not use, and nothing in `src/` calls it: `LB_rhs_GI!` (`:75`) computes the same
   right-hand side on the buffers of the model's cache. `LB_rhs` (`:88`) and `CLB_rhs`
-  (`src/models/lenard_bernstein_conservative.jl:201`) repeat the formulas of their `_GI!`
+  (`src/models/lenard_bernstein_conservative.jl:212`) repeat the formulas of their `_GI!`
   functions, and neither has a caller: in `src/`, `grep -rn -E '\bC?LB_rhs\b' src` finds the two
   definitions, the `LB_rhs!` definition and the comment of `LB_rhs_GI!` that names it. Outside
   `src/`, `test/integration/names.jl` lists the two names, and the tests and the reference
@@ -274,15 +274,14 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** dead code
 - **found:** 2026-10-04
 
-### K47 · Twelve lines of commented-out code remain in three collision model files.
+### K47 · Two lines of commented-out code remain in the `LenardBernstein` model file.
 
 - **location:** `src/models/lenard_bernstein.jl:107`
-- **evidence:** The lines are `src/models/lenard_bernstein.jl:107` and `:117`;
-  `src/models/lenard_bernstein_conservative.jl:226`, `:236-238` and `:242`;
-  `src/models/rescaled_lenard_bernstein_conservative.jl:149`, `:162-164` and `:168`. Each is an
-  old assignment, call or `return` behind `#`, such as `# int = Integrators.Integrator(equ,
-  Integrators.RK438())`. #69 deleted the other dead code of these files and left these lines,
-  because they are outside its hunks. The fix is to delete the twelve lines.
+- **evidence:** The lines are `src/models/lenard_bernstein.jl:107` and `:117`. Each is an old
+  assignment behind `#`, such as `# int = Integrators.GeometricIntegrator(equ,
+  Integrators.CrankNicolson())`. #69 and #129 deleted the other dead code of the collision model
+  files and left these lines, because they are outside their hunks. The fix is to delete the two
+  lines.
 - **kind:** dead code
 - **found:** #69
 
@@ -469,7 +468,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K69 · The legend of `plot_series` overflows its axis for many labelled series.
 
-- **location:** `ext/VlasovMethodsMakieExt.jl:146`, `plot_series`
+- **location:** `ext/VlasovMethodsMakieExt.jl:159`, `plot_series`
 - **evidence:** at the default figure size of `600 × 450`, the legend of 20 labelled series is
   481 px high in an axis of 375 px, on `05431f10`; 10 series give 251 px.
   `scripts/bump_on_tail_testing.jl` draws its 30-series figures of items 26 and 27 without
@@ -518,7 +517,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K78 · No test or run sees a wrong count of a non-zero `first_exceedance` of the analytic script.
 
-- **location:** `scripts/analytic_quadratic.jl:114`
+- **location:** `scripts/analytic_quadratic.jl:117`
 - **evidence:** `drift_report` counts the saves from the one after `t = 0`,
   `abs.(energy_drift(H)[2:end])`. With `[1:end]` the drift at `t = 0` is `0`, so `max_drift` stays
   the same and only a non-zero `first_exceedance` moves up by one. No save of any run exceeds the
@@ -699,12 +698,44 @@ has left the file, or that lived only on a merged branch, stays taken.
   `h = 8e-4` and stops at `t = 0.0036` with `--tstep 4e-4`, and with `--bracket jeyakumar` and 200
   particles it stops at `t = 0.016`. The damped fixed-point solve of the driver's rate check,
   which freezes the bracket's moments, stalls on 1 of its 1250 steps under the Dougherty form and
-  on 2 under the Jeyakumar form at the shifted normal's parameters; a probe of each stalled step
-  finds its largest residual at a particle in the lower tail, `v = −1.19`, `−1.56` and `−1.18`
-  against the mean `1.98` and the standard deviation `1.07` to `1.20`, with 10, 2 and 10
-  particles within `±0.5`. Where a particle in a sparse tail sits where `f_s` is small, the score
-  of `log|f_s|` changes fast across it, and the fixed-point map of the implicit midpoint step is
-  not a contraction.
+  on 2 under the Jeyakumar form at the shifted normal's parameters, with the largest residuals
+  `3.12e-3` and `2.07e-4`. `julia --startup-file=no --project=scripts
+  scripts/lenard_bernstein_metriplectic_rate_stalls.jl` probes each stalled step, step 350
+  (Dougherty) and steps 209 and 689 (Jeyakumar), and finds its largest residual at a particle in
+  the lower tail, `v = −1.19`, `−1.56` and `−1.18` against the mean `1.98` and the standard
+  deviation `1.19`, `1.07` and `1.19` of the last iterate, with 10, 2 and 10 particles within
+  `±0.5`. Where a particle in a sparse tail sits where `f_s` is small, the score of `log|f_s|`
+  changes fast across it, and the fixed-point map of the implicit midpoint step is not a
+  contraction.
+- **kind:** defect
+- **found:** 2026-11-07
+
+### K96 · `collisional_vectorfield!` of `Landau` returns `v̇_c = ν (K_c \ LJ)`, a pivoted-QR solve for each velocity component `c` alone, with the opposite sign of the appendix's `v̇ = −K⁺LJ` for the stacked matrix `K`, and at `γ = −3` its runs drift the energy by `1.7e-8` to `2.1e-7`, where the runs of `PairwiseLandau` keep it below `2e-15`.
+
+- **location:** `src/models/landau.jl:589-593`
+- **evidence:** `eq:particle_ode_final` and `eq:particle_ode_midpoint` of the manuscript's
+  appendix give `v̇ = −K⁺ L J`; the code solves `v̇[c, :] = K_c \ LJ` for each component `c` with
+  `qr!(…, ColumnNorm())` and scales by `ν`, with no minus sign. On the weighted lattice of
+  `N = 60²` particles on `[−3.4, 3.4]²` with `16 × 16` quadratic cells on `[−3.5, 3.5]²`
+  (`M = 324`), at `γ = 0`, `julia --project=scripts scripts/landau_compare.jl` measures the
+  instantaneous `(d gap/dt) / gap` of `gap = T₁₁ − T₂₂` at `+8.0055` for `Landau` and at `−8.0095`
+  for `PairwiseLandau`, against the closed form `−8` of `scripts/reference_forms.jl`: under
+  `Landau` the anisotropy grows at the rate at which it should decay. On the same particles, after
+  one evaluation, `rank(K₁) = 302` and `rank(K₂) = 306` of `M = 324`, while the stacked `[K₁ K₂]`
+  has the rank `323 = M − 1` that `dN ≥ M − 1` gives; each `K_c K_c⁺` projects onto the range of
+  `K_c` alone, so `‖K₁ v̇₁ + K₂ v̇₂ − LJ‖ / ‖LJ‖ = 0.73` where `K K⁺ = I` of the appendix would make
+  it zero. The pivoted-QR solve of the rank-deficient `K_c` is not `pinv(K_c) LJ`, as the comment
+  at `:575-577` says it is: `‖K₁ \ LJ − pinv(K₁) LJ‖ / ‖K₁ \ LJ‖ = 0.588`, and `0.431` against
+  `‖pinv(K₁) LJ‖`; for `K₂` the two are `3.03` and `0.889`. The sign is the code's either way: each
+  `K_c \ LJ` lies nearer `+pinv(K_c) LJ` than `−pinv(K_c) LJ`. `scripts/landau_cases.jl` therefore
+  refuses `--rate-check` with `--method spline`.
+
+  The energy `Σ w |v|² / 2` drifts under `Landau` at `γ = −3`: the runs
+  `julia --project=scripts scripts/landau_cases.jl --method spline --case <case>`, 1000 particles,
+  100 steps of `1e-8` on 8 cells per axis, each solved to the absolute residual `1e-10`, end at
+  the relative energy drift `2.1e-7` for `bimaxwellian`, `5.1e-8` for `double-maxwellian` and
+  `1.7e-8` for `bkw`, where the same runs with `--method pairwise` end at `1.5e-15`, `1.1e-16`
+  and `3.4e-16`.
 - **kind:** defect
 - **found:** 2026-11-07
 
@@ -723,6 +754,63 @@ has left the file, or that lived only on a merged branch, stays taken.
   in both, and the deletion of the two comments.
 - **kind:** defect
 - **found:** #125
+
+### K98 · `scripts/vlasov_poisson.jl` draws the positions of its particles from the global random generator with no seed, so two runs with the same options write different trajectories and figures.
+
+- **location:** `scripts/vlasov_poisson.jl:30`
+- **evidence:** `main` draws `initialize!(ParticleDistribution(1, 1, o.npart),
+  NormalDistribution())`, which draws the positions with `randn` before its own
+  `Random.seed!(1234)` seeds the velocities (`src/examples/normal.jl:15-19`), and no option or
+  line of the driver sets a seed. Two runs of
+  `julia --project=scripts scripts/vlasov_poisson.jl --npart 1000 --final-time 2.0`, one at
+  `fea6c16` and one with `plot_phase_space`, write `vlasov_poisson.png` files of different MD5
+  sums; `plot_phase_space` of the first run's `vlasov_poisson.hdf5` saves that run's PNG byte for
+  byte (`fad6c14276deff75c6987e340ed0d8a5`), so the two differ by the draw alone. A figure of the
+  driver cannot be regenerated from its command.
+- **kind:** defect
+- **found:** 2026-11-08
+
+### K99 · `scripts/lenard_bernstein.jl` builds its figure itself, with a `Figure`, three `Axis` panels and their plot calls, where no other driver names a Makie figure, axis or plot call.
+
+- **location:** `scripts/lenard_bernstein.jl:66-80`
+- **evidence:** `grep -n 'Figure(\|Axis(\|lines!(\|scatter!(\|heatmap!(' scripts/*.jl` finds
+  `scripts/lenard_bernstein.jl` alone, at lines 66, 68, 69, 74, 78 and 79: the right-hand side at
+  `t = 0` as a scatter, then in two panels the particle histogram (`hist!`, line 76), the spline
+  projection and its derivative, with a legend (`axislegend`, line 80). Every plotting routine is
+  to be a method of the extension, declared and documented in `src/plotting.jl`, and the driver is
+  not one of those whose figures moved there.
+- **kind:** defect
+- **found:** 2026-11-08
+
+### K100 · Inference does not give a concrete type for `GeometricIntegrator(model, tspan, tstep[, method])` of `LenardBernstein`, `ConservativeLenardBernstein` and `RescaledConservativeLenardBernstein`, because the `ODEProblem` constructor of GeometricEquations and the Newton solver of SimpleSolvers infer free type parameters.
+
+- **location:** `src/models/lenard_bernstein_conservative.jl:240`
+- **evidence:** For each of the three models, `Base.return_types` of the constructor is a
+  `UnionAll` over `ET <: EquationProblem` and `IT <: GeometricIntegrator`, or a `Union`, with or
+  without the method argument and on `main` as on the branch; the object that the call returns
+  has a concrete type. The constructors (`src/models/lenard_bernstein.jl:104`,
+  `src/models/lenard_bernstein_conservative.jl:234`,
+  `src/models/rescaled_lenard_bernstein_conservative.jl:155`) only call `ODEProblem` and
+  `Integrators.GeometricIntegrator`, and both calls infer free parameters on a toy problem, with
+  GeometricEquations 0.21.6, GeometricIntegrators 0.18.7 and SimpleSolvers 0.14.3:
+  ```julia
+  using GeometricEquations: ODEProblem
+  using GeometricIntegrators: ImplicitMidpoint, Integrators
+  f!(v, t, q, p) = (v .= -q; v)
+  build(q) = ODEProblem(f!, (0.0, 1.0), 0.1, q; parameters = (ν = 1.0,))
+  equ = build(rand(5))
+  pt = only(Base.return_types(build, (Vector{Float64},)))
+  it = only(Base.return_types(Integrators.GeometricIntegrator, (typeof(equ), ImplicitMidpoint)))
+  println(isconcretetype(typeof(equ)), " ", pt.var, " ", it.var)
+  ```
+  prints `true _A<:GeometricEquations.GeometricEquation ST<:(SimpleSolvers.NewtonSolver{…, JT,
+  …, LiSeT, …} where {JT<:(SimpleSolvers.JacobianAutodiff{Float64, …,
+  ForwardDiff.JacobianConfig{Nothing, Float64, _A, …}, …} where {_A, …}), LiSeT<:…})`: the
+  problem's equation parameter is free with or without the keyword `parameters`, and the solver's
+  is free through the chunk size of `ForwardDiff.JacobianConfig(nothing, y, x)`
+  (`SimpleSolvers/src/base/jacobian.jl:153`), which depends on the length of `x` at run time.
+- **kind:** upstream
+- **found:** #129
 
 ### K101 · On Julia 1.14.0-alpha2, Pkg refuses the multi-range `[compat]` entries of `test/Project.toml` under `force_latest_compatible_version`, so the jobs "Julia pre" and "Julia nightly" fail on every Dependabot pull request.
 

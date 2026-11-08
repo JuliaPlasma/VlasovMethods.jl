@@ -112,6 +112,11 @@ their own, except for what they removed and narrowed, which is listed in full be
   gives the same run. `scripts/pd_lb_fig11.jl` passes `ImplicitMidpoint()` and `scripts/gate.jl`
   evaluates the right-hand side through the constructor's problem, in place of their copies of
   its parameters and of `LB_rhs_GI!`.
+- **`GeometricIntegrator` of `ConservativeLenardBernstein` and of
+  `RescaledConservativeLenardBernstein` takes the time integrator as its fourth argument**, as
+  that of `LenardBernstein` does, so a caller can choose a method other than the implicit
+  midpoint rule. The default is `ImplicitMidpoint()`, the former fixed method, so a call without
+  it gives the same run (K97).
 - **`LenardBernsteinBracket`, `DoughertyBracket` and `JeyakumarBracket`** select the metric
   bracket of `MetriplecticLenardBernstein` through its keyword `bracket`. `DoughertyBracket()`, the
   default, is the manuscript's form; `JeyakumarBracket()` is that form times `n/(ε − u²)`. Both
@@ -239,6 +244,30 @@ their own, except for what they removed and narrowed, which is listed in full be
   drift of a series of one value is the single value zero, which is refused; `plot_convergence`
   throws one with fewer than two positive finite pairs to fit or with one width only, and
   `plot_cost` one where no run has a place on both axes.
+- **`plot_groups`, `plot_damping` and `plot_phase_space`** draw the figures of the drivers
+  outside the collision manuscripts, each into a `Figure` that a script saves; like the other
+  plotting functions they are defined in the package extension, so `CairoMakie` must be loaded.
+  `plot_groups(t, ["HFM" => series, …])` draws every line of a group in the group's colour at half
+  opacity, with one legend entry per group. `plot_damping(runs, reference)` draws `log|E₁|` of each
+  run with its fitted peaks as markers and a dashed reference line, on a figure of 1200 × 500
+  pixels. `plot_phase_space(z, slices; xdomain, titles)` draws the particles of a `(2, npart,
+  ntime)` trajectory at each slice in a row of panels of 1500 × 400 pixels, each particle coloured
+  by the sign of its first velocity, with the `v` axis limited by the largest finite speed of all
+  the slices it draws, rounded up to an integer. A position is wrapped periodically onto `xdomain`,
+  and one that wraps exactly to `last(xdomain)` is drawn at `first(xdomain)`, as `plot_particles`
+  draws it, because the two ends of a periodic domain are one point. Each throws an `ArgumentError`
+  for an empty argument, and `plot_phase_space` also for a `z` of other than two rows, for a slice
+  outside it, and when no drawn slice holds a finite nonzero velocity, which leaves the `v` axis no
+  extent. `plot_groups` and `plot_damping` throw a `DimensionMismatch` for series of different
+  lengths and for fewer colours than they draw, and `plot_phase_space` one for a title count other
+  than its slice count. `plot_series` takes `yscale`, `identity` by default or `log10`, the scale
+  of its `y` axis. With `yscale = log10`, `plot_series` and `plot_groups` throw an `ArgumentError`
+  at the call for a negative value, which Makie would otherwise refuse only when the figure is
+  saved; a zero is accepted, and drawn as a `NaN`, where its line breaks, because Makie leaves a
+  line that holds a zero out of the axis limits. `plot_series`, `plot_groups` and `plot_damping`
+  label a legend entry with the `string` of its label or group name, as `plot_drift` does, so a
+  `Symbol` such as `:HFM` names its entry; Makie's legend fails on a `Symbol` label. `plot_groups`
+  takes its groups as a vector of pairs or as a `Dict`, whose iteration order sets the colours.
 
 ### Scripts
 
@@ -268,10 +297,6 @@ their own, except for what they removed and narrowed, which is listed in full be
   themselves, `final_time / tstep` rounded up after rounding the quotient to eight digits.
   `scripts/gate.jl` runs each driver with `--quick` and checks its files, its records and its edges,
   a forced stop of figures 7 and 8 among them. `docs/src/collisions.md` gives each command.
-  themselves, because `run!` throws a `BoundsError` on a time span that is not a whole number of
-  its steps (K93). `scripts/gate.jl` runs each driver with `--quick` and checks its files, its
-  records and its edges, a forced stop of figures 7 and 8 among them. `docs/src/collisions.md`
-  gives each command and its measured time.
 - **`scripts/lenard_bernstein_metriplectic.jl` runs the three tests of the metriplectic
   Lenard–Bernstein manuscript with either bracket.** `--case` takes `shifted-normal`, the default,
   `double-maxwellian` or `uniform`, each with the parameters of the PD-LB figures of the same
@@ -296,6 +321,11 @@ their own, except for what they removed and narrowed, which is listed in full be
   `docs/src/collisions.md` lists the stops in place of figures. `scripts/gate.jl` runs the six
   quick runs, the two unknown values, `--tolerance` on the uniform case, a stopped run and two
   runs whose rate check fails, one on its closed form and one on its control.
+  `scripts/lenard_bernstein_metriplectic_rate_stalls.jl` probes each step on which the rate
+  check's fixed-point solve stalls, and prints the step, its residual, the velocity of the particle
+  with the largest residual, and the sample's mean and standard deviation (K95). It then runs the
+  driver's own `relax_frozen` and exits non-zero where that run's stalled count or largest residual
+  differs from the probe's, so a probe that has drifted from the driver cannot pass unnoticed.
 - **`scripts/reference_forms.jl` derives the two closed forms of the 2D reference cases and checks
   them against the moment equations.** The header derives the rate of the second moments at the
   Maxwell molecules of `γ = 0` — `d(T₁₁ − T₂₂)/dt = −8 (T₁₁ − T₂₂)` at density one, unit mass and
@@ -312,6 +342,54 @@ their own, except for what they removed and narrowed, which is listed in full be
   has no gradient — and the conservation of energy an identity of the kernel, `U(u) u = 0`, so
   neither is among the checks: the file states both and checks only what can fail. A run without
   `--check` prints the same table and writes it, with the command line, into `--results-dir`.
+- **`scripts/landau_cases.jl` runs the three 2D reference cases of the Landau operator under
+  either method, and `scripts/landau_compare.jl` sets the two methods side by side.**
+  `landau_cases.jl` takes `--method pairwise` (`PairwiseLandau` with its discrete gradient step)
+  or `--method spline` (`Landau`, the appendix method, with its implicit midpoint step); the flag
+  has no default. `--case` takes `bimaxwellian`, the default, `double-maxwellian` or `bkw`, drawn
+  by `AnisotropicBiMaxwellian`, `DoubleMaxwellian2D` and `BKWDistribution`, and `--gamma` the
+  exponent of the kernel, `−3` by default. A method or a case that is none of these stops the
+  script with an `ArgumentError` that names the flag and the value, and a missing method with one
+  that names the flag, before any directory is created. Each run writes one HDF5 file with
+  `commit`, `command`, `script` and one attribute per option, and the figures `conservation` and
+  `entropy` through `plot_drift` and `plot_entropy`; a step that throws stops the run as a PD-LB
+  run stops. `--rate-check` checks the pairwise method at `γ = 0` on a weighted lattice of `60²`
+  particles with `16 × 16` quadratic cells: the instantaneous `λ = −(d gap/dt) / gap` of
+  `gap = T₁₁ − T₂₂` at `t = 0` against the closed rate `8` that `rate_checks` of
+  `reference_forms.jl` gives, within `2 %`, with the constant `4` as the control. It measures
+  `8.009493`, `1.2e-3` from `8`. The check refuses `γ ≠ 0`, where no closed rate exists, and
+  `--method spline`, whose vector field has the opposite sign of the appendix's: on the same
+  particles its `(d gap/dt) / gap` is `+8.0055`, where the pairwise method's is `−8.0095` (K96 of
+  `KNOWN_ISSUES.md`). `landau_compare.jl` measures both methods at `γ = 0` over lattices of `N`
+  particles and splines of `M` basis functions: the instantaneous `(d gap/dt) / gap` with its
+  sign, its relative error against the closed form `−8`, the wall-clock time of one evaluation of
+  the vector field, the appendix's rank condition `dN ≥ M − 1` on every row and whether every
+  support holds a particle, in a Markdown table and one figure per method through `plot_cost`.
+  `scripts/gate.jl` runs the quick runs of both scripts, the rate check, a stopped run and a rate
+  check that fails, and checks the refused rate checks, the unknown and missing values, the rank
+  column of every row and a search for ranking words over the output, the tables, the docs
+  section and this entry. `--quick` of `landau_cases.jl` takes 200 particles, 5 steps and 4 cells
+  per axis. The gate's time limit for every driver rises from 240 s to 900 s: whole gate runs
+  take 230 s to 340 s, and the limit catches a driver that hangs, not a run on a loaded machine.
+- **Seven drivers outside the collision manuscripts build no figure themselves.**
+  `scripts/analytic_quadratic.jl`, `bump_on_tail_testing.jl`, `bump_on_tail_train_hnn.jl`,
+  `landau_damping_1d1v.jl` and `vlasov_poisson.jl` draw each figure with a plotting function,
+  `plot_series`, `plot_groups`, `plot_damping`, `plot_phase_space`, `plot_particles` or
+  `spectrumplot` of `ReducedBasisMethods`, and save it under the name it had. Their short runs
+  write the same files as before, and the same PNG files byte for byte, except
+  `vlasov_poisson.png`: its driver draws the positions of its particles with no seed (K98 of
+  `KNOWN_ISSUES.md`), and `plot_phase_space` limits the `v` axis by the largest speed of every
+  drawn slice, where the driver took that of the first slice only, so a trajectory whose speed
+  grows past that of the first slice is now drawn whole. These five, `bump_on_tail_training.jl` and `bump_on_tail_projections.jl` read their options through
+  `driver_options` and run `main` only where they are the program, so `vlasov_poisson.jl` now runs
+  inside a `main`. `scripts/gate.jl` runs the seven, with small options where a driver takes them,
+  and checks that each writes exactly the files of the same run before the change, that none of
+  the seven files nor `bump_on_tail_common.jl` calls a Makie function that builds a figure, axis,
+  legend, colorbar, plot or axis limit, plain or qualified (`lines(`, `hist(`, `Colorbar`, `Axis3`,
+  `xlims!`, `CairoMakie.lines!`), found in the parsed source, so that a comment or a string that
+  names one does not count, and that each takes its default options without a flag; it also runs
+  `test/plotting.jl` with
+  `test/integration/makie_extension.jl`, and the docs build.
 
 ### Documentation
 
@@ -337,12 +415,11 @@ their own, except for what they removed and narrowed, which is listed in full be
   size threshold.
 - **The figures of the collision manuscripts have a page of their own**, `collisions.md`, with one
   section per driver of the Lenard–Bernstein manuscript: its command, its parameters, its files and
-  how its figures differ from the manuscript's. The six plotting functions of the collision
-  figures are documented on the Plotting page, `plotting.md`.
+  how its figures differ from the manuscript's.
 - **The plotting functions have a page of their own**, `plotting.md`, with the docstrings of
-  `plot_distribution`, `plot_particles` and `plot_series` and of the six collision figures. The
-  home page no longer renders them: with them, its HTML was 199.54 KiB of the 200 KiB that
-  Documenter allows.
+  `plot_distribution`, `plot_particles`, `plot_series`, `plot_groups`, `plot_damping` and
+  `plot_phase_space` and of the six collision figures. The home page no longer renders them: with
+  them, its HTML was 199.54 KiB of the 200 KiB that Documenter allows.
 
 ### Internal
 

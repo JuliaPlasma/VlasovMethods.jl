@@ -17,7 +17,7 @@ functions, which the page [Plotting](plotting.md) documents; it builds no figure
 
 The flag `--quick` replaces some of the manuscript's parameters with smaller ones.
 `scripts/gate.jl` runs every driver with it, in a process of its own and into a temporary
-directory, and checks that each exits 0 within 240 s, writes its figures and its HDF5 files, and
+directory, and checks that each exits 0 within 900 s, writes its figures and its HDF5 files, and
 records `commit`, `command` and the parameters of `--quick`:
 
 ```
@@ -258,3 +258,155 @@ rate check's solver, the fits differ from their closed forms by:
 
 The uniform case misses the 5 % tolerance at one bracket of each set, and the double Maxwellian
 meets it at both; the controls lie between `49 %` and `99 %` away in every row.
+
+## Particle methods for the Landau operator
+
+The Landau manuscript (MP-L) states no numerical parameters, so the two Landau scripts run the
+three 2D reference cases of the package, `AnisotropicBiMaxwellian`, `DoubleMaxwellian2D` and
+`BKWDistribution`, at parameters of their own. Both take the kernel `|u|^{γ+2} (I − û ⊗ û)` at
+`ν = 1`, with `γ = −3`, the Coulomb case, by default, and quadratic splines in two velocity
+dimensions, `M = (ncell + 2)²` basis functions on `ncell` cells per axis.
+
+### The three cases
+
+`scripts/landau_cases.jl` runs one case under one method. `--method` has no default: `pairwise`
+takes [`PairwiseLandau`](@ref) with [`discrete_gradient_step!`](@ref) and the step `h = 1e-5`,
+and `spline` takes `Landau`, the appendix method, with [`Picard_iterate_Landau_nls!`](@ref) and
+`h = 1e-8`; each step is solved to the absolute residual `1e-10`. `--case` takes
+
+- `bimaxwellian`, the default: case (a), `AnisotropicBiMaxwellian(0.5, 0.3)`;
+- `double-maxwellian`: case (b), `DoubleMaxwellian2D` of two halves of the variances
+  `(0.5, 0.5)` and the means `(1, 0)` and `(−1, 0)`;
+- `bkw`: case (c), `BKWDistribution(0.2)`, the BKW profile at `t₀ = 0.2`.
+
+Each draws 1000 particles of the weight `1/1000` from `--seed 20261107` and takes 100 steps on
+8 cells per axis of `[−L, L]²`, with `L` 1.5 times the largest velocity component of the sample.
+A method or a case that is not one of these stops the script with an `ArgumentError` that names
+the flag and the value, and a missing method with one that names the flag, before any directory
+is created.
+
+A run writes `landau_<case>_<method>_gamma<γ>.hdf5` with the times `t`, the velocities `v`, the
+mass, the momentum, the energy and the entropy `S_h`, and two figures with the same stem:
+`_conservation.pdf`, the relative drift of the mass and the energy, and `_entropy.pdf`, `S_h`
+against `t`. The momentum of a sample is near zero, so the script prints its largest absolute
+drift. A step that throws, the `DomainError` of the projection or the error of a solve that does
+not converge, stops the run as a single run of PD-LB stops: the HDF5 file carries `stopped_at`
+and the steps reached, no figure is written, and the script exits non-zero.
+
+```
+julia --project=scripts scripts/landau_cases.jl --method pairwise --case bimaxwellian
+julia --project=scripts scripts/landau_cases.jl --method pairwise --case double-maxwellian
+julia --project=scripts scripts/landau_cases.jl --method pairwise --case bkw
+julia --project=scripts scripts/landau_cases.jl --method spline --case bimaxwellian
+julia --project=scripts scripts/landau_cases.jl --method spline --case double-maxwellian
+julia --project=scripts scripts/landau_cases.jl --method spline --case bkw
+```
+
+Each of the six runs reaches `t = 100 h`, which is `t = 1e-3` for the pairwise method and
+`t = 1e-6` for the spline method, and exits 0. The column `measured` is the wall-clock time of one
+run:
+
+| case | method | relative energy drift | largest momentum drift | `S_h` from | to | measured |
+|:--|:--|--:|--:|--:|--:|--:|
+| bi-Maxwellian | pairwise | `1.5e-15` | `6.1e-17` | −1.836479 | −1.837553 | 30 s |
+| double Maxwellian | pairwise | `1.1e-16` | `9.3e-16` | −2.544623 | −2.545089 | 44 s |
+| BKW | pairwise | `3.4e-16` | `7.3e-17` | −2.786382 | −2.786476 | 36 s |
+| bi-Maxwellian | spline | `2.1e-7` | `7.8e-8` | −1.836479 | −1.836476 | 74 s |
+| double Maxwellian | spline | `5.1e-8` | `7.9e-8` | −2.544623 | −2.544623 | 50 s |
+| BKW | spline | `1.7e-8` | `4.9e-9` | −2.786382 | −2.786381 | 33 s |
+
+The pairwise method's `S_h` falls in each run. The spline method's rises in the runs of the
+bi-Maxwellian and the BKW profile, and changes by less than `1e-6` in that of the double
+Maxwellian. K96 of `KNOWN_ISSUES.md` records that the vector field of the spline method has the
+opposite sign of the appendix's `−K⁺LJ`, that the method solves each velocity component alone,
+and the energy drifts of the table. `--quick` takes 200 particles, 5 steps and 4 cells per axis,
+`M = 36`; each of the four quick runs of the gate exits 0. With
+`--quick --method pairwise --tstep 1e-3 --ncell 8` the third step does not converge and the run
+stops at `t = 0.003`; on 4 cells the same run reaches `t = 0.005`.
+
+### The rate check
+
+At the Maxwell molecules, `γ = 0`, the difference `T₁₁ − T₂₂` of the second moments decays at the
+closed rate `8` at `ν = 1` and density one, whatever the temperatures, which
+`scripts/reference_forms.jl` derives; `--rate-check` reads the rate from its function
+`rate_checks`. The check takes the `60 × 60` lattice of velocities on `[−3.4, 3.4]²`, weighted by
+the bi-Maxwellian of the variances `0.5` and `0.3` and normalised to one, and `16 × 16` cells on
+`[−3.5, 3.5]²`. The rate is instantaneous, `λ = −(d gap/dt) / gap` at `t = 0` with
+`gap = T₁₁ − T₂₂` and its derivative from `collisional_vectorfield!`, so it needs neither a step
+nor a seed. The script exits non-zero, after it has written its files, where `λ` differs from
+`8` by more than `--tolerance`, `2 %`, or from the control, the same closed form with the constant
+`4`, by less:
+
+```
+julia --project=scripts scripts/landau_cases.jl --method pairwise --gamma 0 --rate-check
+```
+
+| method | `T₁₁` | `T₂₂` | `λ` | closed form | relative difference | control | control's relative difference |
+|:--|--:|--:|--:|--:|--:|--:|--:|
+| pairwise | 0.499988 | 0.300000 | 8.009493 | 8.000000 | `1.2e-3` | 4.000000 | `1.0` |
+
+Measured: 32 s, the run of case (a) at `γ = 0` included. The check runs only with
+`--method pairwise`, `--gamma 0` and `--case bimaxwellian`; any other value with `--rate-check`
+stops the script with an `ArgumentError` that names the flag and the value. At `γ ≠ 0` no closed
+rate exists, and a run reports conservation and the entropy only. On the same particles the
+spline method's `(d gap/dt) / gap` is `+8.0055`, where the closed form is `−8` (K96).
+
+### The comparison
+
+`scripts/landau_compare.jl` evaluates the vector field of both methods at `γ = 0` on the weighted
+lattice of the rate check with `N = n²` particles, `--lattice 12,20,40,60`, and on
+`--ncell 4,8,15,16` cells, `M = 36, 100, 289, 324`. It measures `(d gap/dt) / gap` with its sign,
+its relative error against the closed form `−8`, and the smallest wall-clock time of three
+evaluations of `collisional_vectorfield!` after one that compiles. Each row states the rank
+condition of the appendix method, `dN ≥ M − 1` with `d = 2`, which the appendix needs for
+`K K⁺ = I` of the stacked matrix `K` of `M` rows and `dN` columns, and whether every support of a
+basis function holds a particle, which it needs as well; a row where either fails is printed as
+measured. It writes `landau_compare.md`, `landau_compare.hdf5`, and the figures
+`landau_compare_pairwise.pdf` and `landau_compare_spline.pdf` of [`plot_cost`](@ref), one marker
+per row of the table, every row drawn.
+
+```
+julia --project=scripts scripts/landau_compare.jl
+```
+
+Measured: 36 s.
+
+| method | N | M | dN | dN ≥ M − 1 | particles in every support | (d gap/dt)/gap | closed form | relative error | wall-clock time [s] |
+|:--|--:|--:|--:|:--|:--|--:|--:|--:|--:|
+| pairwise | 144 | 36 | 288 | holds | yes | -2.6794 | -8.0000 | 6.651e-01 | 2.048e-04 |
+| pairwise | 144 | 100 | 288 | holds | yes | -10.4041 | -8.0000 | 3.005e-01 | 2.668e-04 |
+| pairwise | 144 | 289 | 288 | holds | yes | +3.8729 | -8.0000 | 1.484e+00 | 2.984e-04 |
+| pairwise | 144 | 324 | 288 | fails | yes | -9.7582 | -8.0000 | 2.198e-01 | 3.153e-04 |
+| pairwise | 400 | 36 | 800 | holds | yes | -2.6792 | -8.0000 | 6.651e-01 | 1.413e-03 |
+| pairwise | 400 | 100 | 800 | holds | yes | -12.4646 | -8.0000 | 5.581e-01 | 1.439e-03 |
+| pairwise | 400 | 289 | 800 | holds | yes | -7.9938 | -8.0000 | 7.785e-04 | 1.550e-03 |
+| pairwise | 400 | 324 | 800 | holds | yes | -7.9385 | -8.0000 | 7.687e-03 | 1.545e-03 |
+| pairwise | 1600 | 36 | 3200 | holds | yes | -2.6743 | -8.0000 | 6.657e-01 | 2.199e-02 |
+| pairwise | 1600 | 100 | 3200 | holds | yes | -12.1357 | -8.0000 | 5.170e-01 | 2.245e-02 |
+| pairwise | 1600 | 289 | 3200 | holds | yes | -7.9639 | -8.0000 | 4.506e-03 | 2.203e-02 |
+| pairwise | 1600 | 324 | 3200 | holds | yes | -7.9559 | -8.0000 | 5.518e-03 | 2.508e-02 |
+| pairwise | 3600 | 36 | 7200 | holds | yes | -2.6730 | -8.0000 | 6.659e-01 | 1.113e-01 |
+| pairwise | 3600 | 100 | 7200 | holds | yes | -12.2609 | -8.0000 | 5.326e-01 | 1.114e-01 |
+| pairwise | 3600 | 289 | 7200 | holds | yes | -8.0118 | -8.0000 | 1.470e-03 | 1.290e-01 |
+| pairwise | 3600 | 324 | 7200 | holds | yes | -8.0095 | -8.0000 | 1.187e-03 | 1.180e-01 |
+| spline | 144 | 36 | 288 | holds | yes | -67.4044 | -8.0000 | 7.426e+00 | 7.795e-04 |
+| spline | 144 | 100 | 288 | holds | yes | +2.0755 | -8.0000 | 1.259e+00 | 8.633e-03 |
+| spline | 144 | 289 | 288 | holds | yes | +42.0124 | -8.0000 | 6.252e+00 | 1.352e-01 |
+| spline | 144 | 324 | 288 | fails | yes | -8.7821 | -8.0000 | 9.776e-02 | 1.795e-01 |
+| spline | 400 | 36 | 800 | holds | yes | -67.5690 | -8.0000 | 7.446e+00 | 1.233e-03 |
+| spline | 400 | 100 | 800 | holds | yes | +5.7847 | -8.0000 | 1.723e+00 | 1.052e-02 |
+| spline | 400 | 289 | 800 | holds | yes | +8.1434 | -8.0000 | 2.018e+00 | 1.378e-01 |
+| spline | 400 | 324 | 800 | holds | yes | +7.9566 | -8.0000 | 1.995e+00 | 1.916e-01 |
+| spline | 1600 | 36 | 3200 | holds | yes | -67.5971 | -8.0000 | 7.450e+00 | 4.568e-03 |
+| spline | 1600 | 100 | 3200 | holds | yes | +6.0590 | -8.0000 | 1.757e+00 | 2.434e-02 |
+| spline | 1600 | 289 | 3200 | holds | yes | +8.0410 | -8.0000 | 2.005e+00 | 2.425e-01 |
+| spline | 1600 | 324 | 3200 | holds | yes | +8.0093 | -8.0000 | 2.001e+00 | 2.677e-01 |
+| spline | 3600 | 36 | 7200 | holds | yes | -67.5988 | -8.0000 | 7.450e+00 | 6.936e-03 |
+| spline | 3600 | 100 | 7200 | holds | yes | +6.0634 | -8.0000 | 1.758e+00 | 4.192e-02 |
+| spline | 3600 | 289 | 7200 | holds | yes | +8.0137 | -8.0000 | 2.002e+00 | 2.997e-01 |
+| spline | 3600 | 324 | 7200 | holds | yes | +8.0055 | -8.0000 | 2.001e+00 | 3.481e-01 |
+
+The row `N = 144`, `M = 289` has `dN = M − 1` and meets the condition at its bound; `N = 144`,
+`M = 324` fails it. Every lattice holds a particle in every support. `--quick` takes the lattices
+`12` and `20` and the cells `8`, `15` and `16`, and the gate checks the verdict of every row of
+it against `dN ≥ M − 1`.

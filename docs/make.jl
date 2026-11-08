@@ -18,10 +18,10 @@ makedocs(;
         "Home" => "index.md",
         "Projections" => "projections.md",
         "The Landau collision operator" => "landau.md",
+        "Plotting" => "plotting.md",
         "The figures of the collision manuscripts" => "collisions.md",
         "Multi-modal autoencoder frontends" => "rom.md",
-        "The paper's examples" => "paper.md",
-        "Plotting" => "plotting.md"
+        "The paper's examples" => "paper.md"
     ]
 )
 

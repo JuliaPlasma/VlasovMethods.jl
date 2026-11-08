@@ -113,10 +113,10 @@ function VlasovMethods.plot_particles(SS::Snapshots, ts::Integer, p::Integer;
     return fig
 end
 
-# The arguments of `plot_series`, checked before anything is drawn: an empty collection has no
-# line to draw, an empty line holds no value, a line of another length would pair its values with
-# the wrong abscissae, and a label count that differs from the series count would name the wrong
-# lines.
+# The series of `plot_series` and of each group of `plot_groups`, and the labels of `plot_series`,
+# checked before anything is drawn: an empty collection has no line to draw, an empty line holds
+# no value, a line of another length would pair its values with the wrong abscissae, and a label
+# count that differs from the series count would name the wrong lines.
 function _check_series(t, series, labels)
     isempty(series) && throw(ArgumentError("no series to plot"))
     for y in series
@@ -130,17 +130,30 @@ function _check_series(t, series, labels)
     return nothing
 end
 
+# The lines of `plot_series` and of `plot_groups` as they are drawn on the `y` axis of `yscale`.
+# `log10` has no value at a negative number, which Makie refuses only when the figure is saved, so
+# a negative value is refused here. A zero has no logarithm either: it is drawn as a `NaN`, where
+# the line breaks, because Makie leaves a line that holds a zero out of the axis limits.
+function _scaled_lines(series, yscale)
+    yscale === log10 || return series
+    return map(series) do y
+        any(<(0), y) && throw(ArgumentError(
+            "a line holds a negative value, which a logarithmic axis cannot show"))
+        map(v -> iszero(v) ? oftype(float(v), NaN) : float(v), y)
+    end
+end
+
 function VlasovMethods.plot_series(t::AbstractVector, series;
-        labels = nothing, xlabel = "t", ylabel = "")
+        labels = nothing, xlabel = "t", ylabel = "", yscale = identity)
     _check_series(t, series, labels)
 
     fig = Figure()
-    ax = Axis(fig[1, 1]; xlabel = xlabel, ylabel = ylabel)
-    for (i, y) in enumerate(series)
+    ax = Axis(fig[1, 1]; xlabel = xlabel, ylabel = ylabel, yscale = yscale)
+    for (i, y) in enumerate(_scaled_lines(series, yscale))
         if isnothing(labels)
             lines!(ax, t, y)
         else
-            lines!(ax, t, y; label = labels[i])
+            lines!(ax, t, y; label = string(labels[i]))
         end
     end
     isnothing(labels) || axislegend(ax)
@@ -372,6 +385,92 @@ function VlasovMethods.plot_cost(cost::AbstractVector, err::AbstractVector)
     scatter!(ax, xs[keep], ys[keep])
     _flat_log_limits!(xlims!, ax, (xs[keep],))
     _flat_log_limits!(ylims!, ax, (ys[keep],))
+    return fig
+end
+
+function VlasovMethods.plot_groups(t::AbstractVector, groups; xlabel = "t", ylabel = "",
+        yscale = identity, colors = (:blue, :orange, :green))
+    isempty(groups) && throw(ArgumentError("no group to plot"))
+    length(colors) ≥ length(groups) || throw(DimensionMismatch(
+        "the colours hold $(length(colors)) colours; the groups hold $(length(groups)) groups"))
+    scaled = [(_check_series(t, series, nothing); _scaled_lines(series, yscale))
+              for (_, series) in groups]
+
+    fig = Figure()
+    ax = Axis(fig[1, 1]; xlabel = xlabel, ylabel = ylabel, yscale = yscale)
+    # every line of a group is drawn half transparent, so that the lines of a sweep read as a band
+    shades = [(colour, 0.5) for (colour, _) in zip(colors, groups)]
+    for (series, shade) in zip(scaled, shades)
+        for y in series
+            lines!(ax, t, y; color = shade)
+        end
+    end
+    axislegend(ax, [LineElement(color = shade) for shade in shades],
+        [string(name) for (name, _) in groups])
+    return fig
+end
+
+function VlasovMethods.plot_damping(runs, reference; title = "",
+        colors = (:steelblue, :firebrick))
+    isempty(runs) && throw(ArgumentError("no run to plot"))
+    length(colors) ≥ length(runs) || throw(DimensionMismatch(
+        "the colours hold $(length(colors)) colours; the runs hold $(length(runs)) runs"))
+    for run in runs
+        _check_lengths("t" => run.t, "y" => run.y)
+        length(run.peak_y) == length(run.peak_t) || throw(_mismatch(
+            "peak_y" => length(run.peak_y), "peak_t" => length(run.peak_t), "values"))
+    end
+    _check_lengths("t" => reference.t, "y" => reference.y)
+
+    fig = Figure(size = (1200, 500))
+    ax = Axis(fig[1, 1]; xlabel = "t", ylabel = "log|E₁|", title = title)
+    for (run, colour) in zip(runs, colors)
+        lines!(ax, run.t, run.y; color = colour, label = string(run.label))
+        scatter!(ax, run.peak_t, run.peak_y; color = colour, markersize = 8)
+    end
+    lines!(ax, reference.t, reference.y; color = :black, linestyle = :dash,
+        label = string(reference.label))
+    axislegend(ax; position = :lb)
+    return fig
+end
+
+function VlasovMethods.plot_phase_space(z::AbstractArray{<:Real, 3}, slices; xdomain, titles)
+    size(z, 1) == 2 || throw(ArgumentError(
+        "`z` holds $(size(z, 1)) rows; a 1D1V trajectory holds two, `x` and `v`"))
+    size(z, 2) ≥ 1 || throw(ArgumentError("`z` holds no particle"))
+    size(z, 3) ≥ 1 || throw(ArgumentError("`z` holds no time slice"))
+    isempty(slices) && throw(ArgumentError("`slices` holds no slice"))
+    for slice in slices
+        1 ≤ slice ≤ size(z, 3) || throw(ArgumentError(
+            "the time slices of `z` are 1:$(size(z, 3)); got $slice"))
+    end
+    length(titles) == length(slices) || throw(DimensionMismatch(
+        "the titles hold $(length(titles)) titles; the slices hold $(length(slices)) slices"))
+
+    # each particle keeps the colour of the sign of its first velocity, so that each half of the
+    # cloud can be followed through the panels
+    colours = ifelse.(z[2, :, 1] .>= 0, :steelblue, :firebrick)
+    # the largest finite speed of every drawn slice; a non-finite velocity has no place on the
+    # axis and is dropped, as `_finite_pairs` drops one, and Makie draws no marker for it
+    speeds = (abs(v) for slice in slices for v in view(z, 2, :, slice) if isfinite(v))
+    vmax = ceil(maximum(speeds; init = zero(eltype(z))))
+    vmax > 0 || throw(ArgumentError(
+        "no slice in `slices` holds a finite nonzero velocity, so the `v` axis has no extent"))
+    xa, xb = first(xdomain), last(xdomain)
+    limits = ((xa, xb), (-vmax, vmax))
+
+    fig = Figure(size = (1500, 400))
+    for (panel, (slice, title)) in enumerate(zip(slices, titles))
+        ylabel = panel == 1 ? "v" : ""
+        ax = Axis(fig[1, panel]; xlabel = "x", ylabel, title, limits)
+        # the wrap of `plot_particles`: the two ends of a periodic domain are one point, so a
+        # position that wraps exactly to `xb` is plotted at `xa`
+        x = map(z[1, :, slice]) do x₀
+            x̃ = _wrap(x₀, xdomain)
+            x̃ == xb ? xa : x̃
+        end
+        scatter!(ax, x, z[2, :, slice]; color = colours, markersize = 2)
+    end
     return fig
 end
 
