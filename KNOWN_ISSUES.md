@@ -469,7 +469,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K69 · The legend of `plot_series` overflows its axis for many labelled series.
 
-- **location:** `ext/VlasovMethodsMakieExt.jl:146`, `plot_series`
+- **location:** `ext/VlasovMethodsMakieExt.jl:159`, `plot_series`
 - **evidence:** at the default figure size of `600 × 450`, the legend of 20 labelled series is
   481 px high in an axis of 375 px, on `05431f10`; 10 series give 251 px.
   `scripts/bump_on_tail_testing.jl` draws its 30-series figures of items 26 and 27 without
@@ -753,11 +753,13 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** defect
 - **found:** #125
 
-### K98 · `scripts/vlasov_poisson.jl` draws its particles from the global random generator with no seed, so two runs with the same options write different trajectories and figures.
+### K98 · `scripts/vlasov_poisson.jl` draws the positions of its particles from the global random generator with no seed, so two runs with the same options write different trajectories and figures.
 
 - **location:** `scripts/vlasov_poisson.jl:30`
 - **evidence:** `main` draws `initialize!(ParticleDistribution(1, 1, o.npart),
-  NormalDistribution())` and no option or line sets a seed. Two runs of
+  NormalDistribution())`, which draws the positions with `randn` before its own
+  `Random.seed!(1234)` seeds the velocities (`src/examples/normal.jl:15-19`), and no option or
+  line of the driver sets a seed. Two runs of
   `julia --project=scripts scripts/vlasov_poisson.jl --npart 1000 --final-time 2.0`, one at
   `fea6c16` and one with `plot_phase_space`, write `vlasov_poisson.png` files of different MD5
   sums; `plot_phase_space` of the first run's `vlasov_poisson.hdf5` saves that run's PNG byte for

@@ -258,7 +258,7 @@ their own, except for what they removed and narrowed, which is listed in full be
   than its slice count. `plot_series` takes `yscale`, `identity` by default or `log10`, the scale
   of its `y` axis. With `yscale = log10`, `plot_series` and `plot_groups` throw an `ArgumentError`
   at the call for a negative value, which Makie would otherwise refuse only when the figure is
-  saved; a zero is drawn.
+  saved; a zero is accepted, and its line breaks there.
 
 ### Scripts
 
@@ -367,11 +367,10 @@ their own, except for what they removed and narrowed, which is listed in full be
   `plot_series`, `plot_groups`, `plot_damping`, `plot_phase_space`, `plot_particles` or
   `spectrumplot` of `ReducedBasisMethods`, and save it under the name it had. Their short runs
   write the same files as before, and the same PNG files byte for byte, except
-  `vlasov_poisson.png`: its driver draws its particles with no seed (K98 of `KNOWN_ISSUES.md`), and
-  `plot_phase_space` limits the `v` axis by the largest speed of every drawn slice, where the driver
-  took that of the first slice only, so a trajectory whose speed grows past that of the first slice
-  is now drawn whole. These five,
-  `bump_on_tail_training.jl` and `bump_on_tail_projections.jl` read their options through
+  `vlasov_poisson.png`: its driver draws the positions of its particles with no seed (K98 of
+  `KNOWN_ISSUES.md`), and `plot_phase_space` limits the `v` axis by the largest speed of every
+  drawn slice, where the driver took that of the first slice only, so a trajectory whose speed
+  grows past that of the first slice is now drawn whole. These five, `bump_on_tail_training.jl` and `bump_on_tail_projections.jl` read their options through
   `driver_options` and run `main` only where they are the program, so `vlasov_poisson.jl` now runs
   inside a `main`. `scripts/gate.jl` runs the seven, with small options where a driver takes them,
   and checks that each writes exactly the files of the same run before the change, that none of

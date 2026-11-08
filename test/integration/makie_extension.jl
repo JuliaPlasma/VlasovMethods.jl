@@ -409,7 +409,8 @@ end
     @test occursin("a line holds a negative value",
         message_of(() -> plot_groups(t, ["a" => [negative]]; yscale = log10)))
 
-    # a zero and positive values are drawn, and a single zero too, as Makie draws them
+    # a zero is accepted, also as the single value of a line, and the figure saves: Makie draws no
+    # point at a zero and breaks its line there
     file = tempname() * ".png"
     for fig in (plot_series(t, (positive, with_zero); yscale = log10),
         plot_series(T[1], (T[0],); yscale = log10),

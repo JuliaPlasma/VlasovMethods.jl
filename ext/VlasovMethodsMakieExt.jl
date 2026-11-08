@@ -132,7 +132,7 @@ end
 
 # The lines of `plot_series` and of `plot_groups` on a logarithmic `y` axis: `log10` has no value
 # at a negative number, which Makie refuses only when the figure is saved, so a negative value is
-# refused here. A zero stays: Makie draws it.
+# refused here. A zero stays: Makie draws no point at it, and its line breaks there, as at a `NaN`.
 function _check_log_scale(series, yscale)
     yscale === log10 || return nothing
     for y in series
