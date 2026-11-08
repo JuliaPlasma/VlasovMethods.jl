@@ -152,3 +152,109 @@ With the defaults the driver exits 0, and the three relative errors are `8.4e-4`
 `1.8e-3`.
 
 `--quick` takes 200 particles, `h = 1e-2` and `t = 0.1`.
+
+## Metriplectic particle methods for the Lenard–Bernstein operator
+
+The driver `scripts/lenard_bernstein_metriplectic.jl` runs the three tests of the metriplectic
+Lenard–Bernstein manuscript (MP-LB) under `MetriplecticLenardBernstein`, with the parameters of
+the PD-LB figures of the same distribution, since MP-LB states none: 41 cubic basis functions on
+`[−10, 10]` and `ν = 1` throughout, and
+
+- `--case shifted-normal`, the default: 1000 velocities from the normal distribution of mean 2
+  and variance 1, `h = 8e-4`, to `t = 1`, as figures 3 to 5;
+- `--case double-maxwellian`: 1000 velocities, half from the normal distribution of mean 2 and
+  half from that of mean `−2`, `h = 8e-4`, to `t = 5`, seeded with `--seed 1`, as figures 7 and 8;
+- `--case uniform`: 200 velocities from the uniform distribution on `[−2, 2]`, `h = 1e-4`, to
+  `t = 1`, seeded with `--seed 1`, as figures 9 and 10.
+
+`--bracket` takes `dougherty`, the default, for [`DoughertyBracket`](@ref), the bracket of
+MP-LB, or `jeyakumar` for [`JeyakumarBracket`](@ref). A case or a bracket that is not one of these
+stops the driver with an `ArgumentError` that names the flag and the value, before any run. Each
+step is the model's implicit midpoint step, solved by `Picard_iterate_over_particles!`.
+
+A run writes `lenard_bernstein_metriplectic_<case>_<bracket>.hdf5` and three figures with the same
+stem: `_initial_final_distribution.pdf`, `_conservation.pdf`, the relative drift of the mass, the
+momentum and the energy, and `_entropy_log.pdf`, the relative change `|S_h(t) − S_h(0)| / |S_h(0)|`
+of the entropy on a logarithmic axis. A step that throws, the `DomainError` of the projection or
+the error of a Picard solve that does not converge, stops the run as a single run of PD-LB stops:
+the HDF5 file carries `stopped_at`, the steps reached and, with the shifted normal, the times and
+temperatures of the rate check, no figure is written, and the driver exits non-zero.
+
+### The six commands
+
+```
+julia --project=scripts scripts/lenard_bernstein_metriplectic.jl --case shifted-normal --bracket dougherty
+julia --project=scripts scripts/lenard_bernstein_metriplectic.jl --case shifted-normal --bracket jeyakumar
+julia --project=scripts scripts/lenard_bernstein_metriplectic.jl --case double-maxwellian --bracket dougherty
+julia --project=scripts scripts/lenard_bernstein_metriplectic.jl --case double-maxwellian --bracket jeyakumar
+julia --project=scripts scripts/lenard_bernstein_metriplectic.jl --case uniform --bracket dougherty
+julia --project=scripts scripts/lenard_bernstein_metriplectic.jl --case uniform --bracket jeyakumar
+```
+
+At these parameters every run stops where the Picard solve of a step does not converge, writes
+its HDF5 file with `stopped_at`, writes no figure and exits non-zero; K95 of `KNOWN_ISSUES.md`
+records the stops:
+
+| case | bracket | stops at | steps reached | measured |
+|:--|:--|--:|--:|--:|
+| shifted normal | Dougherty | `t = 0.0048` | 5 of 1250 | 28 s |
+| shifted normal | Jeyakumar | `t = 0.2208` | 275 of 1250 | 27 s |
+| double Maxwellian | Dougherty | `t = 0.1248` | 155 of 6250 | 21 s |
+| double Maxwellian | Jeyakumar | `t = 0.2968` | 370 of 6250 | 21 s |
+| uniform | Dougherty | `t = 0.0399` | 398 of 10000 | 21 s |
+| uniform | Jeyakumar | `t = 0.8046` | 8045 of 10000 | 22 s |
+
+`--quick` takes 200 particles and `t = 0.05` for the shifted normal, `t = 0.05` for the double
+Maxwellian, which keeps its 1000 particles because with 200 the solve of the Jeyakumar form does
+not converge in the step to `t = 0.016`, and `h = 1e-3` and `t = 0.05` for the uniform case, as
+figures 9 and 10 take. Each of the six quick runs exits 0.
+
+### The rate check
+
+With the shifted normal, the driver first runs the rate check of its bracket. The bracket's
+density `n₀` and mean `u₀` are frozen at those of the initial particles and its temperature at
+`T₀ = 2`, the coefficients of the Ornstein–Uhlenbeck limit. The particles are scaled about their
+mean to the temperature `T₀ / 2 = 1`, from which they relax to `T₀`. In the continuum limit,
+where `S_γ / w_γ` is `∂ᵥ log f`, the Dougherty form is
+`v̇ = −ν T₀ ∂ᵥ log f − ν (v − u₀)`, and the Jeyakumar form is the same times `n₀ / T₀`, so the
+temperature relaxes to `T₀` as `exp(−λ t)` with
+
+```math
+\lambda_\mathrm{Dougherty} = 2 \nu , \qquad
+\lambda_\mathrm{Jeyakumar} = \frac{2 \nu n_0}{T_0} = \nu n_0 .
+```
+
+The Jeyakumar rate carries the temperature and the Dougherty rate does not. The weights of the
+particles sum to `n₀ = 1`, so at `T₀ = 2` the two closed forms differ by two; at a temperature
+near `n₀`, such as the unit variance of the sample, they would be equal up to its sampling
+error. The driver fits `λ` to `ln(T₀ − T(t))` over the run, stops with an `ArgumentError` where
+a temperature reaches or crosses `T₀`, and exits non-zero where the fit differs from the closed
+form of its bracket by more than `--tolerance`, 5 %, or from the control, the closed form of the
+other bracket, by less. Only the shifted normal takes `--tolerance`. With the parameters above:
+
+| bracket | fitted `λ` | closed form | relative difference | control | control's relative difference |
+|:--|--:|--:|--:|--:|--:|
+| Dougherty | 1.989115 | `2ν` = 2.000000 | `5.4e-3` | `ν n₀` = 1.000000 | `9.9e-1` |
+| Jeyakumar | 0.993993 | `ν n₀` = 1.000000 | `6.0e-3` | `2ν` = 2.000000 | `5.0e-1` |
+
+Each step of the check solves the implicit midpoint rule by a fixed-point iteration damped by
+`1/2`. Where a particle in a sparse tail sits where `f_s` is small, the step is stiff and the
+iteration stalls; after 1000 iterations the step takes the last iterate, and the driver prints
+how many steps did so: 1 of the 1250 for the Dougherty form and 2 for the Jeyakumar form, at a
+largest residual of `3.1e-3` and `2.1e-4`. The quick run, 200 particles to `t = 0.05`, fits
+`1.969792` against `2` and `0.998385` against `1`, within `1.5 %` and `0.16 %`, with controls
+`97 %` and `50 %` away, and no step at the cap. With `--quick --npart 2000` the fits are
+`1.999774` and `1.000624`, with controls `100 %` and `50 %` away.
+
+The check runs on the shifted normal only, the default case, because the closed form is not met
+at the stated tolerance on every case. With the same scaling, the same frozen `T₀ = 2` and the
+rate check's solver, the fits differ from their closed forms by:
+
+| case | parameters | Dougherty | Jeyakumar |
+|:--|:--|--:|--:|
+| double Maxwellian | 1000 particles, `--seed 1`, `h = 8e-4`, `t = 0.05` | `4.2e-3` | `3.3e-3` |
+| uniform | 200 particles, `--seed 1`, `h = 1e-3`, `t = 0.05` | `8.5e-2` | `9.6e-3` |
+| uniform | 200 particles, `--seed 1`, `h = 1e-3`, `t = 1` | `3.7e-2` | `6.9e-2` |
+
+The uniform case misses the 5 % tolerance at one bracket of each set, and the double Maxwellian
+meets it at both; the controls lie between `49 %` and `99 %` away in every row.

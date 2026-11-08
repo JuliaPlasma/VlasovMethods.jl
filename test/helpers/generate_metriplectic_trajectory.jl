@@ -3,9 +3,9 @@
 #
 # The seeded state is the lattice of cell centres of [-2, 2], one per particle, each moved by a
 # draw uniform in ±1/64 from `StableRNG(20261010)`, with weights 1/N. The march takes
-# `ti = 1:10` at `t = (ti - 1)·Δt`, as `scripts/lenard_bernstein_metriplectic.jl` does, from
-# `vn = vn_minus_one = v0` and a zero history; after each step `vn_minus_one` takes `vn`, and `vn`
-# the result. It calls only `Picard_iterate_over_particles`, which `472dd42` has, so it runs
+# `ti = 1:10` at `t = (ti - 1)·Δt`, from `vn = vn_minus_one = v0` and a zero history; after each
+# step `vn_minus_one` takes `vn`, and `vn` the result. It calls only
+# `Picard_iterate_over_particles`, which `472dd42` has, so it runs
 # against an exported tree of that commit in a scratch environment with `StableRNGs`:
 #
 #     julia --startup-file=no --project=<scratch-env> test/helpers/generate_metriplectic_trajectory.jl
