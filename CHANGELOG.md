@@ -259,7 +259,10 @@ their own, except for what they removed and narrowed, which is listed in full be
   of its `y` axis. With `yscale = log10`, `plot_series` and `plot_groups` throw an `ArgumentError`
   at the call for a negative value, which Makie would otherwise refuse only when the figure is
   saved; a zero is accepted, and drawn as a `NaN`, where its line breaks, because Makie leaves a
-  line that holds a zero out of the axis limits.
+  line that holds a zero out of the axis limits. `plot_series` and `plot_groups` label a legend
+  entry with the `string` of its label or group name, as `plot_drift` does, so a `Symbol` such as
+  `:HFM` names its line; Makie's legend fails on a `Symbol` label. `plot_groups` takes its groups
+  as a vector of pairs or as a `Dict`, whose iteration order sets the colours.
 
 ### Scripts
 
