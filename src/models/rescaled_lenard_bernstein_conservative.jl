@@ -112,10 +112,8 @@ function compute_coefficients_rclb(
     return A1, A2
 end
 
-# `compute_coefficients_rclb`, not `compute_coefficients`. Both call sites here used the
-# *conservative* coefficients, which belong to a different parametrisation: A₁ᶜᵒⁿˢ = -u/σ²
-# was being used as the multiplier of f'/f and A₂ᶜᵒⁿˢ = 1/σ² as the constant drift, giving a
-# vector field with no conservation property at all.
+# The coefficients are those of the rescaled parametrisation, `compute_coefficients_rclb`: the
+# conservative ones of `compute_coefficients` belong to `CLB_rhs_GI!`.
 function RCLB_rhs_GI!(v, t, q::AbstractArray{ST}, params) where {ST}
     (; sdist, rhs, values) = params.model.cache[ST]
 
@@ -161,9 +159,6 @@ function GeometricIntegrator(
     params = (ν = model.ν, idist = model.dist, fdist = model.ent.dist, model = model)
     # create geometric problem
     equ = GeometricEquations.ODEProblem(
-        # `RCLB_rhs_GI!`, not `CLB_rhs_GI!`. This constructor wired the *conservative*
-        # right-hand side, so every run built as a RescaledConservativeLenardBernstein
-        # actually integrated the unrescaled operator and `RCLB_rhs_GI!` was dead code.
         RCLB_rhs_GI!,
         tspan, tstep, copy(model.dist.particles.v[1, :]);
         parameters = params)
