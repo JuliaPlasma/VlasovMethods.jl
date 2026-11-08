@@ -247,7 +247,10 @@ their own, except for what they removed and narrowed, which is listed in full be
   run with its fitted peaks as markers and a dashed reference line, on a figure of 1200 × 500
   pixels. `plot_phase_space(z, slices; xdomain, titles)` draws the particles of a `(2, npart,
   ntime)` trajectory at each slice in a row of panels of 1500 × 400 pixels, each particle coloured
-  by the sign of its first velocity. Each throws an `ArgumentError` for an empty argument, and
+  by the sign of its first velocity. A position is wrapped periodically onto `xdomain`, and one
+  that wraps exactly to `last(xdomain)` is drawn at `first(xdomain)`, as `plot_particles` draws it,
+  because the two ends of a periodic domain are one point. Each throws an `ArgumentError` for an
+  empty argument, and
   `plot_phase_space` also for a `z` of other than two rows and for a slice outside it. `plot_groups`
   and `plot_damping` throw a `DimensionMismatch` for series of different lengths and for fewer
   colours than they draw, and `plot_phase_space` one for a title count other than its slice count.
@@ -366,8 +369,11 @@ their own, except for what they removed and narrowed, which is listed in full be
   `driver_options` and run `main` only where they are the program, so `vlasov_poisson.jl` now runs
   inside a `main`. `scripts/gate.jl` runs the seven, with small options where a driver takes them,
   and checks that each writes exactly the files of the same run before the change, that none of
-  the seven files nor `bump_on_tail_common.jl` names a Makie figure, axis, legend or plot, and that
-  each takes its default options without a flag; it also runs `test/plotting.jl` with
+  the seven files nor `bump_on_tail_common.jl` calls a Makie function that builds a figure, axis,
+  legend, colorbar, plot or axis limit, plain or qualified (`lines(`, `hist(`, `Colorbar`, `Axis3`,
+  `xlims!`, `CairoMakie.lines!`), found in the parsed source, so that a comment or a string that
+  names one does not count, and that each takes its default options without a flag; it also runs
+  `test/plotting.jl` with
   `test/integration/makie_extension.jl`, and the docs build.
 
 ### Documentation

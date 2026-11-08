@@ -439,13 +439,19 @@ function VlasovMethods.plot_phase_space(z::AbstractArray{<:Real, 3}, slices; xdo
     # cloud can be followed through the panels
     colours = ifelse.(z[2, :, 1] .>= 0, :steelblue, :firebrick)
     vmax = ceil(maximum(abs, z[2, :, 1]))
-    limits = ((first(xdomain), last(xdomain)), (-vmax, vmax))
+    xa, xb = first(xdomain), last(xdomain)
+    limits = ((xa, xb), (-vmax, vmax))
 
     fig = Figure(size = (1500, 400))
     for (panel, (slice, title)) in enumerate(zip(slices, titles))
         ylabel = panel == 1 ? "v" : ""
         ax = Axis(fig[1, panel]; xlabel = "x", ylabel, title, limits)
-        x = [_wrap(x₀, xdomain) for x₀ in z[1, :, slice]]
+        # the wrap of `plot_particles`: the two ends of a periodic domain are one point, so a
+        # position that wraps exactly to `xb` is plotted at `xa`
+        x = map(z[1, :, slice]) do x₀
+            x̃ = _wrap(x₀, xdomain)
+            x̃ == xb ? xa : x̃
+        end
         scatter!(ax, x, z[2, :, slice]; color = colours, markersize = 2)
     end
     return fig

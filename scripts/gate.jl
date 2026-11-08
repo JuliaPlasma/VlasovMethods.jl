@@ -184,11 +184,31 @@ const LANDAU_DOCS_HEADING = "## Particle methods for the Landau operator"
 
 # The drivers outside the collision manuscripts, whose figures the plotting functions of
 # `VlasovMethodsMakieExt` draw, and the Makie names that build a figure, an axis, a legend or a
-# plot, of which none of them may name one.
+# plot, of which none of them may call one.
 const PLOTTING_DRIVERS = ["analytic_quadratic.jl", "bump_on_tail_common.jl",
     "bump_on_tail_projections.jl", "bump_on_tail_testing.jl", "bump_on_tail_train_hnn.jl",
     "bump_on_tail_training.jl", "landau_damping_1d1v.jl", "vlasov_poisson.jl"]
-const MAKIE_CALL = r"\b(?:(?:Figure|Axis|Legend|LineElement|axislegend)\b|(?:lines|scatter|heatmap|contour|band|hist|barplot|hlines|vlines|text)!)"
+const MAKIE_CALL = r"^(?:Figure|Axis\w*|Legend|LineElement|Colorbar|axislegend|(?:lines|scatter|heatmap|contour|band|hist|barplot|hlines|vlines|text|[xy]?lims|limits)!?)$"
+
+# The names of the calls in `source` that `MAKIE_CALL` matches, plain or qualified, as in
+# `CairoMakie.lines!`. The parsed source holds no comment and no string text, so neither matches.
+function makie_calls(source)
+    hits = String[]
+    walk(x) = nothing
+    function walk(ex::Expr)
+        if ex.head === :call
+            f = ex.args[1]
+            name = f isa Expr && f.head === :. && last(f.args) isa QuoteNode ?
+                   last(f.args).value : f
+            name isa Symbol && occursin(MAKIE_CALL, String(name)) &&
+                push!(hits, String(name))
+        end
+        foreach(walk, ex.args)
+    end
+    walk(Meta.parseall(source))
+    return hits
+end
+
 const BUMP_SHORT = ["--particles", "1000", "--final-time", "10.0"]
 const BUMP_ID = "bump_on_tail_np1000_nh16_p3_dt0.1_T10.0_seed1234"
 # The short run of each driver, and the files that it writes: `runs` into `--runs-dir` and
@@ -959,8 +979,7 @@ end
 
 println("the figures of the plotting drivers")
 for script in PLOTTING_DRIVERS
-    hits = [m.match
-            for m in eachmatch(MAKIE_CALL, read(joinpath(ROOT, "scripts", script), String))]
+    hits = makie_calls(read(joinpath(ROOT, "scripts", script), String))
     check(isempty(hits), "$(script) builds no figure, axis, legend or plot: $(hits)")
 end
 

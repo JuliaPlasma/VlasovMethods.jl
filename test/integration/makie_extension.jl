@@ -593,6 +593,15 @@ end
         message_of(draw(z, [1, 2], ["a"])))
 end
 
+@testset "plot_phase_space plots a position below the domain inside the half-open domain" begin
+    # `mod(-1e-20, 1.0) == 1.0` in Float64, which is the upper end the half-open domain excludes
+    z = reshape([first(XDOMAIN) - 1e-20, 0.0, 0.5, 1.0], 2, 2, 1)
+    points = only(only(plot_phase_space(z, [1]; xdomain = XDOMAIN,
+        titles = ["a"]).content).scene.plots)[1][]
+
+    @test first.(points) == [first(XDOMAIN), 0.5]
+end
+
 @testset "plot_particles draws a saved state of the snapshots, $T" for T in (Float64, Float32)
     n, nₛ, nh = 5, 3, 2
     space = ParameterSpace(Parameter(:β, T(6), T(7), 2))
