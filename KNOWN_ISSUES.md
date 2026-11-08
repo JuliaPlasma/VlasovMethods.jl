@@ -139,7 +139,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **evidence:** `LB_rhs!(v̇, v, params, t)` keeps the argument order of an ODE solver that the
   package does not use, and nothing in `src/` calls it: `LB_rhs_GI!` (`:75`) computes the same
   right-hand side on the buffers of the model's cache. `LB_rhs` (`:88`) and `CLB_rhs`
-  (`src/models/lenard_bernstein_conservative.jl:201`) repeat the formulas of their `_GI!`
+  (`src/models/lenard_bernstein_conservative.jl:212`) repeat the formulas of their `_GI!`
   functions, and neither has a caller: in `src/`, `grep -rn -E '\bC?LB_rhs\b' src` finds the two
   definitions, the `LB_rhs!` definition and the comment of `LB_rhs_GI!` that names it. Outside
   `src/`, `test/integration/names.jl` lists the two names, and the tests and the reference
@@ -274,15 +274,14 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** dead code
 - **found:** 2026-10-04
 
-### K47 · Twelve lines of commented-out code remain in three collision model files.
+### K47 · Two lines of commented-out code remain in the `LenardBernstein` model file.
 
 - **location:** `src/models/lenard_bernstein.jl:107`
-- **evidence:** The lines are `src/models/lenard_bernstein.jl:107` and `:117`;
-  `src/models/lenard_bernstein_conservative.jl:226`, `:236-238` and `:242`;
-  `src/models/rescaled_lenard_bernstein_conservative.jl:149`, `:162-164` and `:168`. Each is an
-  old assignment, call or `return` behind `#`, such as `# int = Integrators.Integrator(equ,
-  Integrators.RK438())`. #69 deleted the other dead code of these files and left these lines,
-  because they are outside its hunks. The fix is to delete the twelve lines.
+- **evidence:** The lines are `src/models/lenard_bernstein.jl:107` and `:117`. Each is an old
+  assignment behind `#`, such as `# int = Integrators.GeometricIntegrator(equ,
+  Integrators.CrankNicolson())`. #69 and #129 deleted the other dead code of the collision model
+  files and left these lines, because they are outside their hunks. The fix is to delete the two
+  lines.
 - **kind:** dead code
 - **found:** #69
 
@@ -782,3 +781,33 @@ has left the file, or that lived only on a merged branch, stays taken.
   not one of those whose figures moved there.
 - **kind:** defect
 - **found:** 2026-11-08
+
+### K100 · Inference does not give a concrete type for `GeometricIntegrator(model, tspan, tstep[, method])` of `LenardBernstein`, `ConservativeLenardBernstein` and `RescaledConservativeLenardBernstein`, because the `ODEProblem` constructor of GeometricEquations and the Newton solver of SimpleSolvers infer free type parameters.
+
+- **location:** `src/models/lenard_bernstein_conservative.jl:240`
+- **evidence:** For each of the three models, `Base.return_types` of the constructor is a
+  `UnionAll` over `ET <: EquationProblem` and `IT <: GeometricIntegrator`, or a `Union`, with or
+  without the method argument and on `main` as on the branch; the object that the call returns
+  has a concrete type. The constructors (`src/models/lenard_bernstein.jl:104`,
+  `src/models/lenard_bernstein_conservative.jl:234`,
+  `src/models/rescaled_lenard_bernstein_conservative.jl:155`) only call `ODEProblem` and
+  `Integrators.GeometricIntegrator`, and both calls infer free parameters on a toy problem, with
+  GeometricEquations 0.21.6, GeometricIntegrators 0.18.7 and SimpleSolvers 0.14.3:
+  ```julia
+  using GeometricEquations: ODEProblem
+  using GeometricIntegrators: ImplicitMidpoint, Integrators
+  f!(v, t, q, p) = (v .= -q; v)
+  build(q) = ODEProblem(f!, (0.0, 1.0), 0.1, q; parameters = (ν = 1.0,))
+  equ = build(rand(5))
+  pt = only(Base.return_types(build, (Vector{Float64},)))
+  it = only(Base.return_types(Integrators.GeometricIntegrator, (typeof(equ), ImplicitMidpoint)))
+  println(isconcretetype(typeof(equ)), " ", pt.var, " ", it.var)
+  ```
+  prints `true _A<:GeometricEquations.GeometricEquation ST<:(SimpleSolvers.NewtonSolver{…, JT,
+  …, LiSeT, …} where {JT<:(SimpleSolvers.JacobianAutodiff{Float64, …,
+  ForwardDiff.JacobianConfig{Nothing, Float64, _A, …}, …} where {_A, …}), LiSeT<:…})`: the
+  problem's equation parameter is free with or without the keyword `parameters`, and the solver's
+  is free through the chunk size of `ForwardDiff.JacobianConfig(nothing, y, x)`
+  (`SimpleSolvers/src/base/jacobian.jl:153`), which depends on the length of `x` at run time.
+- **kind:** upstream
+- **found:** #129
