@@ -45,10 +45,11 @@ has left the file, or that lived only on a merged branch, stays taken.
   `compute_coefficients_rclb` of `RescaledConservativeLenardBernstein` throw a `DomainError` where
   `f_s ≤ 0` at a particle, because both operators assume `f_s > 0`: the pointwise ratio
   `f_s'/f_s` is undefined at `f_s = 0`, and the PD-LB manuscript states the Lenard-Bernstein
-  H-theorem for a strictly positive `f`. So a run of either operator whose projection undershoots stops. On `f_s < 0` the
-  entropy `∫ f log|f|` is not convex, so both manuscripts note that the uniqueness of the discrete
-  equilibrium is not guaranteed; the entropy derivative and the H-theorem do not need `f_s > 0`. The
-  real fix — a positivity-preserving projection — is the manuscripts' own open problem.
+  H-theorem for a strictly positive `f`. So a run of either operator whose projection undershoots
+  stops. On `f_s < 0` the entropy `∫ f log|f|` is not convex, so both manuscripts note that the
+  uniqueness of the discrete equilibrium is not guaranteed; the entropy derivative and the
+  H-theorem do not need `f_s > 0`. The real fix — a positivity-preserving projection — is the
+  manuscripts' own open problem.
 - **kind:** defect
 - **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
   migration. None of these are regressions; each is either a numerical-methods decision or work

@@ -240,8 +240,8 @@ top left corner.
 
 # Throws
 
-- `ArgumentError` when `v` or the `v` of a panel holds no value, when `panels` holds no panel,
-  and when `vdomain` is empty or reversed.
+- `ArgumentError` when `v`, `v̇` or the `v` of a panel holds no value, when `panels` holds no
+  panel, and when `vdomain` is empty or reversed.
 - `DimensionMismatch` when `v̇` is not as long as `v`.
 """
 function plot_velocity_projections end
