@@ -20,6 +20,13 @@ end
 # density of each of the `nx × nv` cells.
 function _histogram(dist::ParticleDistribution{DT, 1, 1}, xdomain, vdomain,
         nx::Integer, nv::Integer) where {DT}
+    # a domain end that is not finite leaves a cell index `NaN` or makes `range` refuse the
+    # edges, and a reversed domain gives a negative density
+    nx ≥ 1 && nv ≥ 1 || throw(ArgumentError("the cell counts must be positive"))
+    all(isfinite, (first(xdomain), last(xdomain), first(vdomain), last(vdomain))) ||
+        throw(ArgumentError("each domain must have finite ends"))
+    first(xdomain) < last(xdomain) && first(vdomain) < last(vdomain) ||
+        throw(ArgumentError("each domain must run from its lower to its upper end"))
     # `isempty` iterates a `ParticleList` and raises `BoundsError` on an empty list, so the
     # particle methods check its length directly. ParticleMethods K2 records the defect; the
     # fix is on its `main` and is not released.
@@ -159,13 +166,6 @@ end
 function VlasovMethods.plot_collision_distribution(f::ParticleDistribution{DT, 1, 1},
         g::ParticleDistribution{DT, 1, 1};
         xdomain, vdomain, nx::Integer = 100, nv::Integer = 100) where {DT}
-    # `_histogram` checks neither the orientation of the domains nor the cell counts (K57), nor
-    # that the domains' ends are finite, where a cell index is `NaN` or `range` refuses the edges
-    nx ≥ 1 && nv ≥ 1 || throw(ArgumentError("the cell counts must be positive"))
-    first(xdomain) < last(xdomain) && first(vdomain) < last(vdomain) ||
-        throw(ArgumentError("each domain must run from its lower to its upper end"))
-    all(isfinite, (first(xdomain), last(xdomain), first(vdomain), last(vdomain))) ||
-        throw(ArgumentError("each domain must have finite ends"))
     # `_histogram` refuses an empty distribution without naming it, and `isempty` raises
     # `BoundsError` on an empty `ParticleList` (ParticleMethods K2)
     iszero(length(f.particles)) && throw(ArgumentError("`f` holds no particle"))
@@ -173,14 +173,17 @@ function VlasovMethods.plot_collision_distribution(f::ParticleDistribution{DT, 1
     histograms = map(dist -> _histogram(dist, xdomain, vdomain, nx, nv), (f, g))
     n, u, T = _maxwellian_moments(f, xdomain)
 
+    # the Maxwellian on the cell centres, where the histograms hold their values; the two
+    # histograms share their cells
+    xedges, vedges = first(histograms)
+    xc = (xedges[1:(end - 1)] .+ xedges[2:end]) ./ 2
+    vc = (vedges[1:(end - 1)] .+ vedges[2:end]) ./ 2
+    M = [n / sqrt(2 * DT(π) * T) * exp(-(v - u)^2 / (2 * T)) for _ in xc, v in vc]
+
     fig = Figure()
-    for (column, (xedges, vedges, F), title) in zip(1:2, histograms, ("initial", "final"))
+    for (column, (_, _, F), title) in zip(1:2, histograms, ("initial", "final"))
         ax = Axis(fig[1, column]; xlabel = "x", ylabel = "v", title = title)
         heatmap!(ax, xedges, vedges, F)
-        # the Maxwellian on the cell centres, where the histogram holds its values
-        xc = (xedges[1:(end - 1)] .+ xedges[2:end]) ./ 2
-        vc = (vedges[1:(end - 1)] .+ vedges[2:end]) ./ 2
-        M = [n / sqrt(2 * DT(π) * T) * exp(-(v - u)^2 / (2 * T)) for _ in xc, v in vc]
         contour!(ax, xc, vc, M; color = :white)
     end
     return fig
@@ -218,8 +221,7 @@ function _finite_pairs(x, y, xname, yname)
 end
 
 # The values of `y` on a logarithmic axis. `log10` has no value at a negative number, nor at the
-# zero of a series of one value, so both are refused; a zero in a longer series, such as a drift
-# at `t = 0`, is clipped to the smallest positive value of the element type, the axis' floor.
+# zero of a series of one value, so both are refused.
 function _log_values(y, name)
     any(<(0), y) && throw(ArgumentError(
         "`$name` holds a negative value, which a logarithmic axis cannot show"))
@@ -227,13 +229,29 @@ function _log_values(y, name)
         throw(ArgumentError(
             "`$name` holds the single value zero, which a logarithmic axis cannot show"))
     end
-    return max.(float.(y), floatmin(float(eltype(y))))
+    return float.(y)
+end
+
+# The series `ys` that share one logarithmic axis, each as the mask of its pairs that are drawn
+# and the values they are drawn at. A zero has no logarithm: in a series with a positive value it
+# is dropped, as a non-finite value is, such as a drift at `t = 0`. A series that is zero at every
+# pair, such as the drift of an exactly conserved quantity, is drawn one decade below the smallest
+# positive value on the axis, or at `floatmin` of its element type where the axis holds none.
+function _log_axis(ys)
+    positive = (v for y in ys for v in y if v > 0)
+    floor = isempty(positive) ? nothing : minimum(positive) / 10
+    return map(ys) do y
+        any(>(0), y) && return (y .> 0, y)
+        T = eltype(y)
+        level = isnothing(floor) ? floatmin(T) : max(T(floor), floatmin(T))
+        return (trues(length(y)), fill(level, length(y)))
+    end
 end
 
 # Makie widens a logarithmic range of zero width, every value at one `c`, to the decades between
-# `c²` and one. The square underflows to zero for a `c` below about `1e-162`, such as the clipped
-# zero of an exactly conserved quantity, and overflows for a `c` above about `1e154`; Makie then
-# refuses the limits when the figure is saved. `setlims!` gives such an axis one decade on each
+# `c²` and one. The square underflows to zero for a `c` below about `1e-162`, such as the
+# `floatmin` of an axis whose every series is zero, and overflows for a `c` above about `1e154`;
+# Makie then refuses the limits when the figure is saved. `setlims!` gives such an axis one decade on each
 # side of `c` instead, within the positive finite `Float64`s. `plotted` holds the values of each
 # series on the axis.
 function _flat_log_limits!(setlims!, ax, plotted)
@@ -260,14 +278,16 @@ function VlasovMethods.plot_drift(t::AbstractVector, quantities;
 
     fig = Figure()
     ax = Axis(fig[1, 1]; xlabel = "t", ylabel = "relative drift", yscale = log10)
-    plotted = AbstractVector[]
-    for (label, Q) in zip(labels, quantities)
+    series = map(zip(labels, quantities)) do (label, Q)
         Q₀ = first(Q)
         isfinite(Q₀) && !iszero(Q₀) || throw(ArgumentError(
             "the initial value of `$label` is $Q₀, so its relative drift is not defined"))
-        x, y = _finite_pairs(t, abs.(Q .- Q₀) ./ abs(Q₀), "t", label)
-        push!(plotted, _log_values(y, label))
-        _series!(ax, x, last(plotted); label = string(label))
+        x, drift = _finite_pairs(t, abs.(Q .- Q₀) ./ abs(Q₀), "t", label)
+        (string(label), x, _log_values(drift, label))
+    end
+    plotted = map(series, _log_axis(map(last, series))) do (label, x, _), (keep, y)
+        _series!(ax, x[keep], y[keep]; label = label)
+        y[keep]
     end
     _flat_log_limits!(ylims!, ax, plotted)
     axislegend(ax)
@@ -290,11 +310,13 @@ function VlasovMethods.plot_error(t::AbstractVector, err::AbstractVector,
     fig = Figure()
     ax = Axis(fig[1, 1]; xlabel = "t", ylabel = "error", yscale = log10)
     series = (("err", err, "error"), ("closed", closed, "closed form"))
-    plotted = map(series) do (name, y, label)
-        x, y = _finite_pairs(t, y, "t", name)
-        y = _log_values(y, name)
-        _series!(ax, x, y; label = label)
-        y
+    checked = map(series) do (name, values, label)
+        x, finite = _finite_pairs(t, values, "t", name)
+        (label, x, _log_values(finite, name))
+    end
+    plotted = map(checked, _log_axis(map(last, checked))) do (label, x, _), (keep, y)
+        _series!(ax, x[keep], y[keep]; label = label)
+        y[keep]
     end
     _flat_log_limits!(ylims!, ax, plotted)
     axislegend(ax)
@@ -304,29 +326,34 @@ end
 function VlasovMethods.plot_convergence(h::AbstractVector, err::AbstractVector)
     _check_lengths("h" => h, "err" => err)
     x, y = _finite_pairs(h, err, "h", "err")
+    # the values on the logarithmic axes, before the fit, so that a negative value is named as
+    # such and not as a pair that the fit cannot use
+    xs, ys = _log_values(x, "h"), _log_values(y, "err")
 
-    # the least-squares line through the pairs whose logarithms are finite; a zero is drawn at
-    # the axis' floor but has no logarithm to fit
-    fitted = findall((x .> 0) .& (y .> 0))
+    # the least-squares line through the pairs whose logarithms are finite; a pair with a zero
+    # has no logarithm, and is neither drawn nor fitted
+    fitted = findall((xs .> 0) .& (ys .> 0))
     length(fitted) ≥ 2 || throw(ArgumentError(
         "fewer than two pairs of positive finite `h` and `err`, so no slope can be fitted"))
     lnh, lnerr = log.(x[fitted]), log.(y[fitted])
+    # a test of the deviations from the mean cannot see equal widths: the rounded mean of three
+    # or more equal values can miss each of them by an ulp
+    allequal(lnh) &&
+        throw(ArgumentError("every `h` is the same, so no slope can be fitted"))
     dh = lnh .- sum(lnh) / length(lnh)
     Shh = sum(abs2, dh)
-    Shh > 0 || throw(ArgumentError("every `h` is the same, so no slope can be fitted"))
     p = sum(dh .* lnerr) / Shh
     C = exp(sum(lnerr) / length(lnerr) - p * sum(lnh) / length(lnh))
 
     fig = Figure()
     ylabel = "error ∝ h^p, p = $(round(p; sigdigits = 3))"
     ax = Axis(fig[1, 1]; xlabel = "h", ylabel = ylabel, xscale = log10, yscale = log10)
-    ys = _log_values(y, "err")
-    scatter!(ax, _log_values(x, "h"), ys)
+    scatter!(ax, xs[fitted], ys[fitted])
     hs = sort(x[fitted])
     lines!(ax, hs, C .* hs .^ p)
     # the widths differ, so only the `y` axis can be flat: an error that is the same at each
     # width, which the fitted line of slope zero meets within rounding
-    _flat_log_limits!(ylims!, ax, (ys,))
+    _flat_log_limits!(ylims!, ax, (ys[fitted],))
     return fig
 end
 
@@ -337,10 +364,14 @@ function VlasovMethods.plot_cost(cost::AbstractVector, err::AbstractVector)
     fig = Figure()
     ax = Axis(fig[1, 1]; xlabel = "wall-clock time", ylabel = "error",
         xscale = log10, yscale = log10)
-    xs, ys = _log_values(x, "cost"), _log_values(y, "err")
-    scatter!(ax, xs, ys)
-    _flat_log_limits!(xlims!, ax, (xs,))
-    _flat_log_limits!(ylims!, ax, (ys,))
+    (xkeep, xs), = _log_axis((_log_values(x, "cost"),))
+    (ykeep, ys), = _log_axis((_log_values(y, "err"),))
+    keep = xkeep .& ykeep
+    any(keep) || throw(ArgumentError(
+        "no run has a positive `cost` and a positive `err`, so none has a place on both axes"))
+    scatter!(ax, xs[keep], ys[keep])
+    _flat_log_limits!(xlims!, ax, (xs[keep],))
+    _flat_log_limits!(ylims!, ax, (ys[keep],))
     return fig
 end
 

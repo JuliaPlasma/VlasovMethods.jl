@@ -276,9 +276,9 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K47 · Twelve lines of commented-out code remain in three collision model files.
 
-- **location:** `src/models/lenard_bernstein.jl:96`
-- **evidence:** The lines are `src/models/lenard_bernstein.jl:96` and `:106`;
-  `src/models/lenard_bernstein_conservative.jl:228`, `:238-240` and `:244`;
+- **location:** `src/models/lenard_bernstein.jl:107`
+- **evidence:** The lines are `src/models/lenard_bernstein.jl:107` and `:117`;
+  `src/models/lenard_bernstein_conservative.jl:226`, `:236-238` and `:242`;
   `src/models/rescaled_lenard_bernstein_conservative.jl:149`, `:162-164` and `:168`. Each is an
   old assignment, call or `return` behind `#`, such as `# int = Integrators.Integrator(equ,
   Integrators.RK438())`. #69 deleted the other dead code of these files and left these lines,
@@ -383,18 +383,6 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** upstream
 - **found:** #75
 
-### K57 · `plot_distribution` checks neither the orientation of the two domains nor the cell counts.
-
-- **location:** `ext/VlasovMethodsMakieExt.jl:21-31`
-- **evidence:** A reversed `xdomain` gives a histogram with a negative "density" and no error, and
-  `nx = 0` fails with an indexing error; every other edge case of the two methods raises
-  `ArgumentError`. Probe, CairoMakie 0.15.15 on Julia 1.13.1 (the review of #74, finding 3):
-  `xdomain = (1.0, 0.0)` with one particle of weight 1 and `nx = nv = 4` returns a density of
-  `-8.0`; `nx = 0` throws `BoundsError: attempt to access 0×100 Matrix{Float64} at index [0, 51]`.
-  One guard covers both cases: `nx ≥ 1 && nv ≥ 1 && xa < xb && va < vb || throw(ArgumentError(…))`.
-- **kind:** defect
-- **found:** #74
-
 ### K58 · A particle whose `v` is `NaN` is dropped from the histogram without a word.
 
 - **location:** `src/plotting.jl:34-37`
@@ -481,7 +469,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K69 · The legend of `plot_series` overflows its axis for many labelled series.
 
-- **location:** `ext/VlasovMethodsMakieExt.jl:139`, `plot_series`
+- **location:** `ext/VlasovMethodsMakieExt.jl:146`, `plot_series`
 - **evidence:** at the default figure size of `600 × 450`, the legend of 20 labelled series is
   481 px high in an axis of 375 px, on `05431f10`; 10 series give 251 px.
   `scripts/bump_on_tail_testing.jl` draws its 30-series figures of items 26 and 27 without
@@ -648,21 +636,29 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** defect
 - **found:** #112
 
-### K93 · `run!(::GeometricIntegrator, h5file)` throws a `BoundsError` where the time span is not a whole number of steps of its own range.
+### K91 · The anisotropy rate of the 1600-particle bi-Maxwellian does not converge under mesh refinement, and the discrete gradient step does not converge at 12 × 12, 24 × 24 and 32 × 32 cells.
 
-- **location:** `src/methods/geometric_integrator.jl:34`
-- **evidence:** `run!` steps `n in 1:ntime(prob)` and reads `times[n + 1]` of
-  `times = t₀:Δt:t_end` (`:34`, `:38`). `ntime` rounds the quotient `(t_end − t₀)/Δt` up, and the
-  range ends at the last whole step at or below `t_end`, so where the quotient is not a whole
-  number in floating point the range is one element short. `t_end = 0.05` with `Δt = 8e-4` gives
-  `ntime = 63` and a range of 63 elements, and so do `0.05` with `1e-3` (51 and 51), `0.1` with
-  `1e-2` (11 and 11) and `0.2` with `8e-4` (251 and 251); a run of `ConservativeLenardBernstein`
-  at `0.05` and `8e-4` stops with `BoundsError: attempt to access 63-element StepRangeLen … at
-  index [64]`. `run!(::SplittingMethod, h5file)` takes its step count from the range
-  (`src/methods/splitting.jl:42-47`) and does not have the defect. The drivers
-  `scripts/pd_lb_*.jl` take their steps in `integrate!` of `scripts/pd_lb_common.jl` instead.
+- **location:** `test/examples/reference_cases.jl`, testset "the rate at 16 × 16 cells, and the
+  8 × 8 control"
+- **evidence:** the rate of `fitted_rate` (30 steps, `abstol = 1e-7`, the default `max_iters`) on
+  the sample `rate_sample(1600)` with `reference_model(v, w; ncell, L = 3.0)` at `Δt = 1e-5`,
+  Julia 1.13.3:
+
+  | cells | fitted rate |
+  |--:|:--|
+  | 8 × 8 | 10.246 |
+  | 12 × 12 | the step throws "did not converge in 100 evaluations", last residual 9.6e-6 |
+  | 16 × 16 | 8.1073 |
+  | 20 × 20 | 7.4254 |
+  | 24 × 24 | the step throws, last residual 3.3e-5 |
+  | 32 × 32 | the step throws, last residual 2.0e-6 |
+
+  The closed rate is `8`. The 16 × 16 mesh is within the testset's 5 % clamp, and 20 × 20 is not,
+  so the agreement at 16 × 16 is not shown to be a converged one. The control of the testset is
+  the 8 × 8 row, and it shows only that the rate depends on the mesh. On `[-4, 4]²` at 8 × 8
+  cells the rate is 1.859 at `Δt = 1e-4` and 1.9574 at `Δt = 1e-5`.
 - **kind:** defect
-- **found:** 2026-11-07
+- **found:** #119
 
 ### K94 · The figure drivers of the Lenard–Bernstein manuscript stop where the projection is not positive at a particle: figures 1, 2, 7 and 8 at the manuscript's parameters, and figure 11 with the seed 1234, where the right-hand side of `LenardBernstein` divides by `f_s` without checking its sign.
 
@@ -674,7 +670,7 @@ has left the file, or that lived only on a merged branch, stays taken.
   `npart =   5623` at `v = 3.799579553401782` and `npart =  31623` at `v = 4.432320203818066`; at
   `M = 25` the projected Maxwellian is `−2.4e-5` at two of the `10⁵` velocities. The sweeps leave
   these points out of figures 1 and 2, record `stopped_at = 25` and `stopped_at = 5623`, and
-  exit 0. `julia --project=scripts scripts/pd_lb_fig7_8.jl` stops after 289 s, in the step 1768
+  exit 0. `julia --project=scripts scripts/pd_lb_fig7_8.jl` stops in the step 1768
   to `t = 1.4144`, where the projection is `−1.58e-7` at `v = −6.42`; it writes
   `pd_lb_fig7_8.hdf5` with `stopped_at = 1.4144`, writes no figure and exits non-zero.
   `LB_rhs_GI!` evaluates `f_s'/f_s + v` at each particle (`src/models/lenard_bernstein.jl:82`)
@@ -740,6 +736,22 @@ has left the file, or that lived only on a merged branch, stays taken.
   and `3.4e-16`.
 - **kind:** defect
 - **found:** 2026-11-07
+
+### K97 · The `GeometricIntegrator` constructors of the two conservative Lenard–Bernstein models fix the implicit midpoint rule, where that of `LenardBernstein` takes the method as an argument.
+
+- **location:** `src/models/lenard_bernstein_conservative.jl:235`
+- **evidence:** `GeometricIntegrator(model::LenardBernstein{1, 1}, tspan, tstep, method =
+  RK438())` takes the time integrator as its fourth argument
+  (`src/models/lenard_bernstein.jl:104`). The constructors of `ConservativeLenardBernstein`
+  (`src/models/lenard_bernstein_conservative.jl:223-243`) and of
+  `RescaledConservativeLenardBernstein`
+  (`src/models/rescaled_lenard_bernstein_conservative.jl:146-169`) take three arguments and pass
+  `Integrators.ImplicitMidpoint()` (`:235` and `:161`), so a caller cannot choose another method
+  for them. Both keep the comment `# put together splitting method` (`:240` and `:166`), which
+  describes no splitting. The fix is a fourth argument `method = Integrators.ImplicitMidpoint()`
+  in both, and the deletion of the two comments.
+- **kind:** defect
+- **found:** #125
 
 ### K98 · `scripts/vlasov_poisson.jl` draws its particles from the global random generator with no seed, so two runs with the same options write different trajectories and figures.
 

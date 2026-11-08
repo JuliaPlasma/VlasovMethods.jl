@@ -121,12 +121,9 @@ error. The other condition, ``\bar{\nabla} S_h(v, v) = \nabla S_h(v)``, holds bi
 # Cost
 
 A call takes `nq` evaluations of ``\nabla S_h`` (one at ``v^1 = v^0``) and no ``S_h``, where the
-[`GonzalezGradient`](@ref) takes one ``\nabla S_h`` and two ``S_h``; one
-[`apply_G!`](@ref) of `O(N²)` follows either in the step. On the fixture of
-`test/helpers/pairwise_landau.jl` (144 particles, quadratic splines on 8 × 8 cells,
-`Float64`, at a load of about 7), ``\nabla S_h`` takes 54 µs and ``S_h`` 34 µs, so one call
-of the [`GonzalezGradient`](@ref) takes 121 µs and one of `AVFGradient(5)` 271 µs, 2.24 times
-as long. A call allocates nothing after a warm call: the node velocities go into the buffer `v`
+[`GonzalezGradient`](@ref) takes one ``\nabla S_h`` and two ``S_h`` (one ``\nabla S_h`` at
+``v^1 = v^0``); one [`apply_G!`](@ref) of `O(N²)` follows either in the step. A call allocates
+nothing after a warm call: the node velocities go into the buffer `v`
 of `model.landau.cache[T]`, the accumulated gradient into `∇̄S`, and the gradient of each later
 node into the buffer `v̇`.
 

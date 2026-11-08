@@ -35,7 +35,6 @@ using ReducedComplexityModeling: ParameterSpace
 import ReducedComplexityModeling: h5save, h5load
 
 import GeometricEquations
-import GeometricEquations: ntime
 
 # `import` and not `using`: `SimpleSolvers` exports generic names (`Options`, `Newton`,
 # `Picard`, `solve`), and every use here is qualified as `SimpleSolvers.…`.

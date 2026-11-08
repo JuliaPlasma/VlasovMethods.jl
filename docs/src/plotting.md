@@ -7,8 +7,9 @@ CurrentModule = VlasovMethods
 Every plotting function is declared in `src/plotting.jl` and has its methods in the package
 extension `VlasovMethodsMakieExt`, which loading `CairoMakie` activates. Each returns a `Figure`
 and writes no file: a driver in `scripts/` loads `CairoMakie`, calls these functions, and saves
-each `Figure` under a name of its own. The functions of the collision figures are on the page of
-[The figures of the collision manuscripts](collisions.md).
+each `Figure` under a name of its own.
+
+## Distributions and series
 
 ```@docs
 plot_distribution
@@ -17,4 +18,15 @@ plot_series
 plot_groups
 plot_damping
 plot_phase_space
+```
+
+## The collision figures
+
+```@docs
+plot_collision_distribution
+plot_drift
+plot_entropy
+plot_error
+plot_convergence
+plot_cost
 ```

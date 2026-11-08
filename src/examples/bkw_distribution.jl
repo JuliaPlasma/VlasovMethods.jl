@@ -72,7 +72,7 @@ function initialize!(dist::ParticleDistribution, params::BKWDistribution,
             v[2, α] = sqrt(K) * randn(rng)
         else
             θ = 2 * T(π) * rand(rng)
-            r = sqrt(2 * K * (-log(rand(rng)) - log(rand(rng))))
+            r = sqrt(2 * K * (randexp(rng) + randexp(rng)))
             v[1, α] = r * cos(θ)
             v[2, α] = r * sin(θ)
         end
