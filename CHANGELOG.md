@@ -327,19 +327,20 @@ their own, except for what they removed and narrowed, which is listed in full be
   section and this entry. `--quick` of `landau_cases.jl` takes 200 particles, 5 steps and 4 cells
   per axis. The gate's time limit for every driver rises from 240 s to 900 s: whole gate runs
   take 230 s to 340 s, and the limit catches a driver that hangs, not a run on a loaded machine.
-- **The drivers outside the collision manuscripts build no figure themselves.**
+- **Seven drivers outside the collision manuscripts build no figure themselves.**
   `scripts/analytic_quadratic.jl`, `bump_on_tail_testing.jl`, `bump_on_tail_train_hnn.jl`,
-  `landau_damping_1d1v.jl` and `vlasov_poisson.jl` draw each figure with `plot_series`,
-  `plot_groups`, `plot_damping` or `plot_phase_space` and save it under the name it had. Their
-  short runs write the same files as before, and the same PNG files byte for byte, except
+  `landau_damping_1d1v.jl` and `vlasov_poisson.jl` draw each figure with a plotting function,
+  `plot_series`, `plot_groups`, `plot_damping`, `plot_phase_space`, `plot_particles` or
+  `spectrumplot` of `ReducedBasisMethods`, and save it under the name it had. Their short runs
+  write the same files as before, and the same PNG files byte for byte, except
   `vlasov_poisson.png`: its driver draws its particles with no seed (K98 of `KNOWN_ISSUES.md`), and
   `plot_phase_space` of a trajectory saves the PNG that the driver saved for it before. These five,
   `bump_on_tail_training.jl` and `bump_on_tail_projections.jl` read their options through
   `driver_options` and run `main` only where they are the program, so `vlasov_poisson.jl` now runs
-  inside a `main`. `scripts/gate.jl` runs the seven with small options and checks that each writes
-  exactly the files of the same run before the change, that none of the seven files nor
-  `bump_on_tail_common.jl` names a Makie figure, axis, legend or plot, and that each takes its
-  default options without a flag; it also runs `test/plotting.jl` with
+  inside a `main`. `scripts/gate.jl` runs the seven, with small options where a driver takes them,
+  and checks that each writes exactly the files of the same run before the change, that none of
+  the seven files nor `bump_on_tail_common.jl` names a Makie figure, axis, legend or plot, and that
+  each takes its default options without a flag; it also runs `test/plotting.jl` with
   `test/integration/makie_extension.jl`, and the docs build.
 
 ### Documentation
