@@ -18,6 +18,7 @@ plot_series
 plot_groups
 plot_damping
 plot_phase_space
+plot_velocity_projections
 ```
 
 ## The collision figures

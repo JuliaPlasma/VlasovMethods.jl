@@ -697,6 +697,67 @@ end
     @test first.(points) == [first(XDOMAIN), 0.5]
 end
 
+@testset "plot_velocity_projections draws the right-hand side and one panel per slice, $T" for T in (Float64, Float32)
+    v = T[-1, 0, 2]
+    v̇ = T[0.5, 0, -1]
+    f(x) = 1 - x^2 / 4
+    df(x) = -x / 2
+    panels = [(v = T[-1, 0, 2], f, df, title = "t = 0.00"),
+        (v = T[0.5, 1, 1.5, 3], f = x -> 2f(x), df = x -> 2df(x), title = "t = 1.00")]
+    fig = plot_velocity_projections(v, v̇, panels; vdomain = (T(-2), T(2)))
+    @test fig isa Figure
+    @test fig.scene.viewport[].widths == [1600, 450]
+    axes = filter(c -> c isa Axis, fig.content)
+    @test length(axes) == 3
+    @test [ax.title[] for ax in axes] ==
+          ["right-hand side at t = 0", "t = 0.00", "t = 1.00"]
+    @test [ax.xlabel[] for ax in axes] == ["v", "v", "v"]
+    @test [ax.ylabel[] for ax in axes] == ["v̇", "f", "f"]
+
+    rhs = only(axes[1].scene.plots)
+    @test rhs isa Scatter
+    @test all(==(2), rhs.markersize[])
+    @test first.(rhs[1][]) == v
+    @test last.(rhs[1][]) == v̇
+
+    vgrid = range(T(-2), T(2); length = 201)
+    for (ax, panel) in zip(axes[2:3], panels)
+        histogram, projection, derivative = ax.scene.plots
+        @test histogram isa Hist
+        @test histogram[1][] == panel.v
+        @test histogram.bins[] == range(T(-2), T(2); length = 81)
+        @test histogram.normalization[] == :pdf
+        @test projection isa Lines
+        @test first.(projection[1][]) ≈ vgrid
+        @test last.(projection[1][]) ≈ panel.f.(vgrid)
+        @test derivative isa Lines
+        @test projection.linestyle[] === nothing
+        @test derivative.linestyle[] == Makie.to_linestyle(:dash)
+        @test last.(derivative[1][]) ≈ panel.df.(vgrid)
+    end
+    # the legend sits in the first projection panel only
+    @test count(c -> c isa Legend, fig.content) == 1
+
+    file = tempname() * ".png"
+    save(file, fig)
+    @test filesize(file) > 0
+
+    draw(v, v̇, panels; vdomain = (-2, 2)) = () -> plot_velocity_projections(v, v̇, panels; vdomain)
+    @test_throws ArgumentError draw(T[], T[], panels)()
+    @test occursin("`v` holds no value", message_of(draw(T[], T[], panels)))
+    @test_throws DimensionMismatch draw(v, v̇[1:2], panels)()
+    @test occursin("`v̇` is shorter than `v`", message_of(draw(v, v̇[1:2], panels)))
+    @test_throws ArgumentError draw(v, v̇, empty(panels))()
+    @test occursin("`panels` holds no panel", message_of(draw(v, v̇, empty(panels))))
+    @test_throws ArgumentError draw(v, v̇, [(panels[1]..., v = T[])])()
+    @test occursin("the `v` of a panel holds no value",
+        message_of(draw(v, v̇, [(panels[1]..., v = T[])])))
+    for vdomain in ((2, -2), (1, 1))
+        @test_throws ArgumentError draw(v, v̇, panels; vdomain)()
+        @test occursin("`vdomain` is empty or reversed", message_of(draw(v, v̇, panels; vdomain)))
+    end
+end
+
 @testset "plot_particles draws a saved state of the snapshots, $T" for T in (Float64, Float32)
     n, nₛ, nh = 5, 3, 2
     space = ParameterSpace(Parameter(:β, T(6), T(7), 2))

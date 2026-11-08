@@ -60,25 +60,12 @@ z = h5read(h5file, "z")
 t = h5read(h5file, "t")
 @printf("  wrote %s (%d time slices)\n", h5file, length(t))
 
-xgrid = range(DOMAIN[1], DOMAIN[2]; length = 201)
-edges = range(DOMAIN[1], DOMAIN[2]; length = 81)
-
-fig = Figure(size = (1600, 450))
-
-ax1 = Axis(fig[1, 1], xlabel = "v", ylabel = "v̇", title = "right-hand side at t = 0")
-scatter!(ax1, v₀, v̇₀, markersize = 2)
-
-for (panel, slice) in enumerate((1, length(t)))
-    f = projection(z[:, slice], dist, sdist)
-    df = derivative(f)
-    ax = Axis(fig[1, panel + 1], xlabel = "v", ylabel = "f",
-        title = @sprintf("t = %.2f", t[slice]))
-    hist!(ax, z[:, slice], bins = edges, normalization = :pdf, color = (:steelblue, 0.5),
-        label = "particles")
-    lines!(ax, xgrid, f.(xgrid), color = :firebrick, label = "spline projection")
-    lines!(ax, xgrid, df.(xgrid), color = :black, linestyle = :dash, label = "derivative")
-    panel == 1 && axislegend(ax; position = :lt)
+# `projection` writes into `sdist` and returns its spline, so each panel keeps a copy
+panels = map((1, length(t))) do slice
+    f = deepcopy(projection(z[:, slice], dist, sdist))
+    (v = z[:, slice], f = f, df = derivative(f), title = @sprintf("t = %.2f", t[slice]))
 end
+fig = plot_velocity_projections(v₀, v̇₀, panels; vdomain = DOMAIN)
 
 figure = results_path("lenard_bernstein_" * OPT.model * ".png")
 save(figure, fig)

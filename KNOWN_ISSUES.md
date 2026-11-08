@@ -44,11 +44,12 @@ has left the file, or that lived only on a merged branch, stays taken.
   enters the matrix. `compute_coefficients` of `ConservativeLenardBernstein` and
   `compute_coefficients_rclb` of `RescaledConservativeLenardBernstein` throw a `DomainError` where
   `f_s ≤ 0` at a particle, because both operators assume `f_s > 0`: the pointwise ratio
-  `f_s'/f_s` is undefined at `f_s = 0`, and the Lenard-Bernstein H-theorem holds only for a
-  non-negative `f`. So a run of either operator whose projection undershoots stops. On `f_s < 0` the
-  entropy `∫ f log|f|` is not convex, so both manuscripts note that the uniqueness of the discrete
-  equilibrium is not guaranteed; the entropy derivative and the H-theorem do not need `f_s > 0`. The
-  real fix — a positivity-preserving projection — is the manuscripts' own open problem.
+  `f_s'/f_s` is undefined at `f_s = 0`, and the PD-LB manuscript states the Lenard-Bernstein
+  H-theorem for a strictly positive `f`. So a run of either operator whose projection undershoots
+  stops. On `f_s < 0` the entropy `∫ f log|f|` is not convex, so both manuscripts note that the
+  uniqueness of the discrete equilibrium is not guaranteed; the entropy derivative and the
+  H-theorem do not need `f_s > 0`. The real fix — a positivity-preserving projection — is the
+  manuscripts' own open problem.
 - **kind:** defect
 - **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
   migration. None of these are regressions; each is either a numerical-methods decision or work
@@ -754,18 +755,6 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** defect
 - **found:** 2026-11-08
 
-### K99 · `scripts/lenard_bernstein.jl` builds its figure itself, with a `Figure`, three `Axis` panels and their plot calls, where no other driver names a Makie figure, axis or plot call.
-
-- **location:** `scripts/lenard_bernstein.jl:66-80`
-- **evidence:** `grep -n 'Figure(\|Axis(\|lines!(\|scatter!(\|heatmap!(' scripts/*.jl` finds
-  `scripts/lenard_bernstein.jl` alone, at lines 66, 68, 69, 74, 78 and 79: the right-hand side at
-  `t = 0` as a scatter, then in two panels the particle histogram (`hist!`, line 76), the spline
-  projection and its derivative, with a legend (`axislegend`, line 80). Every plotting routine is
-  to be a method of the extension, declared and documented in `src/plotting.jl`, and the driver is
-  not one of those whose figures moved there.
-- **kind:** defect
-- **found:** 2026-11-08
-
 ### K100 · Inference does not give a concrete type for `GeometricIntegrator(model, tspan, tstep[, method])` of `LenardBernstein`, `ConservativeLenardBernstein` and `RescaledConservativeLenardBernstein`, because the `ODEProblem` constructor of GeometricEquations and the Newton solver of SimpleSolvers infer free type parameters.
 
 - **location:** `src/models/lenard_bernstein_conservative.jl:240`
@@ -822,3 +811,15 @@ has left the file, or that lived only on a merged branch, stays taken.
   the entry leaves this file when the pre job passes on a Dependabot pull request.
 - **kind:** upstream
 - **found:** #131
+
+### K102 · `Landau` checks the kernel exponent `γ > -6` on the `γ` it is given, but `kernel` evaluates `T(γ)` in the element type `T` of the state, so a `Float32` model accepts a `γ` that rounds to the refused `-6`.
+
+- **location:** `src/models/landau.jl:117`
+- **evidence:** with the `Float32` fixture of `test/models/landau.jl`,
+  `Landau(pdist, CollisionEntropy(sdist); γ = -5.999999999)` builds a model with
+  `landau.γ = -5.999999999`, and `Float32(-5.999999999) == -6.0f0`, the exponent for which the
+  double integral of `𝕃` diverges in two dimensions; `γ = -6.0` throws the `ArgumentError`. The
+  check also has no upper bound: a finite `γ` above `-6` passes for any size. No test and no caller
+  uses a `γ` near `-6`. The fix checks `T(γ)` with the `T` of the particle state.
+- **kind:** defect
+- **found:** #114

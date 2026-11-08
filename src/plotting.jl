@@ -211,6 +211,42 @@ axis. A non-finite velocity draws no marker.
 function plot_phase_space end
 
 @doc raw"""
+    plot_velocity_projections(v, v̇, panels; vdomain) -> Figure
+
+The right-hand side `v̇` of a velocity-only collision model at the velocities `v` as a scatter,
+then one panel per element of `panels` with the particles' histogram, the spline projection and
+its derivative, in a row of panels of one `Figure` of `1600 × 450` pixels.
+
+Defined in a package extension: load `CairoMakie` to make it available.
+
+```julia
+using VlasovMethods, CairoMakie
+panels = map((1, length(t))) do s
+    f = deepcopy(projection(z[:, s], dist, sdist))
+    (v = z[:, s], f = f, df = derivative(f), title = "t = $(t[s])")
+end
+fig = plot_velocity_projections(v₀, v̇₀, panels; vdomain = (-10.0, 10.0))
+```
+
+`projection` writes into `sdist` and returns its spline, so a panel keeps a copy: without the
+`deepcopy`, every panel draws the last projection.
+
+The first panel, titled "right-hand side at t = 0", draws `v̇` against `v` with markers of size
+2. Each element of `panels` has the fields `v`, the particle velocities, `f` and `df`, two
+callables such as a spline projection and its `derivative`, and `title`. Its panel draws the
+histogram of `v` on 80 equal bins of `vdomain`, normalised as a probability density, and `f` and
+`df` on 201 points of `vdomain`, `df` dashed; the first of these panels carries the legend in its
+top left corner.
+
+# Throws
+
+- `ArgumentError` when `v`, `v̇` or the `v` of a panel holds no value, when `panels` holds no
+  panel, and when `vdomain` is empty or reversed.
+- `DimensionMismatch` when `v̇` is not as long as `v`.
+"""
+function plot_velocity_projections end
+
+@doc raw"""
     plot_collision_distribution(f, g; xdomain, vdomain, nx = 100, nv = 100) -> Figure
 
 The initial distribution `f` and the final distribution `g` of a collision run, in two panels of
