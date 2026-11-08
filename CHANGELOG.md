@@ -112,6 +112,11 @@ their own, except for what they removed and narrowed, which is listed in full be
   gives the same run. `scripts/pd_lb_fig11.jl` passes `ImplicitMidpoint()` and `scripts/gate.jl`
   evaluates the right-hand side through the constructor's problem, in place of their copies of
   its parameters and of `LB_rhs_GI!`.
+- **`GeometricIntegrator` of `ConservativeLenardBernstein` and of
+  `RescaledConservativeLenardBernstein` takes the time integrator as its fourth argument**, as
+  that of `LenardBernstein` does, so a caller can choose a method other than the implicit
+  midpoint rule. The default is `ImplicitMidpoint()`, the former fixed method, so a call without
+  it gives the same run (K97).
 - **`LenardBernsteinBracket`, `DoughertyBracket` and `JeyakumarBracket`** select the metric
   bracket of `MetriplecticLenardBernstein` through its keyword `bracket`. `DoughertyBracket()`, the
   default, is the manuscript's form; `JeyakumarBracket()` is that form times `n/(ε − u²)`. Both

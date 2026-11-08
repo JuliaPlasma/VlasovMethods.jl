@@ -73,6 +73,44 @@ end
     @test residual(rk.q) > 1e-6
 end
 
+@testset "the method argument of GeometricIntegrator(::$M, …)" for M in (
+    ConservativeLenardBernstein, RescaledConservativeLenardBernstein)
+    tspan = (0.0, 5e-3)
+    tstep = 1e-3
+    build(method...) = VlasovMethods.GeometricIntegrator(
+        lenard_bernstein(M), tspan, tstep, method...)
+
+    default = build()
+    rk438 = build(GeometricIntegrators.RK438())
+    @test GeometricIntegrators.Integrators.method(default.integrator) isa
+          GeometricIntegrators.ImplicitMidpoint
+    # `RK438()` builds a generic Runge–Kutta method, so compare its tableau
+    tableau(m) = GeometricIntegrators.Integrators.tableau(m)
+    @test tableau(GeometricIntegrators.Integrators.method(rk438.integrator)) ==
+          tableau(GeometricIntegrators.RK438())
+    @test tableau(GeometricIntegrators.Integrators.method(rk438.integrator)) !=
+          tableau(GeometricIntegrators.RK4())
+
+    # the default is the implicit midpoint rule: its run is that of `ImplicitMidpoint()` passed as
+    # the method, step for step
+    mid = GeometricIntegrators.integrate(default.integrator)
+    midpoint = GeometricIntegrators.integrate(
+        build(GeometricIntegrators.ImplicitMidpoint()).integrator)
+    @test all(mid.q[n] == midpoint.q[n] for n in 0:ntime(mid))
+
+    # the first step of the default solves the implicit midpoint rule, and that of the given
+    # `RK438` does not
+    rk = GeometricIntegrators.integrate(rk438.integrator)
+    problem = default.equation
+    residual(q) =
+        let v̇ = similar(q[0])
+            problem.equation.v(v̇, 0.0, (q[0] .+ q[1]) ./ 2, problem.parameters)
+            maximum(abs, q[1] .- q[0] .- tstep .* v̇) / maximum(abs, q[1] .- q[0])
+        end
+    @test residual(mid.q) < 1e-10
+    @test residual(rk.q) > 1e-6
+end
+
 # `ntime` rounds the step count of `0.05 / 8e-4` up to 63, and the range `0.0:8e-4:0.05` has 63
 # points, so 62 steps; a loop over `1:ntime` reads past its end.
 @testset "run! of a GeometricIntegrator over a span that is not a whole number of steps" begin

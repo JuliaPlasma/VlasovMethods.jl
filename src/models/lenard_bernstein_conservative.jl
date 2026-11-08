@@ -221,7 +221,8 @@ end
 
 # The velocity space is 1D, in any spatial dimension: a scalar velocity and one weight per particle.
 function GeometricIntegrator(
-        model::ConservativeLenardBernstein{<:Any, 1}, tspan::Tuple, tstep::Real)
+        model::ConservativeLenardBernstein{<:Any, 1}, tspan::Tuple, tstep::Real,
+        method = Integrators.ImplicitMidpoint())
     # collect parameters
     # params = (ϕ = model.potential, model = model)
     params = (ν = model.ν, idist = model.dist, fdist = model.ent.dist, model = model)
@@ -232,12 +233,11 @@ function GeometricIntegrator(
         parameters = params)
 
     # create integrator
-    int = Integrators.GeometricIntegrator(equ, Integrators.ImplicitMidpoint())
+    int = Integrators.GeometricIntegrator(equ, method)
     # int = Integrators.Integrator(equ, Integrators.ImplicitMidpoint())
     # int = Integrators.Integrator(equ, Integrators.RK438())
     # int = Integrators.Integrator(equ, Integrators.CrankNicolson())
 
-    # put together splitting method
     GeometricIntegrator(model, equ, int)
     # return int
 end

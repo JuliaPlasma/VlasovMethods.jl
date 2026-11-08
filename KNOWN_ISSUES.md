@@ -278,8 +278,8 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 - **location:** `src/models/lenard_bernstein.jl:107`
 - **evidence:** The lines are `src/models/lenard_bernstein.jl:107` and `:117`;
-  `src/models/lenard_bernstein_conservative.jl:226`, `:236-238` and `:242`;
-  `src/models/rescaled_lenard_bernstein_conservative.jl:149`, `:162-164` and `:168`. Each is an
+  `src/models/lenard_bernstein_conservative.jl:227`, `:237-239` and `:242`;
+  `src/models/rescaled_lenard_bernstein_conservative.jl:150`, `:163-165` and `:168`. Each is an
   old assignment, call or `return` behind `#`, such as `# int = Integrators.Integrator(equ,
   Integrators.RK438())`. #69 deleted the other dead code of these files and left these lines,
   because they are outside its hunks. The fix is to delete the twelve lines.
@@ -707,19 +707,3 @@ has left the file, or that lived only on a merged branch, stays taken.
   not a contraction.
 - **kind:** defect
 - **found:** 2026-11-07
-
-### K97 · The `GeometricIntegrator` constructors of the two conservative Lenard–Bernstein models fix the implicit midpoint rule, where that of `LenardBernstein` takes the method as an argument.
-
-- **location:** `src/models/lenard_bernstein_conservative.jl:235`
-- **evidence:** `GeometricIntegrator(model::LenardBernstein{1, 1}, tspan, tstep, method =
-  RK438())` takes the time integrator as its fourth argument
-  (`src/models/lenard_bernstein.jl:104`). The constructors of `ConservativeLenardBernstein`
-  (`src/models/lenard_bernstein_conservative.jl:223-243`) and of
-  `RescaledConservativeLenardBernstein`
-  (`src/models/rescaled_lenard_bernstein_conservative.jl:146-169`) take three arguments and pass
-  `Integrators.ImplicitMidpoint()` (`:235` and `:161`), so a caller cannot choose another method
-  for them. Both keep the comment `# put together splitting method` (`:240` and `:166`), which
-  describes no splitting. The fix is a fourth argument `method = Integrators.ImplicitMidpoint()`
-  in both, and the deletion of the two comments.
-- **kind:** defect
-- **found:** #125
