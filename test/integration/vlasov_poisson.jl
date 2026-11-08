@@ -139,7 +139,7 @@ end
         @test z[2, :] ≈ z̄[2, :] .- tstep .* reference.(z̄[1, :], 1) rtol=√eps(T)
 
         # the coefficients at step 0 and at step 10 differ
-        update_potential!(model)
+        update_potential!(model, model.distribution.particles.z, model.distribution.particles.w)
         c₀ = copy(PoissonSolvers.coefficients(model.potential))
         method = SplittingMethod(vlasov_poisson(T), tspan, tstep)
         GeometricIntegrators.integrate(method.integrator)

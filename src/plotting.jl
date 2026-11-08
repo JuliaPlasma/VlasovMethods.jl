@@ -16,8 +16,9 @@ fig = plot_distribution(dist)
 ```
 
 The one-argument method takes a [`GridDistribution`](@ref) and draws `dist.values` as a single
-heatmap on the grid's own nodes, untransposed: the columns of the matrix are the `v` nodes, so
-the figure and the matrix have the same orientation.
+heatmap whose cells are centred on the grid's nodes, untransposed: the columns of the matrix are
+the `v` nodes, so the figure and the matrix have the same orientation. The drawn `x` and `v`
+ranges therefore extend half a cell width past the first and the last node of each grid.
 
 The method with the two keywords takes a `ParticleDistribution` of one position and one
 velocity dimension and draws the weighted particle histogram on `nx × nv` cells of `xdomain`
@@ -32,9 +33,10 @@ summed over the particles that fall in it, with ``h_x = (x_b - x_a) / n_x`` and
 it keeps. A cell is half-open, `[x_a + (i-1) h_x, x_a + i h_x)` and likewise in `v`.
 
 `xdomain` is periodic and `x` wraps into it. `vdomain` is bounded, and a particle outside it —
-`v < v_a` or `v >= v_b` — is dropped from the histogram rather than clamped into an end cell.
-A particle with a non-finite `x`, which the wrap cannot place, is dropped as well, and so is a
-particle with a non-finite weight, which would make its whole cell `NaN` or infinite.
+`v < v_a` or `v >= v_b` — is dropped from the histogram rather than clamped into an end cell,
+and so is a particle with a non-finite `v`, which no cell holds. A particle with a non-finite
+`x`, which the wrap cannot place, is dropped as well, and so is a particle with a non-finite
+weight, which would make its whole cell `NaN` or infinite.
 A distribution with no particles throws an `ArgumentError`, and so does a cell count that is not
 positive, or a domain that does not run from its lower to its upper end or has an end that is not
 finite.

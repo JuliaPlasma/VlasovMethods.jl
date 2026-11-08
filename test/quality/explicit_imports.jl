@@ -1,13 +1,17 @@
+using CairoMakie
 using ExplicitImports
 using GeometricMachineLearning
 using Test
 using VlasovMethods
 
-# The extension loads with `GeometricMachineLearning`, so its module exists from here on.
+# The extensions load with `GeometricMachineLearning` and with `CairoMakie`, so their modules
+# exist from here on.
 const EXT = Base.get_extension(VlasovMethods, :MultiModalAutoEncoderExt)
+const MAKIE_EXT = Base.get_extension(VlasovMethods, :VlasovMethodsMakieExt)
 
 @testset "ExplicitImports" begin
     @test EXT isa Module
+    @test MAKIE_EXT isa Module
 
     # The package lists no explicit import that it does not use, takes each explicit import and
     # each qualified access from the module that owns the name, and qualifies no name with its
@@ -31,4 +35,8 @@ const EXT = Base.get_extension(VlasovMethods, :MultiModalAutoEncoderExt)
     @test check_no_self_qualified_accesses(EXT) === nothing
     @test check_all_explicit_imports_are_public(EXT) === nothing
     @test check_all_qualified_accesses_are_public(EXT) === nothing
+
+    # The plotting extension imports each name explicitly and imports nothing it does not use.
+    @test check_no_implicit_imports(MAKIE_EXT) === nothing
+    @test check_no_stale_explicit_imports(MAKIE_EXT) === nothing
 end

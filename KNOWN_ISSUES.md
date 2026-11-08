@@ -6,17 +6,6 @@ takes the number after the highest `K<n>` that this file, `CHANGELOG.md` or thei
 ever named, which `git log -p -- KNOWN_ISSUES.md CHANGELOG.md` shows, so the ID of an entry that
 has left the file, or that lived only on a merged branch, stays taken.
 
-### K1 · `src/particles/poisson.jl` is present but not included.
-
-- **location:** `src/particles/poisson.jl`
-- **evidence:** The file names an undefined binding, so including it breaks the load:
-  `poisson.jl` wants `PoissonSolverPBSplines`, which neither the module nor its dependencies
-  define.
-- **kind:** dead code
-- **found:** 2026-09-17. Carried over from the audit that accompanied the `SimpleSplines`
-  migration. None of this is a regression; it is either a numerical-methods decision or work the
-  migration deliberately did not take on.
-
 ### K4 · The appendix Landau method takes the implicit midpoint rule, which is not a discrete gradient, so no discrete H-theorem is proven for it.
 
 - **location:** `src/methods/Landau_solver.jl`
@@ -85,18 +74,6 @@ has left the file, or that lived only on a merged branch, stays taken.
   migration. None of these are regressions; each is either a numerical-methods decision or work
   the migration deliberately did not take on.
 
-### K14 · `fatou lint` reports `unused-binding` locals and no `unused-import`.
-
-- **location:** `src/gridbased/moments.jl:18`
-- **evidence:** `fatou lint --force-exclude --output concise .` reports three `unused-binding`
-  locals — `src/gridbased/moments.jl:18`, `test/distributions/spline_distribution.jl:74` and
-  `:76` — and no `unused-import`.
-  `ExplicitImports` agrees with the imports the module file keeps.
-- **kind:** dead code
-- **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
-  migration. None of these are regressions; each is either a numerical-methods decision or work
-  the migration deliberately did not take on.
-
 ### K18 · Revise prints EMFILE errors in the test log
 
 - **location:** `test/quality/jet.jl`
@@ -123,46 +100,22 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** defect
 - **found:** #60
 
-### K23 · The one-argument `update_potential!(model)` has no caller in `src/`.
+### K24 · The Lenard-Bernstein right-hand sides keep an uncalled `LB_rhs!`.
 
-- **location:** `src/models/vlasov_poisson.jl:18`
-- **evidence:** It deposits from `model.distribution`, which the integrator never writes. The
-  splitting fields call the three-argument method at `:70` and `:92`, and the Hamiltonian at
-  `:131`. `grep -rn 'update_potential!' src test` finds the one-argument call only at
-  `test/integration/vlasov_poisson.jl:142`, where `deposit(model, x₀)` at `:147` builds the
-  same reference.
-- **kind:** dead code
-- **found:** #61
-
-### K24 · The Lenard-Bernstein right-hand sides keep an uncalled `LB_rhs!` and two plotting copies.
-
-- **location:** `src/models/lenard_bernstein.jl:61`
+- **location:** `src/models/lenard_bernstein.jl:60`
 - **evidence:** `LB_rhs!(v̇, v, params, t)` keeps the argument order of an ODE solver that the
-  package does not use, and nothing in `src/` calls it: `LB_rhs_GI!` (`:75`) computes the same
-  right-hand side on the buffers of the model's cache. `LB_rhs` (`:88`) and `CLB_rhs`
-  (`src/models/lenard_bernstein_conservative.jl:212`) repeat the formulas of their `_GI!`
-  functions, and neither has a caller: in `src/`, `grep -rn -E '\bC?LB_rhs\b' src` finds the two
-  definitions, the `LB_rhs!` definition and the comment of `LB_rhs_GI!` that names it. Outside
-  `src/`, `test/integration/names.jl` lists the two names, and the tests and the reference
-  generator call `LB_rhs!`.
+  package does not use, and nothing in `src/` calls it: `LB_rhs_GI!` (`:73`) computes the same
+  right-hand side on the buffers of the model's cache. Outside `src/`, the tests and the reference
+  generator call `LB_rhs!` as an oracle for `LB_rhs_GI!`, so it stays until they have another.
 - **kind:** dead code
-- **found:** #61
-
-### K26 · The `LB_rhs!` docstring and comment describe past code.
-
-- **location:** `src/models/lenard_bernstein.jl:54`
-- **evidence:** The admonition "The division by `f_s` was missing" (`:54-59`) says what "both
-  right-hand sides computed" in an earlier version of the code. The comment at `:62-63` explains
-  a line that "threw". The facts belong in the present tense, and the history in `CHANGELOG.md`.
-- **kind:** docs
 - **found:** #61
 
 ### K27 · The collision stencils wrap the bounded `v`-grid periodically.
 
 - **location:** `src/gridbased/collisions.jl:66`
 - **evidence:** The four `v`-stencils — `QuadraticCollisions`' call operator (`:66-67`),
-  `ReducedCollisionTensor`'s `getindex` (`:132-133`) and the two `_get_MC̃_*` assemblers
-  (`:187-188`, `:237-238`) — wrap with `mod1`, but the `v`-grid is bounded. At the wrap the second
+  `ReducedCollisionTensor`'s `getindex` (`:119-120`) and the two `_get_MC̃_*` assemblers
+  (`:174-175`, `:224-225`) — wrap with `mod1`, but the `v`-grid is bounded. At the wrap the second
   difference of `v` does not vanish, so the two ends couple. Every conservation claim of the two
   docstrings is conditional on `f` vanishing at the ends of the `v`-grid to `eps(T)`. On a grid
   that does not vanish there, the moments drift: on `nx = 4` with
@@ -190,55 +143,30 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K29 · The two `_get_MC̃_*` assemblers carry arguments they do not use.
 
-- **location:** `src/gridbased/collisions.jl:170`
-- **evidence:** `h₁` is never read in either assembler (`:170-205`, `:222-251`). `ci` is read only
-  for `size(ci)` (`:171`, `:223`) and for the length check of `v`. The quadratic assembler
+- **location:** `src/gridbased/collisions.jl:157`
+- **evidence:** `h₁` is never read in either assembler (`:157-192`, `:209-238`). `ci` is read only
+  for `size(ci)` (`:158`, `:210`) and for the length check of `v`. The quadratic assembler
   does not read `∫vdv` either. `grep -rn '_get_MC̃_' src test scripts` finds the calls in
   `src/gridbased/collisions.jl` and `test/gridbased/collisions.jl` only. The nine-argument
   signature follows the advisor decision recorded in #62. Whether to shorten it is open.
 - **kind:** dead code
 - **found:** #62
 
-### K30 · `size(rt, i)` and `axes(rt, i)` throw for `i > 3` on `ReducedCollisionTensor`.
-
-- **location:** `src/gridbased/collisions.jl:103`
-- **evidence:** `size(rt, i) = size(rt)[i]` (`:103`) and `axes(rt, i) = Base.OneTo(size(rt, i))`
-  (`:104`) index past a three-element tuple, so `size(rt, 4)` and `axes(rt, 4)` throw a
-  `BoundsError`. The `AbstractArray` fallbacks give `1` and `Base.OneTo(1)`. The fix is to delete
-  the two lines.
-- **kind:** defect
-- **found:** #62
-
-### K31 · `_stencil_indices_v` has no caller.
-
-- **location:** `src/gridbased/collisions.jl:109`
-- **evidence:** `grep -rn '_stencil_indices_v' src test scripts docs` returns the definition
-  (`:109-118`) only.
-- **kind:** dead code
-- **found:** #62
-
 ### K32 · The `getindex` of `ReducedCollisionTensor` rebuilds three indices in the innermost loop.
 
-- **location:** `src/gridbased/collisions.jl:120`
-- **evidence:** The loop at `:130-148` builds `M`, `N`, `O` and their linear indices for every
+- **location:** `src/gridbased/collisions.jl:107`
+- **evidence:** The loop at `:117-135` builds `M`, `N`, `O` and their linear indices for every
   `(m1, m2, o2, n2)`, although `M`, `O`, `m` and `o` do not depend on `n2`, and the `v`-stencil
   of `m2` is the one that `QuadraticCollisions` computes (`:66-67`). The loop can be shorter. No
   benchmark compares the loop with a shorter form.
 - **kind:** not verified
 - **found:** #62
 
-### K33 · A comment names something a reader cannot find.
-
-- **location:** `src/gridbased/collisions.jl:2`
-- **evidence:** The comment at `:2` says "A N × N × N × tensor" and does not name `N`.
-- **kind:** docs
-- **found:** #62
-
 ### K34 · Two testsets check words of a docstring.
 
-- **location:** `test/gridbased/collisions.jl:267`
-- **evidence:** `the docstrings name the invariants` (`:267-274`) and
-  `the docstrings state the v-end requirement` (`:276-281`) test `occursin` on the text of
+- **location:** `test/gridbased/collisions.jl:294`
+- **evidence:** `the docstrings name the invariants` (`:294-301`) and
+  `the docstrings state the v-end requirement` (`:303-308`) test `occursin` on the text of
   `@doc`, so a rewording that keeps the facts fails them and a docstring that names the words
   but is wrong passes them. The plan of the part names both checks. Whether to keep them is open.
 - **kind:** missing test
@@ -274,17 +202,6 @@ has left the file, or that lived only on a merged branch, stays taken.
   API change.
 - **kind:** dead code
 - **found:** 2026-10-04
-
-### K47 · Two lines of commented-out code remain in the `LenardBernstein` model file.
-
-- **location:** `src/models/lenard_bernstein.jl:107`
-- **evidence:** The lines are `src/models/lenard_bernstein.jl:107` and `:117`. Each is an old
-  assignment behind `#`, such as `# int = Integrators.GeometricIntegrator(equ,
-  Integrators.CrankNicolson())`. #69 and #129 deleted the other dead code of the collision model
-  files and left these lines, because they are outside their hunks. The fix is to delete the two
-  lines.
-- **kind:** dead code
-- **found:** #69
 
 ### K48 · The collision test and its reference generator define the same fixture twice.
 
@@ -356,18 +273,6 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** defect
 - **found:** #73
 
-### K55 · The manual's navbar carries no repository link.
-
-- **location:** `docs/make.jl:9`
-- **evidence:** Every build of the manual warns
-  `┌ Warning: Unable to determine the repository root URL for the navbar link.`, and the same
-  message names the two remedies: pass a `Remotes.Remote` object to `repo`, or set `repolink` on
-  the `HTML` format. The `makedocs` call passes the string
-  `"https://github.com/JuliaPlasma/VlasovMethods.jl/blob/{commit}{path}#{line}"`, which serves the
-  source links but not the navbar.
-- **kind:** docs
-- **found:** #73
-
 ### K56 · `Parameter` of `ReducedComplexityModeling` rejects distinct bounds for a one-sample range.
 
 - **location:** `ReducedComplexityModeling` v0.5.0, `src/parameters/parameter.jl:55`
@@ -383,37 +288,6 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** upstream
 - **found:** #75
 
-### K58 · A particle whose `v` is `NaN` is dropped from the histogram without a word.
-
-- **location:** `src/plotting.jl:34-37`
-- **evidence:** A particle whose `v` is `NaN` is also dropped, because `va ≤ v` is false for it.
-  Neither the docstring nor the CHANGELOG mentions this case; both name `v` outside `[va, vb)`,
-  a non-finite `x` and a non-finite weight. Probe (the review of #74, finding 6): particles
-  `(0.5, NaN, w = 1)` and `(0.5, 0.0, w = 0.25)`, and `sum(F)·hx·hv == 0.25` passes.
-- **kind:** defect
-- **found:** #74
-
-### K59 · The grid heatmap's docstring says the heatmap is drawn "on the grid's own nodes".
-
-- **location:** `src/plotting.jl:19-20`
-- **evidence:** Makie treats the nodes as cell centres, so the drawn `v` range extends `hv/2` past
-  `vdomain` at each end and every `x` cell is centred on its node. Probe (the review of #74,
-  finding 5): `GridDistribution(reshape(1:21, 7, 3), (0, 1), (-1, 1))` draws `v` cell edges
-  `[-1.5, -0.5, 0.5, 1.5]` and `x` edges `[-0.0714…, …, 0.9286…]`. `plot.args[]` equals
-  `(dist.x, dist.v)`, as the test asserts.
-- **kind:** docs
-- **found:** #74
-
-### K60 · The CairoMakie extension relies on implicit imports.
-
-- **location:** `ext/VlasovMethodsMakieExt.jl:3-4`
-- **evidence:** `print_explicit_imports(VlasovMethodsMakieExt; report_non_public = true)` reports
-  `relying on implicit imports for 8 names`: `using CairoMakie: CairoMakie, Axis, Figure,
-  heatmap!, scatter!` and `using VlasovMethods: VlasovMethods, GridDistribution,
-  ParticleDistribution`. GeometricBrackets' extension uses the same pattern.
-- **kind:** defect
-- **found:** #74
-
 ### K61 · A non-finite reduced coordinate or particle position raises `InexactError` instead of returning a value.
 
 - **location:** `src/particles/electric_field.jl`
@@ -426,18 +300,6 @@ has left the file, or that lived only on a merged branch, stays taken.
   guards non-finite input, so a march that produces it stops at the step that deposits it.
 - **kind:** found late
 - **found:** #78, which adds no guard and no test for non-finite coordinates.
-
-### K62 · A comment says that the clamped cubic basis reproduces 1, v and v² to 1e-14, and v² is measured at 2.8e-14.
-
-- **location:** `src/models/lenard_bernstein_conservative.jl:46`
-- **evidence:** `julia --startup-file=no --project=scripts scripts/verify_conservation.jl` measures
-  the cubic basis on `(-8.0, 8.0)` with 31 knots and prints, under Claim 2,
-  `Free()  3  6.661e-16  1.776e-15  2.842e-14` for `f = 1`, `f = v` and `f = v²`. The other
-  figures of the comment agree with the same table: `Periodic()` gives `1.234e+00` for `v` and
-  `1.164e-01` for `v²`, and `Dirichlet()` gives `4.066e-02` for `1`. The CHANGELOG states the
-  bound as `3e-14`.
-- **kind:** docs
-- **found:** #80
 
 ### K65 · `best_and_worst` names one parameter as both the best and the worst when a reduced growth rate is `NaN`.
 
@@ -457,19 +319,9 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** found late
 - **found:** 2026-10-17
 
-### K68 · No 1D1V distribution matches the `draw!` of the `Bump` example.
-
-- **location:** `src/examples/bump.jl:28`
-- **evidence:** `initialize!(ParticleDistribution(1, 1, 100), VlasovMethods.Bump())` raises
-  `MethodError: no method matching draw!(::ParticleDistribution{Float64, 1, 1, …}`, on
-  `05431f10` and on this branch. The method binds `ParticleDistribution{1, 1}`, whose first
-  parameter is the element type.
-- **kind:** found late
-- **found:** 2026-10-23
-
 ### K69 · The legend of `plot_series` overflows its axis for many labelled series.
 
-- **location:** `ext/VlasovMethodsMakieExt.jl:159`, `plot_series`
+- **location:** `ext/VlasovMethodsMakieExt.jl:160`, `plot_series`
 - **evidence:** at the default figure size of `600 × 450`, the legend of 20 labelled series is
   481 px high in an axis of 375 px, on `05431f10`; 10 series give 251 px.
   `scripts/bump_on_tail_testing.jl` draws its 30-series figures of items 26 and 27 without
@@ -477,19 +329,6 @@ has left the file, or that lived only on a merged branch, stays taken.
   per sample, so at the default of 10 samples no figure of the scripts shows the overflow.
 - **kind:** found late
 - **found:** 2026-10-23
-
-### K75 · `scripts/electric_field_timing.jl` ignores its second positional argument.
-
-- **location:** `scripts/electric_field_timing.jl:94`
-- **evidence:** only `ARGS[1]` reaches `measure`, so
-  `julia --project=scripts scripts/electric_field_timing.jl reduced deim` times the reduced path,
-  prints one path's median as a bare number and exits 0, and the `deim` half of the command is
-  dropped in silence. The number is not a figure another reader can check: it is the median of
-  five runs of 200 field evaluations, so it moves with the machine's load. The drivers that
-  include `options.jl` refuse an argument they do not know, and this one includes no parser:
-  `ARGS` longer than one entry is accepted.
-- **kind:** defect
-- **found:** 2026-10-26
 
 ### K76 · A numeric flag of `scripts/options.jl` is taken as given, so a bad value fails inside the run.
 
@@ -515,21 +354,6 @@ has left the file, or that lived only on a merged branch, stays taken.
   job cannot see this before the test step.
 - **kind:** upstream
 - **found:** #96
-
-### K78 · No test or run sees a wrong count of a non-zero `first_exceedance` of the analytic script.
-
-- **location:** `scripts/analytic_quadratic.jl:117`
-- **evidence:** `drift_report` counts the saves from the one after `t = 0`,
-  `abs.(energy_drift(H)[2:end])`. With `[1:end]` the drift at `t = 0` is `0`, so `max_drift` stays
-  the same and only a non-zero `first_exceedance` moves up by one. No save of any run exceeds the
-  bound: the testset `"analytic"` of `test/integration/bump_on_tail_runs.jl` compares
-  `first_exceedance` with the count it takes from `H`, on a smoke run where neither reduced form
-  leaves the bound, and the paper command
-  `--final-time 1000 --saves 10000` on commit `be39325` (2026-10-31, Julia 1.13.3, Darwin arm64)
-  writes `first_exceedance = 0` on both, where no entry of either `H` dataset has
-  `|ΔH/H| > 3.6e-7`. So the mutant `[2:end]` → `[1:end]` gives the same attributes on every run.
-- **kind:** missing test
-- **found:** 2026-10-31
 
 ### K79 · `GeometricIntegrator(model, tspan, tstep, method)` for a 1D1V grid model does not infer a concrete type.
 
@@ -587,8 +411,9 @@ has left the file, or that lived only on a merged branch, stays taken.
   (`src/examples/bump.jl`), `SimpleSplines.ContractWorkspace` (`src/models/landau.jl`) and
   `HDF5.H5DataStore`, and `check_all_explicit_imports_are_public(VlasovMethods)` names
   `TanhActivation` of `ext/VlasovMethodsHNNExt.jl`. `test/quality/explicit_imports.jl` checks
-  the stale imports and the owners of the package, and the implicit, stale, owner and public
-  checks of `MultiModalAutoEncoderExt`, and leaves the implicit and public checks of the package
+  the stale imports and the owners of the package, the implicit, stale, owner and public checks
+  of `MultiModalAutoEncoderExt` and the implicit and stale checks of `VlasovMethodsMakieExt`, and
+  leaves the implicit and public checks of the package
   out, with a comment that names this entry.
 - **kind:** defect
 - **found:** 2026-11-03
@@ -673,7 +498,7 @@ has left the file, or that lived only on a merged branch, stays taken.
   exit 0. `julia --project=scripts scripts/pd_lb_fig7_8.jl` stops in the step 1768
   to `t = 1.4144`, where the projection is `−1.58e-7` at `v = −6.42`; it writes
   `pd_lb_fig7_8.hdf5` with `stopped_at = 1.4144`, writes no figure and exits non-zero.
-  `LB_rhs_GI!` evaluates `f_s'/f_s + v` at each particle (`src/models/lenard_bernstein.jl:82`)
+  `LB_rhs_GI!` evaluates `f_s'/f_s + v` at each particle (`src/models/lenard_bernstein.jl:80`)
   and does not refuse `f_s ≤ 0`. Where an iterate of the Newton solve of the implicit midpoint
   rule meets a small or negative `f_s` in the tail, the ratio sends a particle out of `[−10, 10]`,
   and the projection throws its `DomainError` naming the domain rather than the sign of `f_s`.
@@ -740,30 +565,15 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** defect
 - **found:** 2026-11-07
 
-### K98 · `scripts/vlasov_poisson.jl` draws the positions of its particles from the global random generator with no seed, so two runs with the same options write different trajectories and figures.
-
-- **location:** `scripts/vlasov_poisson.jl:30`
-- **evidence:** `main` draws `initialize!(ParticleDistribution(1, 1, o.npart),
-  NormalDistribution())`, which draws the positions with `randn` before its own
-  `Random.seed!(1234)` seeds the velocities (`src/examples/normal.jl:15-19`), and no option or
-  line of the driver sets a seed. Two runs of
-  `julia --project=scripts scripts/vlasov_poisson.jl --npart 1000 --final-time 2.0`, one at
-  `fea6c16` and one with `plot_phase_space`, write `vlasov_poisson.png` files of different MD5
-  sums; `plot_phase_space` of the first run's `vlasov_poisson.hdf5` saves that run's PNG byte for
-  byte (`fad6c14276deff75c6987e340ed0d8a5`), so the two differ by the draw alone. A figure of the
-  driver cannot be regenerated from its command.
-- **kind:** defect
-- **found:** 2026-11-08
-
 ### K100 · Inference does not give a concrete type for `GeometricIntegrator(model, tspan, tstep[, method])` of `LenardBernstein`, `ConservativeLenardBernstein` and `RescaledConservativeLenardBernstein`, because the `ODEProblem` constructor of GeometricEquations and the Newton solver of SimpleSolvers infer free type parameters.
 
-- **location:** `src/models/lenard_bernstein_conservative.jl:240`
+- **location:** `src/models/lenard_bernstein_conservative.jl:229`
 - **evidence:** For each of the three models, `Base.return_types` of the constructor is a
   `UnionAll` over `ET <: EquationProblem` and `IT <: GeometricIntegrator`, or a `Union`, with or
   without the method argument and on `main` as on the branch; the object that the call returns
-  has a concrete type. The constructors (`src/models/lenard_bernstein.jl:104`,
-  `src/models/lenard_bernstein_conservative.jl:234`,
-  `src/models/rescaled_lenard_bernstein_conservative.jl:155`) only call `ODEProblem` and
+  has a concrete type. The constructors (`src/models/lenard_bernstein.jl:95`,
+  `src/models/lenard_bernstein_conservative.jl:223`,
+  `src/models/rescaled_lenard_bernstein_conservative.jl:144`) only call `ODEProblem` and
   `Integrators.GeometricIntegrator`, and both calls infer free parameters on a toy problem, with
   GeometricEquations 0.21.6, GeometricIntegrators 0.18.7 and SimpleSolvers 0.14.3:
   ```julia

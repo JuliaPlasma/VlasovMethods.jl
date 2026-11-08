@@ -137,3 +137,14 @@ end
     @test sum(w) ≈ L rtol = 1e-2
     @test count(>(3), vec(dist.particles.v)) / 1000 ≈ params.α atol = 0.03
 end
+
+@testset "1D Particle Distribution Tests - Bump" begin
+    # The accept–reject draw of the bump: every velocity lies in the proposal interval `[-b, b]`
+    # and every particle has the weight `1 / np`.
+    params = Bump()
+    Random.seed!(1234)
+    dist = ParticleDistribution(1, 1, 100)
+    @test initialize!(dist, params) === dist
+    @test all(==(1 / 100), dist.particles.w)
+    @test all(abs.(dist.particles.v) .≤ params.b)
+end

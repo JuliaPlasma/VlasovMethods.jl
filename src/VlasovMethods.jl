@@ -207,9 +207,7 @@ include("gridbased/vlasov_poisson_1d1v.jl")
 
 # The particle-based reduction: the snapshots of a sweep, the reduced bases of the particle and
 # of the field snapshot matrix they hold, and the reduced electric field over the full-order
-# field of `src/electric_field.jl`. `poisson.jl` stays out of the load: it wants
-# `PoissonSolverPBSplines`, which neither the module nor its dependencies define (K1), where
-# `time_marching.jl` is included below.
+# field of `src/electric_field.jl`.
 
 include("particles/snapshots.jl")
 

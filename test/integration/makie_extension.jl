@@ -66,7 +66,7 @@ end
     @test size(plotted_matrix(fig)) == (nx, nv)
     @test plotted_matrix(fig) == values
 
-    # the heatmap is drawn on the grid's own nodes, not on the array's indices
+    # the heatmap's cells are centred on the grid's nodes, not on the array's indices
     @test plot.args[][1] == dist.x
     @test plot.args[][2] == dist.v
 
@@ -189,6 +189,21 @@ end
     w_inside = 0.25
     dist = ParticleDistribution(1, 1,
         ParticleList([NaN, Inf, 0.5], [0.0, 0.0, 0.0], [1.0, 1.0, w_inside]))
+    nx, nv = 8, 8
+    hx = (last(XDOMAIN) - first(XDOMAIN)) / nx
+    hv = (last(VDOMAIN) - first(VDOMAIN)) / nv
+    F = plotted_matrix(plot_distribution(dist;
+        xdomain = XDOMAIN, vdomain = VDOMAIN, nx = nx, nv = nv))
+
+    @test sum(F) * hx * hv == w_inside
+    @test count(!iszero, F) == 1
+end
+
+@testset "a non-finite velocity is dropped from the histogram" begin
+    # `va ≤ v < vb` is false for `NaN` and for either infinity, so no cell holds these
+    w_inside = 0.25
+    dist = ParticleDistribution(1, 1,
+        ParticleList(fill(0.5, 4), [NaN, Inf, -Inf, 0.0], [1.0, 1.0, 1.0, w_inside]))
     nx, nv = 8, 8
     hx = (last(XDOMAIN) - first(XDOMAIN)) / nx
     hv = (last(VDOMAIN) - first(VDOMAIN)) / nv

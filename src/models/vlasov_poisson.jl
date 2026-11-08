@@ -42,11 +42,6 @@ end
 _work(dist, potential) = _deposit_buffer(potential)
 _work(dist::GridDistribution, potential::Potential) = _green_matrix(dist, potential)
 
-function update_potential!(model::VlasovPoisson)
-    projection!(model.potential, model.distribution)
-    PoissonSolvers.update!(model.potential)
-end
-
 # The field of a step is deposited from the positions in the first row of `z`, with the weights
 # `w`, and not from `model.distribution`: the integrator steps its own copy of the state, and each
 # member of a training-data ensemble carries its own weights.

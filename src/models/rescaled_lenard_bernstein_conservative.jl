@@ -129,17 +129,6 @@ function RCLB_rhs_GI!(v, t, q::AbstractArray{ST}, params) where {ST}
     return v
 end
 
-# used for plotting
-function RCLB_rhs(v::AbstractVector{ST}, params, fs::Spline) where {ST}
-    dist = params.model.cache[ST].sdist
-
-    dfdv = derivative(fs)
-
-    A = compute_coefficients_rclb(dist, params.idist, v)
-
-    return -params.ν .* (A[1] .* dfdv.(v) ./ fs.(v) .+ (A[2] .+ v))
-end
-
 # The velocity space is 1D, in any spatial dimension: a scalar velocity and one weight per particle.
 @doc raw"""
     GeometricIntegrator(model::RescaledConservativeLenardBernstein{<:Any, 1}, tspan, tstep,

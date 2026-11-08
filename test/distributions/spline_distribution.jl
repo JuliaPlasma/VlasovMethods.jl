@@ -71,9 +71,7 @@ end
     v = pd.particles.v[1, :]
     fs = projection(v, pd, sd)
 
-    b = sd.basis
     q = sd.quadrature
-    Φ = basis_values(q, 0)
     w = quadrature_weights(q)
 
     # ∫ f_s dv, ∫ v f_s dv, ∫ v² f_s dv against the particle moments. This is the property
