@@ -530,7 +530,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K78 · No test or run sees a wrong count of a non-zero `first_exceedance` of the analytic script.
 
-- **location:** `scripts/analytic_quadratic.jl:114`
+- **location:** `scripts/analytic_quadratic.jl:117`
 - **evidence:** `drift_report` counts the saves from the one after `t = 0`,
   `abs.(energy_drift(H)[2:end])`. With `[1:end]` the drift at `t = 0` is `0`, so `max_drift` stays
   the same and only a non-zero `first_exceedance` moves up by one. No save of any run exceeds the
@@ -754,7 +754,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** defect
 - **found:** 2026-11-08
 
-### K99 · `scripts/lenard_bernstein.jl` builds its figure itself, with a `Figure`, three `Axis` panels and their plot calls, where every other driver that draws a figure calls a plotting function of `VlasovMethodsMakieExt`.
+### K99 · `scripts/lenard_bernstein.jl` builds its figure itself, with a `Figure`, three `Axis` panels and their plot calls, where no other driver names a Makie figure, axis or plot call.
 
 - **location:** `scripts/lenard_bernstein.jl:66-80`
 - **evidence:** `grep -n 'Figure(\|Axis(\|lines!(\|scatter!(\|heatmap!(' scripts/*.jl` finds
