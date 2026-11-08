@@ -120,16 +120,18 @@
 # options of `SHORT_RUNS`; `landau_damping_1d1v.jl` has no options and runs at its default, in
 # about 35 s alone. The bump-on-tail drivers run in the order in which each reads what an earlier
 # one writes: training, then projections, then testing and train_hnn at once, each in a directory
-# of its own that holds a copy of what the driver before it holds in `--runs-dir`. Each must exit 0
-# and write into `--runs-dir` and `--results-dir` exactly the files that `SHORT_RUNS` lists, none
-# of them empty. None of the eight files, `bump_on_tail_common.jl` among them, may name a Makie
-# figure, axis, legend or plot. Each driver, included in a module of its own, must run nothing, so
-# that the checkout's `runs/` and `results/` stay as they were, and must take the options of
-# `DRIVER_DEFAULTS` without a flag. The gate also runs `test/plotting.jl` and
-# `test/integration/makie_extension.jl` in the environment `test/`, and `docs/make.jl` in `docs/`,
-# which must render the document; each must exit 0, and both environments must be instantiated.
+# of its own, which holds, for all but training, a copy of what the driver before it holds in
+# `--runs-dir`. Each must exit 0 and write into `--runs-dir` and `--results-dir` exactly the
+# files that `SHORT_RUNS` lists, none of them empty. None of the eight files,
+# `bump_on_tail_common.jl` among them, may name a Makie figure, axis, legend or plot. Each
+# driver, included in a module of its own, must run nothing, so that the checkout's `runs/` and
+# `results/` stay as they were, and must take the options of `DRIVER_DEFAULTS` without a flag.
+# The gate also runs `test/plotting.jl` and `test/integration/makie_extension.jl` in the
+# environment `test/`, and `docs/make.jl` in `docs/`, which must render the document; each must
+# exit 0, and both environments must be instantiated.
 #
-# The drivers run at once, so the gate takes about as long as the slowest of them. `BUDGET` is
+# The drivers run at once, except that projections waits for training, and testing and train_hnn
+# for projections, so the gate takes about as long as the slowest driver or chain. `BUDGET` is
 # 900 s, measured from the gate's start. Whole gate runs take 230 s to 340 s; the limit is looser
 # than that because it is there to catch a driver that hangs, not to fail a run on a loaded
 # machine, which slows the drivers several-fold. The gate prints the size of each file and its own
