@@ -394,6 +394,36 @@ end
     @test filesize(file) > 0
 end
 
+@testset "a log axis of plot_series and plot_groups refuses a negative value, $T" for T in (Float64, Float32)
+    t = collect(T, 1:4)
+    positive = T[1, 0.1, 0.01, 0.001]
+    negative = T[1, 0.1, -0.01, 0.001]
+    with_zero = T[1, 0.1, 0, 0.001]
+
+    # a negative value in any line, at the call and not at `save`
+    @test_throws ArgumentError plot_series(t, (positive, negative); yscale = log10)
+    @test occursin("a line holds a negative value",
+        message_of(() -> plot_series(t, (negative,); yscale = log10)))
+    @test_throws ArgumentError plot_groups(t, ["a" => [positive], "b" => [negative]];
+        yscale = log10)
+    @test occursin("a line holds a negative value",
+        message_of(() -> plot_groups(t, ["a" => [negative]]; yscale = log10)))
+
+    # a zero and positive values are drawn, and a single zero too, as Makie draws them
+    file = tempname() * ".png"
+    for fig in (plot_series(t, (positive, with_zero); yscale = log10),
+        plot_series(T[1], (T[0],); yscale = log10),
+        plot_groups(t, ["a" => [positive], "b" => [with_zero]]; yscale = log10))
+        save(file, fig)
+        @test filesize(file) > 0
+    end
+
+    # a linear axis shows a negative value
+    @test plot_series(t, (negative,)) isa Figure
+    @test plot_series(t, (negative,); yscale = identity) isa Figure
+    @test plot_groups(t, ["a" => [negative]]; yscale = identity) isa Figure
+end
+
 @testset "plot_groups draws every line of a group in its colour, $T" for T in (Float64, Float32)
     t = collect(T, 0:0.25:2)
     a1, a2, b1 = sin.(t), cos.(t), t .^ 2
@@ -552,8 +582,11 @@ end
     @test [ax.title[] for ax in fig.content] == ["a", "b", "c"]
     @test [ax.xlabel[] for ax in fig.content] == ["x", "x", "x"]
     @test [ax.ylabel[] for ax in fig.content] == ["v", "", ""]
-    # the largest |v| of the first slice, 2.25, rounded up, where a later slice reaches 9
-    @test all(ax -> ax.limits[] == ((T(0), T(1)), (-T(3), T(3))), fig.content)
+    # the largest |v| of the drawn slices, 9 in the last one, where the first reaches 2.25
+    @test all(ax -> ax.limits[] == ((T(0), T(1)), (-T(9), T(9))), fig.content)
+    # a slice that is not drawn sets no limit: slice 2 reaches 4.5, rounded up to 5
+    @test all(ax -> ax.limits[] == ((T(0), T(1)), (-T(5), T(5))),
+        plot_phase_space(z, [1, 2]; xdomain = (T(0), T(1)), titles = ["a", "b"]).content)
 
     for (ax, s) in zip(fig.content, (1, 2, 4))
         plot = only(ax.scene.plots)
@@ -591,6 +624,34 @@ end
     @test_throws DimensionMismatch draw(z, [1, 2], ["a"])()
     @test occursin("the titles hold 1 titles; the slices hold 2 slices",
         message_of(draw(z, [1, 2], ["a"])))
+end
+
+@testset "plot_phase_space limits v by the finite speeds of the drawn slices, $T" for T in (Float64, Float32)
+    z = zeros(T, 2, 2, 3)
+    z[1, :, :] .= T(0.5)
+
+    # a non-finite velocity in the first slice is dropped: the limits come from the finite
+    # speeds, here 3.5 in the last slice, and the figure is saved
+    z[2, :, 1] = T[NaN, 0.25]
+    z[2, :, 2] = T[Inf, -1]
+    z[2, :, 3] = T[-3.5, 1]
+    fig = plot_phase_space(z, [1, 2, 3]; xdomain = (T(0), T(1)), titles = ["a", "b", "c"])
+    @test all(ax -> ax.limits[] == ((T(0), T(1)), (-T(4), T(4))), fig.content)
+    file = tempname() * ".png"
+    save(file, fig)
+    @test filesize(file) > 0
+
+    # every drawn velocity zero, or none finite, leaves the `v` axis no extent
+    draw(z, slices) = () -> plot_phase_space(z, slices; xdomain = (0, 1),
+        titles = string.(slices))
+    for still in (zeros(T, 2, 2, 3), fill(T(NaN), 2, 2, 3))
+        @test_throws ArgumentError draw(still, [1, 3])()
+        @test occursin("no slice in `slices` holds a finite nonzero velocity",
+            message_of(draw(still, [1, 3])))
+    end
+    # a nonzero velocity in a slice that is not drawn does not help
+    z[2, :, 1] .= 0
+    @test_throws ArgumentError draw(z, [1])()
 end
 
 @testset "plot_phase_space plots a position below the domain inside the half-open domain" begin

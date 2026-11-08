@@ -103,7 +103,8 @@ read a decaying error or values that span orders of magnitude.
 
 # Throws
 
-- `ArgumentError` when `series` holds no line, or a line holds no value.
+- `ArgumentError` when `series` holds no line, or a line holds no value, and when `yscale` is
+  `log10` and a line holds a negative value. A zero is drawn.
 - `DimensionMismatch` when a series is not as long as `t`, and when `labels` does not hold one
   label per series.
 """
@@ -134,7 +135,7 @@ axis' top right corner. `xlabel` and `ylabel` label the axes, and `yscale` is th
 # Throws
 
 - `ArgumentError` when `groups` holds no group, when a group holds no line, or a line holds no
-  value.
+  value, and when `yscale` is `log10` and a line holds a negative value. A zero is drawn.
 - `DimensionMismatch` when a line is not as long as `t`, and when `colors` holds fewer colours
   than `groups` holds groups.
 """
@@ -192,13 +193,15 @@ slice `s`. Panel `i` draws slice `slices[i]`, with the positions wrapped into th
 `xdomain`, under the title `titles[i]`. Each particle keeps one colour in every panel: steel blue
 where its velocity at the first time slice, `z[2, k, 1]`, is not negative, and fire brick where it
 is, so that the filamentation of each half of the cloud reads apart. Every panel is limited to
-`xdomain` horizontally and to `[-v_max, v_max]` vertically, with `v_max` the largest `|v|` of the
-first time slice rounded up to an integer, and only the first panel labels its `v` axis.
+`xdomain` horizontally and to `[-v_max, v_max]` vertically, with `v_max` the largest finite `|v|`
+of all the slices in `slices` rounded up to an integer, and only the first panel labels its `v`
+axis. A non-finite velocity draws no marker.
 
 # Throws
 
 - `ArgumentError` when `z` does not hold two rows, or holds no particle or no time slice, when
-  `slices` holds no slice, and when a slice is not a time slice of `z`.
+  `slices` holds no slice, when a slice is not a time slice of `z`, and when no slice in `slices`
+  holds a finite nonzero velocity, so that `v_max` is zero.
 - `DimensionMismatch` when `titles` does not hold one title per slice.
 """
 function plot_phase_space end

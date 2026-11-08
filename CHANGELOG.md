@@ -247,14 +247,18 @@ their own, except for what they removed and narrowed, which is listed in full be
   run with its fitted peaks as markers and a dashed reference line, on a figure of 1200 × 500
   pixels. `plot_phase_space(z, slices; xdomain, titles)` draws the particles of a `(2, npart,
   ntime)` trajectory at each slice in a row of panels of 1500 × 400 pixels, each particle coloured
-  by the sign of its first velocity. A position is wrapped periodically onto `xdomain`, and one
-  that wraps exactly to `last(xdomain)` is drawn at `first(xdomain)`, as `plot_particles` draws it,
-  because the two ends of a periodic domain are one point. Each throws an `ArgumentError` for an
-  empty argument, and
-  `plot_phase_space` also for a `z` of other than two rows and for a slice outside it. `plot_groups`
-  and `plot_damping` throw a `DimensionMismatch` for series of different lengths and for fewer
-  colours than they draw, and `plot_phase_space` one for a title count other than its slice count.
-  `plot_series` takes `yscale`, `identity` by default or `log10`, the scale of its `y` axis.
+  by the sign of its first velocity, with the `v` axis limited by the largest finite speed of all
+  the slices it draws, rounded up to an integer. A position is wrapped periodically onto `xdomain`,
+  and one that wraps exactly to `last(xdomain)` is drawn at `first(xdomain)`, as `plot_particles`
+  draws it, because the two ends of a periodic domain are one point. Each throws an `ArgumentError`
+  for an empty argument, and `plot_phase_space` also for a `z` of other than two rows, for a slice
+  outside it, and when no drawn slice holds a finite nonzero velocity, which leaves the `v` axis no
+  extent. `plot_groups` and `plot_damping` throw a `DimensionMismatch` for series of different
+  lengths and for fewer colours than they draw, and `plot_phase_space` one for a title count other
+  than its slice count. `plot_series` takes `yscale`, `identity` by default or `log10`, the scale
+  of its `y` axis. With `yscale = log10`, `plot_series` and `plot_groups` throw an `ArgumentError`
+  at the call for a negative value, which Makie would otherwise refuse only when the figure is
+  saved; a zero is drawn.
 
 ### Scripts
 
@@ -364,7 +368,9 @@ their own, except for what they removed and narrowed, which is listed in full be
   `spectrumplot` of `ReducedBasisMethods`, and save it under the name it had. Their short runs
   write the same files as before, and the same PNG files byte for byte, except
   `vlasov_poisson.png`: its driver draws its particles with no seed (K98 of `KNOWN_ISSUES.md`), and
-  `plot_phase_space` of a trajectory saves the PNG that the driver saved for it before. These five,
+  `plot_phase_space` limits the `v` axis by the largest speed of every drawn slice, where the driver
+  took that of the first slice only, so a trajectory whose speed grows past that of the first slice
+  is now drawn whole. These five,
   `bump_on_tail_training.jl` and `bump_on_tail_projections.jl` read their options through
   `driver_options` and run `main` only where they are the program, so `vlasov_poisson.jl` now runs
   inside a `main`. `scripts/gate.jl` runs the seven, with small options where a driver takes them,

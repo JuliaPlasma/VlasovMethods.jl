@@ -130,9 +130,22 @@ function _check_series(t, series, labels)
     return nothing
 end
 
+# The lines of `plot_series` and of `plot_groups` on a logarithmic `y` axis: `log10` has no value
+# at a negative number, which Makie refuses only when the figure is saved, so a negative value is
+# refused here. A zero stays: Makie draws it.
+function _check_log_scale(series, yscale)
+    yscale === log10 || return nothing
+    for y in series
+        any(<(0), y) && throw(ArgumentError(
+            "a line holds a negative value, which a logarithmic axis cannot show"))
+    end
+    return nothing
+end
+
 function VlasovMethods.plot_series(t::AbstractVector, series;
         labels = nothing, xlabel = "t", ylabel = "", yscale = identity)
     _check_series(t, series, labels)
+    _check_log_scale(series, yscale)
 
     fig = Figure()
     ax = Axis(fig[1, 1]; xlabel = xlabel, ylabel = ylabel, yscale = yscale)
@@ -382,6 +395,7 @@ function VlasovMethods.plot_groups(t::AbstractVector, groups; xlabel = "t", ylab
         "the colours hold $(length(colors)) colours; the groups hold $(length(groups)) groups"))
     for (_, series) in groups
         _check_series(t, series, nothing)
+        _check_log_scale(series, yscale)
     end
 
     fig = Figure()
@@ -438,7 +452,12 @@ function VlasovMethods.plot_phase_space(z::AbstractArray{<:Real, 3}, slices; xdo
     # each particle keeps the colour of the sign of its first velocity, so that each half of the
     # cloud can be followed through the panels
     colours = ifelse.(z[2, :, 1] .>= 0, :steelblue, :firebrick)
-    vmax = ceil(maximum(abs, z[2, :, 1]))
+    # the largest finite speed of every drawn slice; a non-finite velocity has no place on the
+    # axis and is dropped, as `_finite_pairs` drops one, and Makie draws no marker for it
+    speeds = (abs(v) for slice in slices for v in view(z, 2, :, slice) if isfinite(v))
+    vmax = ceil(maximum(speeds; init = zero(eltype(z))))
+    vmax > 0 || throw(ArgumentError(
+        "no slice in `slices` holds a finite nonzero velocity, so the `v` axis has no extent"))
     xa, xb = first(xdomain), last(xdomain)
     limits = ((xa, xb), (-vmax, vmax))
 
