@@ -79,9 +79,47 @@
 # Beside the runs, the gate includes `pd_lb_common.jl` and checks `--quick`, the step count and the
 # spline basis directly.
 #
-# The drivers run at once, so the gate takes about as long as the slowest of them. It prints the
-# size of each file and its own wall-clock time, and exits 1 when a check fails. A driver still
-# running when the gate exits is killed.
+# `landau_cases.jl` runs with `--quick` four times at its default `γ = −3`, without a rate check:
+# case (a), the bi-Maxwellian, under both methods, the double Maxwellian under `pairwise` and the
+# BKW profile under `spline`. Each run must exit 0, print its wall-clock time, write its two
+# figures and its record with the quick parameters, its method, its case, `gamma = −3` and
+# `rate_check = 0`, and print no rate check. The rate check runs with `--method pairwise --gamma 0
+# --rate-check`: the gate checks that it prints the closed form `8` and the control `4`, that the
+# instantaneous rate lies within `2 %` of `8`, where the quick run measures `8.009493`, and more
+# than `2 %` from `4`, and that its record carries the measured rate. Two more runs check its
+# edges:
+#
+# - `--method pairwise --tstep 1e-3 --ncell 8`, whose third step does not converge: it exits
+#   non-zero, writes no figure, and writes its record with `commit`, `command`, `ncell = 8`,
+#   `stopped_at = 3e-3` and the two steps reached. On the 4 cells of `--quick` the same steps
+#   converge;
+# - the rate check with `--tolerance 1e-4`, below the relative difference `1.2e-3` of the rate: it
+#   writes its files, says that the rate check fails and exits non-zero.
+#
+# The refusals are checked on `landau_options`, which `main` calls first, so that seven processes
+# do not load the package only to throw: the gate includes `landau_cases.jl` in a module of its
+# own, and `landau_options` must throw the `ArgumentError` that names the flag and the value, and
+# create neither `--runs-dir` nor `--results-dir`, for `--rate-check` at the default `γ = −3`,
+# with `--method spline`, with `--case bkw` and given twice, for the unknown values
+# `--method splines` and `--case maxwellian`, and for no `--method`. `rate_check` must fail at the
+# tolerance `1.5`, which its relative difference meets and the control's, `1.0`, does not.
+#
+# `landau_compare.jl` runs with `--quick`: it must exit 0, print its wall-clock time, write its
+# table, its two figures and its record with the quick sweep, and its table must hold one row per
+# method, lattice and cell count, each with `dN = 2N` and the verdict of `dN ≥ M − 1` that the gate
+# computes from `N` and `M` itself — `N = 144`, `M = 289` holds at the bound and `N = 144`,
+# `M = 324` fails —, a particle in every support, the closed form `−8` and the relative error of
+# the measured value against it. The measured value carries its sign: at `N = 400`, `M = 324` the
+# pairwise method's is negative and the spline method's positive (K96). No word of the output of
+# `landau_cases.jl` and `landau_compare.jl`, of their tables, of the Landau section of
+# `docs/src/collisions.md` or of the CHANGELOG entries that name them ranks one method above the
+# other: the gate fails on `faster`, `better`, `slower`, `cheaper`, `outperforms` and `wins` in
+# any case.
+#
+# The drivers run at once, so the gate takes about as long as the slowest of them. `BUDGET` is
+# 400 s, measured from the gate's start, because whole gate runs take up to 229 s and a loaded
+# machine slows them. The gate prints the size of each file and its own wall-clock time,
+# and exits 1 when a check fails. A driver still running when the gate exits is killed.
 
 include(joinpath(@__DIR__, "pd_lb_common.jl"))
 
@@ -89,10 +127,41 @@ module MPLB
 include(joinpath(@__DIR__, "lenard_bernstein_metriplectic.jl"))
 end
 
+module LandauCases
+include(joinpath(@__DIR__, "landau_cases.jl"))
+end
+
 const ROOT = dirname(@__DIR__)
-const BUDGET = 240.0
+const BUDGET = 400.0
 const MIDPOINT_RESIDUAL = 1e-10
 const EXPECTED_COMMIT = readchomp(`git -C $(ROOT) rev-parse HEAD`)
+
+const LANDAU_SCRIPT = "landau_cases.jl"
+const LANDAU_QUICK = (npart = 200, nsteps = 5, ncell = 4)
+const LANDAU_RUNS = (("pairwise", "bimaxwellian"), ("spline", "bimaxwellian"),
+    ("pairwise", "double-maxwellian"), ("spline", "bkw"))
+const LANDAU_FIGURES = ("conservation", "entropy")
+const LANDAU_RATE = 8.0
+const LANDAU_CONTROL = 4.0
+const LANDAU_RATE_TOLERANCE = 0.02
+const LANDAU_RATE_ROW = r"^  rate check: λ = −\(d gap/dt\)/gap = (\S+), closed form (\S+), relative difference \S+$"m
+const LANDAU_CONTROL_ROW = r"^  control: the closed form with the constant 4, (\S+), relative difference \S+$"m
+# The arguments that `landau_options` refuses, and the start of the message of each refusal.
+const LANDAU_REFUSED = [
+    "--quick --method pairwise --rate-check" =>
+        "`--rate-check` needs the closed rate of the Maxwell molecules, `--gamma 0`, and the " *
+        "exponent is `-3`",
+    "--quick --method spline --gamma 0 --rate-check" => "`--rate-check` is the pairwise method's, and `--method` is `spline`",
+    "--quick --method pairwise --gamma 0 --case bkw --rate-check" => "`--rate-check` is the check of `--case bimaxwellian`, and `--case` is `bkw`",
+    "--quick --method pairwise --gamma 0 --rate-check --rate-check" => "`--rate-check` is given twice",
+    "--quick --method splines" => "unknown --method `splines`",
+    "--quick --method pairwise --case maxwellian" => "unknown --case `maxwellian`",
+    "--quick" => "`--method` is required"]
+const COMPARE_SCRIPT = "landau_compare.jl"
+const COMPARE_QUICK = (lattice = [12, 20], ncell = [8, 15, 16], repeats = 3)
+const COMPARE_ROW = r"^\| (pairwise|spline) \| (\d+) \| (\d+) \| (\d+) \| (holds|fails) \| ([^|]+) \| (\S+) \| (\S+) \| (\S+) \| (\S+) \|$"
+const RANKING = r"\b(faster|better|slower|cheaper|outperforms|wins)\b"i
+const LANDAU_DOCS_HEADING = "## Particle methods for the Landau operator"
 
 const QUICK = Dict(
     "pd_lb_fig1_2.jl" => (figures = ["pd_lb_fig1.pdf", "pd_lb_fig2.pdf"],
@@ -214,6 +283,30 @@ function midpoint_residual(path, tstep)
     return maximum(abs, z[:, 2] .- z[:, 1] .- tstep .* v̇) / maximum(abs, z[:, 2] .- z[:, 1])
 end
 
+# The Landau section of `docs/src/collisions.md`: from `LANDAU_DOCS_HEADING` to the next heading
+# of its level, or to the end of the page; empty where the page has no such heading.
+function landau_docs_section()
+    lines = readlines(joinpath(ROOT, "docs", "src", "collisions.md"))
+    from = findfirst(==(LANDAU_DOCS_HEADING), lines)
+    from === nothing && return ""
+    to = findnext(line -> startswith(line, "## "), lines, from + 1)
+    return join(lines[from:(to === nothing ? end : to - 1)], "\n")
+end
+
+# The entries of `CHANGELOG.md` that name `landau_cases.jl` or `landau_compare.jl`: each entry is a
+# bullet at the start of a line, with the lines that continue it.
+function landau_changelog_entries()
+    entries = String[]
+    for line in readlines(joinpath(ROOT, "CHANGELOG.md"))
+        if startswith(line, "- ")
+            push!(entries, line)
+        elseif startswith(line, "  ") && !isempty(entries)
+            entries[end] *= "\n" * line
+        end
+    end
+    return filter(e -> occursin(r"landau_(cases|compare)\.jl", e), entries)
+end
+
 jobs = [start(script, ["--quick"]) for script in sort!(collect(keys(QUICK)))]
 
 const WORK = mktempdir()
@@ -239,13 +332,21 @@ untolerant = start(MPLB_SCRIPT, ["--quick", "--case", "uniform", "--tolerance", 
 unsolved = start(MPLB_SCRIPT, ["--quick", "--bracket", "dougherty", "--npart", "1000"])
 tight = start(MPLB_SCRIPT, ["--quick", "--tolerance", "1e-3"])
 loose = start(MPLB_SCRIPT, ["--quick", "--tolerance", "1.5"])
+landau = [start(LANDAU_SCRIPT, ["--quick", "--method", method, "--case", case])
+          for (method, case) in LANDAU_RUNS]
+landau_rate = start(LANDAU_SCRIPT,
+    ["--quick", "--method", "pairwise", "--gamma", "0", "--rate-check"])
+landau_stop = start(LANDAU_SCRIPT, split("--quick --method pairwise --tstep 1e-3 --ncell 8"))
+landau_tight = start(LANDAU_SCRIPT,
+    split("--quick --method pairwise --gamma 0 --rate-check --tolerance 1e-4"))
+compare = start(COMPARE_SCRIPT, ["--quick"])
 
 # A driver still running when the gate exits, after an error of the gate itself, is killed.
 atexit(() -> foreach(
     job -> process_running(job.process) && kill(job.process, Base.SIGKILL),
-    [jobs; mplb;
+    [jobs; mplb; landau;
      [stray, stop, other, miss, halt, unmade, unknown_case, unknown_bracket,
-         untolerant, unsolved, tight, loose]]))
+         untolerant, unsolved, tight, loose, landau_rate, landau_stop, landau_tight, compare]]))
 
 println("the helpers of pd_lb_common.jl")
 let dirs = ["--runs-dir", mktempdir(), "--results-dir", mktempdir()],
@@ -307,6 +408,27 @@ let options = (npart = 200, nbasis = 41, tstep = 8e-4, final_time = 3 * 8e-4, nu
             relaxed.z[:, end] != relaxed.z[:, 1],
         "march returns the initial particles at the first column of z and the final ones at " *
         "the last")
+end
+
+println("the options and the rate check of landau_cases.jl")
+for (args, refused) in LANDAU_REFUSED
+    edge_dir = mktempdir()
+    runs, results = joinpath(edge_dir, "runs"), joinpath(edge_dir, "results")
+    check(
+        try
+            LandauCases.landau_options([split(args); "--runs-dir"; runs; "--results-dir";
+                                        results])
+            false
+        catch e
+            e isa ArgumentError && startswith(e.msg, refused)
+        end,
+        "landau_options refuses $(args) with the ArgumentError $(refused)")
+    check(!ispath(runs) && !ispath(results), "it creates neither --runs-dir nor --results-dir")
+end
+let rate = LandauCases.rate_check(1.5)
+    check(rate.difference ≤ 1.5 && !rate.passes,
+        "the rate check fails at the tolerance 1.5, above the relative difference to its " *
+        "control: $(rate.control_difference)")
 end
 
 for job in jobs
@@ -518,6 +640,148 @@ for (job, condition) in ((tight, "closed form"), (loose, "control"))
     stem = "lenard_bernstein_metriplectic_shifted-normal_dougherty"
     foreach(name -> check_figure(joinpath(job.results, "$(stem)_$(name).pdf")), MPLB_FIGURES)
     check(isfile(joinpath(job.runs, stem * ".hdf5")), "$(stem).hdf5 is written")
+end
+
+# The text that `RANKING` must not match: each driver's output and table, the docs section and
+# the CHANGELOG entries.
+ranked_texts = Pair{String, String}[]
+
+for (job, (method, case)) in zip(landau, LANDAU_RUNS)
+    println("$(LANDAU_SCRIPT) --method $(method) --case $(case)")
+    run_output = finish(job)
+    push!(ranked_texts, "the output of $(LANDAU_SCRIPT) --method $(method)" => run_output)
+    stem = "landau_$(case)_$(method)_gamma-3"
+    foreach(name -> check_figure(joinpath(job.results, "$(stem)_$(name).pdf")), LANDAU_FIGURES)
+    record = joinpath(job.runs, stem * ".hdf5")
+    check_record(record, job.args,
+        (; LANDAU_QUICK..., method, case, gamma = -3.0, rate_check = 0))
+    check(!occursin("rate check", run_output), "it prints no rate check at γ = −3")
+    isfile(record) &&
+        check(!h5open(file -> haskey(HDF5.attrs(file), "stopped_at"), record, "r"),
+            "$(stem).hdf5 records no stopped_at")
+end
+
+println("$(LANDAU_SCRIPT) --method pairwise --gamma 0 --rate-check")
+let rate_output = finish(landau_rate), stem = "landau_bimaxwellian_pairwise_gamma0",
+    record = joinpath(landau_rate.runs, stem * ".hdf5"),
+    table = joinpath(landau_rate.results, stem * "_rate.md")
+
+    push!(ranked_texts, "the output of the rate check" => rate_output)
+    foreach(name -> check_figure(joinpath(landau_rate.results, "$(stem)_$(name).pdf")),
+        LANDAU_FIGURES)
+    check_figure(table)
+    isfile(table) && push!(ranked_texts, "the rate table" => read(table, String))
+    check_record(record, landau_rate.args,
+        (; LANDAU_QUICK..., method = "pairwise", gamma = 0.0, rate_check = 1))
+    rate = match(LANDAU_RATE_ROW, rate_output)
+    control = match(LANDAU_CONTROL_ROW, rate_output)
+    if check(rate !== nothing && control !== nothing, "it prints the rate check and its control")
+        λ, closed = parse.(Float64, rate.captures)
+        alternative = parse(Float64, control[1])
+        check(
+            isapprox(closed, LANDAU_RATE; rtol = 1e-8) &&
+                isapprox(alternative, LANDAU_CONTROL; rtol = 1e-8),
+            "the closed form is 8 and the control 4: it prints $(closed) and $(alternative)")
+        difference = abs(λ - LANDAU_RATE) / LANDAU_RATE
+        check(difference ≤ LANDAU_RATE_TOLERANCE,
+            "the instantaneous rate $(λ) lies within 2 % of 8: $(difference)")
+        control_difference = abs(λ - LANDAU_CONTROL) / LANDAU_CONTROL
+        check(control_difference > LANDAU_RATE_TOLERANCE,
+            "the instantaneous rate lies more than 2 % from 4: $(control_difference)")
+        isfile(record) && check(
+            isapprox(
+                h5open(file -> HDF5.attrs(file)["rate_measured"], record, "r"), λ;
+                rtol = 1e-6),
+            "$(stem).hdf5 records the measured rate")
+    end
+end
+
+println("$(LANDAU_SCRIPT) with a step that does not converge")
+let stop_output = finish(landau_stop; fails = true, timed = false),
+    stem = "landau_bimaxwellian_pairwise_gamma-3",
+    record = joinpath(landau_stop.runs, stem * ".hdf5")
+
+    check(occursin("the discrete gradient iteration did not converge", stop_output),
+        "it stops with the error of the discrete gradient iteration")
+    foreach(
+        name -> check(!isfile(joinpath(landau_stop.results, "$(stem)_$(name).pdf")),
+            "$(stem)_$(name).pdf is not written"),
+        LANDAU_FIGURES)
+    check_record(record, landau_stop.args,
+        (npart = 200, ncell = 8, tstep = 1e-3, stopped_at = 3 * 1e-3))
+    if isfile(record)
+        t = h5read(record, "t")
+        v = h5read(record, "v")
+        check(t == collect(0:2) .* 1e-3 && size(v) == (2, 200, 3),
+            "it records the two steps reached: t = $(t), v of size $(size(v))")
+    end
+end
+
+println("$(LANDAU_SCRIPT) with a rate check below its relative difference")
+let tight_output = finish(landau_tight; fails = true),
+    stem = "landau_bimaxwellian_pairwise_gamma0"
+
+    check(occursin("the rate check fails at the tolerance", tight_output),
+        "it says that the rate check fails")
+    foreach(name -> check_figure(joinpath(landau_tight.results, "$(stem)_$(name).pdf")),
+        LANDAU_FIGURES)
+    check(isfile(joinpath(landau_tight.runs, stem * ".hdf5")), "$(stem).hdf5 is written")
+end
+
+println("$(COMPARE_SCRIPT)")
+let compare_output = finish(compare), table = joinpath(compare.results, "landau_compare.md")
+    push!(ranked_texts, "the output of $(COMPARE_SCRIPT)" => compare_output)
+    foreach(name -> check_figure(joinpath(compare.results, name)),
+        ["landau_compare_pairwise.pdf", "landau_compare_spline.pdf"])
+    check_record(joinpath(compare.runs, "landau_compare.hdf5"), compare.args, COMPARE_QUICK)
+    check_figure(table)
+    if isfile(table)
+        text = read(table, String)
+        push!(ranked_texts, "the comparison's table" => text)
+        rows = filter(!isnothing, map(line -> match(COMPARE_ROW, line), split(text, '\n')))
+        sizes = Set((row[1], parse(Int, row[2]), parse(Int, row[3])) for row in rows)
+        expected = Set((method, n^2, (ncell + 2)^2) for method in ("pairwise", "spline")
+        for n in COMPARE_QUICK.lattice for ncell in COMPARE_QUICK.ncell)
+        check(length(rows) == length(expected) && sizes == expected,
+            "the table holds one row per method, lattice and cell count: $(length(rows)) rows")
+        wrong = String[]
+        for row in rows
+            N, M, dN = parse.(Int, row.captures[2:4])
+            measured, closed, err = parse.(Float64, row.captures[7:9])
+            verdict = 2N ≥ M - 1 ? "holds" : "fails"
+            dN == 2N && row[5] == verdict || push!(wrong, "$(row.match): rank")
+            isapprox(closed, -LANDAU_RATE; atol = 1e-4) ||
+                push!(wrong, "$(row.match): closed")
+            isapprox(err, abs(measured + LANDAU_RATE) / LANDAU_RATE; rtol = 5e-3, atol = 2e-5) ||
+                push!(wrong, "$(row.match): error")
+            occursin(r"^[+-]", row[7]) || push!(wrong, "$(row.match): sign")
+            row[6] == "yes" || push!(wrong, "$(row.match): support")
+        end
+        check(isempty(wrong),
+            "every row has dN = 2N, the gate's verdict of dN ≥ M − 1, a particle in every " *
+            "support, the closed form −8 and its relative error: $(wrong)")
+        verdicts = Dict((parse(Int, row[2]), parse(Int, row[3])) => row[5] for row in rows)
+        check(
+            get(verdicts, (144, 289), "") == "holds" &&
+                get(verdicts, (144, 324), "") == "fails",
+            "N = 144 holds at M = 289, where dN = M − 1, and fails at M = 324")
+        signs = Dict(row[1] => parse(Float64, row[7])
+        for row in rows if (row[2], row[3]) == ("400", "324"))
+        check(get(signs, "pairwise", 0.0) < 0 && get(signs, "spline", 0.0) > 0,
+            "at N = 400, M = 324 the pairwise rate is negative and the spline rate positive: " *
+            "$(signs)")
+    end
+end
+
+println("the text that names the Landau methods")
+let section = landau_docs_section(), entries = landau_changelog_entries()
+    check(!isempty(section), "docs/src/collisions.md has the section $(LANDAU_DOCS_HEADING)")
+    check(!isempty(entries), "CHANGELOG.md has an entry that names the Landau scripts")
+    push!(ranked_texts, "the Landau section of docs/src/collisions.md" => section)
+    foreach(entry -> push!(ranked_texts, "the CHANGELOG entry" => entry), entries)
+    hits = [name * ": " * m.match for (name, text) in ranked_texts
+            for m in eachmatch(RANKING, text)]
+    check(isempty(hits), "no text ranks the two methods: $(hits)")
 end
 
 @printf("gate: %d failures, wall-clock time %.1f s\n", length(FAILURES), time() - STARTED)

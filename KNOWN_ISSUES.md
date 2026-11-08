@@ -711,6 +711,35 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** defect
 - **found:** 2026-11-07
 
+### K96 · `collisional_vectorfield!` of `Landau` returns `v̇_c = ν (K_c \ LJ)`, a pivoted-QR solve for each velocity component `c` alone, with the opposite sign of the appendix's `v̇ = −K⁺LJ` for the stacked matrix `K`, and at `γ = −3` its runs drift the energy by `1.7e-8` to `2.1e-7`, where the runs of `PairwiseLandau` keep it below `2e-15`.
+
+- **location:** `src/models/landau.jl:589-593`
+- **evidence:** `eq:particle_ode_final` and `eq:particle_ode_midpoint` of the manuscript's
+  appendix give `v̇ = −K⁺ L J`; the code solves `v̇[c, :] = K_c \ LJ` for each component `c` with
+  `qr!(…, ColumnNorm())` and scales by `ν`, with no minus sign. On the weighted lattice of
+  `N = 60²` particles on `[−3.4, 3.4]²` with `16 × 16` quadratic cells on `[−3.5, 3.5]²`
+  (`M = 324`), at `γ = 0`, `julia --project=scripts scripts/landau_compare.jl` measures the
+  instantaneous `(d gap/dt) / gap` of `gap = T₁₁ − T₂₂` at `+8.0055` for `Landau` and at `−8.0095`
+  for `PairwiseLandau`, against the closed form `−8` of `scripts/reference_forms.jl`: under
+  `Landau` the anisotropy grows at the rate at which it should decay. On the same particles, after
+  one evaluation, `rank(K₁) = 302` and `rank(K₂) = 306` of `M = 324`, while the stacked `[K₁ K₂]`
+  has the rank `323 = M − 1` that `dN ≥ M − 1` gives; each `K_c K_c⁺` projects onto the range of
+  `K_c` alone, so `‖K₁ v̇₁ + K₂ v̇₂ − LJ‖ / ‖LJ‖ = 0.73` where `K K⁺ = I` of the appendix would make
+  it zero. The pivoted-QR solve of the rank-deficient `K_c` is not `pinv(K_c) LJ`, as the comment
+  at `:575-577` says it is: `‖K₁ \ LJ − pinv(K₁) LJ‖ / ‖K₁ \ LJ‖ = 0.588`, and `0.431` against
+  `‖pinv(K₁) LJ‖`; for `K₂` the two are `3.03` and `0.889`. The sign is the code's either way: each
+  `K_c \ LJ` lies nearer `+pinv(K_c) LJ` than `−pinv(K_c) LJ`. `scripts/landau_cases.jl` therefore
+  refuses `--rate-check` with `--method spline`.
+
+  The energy `Σ w |v|² / 2` drifts under `Landau` at `γ = −3`: the runs
+  `julia --project=scripts scripts/landau_cases.jl --method spline --case <case>`, 1000 particles,
+  100 steps of `1e-8` on 8 cells per axis, each solved to the absolute residual `1e-10`, end at
+  the relative energy drift `2.1e-7` for `bimaxwellian`, `5.1e-8` for `double-maxwellian` and
+  `1.7e-8` for `bkw`, where the same runs with `--method pairwise` end at `1.5e-15`, `1.1e-16`
+  and `3.4e-16`.
+- **kind:** defect
+- **found:** 2026-11-07
+
 ### K97 · The `GeometricIntegrator` constructors of the two conservative Lenard–Bernstein models fix the implicit midpoint rule, where that of `LenardBernstein` takes the method as an argument.
 
 - **location:** `src/models/lenard_bernstein_conservative.jl:235`
