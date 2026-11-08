@@ -700,12 +700,14 @@ has left the file, or that lived only on a merged branch, stays taken.
   particles it stops at `t = 0.016`. The damped fixed-point solve of the driver's rate check,
   which freezes the bracket's moments, stalls on 1 of its 1250 steps under the Dougherty form and
   on 2 under the Jeyakumar form at the shifted normal's parameters, with the largest residuals
-  `3.12e-3` and `2.07e-4`; a probe of each stalled step, step 350 (Dougherty) and steps 209 and
-  689 (Jeyakumar), finds its largest residual at a particle in the lower tail, `v = −1.19`,
-  `−1.56` and `−1.18` against the mean `1.98` and the standard deviation `1.19`, `1.07` and
-  `1.19` of the last iterate, with 10, 2 and 10 particles within `±0.5`. Where a particle in a
-  sparse tail sits where `f_s` is small, the score of `log|f_s|` changes fast across it, and the
-  fixed-point map of the implicit midpoint step is not a contraction.
+  `3.12e-3` and `2.07e-4`. `julia --startup-file=no --project=scripts
+  scripts/lenard_bernstein_metriplectic_rate_stalls.jl` probes each stalled step, step 350
+  (Dougherty) and steps 209 and 689 (Jeyakumar), and finds its largest residual at a particle in
+  the lower tail, `v = −1.19`, `−1.56` and `−1.18` against the mean `1.98` and the standard
+  deviation `1.19`, `1.07` and `1.19` of the last iterate, with 10, 2 and 10 particles within
+  `±0.5`. Where a particle in a sparse tail sits where `f_s` is small, the score of `log|f_s|`
+  changes fast across it, and the fixed-point map of the implicit midpoint step is not a
+  contraction.
 - **kind:** defect
 - **found:** 2026-11-07
 
