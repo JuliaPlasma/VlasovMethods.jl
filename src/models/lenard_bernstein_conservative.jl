@@ -220,11 +220,21 @@ function CLB_rhs(v::AbstractVector{ST}, params, fs::Spline) where {ST}
 end
 
 # The velocity space is 1D, in any spatial dimension: a scalar velocity and one weight per particle.
+@doc raw"""
+    GeometricIntegrator(model::ConservativeLenardBernstein{<:Any, 1}, tspan, tstep,
+                        method = Integrators.ImplicitMidpoint())
+
+The `GeometricIntegrator` that steps the particle velocities of the conservative
+Lenard–Bernstein model `model` over `tspan` with step `tstep`, in the state
+`copy(model.dist.particles.v[1, :])`.
+
+`method` is any `GeometricIntegrators` method for an `ODEProblem`, given in the same position as
+in the constructor of `LenardBernstein`.
+"""
 function GeometricIntegrator(
         model::ConservativeLenardBernstein{<:Any, 1}, tspan::Tuple, tstep::Real,
         method = Integrators.ImplicitMidpoint())
     # collect parameters
-    # params = (ϕ = model.potential, model = model)
     params = (ν = model.ν, idist = model.dist, fdist = model.ent.dist, model = model)
     # create geometric problem
     equ = GeometricEquations.ODEProblem(
@@ -234,10 +244,6 @@ function GeometricIntegrator(
 
     # create integrator
     int = Integrators.GeometricIntegrator(equ, method)
-    # int = Integrators.Integrator(equ, Integrators.ImplicitMidpoint())
-    # int = Integrators.Integrator(equ, Integrators.RK438())
-    # int = Integrators.Integrator(equ, Integrators.CrankNicolson())
 
     GeometricIntegrator(model, equ, int)
-    # return int
 end

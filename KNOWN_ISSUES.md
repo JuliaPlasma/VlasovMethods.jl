@@ -274,15 +274,14 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** dead code
 - **found:** 2026-10-04
 
-### K47 · Twelve lines of commented-out code remain in three collision model files.
+### K47 · Two lines of commented-out code remain in the `LenardBernstein` model file.
 
 - **location:** `src/models/lenard_bernstein.jl:107`
-- **evidence:** The lines are `src/models/lenard_bernstein.jl:107` and `:117`;
-  `src/models/lenard_bernstein_conservative.jl:227`, `:237-239` and `:242`;
-  `src/models/rescaled_lenard_bernstein_conservative.jl:150`, `:163-165` and `:168`. Each is an
-  old assignment, call or `return` behind `#`, such as `# int = Integrators.Integrator(equ,
-  Integrators.RK438())`. #69 deleted the other dead code of these files and left these lines,
-  because they are outside its hunks. The fix is to delete the twelve lines.
+- **evidence:** The lines are `src/models/lenard_bernstein.jl:107` and `:117`. Each is an old
+  assignment behind `#`, such as `# int = Integrators.GeometricIntegrator(equ,
+  Integrators.CrankNicolson())`. #69 and #129 deleted the other dead code of the collision model
+  files and left these lines, because they are outside their hunks. The fix is to delete the two
+  lines.
 - **kind:** dead code
 - **found:** #69
 
