@@ -153,7 +153,7 @@ function VlasovMethods.plot_series(t::AbstractVector, series;
         if isnothing(labels)
             lines!(ax, t, y)
         else
-            lines!(ax, t, y; label = labels[i])
+            lines!(ax, t, y; label = string(labels[i]))
         end
     end
     isnothing(labels) || axislegend(ax)

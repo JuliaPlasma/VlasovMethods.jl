@@ -97,9 +97,9 @@ or the [`growth_rate`](@ref) values of a sweep against the equation parameter. `
 abscissa of each value, so one figure holds the quantities that share it.
 
 `labels` names the lines. It is `nothing`, which draws no legend, or a collection with one label
-per element of `series`, in the same order, which is drawn as a legend of the axis. `xlabel` and
-`ylabel` label the axes. `yscale` is the scale of the `y` axis: `identity`, linear, or `log10`, to
-read a decaying error or values that span orders of magnitude.
+per element of `series`, in the same order, whose `string` is drawn as a legend of the axis.
+`xlabel` and `ylabel` label the axes. `yscale` is the scale of the `y` axis: `identity`, linear,
+or `log10`, to read a decaying error or values that span orders of magnitude.
 
 # Throws
 

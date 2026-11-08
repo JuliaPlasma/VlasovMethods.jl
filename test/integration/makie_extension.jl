@@ -351,6 +351,12 @@ end
     save(file, named)
     @test filesize(file) > 0
 
+    # a label that is not a string names its line as a string
+    by_symbol = plot_series(t, (s1, s2); labels = (:sin, :cos))
+    @test [e.label[] for e in only(by_symbol.content[2].entrygroups[])[2]] == ["sin", "cos"]
+    save(file, by_symbol)
+    @test filesize(file) > 0
+
     # no labels, no legend
     @test length(fig.content) == 1
 
