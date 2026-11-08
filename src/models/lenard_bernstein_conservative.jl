@@ -135,19 +135,19 @@ function compute_coefficients(
 
         # f_s is an L² projection of a particle distribution, so it undershoots into negative
         # values where the sampling is thin and is exactly zero in cells with no particles.
-        # f'/f is then either a division by zero or a term of the wrong sign. Both manuscripts
-        # know this: the Landau appendix opens with a commented-out section titled
-        # "Positivity-preserving projections" stating that f_s "has to be non-negative
-        # everywhere", and the Lenard-Bernstein H-theorem is stated "provided that f is
-        # non-negative". Neither solves it. Failing here names the open problem instead of
+        # f'/f is then either a division by zero or a term of the wrong sign. The PD-LB
+        # manuscript states its entropy dissipation for a strictly positive f, and its remarks on
+        # the numerical results name this limitation, where `eq:velocity_ode` is singular at a
+        # zero of f_s, and a positivity-preserving projection as its remedy, which the package
+        # does not implement (K8). The metriplectic models evaluate log|f_s| instead and need no
+        # sign; this operator divides by f_s, so failing here names the problem instead of
         # continuing with a value whose sign is wrong.
         fα > 0 || throw(DomainError(fα,
             "the projected distribution is non-positive at v = $(vα), but the " *
             "conservative operator requires f_s > 0: the ratio f_s'/f_s is undefined at " *
-            "f_s = 0. This is the positivity problem both " *
-            "manuscripts name and neither solves: an L² projection of a particle " *
-            "distribution undershoots where the sampling is thin. Use more particles, a " *
-            "coarser spline basis, or a positivity-preserving projection."))
+            "f_s = 0. An L² projection of a particle distribution undershoots where the " *
+            "sampling is thin. Use more particles, a coarser spline basis, or a " *
+            "positivity-preserving projection."))
 
         n, εn = compensated_summation(n, wα, εn)
         nu, εnu = compensated_summation(nu, wα * vα, εnu)

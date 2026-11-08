@@ -31,7 +31,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   `MetriplecticLenardBernstein`. `compute_coefficients` of `ConservativeLenardBernstein` and
   `compute_coefficients_rclb` of `RescaledConservativeLenardBernstein` keep their `DomainError`
   for `f_s ≤ 0`, because both operators assume `f_s > 0`: the ratio `f_s'/f_s` is undefined at
-  `f_s = 0`, and the Lenard-Bernstein H-theorem holds only for a non-negative `f` (K8).
+  `f_s = 0`, and the PD-LB manuscript states the Lenard-Bernstein H-theorem for a strictly
+  positive `f` (K8).
 - **`compute_L!` of `Landau` weights the grid by the mobility `|f_s|`**, the `M(f) = |f|` of the
   Landau manuscript's appendix bracket `eq:landau_bracket_modified`. With the signed weight
   `W_a f_s(v_a)`, `𝕃` had a negative eigenvalue where `f_s` changes sign — `−2.08e-3` times
@@ -268,6 +269,13 @@ their own, except for what they removed and narrowed, which is listed in full be
   label a legend entry with the `string` of its label or group name, as `plot_drift` does, so a
   `Symbol` such as `:HFM` names its entry; Makie's legend fails on a `Symbol` label. `plot_groups`
   takes its groups as a vector of pairs or as a `Dict`, whose iteration order sets the colours.
+- **`plot_velocity_projections(v, v̇, panels; vdomain)`** draws the figure of
+  `scripts/lenard_bernstein.jl` (K99): the right-hand side `v̇` against `v` at the initial
+  condition, then per panel the particles' histogram on 80 bins of `vdomain`, normalised as a
+  density, with the spline projection and its derivative on 201 points, in a row of panels of
+  1600 × 450 pixels. Each panel is a named tuple of `v`, `f`, `df` and `title`. It throws an
+  `ArgumentError` for an empty `v`, an empty panel or no panel, and for an empty or reversed
+  `vdomain`, and a `DimensionMismatch` for a `v̇` of another length than `v`.
 
 ### Scripts
 
@@ -383,13 +391,16 @@ their own, except for what they removed and narrowed, which is listed in full be
   grows past that of the first slice is now drawn whole. These five, `bump_on_tail_training.jl` and `bump_on_tail_projections.jl` read their options through
   `driver_options` and run `main` only where they are the program, so `vlasov_poisson.jl` now runs
   inside a `main`. `scripts/gate.jl` runs the seven, with small options where a driver takes them,
-  and checks that each writes exactly the files of the same run before the change, that none of
-  the seven files nor `bump_on_tail_common.jl` calls a Makie function that builds a figure, axis,
+  and checks that each writes exactly the files of the same run before the change, that no script
+  in `scripts/` calls a Makie function that builds a figure, axis,
   legend, colorbar, plot or axis limit, plain or qualified (`lines(`, `hist(`, `Colorbar`, `Axis3`,
   `xlims!`, `CairoMakie.lines!`), found in the parsed source, so that a comment or a string that
   names one does not count, and that each takes its default options without a flag; it also runs
   `test/plotting.jl` with
   `test/integration/makie_extension.jl`, and the docs build.
+- **`scripts/lenard_bernstein.jl` builds no figure itself either (K99).** It draws its figure with
+  `plot_velocity_projections` and writes the same files as before, the PNG byte for byte. The gate's search for Makie
+  calls reads every script in `scripts/`, so a new script that builds a figure fails it.
 
 ### Documentation
 

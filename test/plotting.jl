@@ -34,7 +34,8 @@ using VlasovMethods
             VlasovMethods.plot_series, VlasovMethods.plot_groups, VlasovMethods.plot_damping,
             VlasovMethods.plot_phase_space, VlasovMethods.plot_collision_distribution,
             VlasovMethods.plot_drift, VlasovMethods.plot_entropy, VlasovMethods.plot_error,
-            VlasovMethods.plot_convergence, VlasovMethods.plot_cost)
+            VlasovMethods.plot_convergence, VlasovMethods.plot_cost,
+            VlasovMethods.plot_velocity_projections)
         for f in PLOTTING
             @assert isempty(methods(f)) "\$f has a method"
         end
@@ -58,7 +59,10 @@ using VlasovMethods
             () -> VlasovMethods.plot_entropy([0.0, 1.0], [0.5, 0.4]),
             () -> VlasovMethods.plot_error([0.0, 1.0], [0.1, 0.2], [0.1, 0.2]),
             () -> VlasovMethods.plot_convergence([0.2, 0.1], [0.04, 0.01]),
-            () -> VlasovMethods.plot_cost([1.0, 2.0], [0.04, 0.01]))
+            () -> VlasovMethods.plot_cost([1.0, 2.0], [0.04, 0.01]),
+            () -> VlasovMethods.plot_velocity_projections([0.0, 1.0], [0.5, 0.4],
+                [(v = [0.0, 1.0], f = identity, df = identity, title = "a")];
+                vdomain = (-1.0, 1.0)))
             exception = try
                 call()
                 nothing
@@ -95,7 +99,7 @@ end
         @doc(VlasovMethods.plot_phase_space), @doc(VlasovMethods.plot_collision_distribution),
         @doc(VlasovMethods.plot_drift), @doc(VlasovMethods.plot_entropy),
         @doc(VlasovMethods.plot_error), @doc(VlasovMethods.plot_convergence),
-        @doc(VlasovMethods.plot_cost))
+        @doc(VlasovMethods.plot_cost), @doc(VlasovMethods.plot_velocity_projections))
         @test occursin("package extension", string(doc))
         @test occursin("load `CairoMakie`", string(doc))
         @test occursin("-> Figure", string(doc))

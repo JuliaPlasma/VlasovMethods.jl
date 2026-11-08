@@ -124,9 +124,9 @@
 # one writes: training, then projections, then testing and train_hnn at once, each in a directory
 # of its own, which holds, for all but training, a copy of what the driver before it holds in
 # `--runs-dir`. Each must exit 0 and write into `--runs-dir` and `--results-dir` exactly the
-# files that `SHORT_RUNS` lists, none of them empty. None of the eight files,
-# `bump_on_tail_common.jl` among them, may call a Makie function that builds a figure, an axis,
-# a legend, a colorbar or a plot, or sets the limits of an axis. Each driver, included in a
+# files that `SHORT_RUNS` lists, none of them empty. No script in `scripts/` may call a Makie
+# function that builds a figure, an axis, a legend, a colorbar or a plot, or sets the limits of
+# an axis. Each driver, included in a
 # module of its own, must run nothing, so that the checkout's `runs/` and
 # `results/` stay as they were, and must take the options of `DRIVER_DEFAULTS` without a flag.
 # The gate also runs `test/plotting.jl` and `test/integration/makie_extension.jl` in the
@@ -183,12 +183,9 @@ const COMPARE_ROW = r"^\| (pairwise|spline) \| (\d+) \| (\d+) \| (\d+) \| (holds
 const RANKING = r"\b(faster|better|slower|cheaper|outperforms|wins)\b"i
 const LANDAU_DOCS_HEADING = "## Particle methods for the Landau operator"
 
-# The drivers outside the collision manuscripts, whose figures the plotting functions of
-# `VlasovMethodsMakieExt` draw, and the Makie names that build a figure, an axis, a legend, a
-# colorbar or a plot, or set the limits of an axis, of which none of them may call one.
-const PLOTTING_DRIVERS = ["analytic_quadratic.jl", "bump_on_tail_common.jl",
-    "bump_on_tail_projections.jl", "bump_on_tail_testing.jl", "bump_on_tail_train_hnn.jl",
-    "bump_on_tail_training.jl", "landau_damping_1d1v.jl", "vlasov_poisson.jl"]
+# The Makie names that build a figure, an axis, a legend, a colorbar or a plot, or set the
+# limits of an axis, of which no script in `scripts/` may call one: the plotting functions of
+# `VlasovMethodsMakieExt` draw every figure.
 const MAKIE_CALL = r"^(?:Figure|Axis\w*|Legend|LineElement|Colorbar|axislegend|(?:lines|scatter|heatmap|contour|band|hist|barplot|hlines|vlines|text|[xy]?lims|limits)!?)$"
 
 # The names of the calls in `source` that `MAKIE_CALL` matches, plain or qualified, as in
@@ -978,8 +975,8 @@ let section = landau_docs_section(), entries = landau_changelog_entries()
     check(isempty(hits), "no text ranks the two methods: $(hits)")
 end
 
-println("the figures of the plotting drivers")
-for script in PLOTTING_DRIVERS
+println("the figures of the scripts")
+for script in filter(endswith(".jl"), readdir(joinpath(ROOT, "scripts")))
     hits = makie_calls(read(joinpath(ROOT, "scripts", script), String))
     check(isempty(hits), "$(script) builds no figure, axis, legend or plot: $(hits)")
 end

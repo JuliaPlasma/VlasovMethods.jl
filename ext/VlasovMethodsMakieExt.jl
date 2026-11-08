@@ -474,4 +474,32 @@ function VlasovMethods.plot_phase_space(z::AbstractArray{<:Real, 3}, slices; xdo
     return fig
 end
 
+function VlasovMethods.plot_velocity_projections(
+        v::AbstractVector, v̇::AbstractVector, panels;
+        vdomain)
+    _check_lengths("v" => v, "v̇" => v̇)
+    isempty(panels) && throw(ArgumentError("`panels` holds no panel"))
+    for panel in panels
+        isempty(panel.v) && throw(ArgumentError("the `v` of a panel holds no value"))
+    end
+    va, vb = first(vdomain), last(vdomain)
+    va < vb || throw(ArgumentError("`vdomain` is empty or reversed: $vdomain"))
+    vgrid = range(va, vb; length = 201)
+    edges = range(va, vb; length = 81)
+
+    fig = Figure(size = (1600, 450))
+    ax = Axis(fig[1, 1]; xlabel = "v", ylabel = "v̇", title = "right-hand side at t = 0")
+    scatter!(ax, v, v̇; markersize = 2)
+    for (i, panel) in enumerate(panels)
+        ax = Axis(fig[1, i + 1]; xlabel = "v", ylabel = "f", title = panel.title)
+        hist!(ax, panel.v; bins = edges, normalization = :pdf, color = (:steelblue, 0.5),
+            label = "particles")
+        lines!(ax, vgrid, panel.f.(vgrid); color = :firebrick, label = "spline projection")
+        lines!(ax, vgrid, panel.df.(vgrid); color = :black, linestyle = :dash,
+            label = "derivative")
+        i == 1 && axislegend(ax; position = :lt)
+    end
+    return fig
+end
+
 end
