@@ -129,9 +129,9 @@ fig = plot_groups(t, ["HFM" => eachcol(W_hfm), "ROM" => eachcol(W_rom)]; ylabel 
 `groups` is an ordered collection of `name => series` pairs, and `series` any collection of
 vectors of `length(t)` values, such as the field energy of every sample of a sweep for one
 model. Group `i` draws each of its lines in `colors[i]` at the opacity `0.5`, so that the lines
-of one group read as a band, and its `name` is the label of a legend entry of that colour in the
-axis' top right corner. `xlabel` and `ylabel` label the axes, and `yscale` is the scale of the
-`y` axis, as for [`plot_series`](@ref).
+of one group read as a band, and `string(name)` is the label of a legend entry of that colour
+in the axis' top right corner. `xlabel` and `ylabel` label the axes, and `yscale` is the scale
+of the `y` axis, as for [`plot_series`](@ref).
 
 # Throws
 

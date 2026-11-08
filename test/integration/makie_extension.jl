@@ -482,6 +482,16 @@ end
     save(file, custom)
     @test filesize(file) > 0
 
+    # a `Dict` of groups is drawn, and a name that is not a string labels its entry as a string
+    from_dict = plot_groups(t, Dict("a" => [a1]))
+    @test only(only(from_dict.content[2].entrygroups[])[2]).label[] == "a"
+    save(file, from_dict)
+    @test filesize(file) > 0
+    by_symbol = plot_groups(t, [:HFM => [a1], :ROM => [b1]])
+    @test [e.label[] for e in only(by_symbol.content[2].entrygroups[])[2]] == ["HFM", "ROM"]
+    save(file, by_symbol)
+    @test filesize(file) > 0
+
     # nothing to draw, a group with no line, an empty line, a line of another length, and more
     # groups than colours
     no_group = Pair{String, Vector{Vector{T}}}[]

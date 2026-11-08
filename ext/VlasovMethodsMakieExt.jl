@@ -393,10 +393,8 @@ function VlasovMethods.plot_groups(t::AbstractVector, groups; xlabel = "t", ylab
     isempty(groups) && throw(ArgumentError("no group to plot"))
     length(colors) ≥ length(groups) || throw(DimensionMismatch(
         "the colours hold $(length(colors)) colours; the groups hold $(length(groups)) groups"))
-    scaled = map(groups) do (_, series)
-        _check_series(t, series, nothing)
-        _scaled_lines(series, yscale)
-    end
+    scaled = [(_check_series(t, series, nothing); _scaled_lines(series, yscale))
+              for (_, series) in groups]
 
     fig = Figure()
     ax = Axis(fig[1, 1]; xlabel = xlabel, ylabel = ylabel, yscale = yscale)
@@ -408,7 +406,7 @@ function VlasovMethods.plot_groups(t::AbstractVector, groups; xlabel = "t", ylab
         end
     end
     axislegend(ax, [LineElement(color = shade) for shade in shades],
-        [name for (name, _) in groups])
+        [string(name) for (name, _) in groups])
     return fig
 end
 
