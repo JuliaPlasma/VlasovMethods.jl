@@ -437,9 +437,10 @@ landau_tight = start(LANDAU_SCRIPT,
     split("--quick --method pairwise --gamma 0 --rate-check --tolerance 1e-4"))
 compare = start(COMPARE_SCRIPT, ["--quick"])
 
-# The drivers outside the collision manuscripts: three alone, and the four bump-on-tail drivers
-# in the order in which each reads what the one before it writes, each started once that one has
-# exited 0. `PLOTTING_COPIES` holds the names of the files a driver of the chain was given.
+# The drivers outside the collision manuscripts: three alone, and the four bump-on-tail drivers,
+# training first, then projections once training has exited 0, then testing and train_hnn once
+# projections has exited 0. `PLOTTING_COPIES` holds the names of the files a driver of the chain
+# was given.
 const PLOTTING_JOBS = Dict{String, Any}(script => start(script, SHORT_RUNS[script].args)
 for script in ("analytic_quadratic.jl", "landau_damping_1d1v.jl", "vlasov_poisson.jl"))
 const PLOTTING_COPIES = Dict{String, Vector{String}}()
@@ -973,7 +974,8 @@ check(
 for script in first.(DRIVER_MODULES)
     expected = SHORT_RUNS[script]
     println(join([script; expected.args], " "))
-    # a driver of the chain starts once the one before it has exited 0
+    # projections starts once training has exited 0, testing and train_hnn once projections has
+    # exited 0
     timedwait(() -> haskey(PLOTTING_JOBS, script) || istaskdone(BUMP_CHAIN),
         max(BUDGET - (time() - STARTED), 0.0); pollint = 1.0)
     if !check(haskey(PLOTTING_JOBS, script), "$(script) starts")
