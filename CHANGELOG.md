@@ -268,10 +268,6 @@ their own, except for what they removed and narrowed, which is listed in full be
   themselves, `final_time / tstep` rounded up after rounding the quotient to eight digits.
   `scripts/gate.jl` runs each driver with `--quick` and checks its files, its records and its edges,
   a forced stop of figures 7 and 8 among them. `docs/src/collisions.md` gives each command.
-  themselves, because `run!` throws a `BoundsError` on a time span that is not a whole number of
-  its steps (K93). `scripts/gate.jl` runs each driver with `--quick` and checks its files, its
-  records and its edges, a forced stop of figures 7 and 8 among them. `docs/src/collisions.md`
-  gives each command and its measured time.
 - **`scripts/lenard_bernstein_metriplectic.jl` runs the three tests of the metriplectic
   Lenard–Bernstein manuscript with either bracket.** `--case` takes `shifted-normal`, the default,
   `double-maxwellian` or `uniform`, each with the parameters of the PD-LB figures of the same
