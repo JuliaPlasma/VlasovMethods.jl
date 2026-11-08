@@ -43,6 +43,37 @@
 #
 # The quick record of `pd_lb_fig11.jl` must hold the tolerance `0.05`.
 #
+# `lenard_bernstein_metriplectic.jl` runs with `--quick` six times, once for each of its three
+# cases and two brackets, each in a process of its own. Each run must exit 0, print its wall-clock
+# time, write its three figures and its record with the quick parameters, its case and its bracket,
+# and no `stopped_at`. The two runs of the shifted normal also print the rate check, which relaxes
+# from the temperature `1` to `T₀ = 2` at the density `n₀ = 1` of the weights `1 / N`: the gate
+# takes the closed form `2ν` for the Dougherty bracket and `2ν n₀ / T₀ = ν` for the Jeyakumar
+# bracket, from the bracket that it passed, and checks that the printed closed form and control are
+# these two, that the record's `rate_temperature` starts at `1`, that the fitted rate lies within a
+# relative `5 %` of the closed form, and that it lies more than `5 %` from the control. The record
+# of the double Maxwellian with the Dougherty bracket must start from the velocities that
+# `DoubleMaxwellian` draws after `Random.seed!(1)`. Six more runs check its edges:
+#
+# - `--case maxwellian` and `--bracket landau`: each exits non-zero with the `ArgumentError` that
+#   names the flag and the value, and creates neither `--runs-dir` nor `--results-dir`;
+# - `--case uniform` with `--tolerance`, an option of the shifted normal alone: it exits non-zero
+#   with the `ArgumentError` that names `--tolerance`, and creates neither directory;
+# - the shifted normal with the Dougherty bracket and 1000 particles, where the Picard solve of the
+#   sixth step does not converge: it exits non-zero, writes no figure, and writes its record with
+#   `commit`, `command`, `stopped_at = 6 * 8e-4`, the five steps reached in `t` and `z`, and the 64
+#   samples of its rate check in `rate_t` and `rate_temperature`;
+# - the shifted normal with `--tolerance 1e-3`, below the relative difference of the quick fit to
+#   its closed form, which is `1.5e-2`, and with `--tolerance 1.5`, above the relative difference
+#   of the fit to its control, which is `0.97`: each prints its wall-clock time, writes its three
+#   figures and its record, says that the rate check fails and exits non-zero.
+#
+# The gate also includes the driver in a module of its own and checks that `fit_rate` throws an
+# `ArgumentError` where a temperature reaches or crosses `T₀`, that it fits the rate of an exact
+# exponential, that `flag_value` takes the default where the flag is the last argument, and that
+# `march` of the 200 particles of the quick shifted normal over three steps returns the initial
+# particles at the first column of its velocities and the final ones at the last.
+#
 # Beside the runs, the gate includes `pd_lb_common.jl` and checks `--quick`, the step count and the
 # spline basis directly.
 #
@@ -51,6 +82,10 @@
 # running when the gate exits is killed.
 
 include(joinpath(@__DIR__, "pd_lb_common.jl"))
+
+module MPLB
+include(joinpath(@__DIR__, "lenard_bernstein_metriplectic.jl"))
+end
 
 const ROOT = dirname(@__DIR__)
 const BUDGET = 240.0
@@ -75,6 +110,16 @@ const QUICK = Dict(
                 tolerance = 0.05)]))
 
 const CUMULANT_ROW = r"^  κ₄ at t = (\S+): run \S+, closed form \S+, relative error (\S+)$"
+
+const MPLB_SCRIPT = "lenard_bernstein_metriplectic.jl"
+const MPLB_QUICK = Dict(
+    "shifted-normal" => (npart = 200, final_time = 0.05),
+    "double-maxwellian" => (npart = 1000, final_time = 0.05),
+    "uniform" => (npart = 200, tstep = 1e-3, final_time = 0.05))
+const MPLB_FIGURES = ("initial_final_distribution", "conservation", "entropy_log")
+const MPLB_RATE_TOLERANCE = 0.05
+const RATE_ROW = r"^  rate check: fitted λ = (\S+), closed form (\S+), relative difference \S+$"m
+const CONTROL_ROW = r"^  control: the other form's rate (\S+), relative difference \S+$"m
 
 const FAILURES = String[]
 
@@ -182,11 +227,22 @@ halt = start("pd_lb_fig7_8.jl",
 const NOT_A_DIRECTORY = joinpath(mktempdir(), "file")
 touch(NOT_A_DIRECTORY)
 unmade = start("pd_lb_fig11.jl", ["--quick"]; out = joinpath(NOT_A_DIRECTORY, "sub"))
+mplb = [start(MPLB_SCRIPT, ["--quick", "--case", case, "--bracket", bracket])
+        for case in sort!(collect(keys(MPLB_QUICK)))
+        for bracket in ("dougherty", "jeyakumar")]
+unknown_case = start(MPLB_SCRIPT, ["--quick", "--case", "maxwellian"])
+unknown_bracket = start(MPLB_SCRIPT, ["--quick", "--bracket", "landau"])
+untolerant = start(MPLB_SCRIPT, ["--quick", "--case", "uniform", "--tolerance", "0.05"])
+unsolved = start(MPLB_SCRIPT, ["--quick", "--bracket", "dougherty", "--npart", "1000"])
+tight = start(MPLB_SCRIPT, ["--quick", "--tolerance", "1e-3"])
+loose = start(MPLB_SCRIPT, ["--quick", "--tolerance", "1.5"])
 
 # A driver still running when the gate exits, after an error of the gate itself, is killed.
 atexit(() -> foreach(
     job -> process_running(job.process) && kill(job.process, Base.SIGKILL),
-    [jobs; [stray, stop, other, miss, halt, unmade]]))
+    [jobs; mplb;
+     [stray, stop, other, miss, halt, unmade, unknown_case, unknown_bracket,
+         untolerant, unsolved, tight, loose]]))
 
 println("the helpers of pd_lb_common.jl")
 let dirs = ["--runs-dir", mktempdir(), "--results-dir", mktempdir()],
@@ -217,6 +273,38 @@ check(
     nbasis(spline_distribution(41).basis) == 41 &&
         ncells(spline_distribution(41).basis) == 38,
     "41 cubic basis functions lie on 38 cells")
+
+println("the rate fit of lenard_bernstein_metriplectic.jl")
+for (temperatures, where) in (([1.0, 2.0, 1.5], "reaches"), ([1.0, 2.5, 3.0], "crosses"))
+    check(
+        try
+            MPLB.fit_rate([0.0, 1.0, 2.0], temperatures, 2.0)
+            false
+        catch e
+            e isa ArgumentError
+        end,
+        "fit_rate throws an ArgumentError where the temperature $(where) T₀: $(temperatures)")
+end
+let t = collect(0:0.1:1), fitted = MPLB.fit_rate(t, 2.0 .- exp.(-3 .* t), 2.0)
+    check(isapprox(fitted, 3.0; rtol = 1e-12),
+        "fit_rate gives the rate 3 of T₀ − exp(−3 t): $(fitted)")
+end
+check(
+    MPLB.flag_value(["--npart", "5", "--case"], "--case", "uniform") == "uniform" &&
+        MPLB.flag_value(["--case", "uniform"], "--case", "shifted-normal") == "uniform",
+    "flag_value takes the default where the flag is the last argument, and the value otherwise")
+let options = (npart = 200, nbasis = 41, tstep = 8e-4, final_time = 3 * 8e-4, nu = 1.0),
+    relaxed = MPLB.march(MPLB.CASES["shifted-normal"], DoughertyBracket(), options;
+        record = "unused.hdf5")
+
+    check(
+        size(relaxed.z) == (200, 4) &&
+            relaxed.final.particles.v[1, :] == relaxed.z[:, end] &&
+            relaxed.initial.particles.v[1, :] == relaxed.z[:, 1] &&
+            relaxed.z[:, end] != relaxed.z[:, 1],
+        "march returns the initial particles at the first column of z and the final ones at " *
+        "the last")
+end
 
 for job in jobs
     println(job.script)
@@ -321,6 +409,109 @@ println("pd_lb_fig11.jl with a --runs-dir that cannot be created")
 output = finish(unmade; fails = true, timed = false)
 check(occursin("--runs-dir `$(unmade.runs)` cannot be created", output),
     "it names the path given: $(unmade.runs)")
+
+for job in mplb
+    case, bracket = job.args[3], job.args[5]
+    println("$(job.script) --case $(case) --bracket $(bracket)")
+    run_output = finish(job)
+    run_stem = "lenard_bernstein_metriplectic_$(case)_$(bracket)"
+    foreach(name -> check_figure(joinpath(job.results, "$(run_stem)_$(name).pdf")),
+        MPLB_FIGURES)
+    run_record = joinpath(job.runs, run_stem * ".hdf5")
+    check_record(run_record, job.args, (; MPLB_QUICK[case]..., case, bracket))
+    isfile(run_record) || continue
+    check(!h5open(file -> haskey(HDF5.attrs(file), "stopped_at"), run_record, "r"),
+        "$(run_stem).hdf5 records no stopped_at")
+    if case == "double-maxwellian" && bracket == "dougherty"
+        Random.seed!(1)
+        drawn = initialize!(ParticleDistribution(1, 1, 1000),
+            DoubleMaxwellian(; domain = (-5.0, 5.0), shift = 2.0))
+        check(h5read(run_record, "z")[:, 1] == drawn.particles.v[1, :],
+            "$(run_stem).hdf5 starts from the velocities of the seed 1")
+    end
+    case == "shifted-normal" || continue
+    check_figure(joinpath(job.results, run_stem * "_rate.md"))
+    rate = match(RATE_ROW, run_output)
+    control = match(CONTROL_ROW, run_output)
+    check(rate !== nothing && control !== nothing, "it prints the rate check and its control") ||
+        continue
+    fitted, closed = parse.(Float64, rate.captures)
+    alternative_closed = parse(Float64, control[1])
+    expected, alternative = bracket == "dougherty" ? (2.0, 1.0) : (1.0, 2.0)
+    rate_temperature = h5read(run_record, "rate_temperature")
+    check(isapprox(first(rate_temperature), 1.0; rtol = 1e-12),
+        "the rate check starts at the temperature 1: $(first(rate_temperature))")
+    check(
+        isapprox(closed, expected; rtol = 1e-5) &&
+            isapprox(alternative_closed, alternative; rtol = 1e-5),
+        "the closed form is $(expected) and the control $(alternative): " *
+        "it prints $(closed) and $(alternative_closed)")
+    difference = abs(fitted - expected) / expected
+    check(difference ≤ MPLB_RATE_TOLERANCE,
+        "the fitted rate $(fitted) lies within 5 % of the closed form: $(difference)")
+    control_difference = abs(fitted - alternative) / alternative
+    check(control_difference > MPLB_RATE_TOLERANCE,
+        "the fitted rate lies more than 5 % from the control: $(control_difference)")
+end
+
+for (job, flag, value) in ((unknown_case, "--case", "maxwellian"), (
+    unknown_bracket, "--bracket", "landau"))
+    println("$(job.script) with $(flag) $(value)")
+    edge_output = finish(job; fails = true, timed = false)
+    check(occursin("ArgumentError: unknown $(flag) `$(value)`", edge_output),
+        "it stops with the ArgumentError that names $(flag) and $(value)")
+    check(!ispath(job.runs) && !ispath(job.results),
+        "it creates neither --runs-dir nor --results-dir")
+end
+
+println("$(MPLB_SCRIPT) --case uniform with --tolerance, which only the shifted normal takes")
+let edge_output = finish(untolerant; fails = true, timed = false)
+    check(occursin("ArgumentError: unknown argument `--tolerance`", edge_output),
+        "it stops with the ArgumentError that names --tolerance")
+    check(!ispath(untolerant.runs) && !ispath(untolerant.results),
+        "it creates neither --runs-dir nor --results-dir")
+end
+
+println("$(MPLB_SCRIPT) with a Picard solve that does not converge")
+let unsolved_output = finish(unsolved; fails = true, timed = false),
+    stem = "lenard_bernstein_metriplectic_shifted-normal_dougherty",
+    record = joinpath(unsolved.runs, stem * ".hdf5")
+
+    check(
+        occursin(
+            "the Picard solve of the metriplectic Lenard–Bernstein step did not converge",
+            unsolved_output),
+        "it stops with the error of the Picard solve")
+    foreach(
+        name -> check(!isfile(joinpath(unsolved.results, "$(stem)_$(name).pdf")),
+            "$(stem)_$(name).pdf is not written"),
+        MPLB_FIGURES)
+    check_record(record, unsolved.args, (npart = 1000, stopped_at = 6 * 8e-4))
+    if isfile(record)
+        t = h5read(record, "t")
+        z = h5read(record, "z")
+        check(t == collect(0:5) .* 8e-4 && size(z) == (1000, 6),
+            "it records the five steps reached: t = $(t), z of size $(size(z))")
+        check(
+            h5open(
+                file -> haskey(file, "rate_t") &&
+                        length(read(file, "rate_t")) == 64 &&
+                        length(read(file, "rate_temperature")) == 64,
+                record,
+                "r"),
+            "it records the 64 samples of its rate check")
+    end
+end
+
+for (job, condition) in ((tight, "closed form"), (loose, "control"))
+    println("$(MPLB_SCRIPT) with $(join(job.args[1:3], " ")), where the $(condition) fails")
+    edge_output = finish(job; fails = true)
+    check(occursin("the rate check fails at the tolerance", edge_output),
+        "it says that the rate check fails")
+    stem = "lenard_bernstein_metriplectic_shifted-normal_dougherty"
+    foreach(name -> check_figure(joinpath(job.results, "$(stem)_$(name).pdf")), MPLB_FIGURES)
+    check(isfile(joinpath(job.runs, stem * ".hdf5")), "$(stem).hdf5 is written")
+end
 
 @printf("gate: %d failures, wall-clock time %.1f s\n", length(FAILURES), time() - STARTED)
 exit(isempty(FAILURES) ? 0 : 1)

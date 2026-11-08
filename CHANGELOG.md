@@ -251,6 +251,30 @@ their own, except for what they removed and narrowed, which is listed in full be
   its steps (K93). `scripts/gate.jl` runs each driver with `--quick` and checks its files, its
   records and its edges, a forced stop of figures 7 and 8 among them. `docs/src/collisions.md`
   gives each command and its measured time.
+- **`scripts/lenard_bernstein_metriplectic.jl` runs the three tests of the metriplectic
+  Lenard–Bernstein manuscript with either bracket.** `--case` takes `shifted-normal`, the default,
+  `double-maxwellian` or `uniform`, each with the parameters of the PD-LB figures of the same
+  distribution, and `--bracket` takes `dougherty`, the default, or `jeyakumar`; any other value
+  stops the driver with an `ArgumentError` that names the flag and the value. Each run writes one
+  HDF5 file with `commit`, `command`, `script` and one attribute per option, and the figures
+  `initial_final_distribution`, `conservation` and `entropy_log` through
+  `plot_collision_distribution` and `plot_drift`; a step that throws stops the run as a single
+  PD-LB run stops, and its record carries the rate check's series where the run made one. The
+  driver no longer runs the cell-centred lattice on `[−2, 2]` over a list of particle numbers, and
+  its Picard solve takes the absolute tolerance `8·eps·‖v⁰‖₂`, a fixed multiple of the round-off of
+  the residual's norm, in place of `3e-16·√N`. With the shifted normal it first runs a rate check:
+  the bracket's density and mean frozen at those of the initial particles and its temperature at
+  `T₀ = 2`, the particles scaled about their mean to `T₀ / 2`, and the fitted relaxation
+  rate of the temperature against the closed form `2ν` of the Dougherty form and
+  `2ν n₀ / T₀ = ν n₀` of the Jeyakumar form, with the other form's rate as the control. The
+  driver exits non-zero where the fit differs from the closed form by more than `--tolerance`,
+  `0.05` by default, or from the control by no more than that; only the shifted normal takes
+  `--tolerance`. At the manuscript's parameters the fits differ from the closed forms by
+  `5.4e-3` and `6.0e-3` and from the controls by `9.9e-1` and `5.0e-1`. Every run at these
+  parameters stops where the Picard solve of a step does not converge (K95), so
+  `docs/src/collisions.md` lists the stops in place of figures. `scripts/gate.jl` runs the six
+  quick runs, the two unknown values, `--tolerance` on the uniform case, a stopped run and two
+  runs whose rate check fails, one on its closed form and one on its control.
 - **`scripts/reference_forms.jl` derives the two closed forms of the 2D reference cases and checks
   them against the moment equations.** The header derives the rate of the second moments at the
   Maxwell molecules of `γ = 0` — `d(T₁₁ − T₂₂)/dt = −8 (T₁₁ − T₂₂)` at density one, unit mass and

@@ -1,7 +1,8 @@
 # The part that the drivers of the Lenard–Bernstein manuscript's figures share: `pd_lb_fig1_2.jl`,
-# `pd_lb_fig3_6.jl`, `pd_lb_fig7_8.jl`, `pd_lb_fig9_10.jl` and `pd_lb_fig11.jl`. Each driver
-# includes this file first. It holds the command line with `--quick`, the spline basis of
-# `M` basis functions, the time stepping, the HDF5 record and the saving of a figure.
+# `pd_lb_fig3_6.jl`, `pd_lb_fig7_8.jl`, `pd_lb_fig9_10.jl` and `pd_lb_fig11.jl`, and the driver of
+# the metriplectic manuscript's tests, `lenard_bernstein_metriplectic.jl`. Each driver includes
+# this file first. It holds the command line with `--quick`, the spline basis of `M` basis
+# functions, the time stepping, the HDF5 record and the saving of a figure.
 #
 # Every HDF5 file a driver writes carries the attributes `commit`, the `git rev-parse HEAD` of
 # the checkout that holds this file or `"unknown"` outside a git checkout, and `command`, the

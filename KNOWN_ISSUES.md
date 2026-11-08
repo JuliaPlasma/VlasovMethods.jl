@@ -699,3 +699,27 @@ has left the file, or that lived only on a merged branch, stays taken.
   and the seed 1234 completes them.
 - **kind:** defect
 - **found:** 2026-11-07
+
+### K95 · The Picard solve of `MetriplecticLenardBernstein` does not converge at the parameters of the three tests of the metriplectic Lenard–Bernstein manuscript, so each of the six runs of `scripts/lenard_bernstein_metriplectic.jl` stops before its final time.
+
+- **location:** `src/models/lenard_bernstein_metriplectic.jl:492`
+- **evidence:** `julia --project=scripts scripts/lenard_bernstein_metriplectic.jl --case <case>
+  --bracket <bracket>` stops with `the Picard solve of the metriplectic Lenard–Bernstein step did
+  not converge` (`:492`), writes its record with `stopped_at`, writes no figure and exits
+  non-zero: the shifted normal at `t = 0.0048` (Dougherty) and `t = 0.2208` (Jeyakumar) of 1, the
+  double Maxwellian at `t = 0.1248` and `t = 0.2968` of 5, and the uniform case at `t = 0.0399`
+  and `t = 0.8046` of 1. Five of the six stop after 4 to 9 of the 1000 iterations, at residuals
+  from `2.4e-5` to `4.2e-4`, and the uniform Dougherty run after the 1000 iterations at a residual
+  of `1.07e-10`. A smaller step does not remove them: with
+  `--quick --case double-maxwellian --bracket dougherty --npart 200`, the run completes at
+  `h = 8e-4` and stops at `t = 0.0036` with `--tstep 4e-4`, and with `--bracket jeyakumar` and 200
+  particles it stops at `t = 0.016`. The damped fixed-point solve of the driver's rate check,
+  which freezes the bracket's moments, stalls on 1 of its 1250 steps under the Dougherty form and
+  on 2 under the Jeyakumar form at the shifted normal's parameters; a probe of each stalled step
+  finds its largest residual at a particle in the lower tail, `v = −1.19`, `−1.56` and `−1.18`
+  against the mean `1.98` and the standard deviation `1.07` to `1.20`, with 10, 2 and 10
+  particles within `±0.5`. Where a particle in a sparse tail sits where `f_s` is small, the score
+  of `log|f_s|` changes fast across it, and the fixed-point map of the implicit midpoint step is
+  not a contraction.
+- **kind:** defect
+- **found:** 2026-11-07
