@@ -118,15 +118,16 @@
 # The drivers outside the collision manuscripts, `analytic_quadratic.jl`, the four
 # `bump_on_tail_*.jl` drivers, `landau_damping_1d1v.jl` and `vlasov_poisson.jl`, run with the small
 # options of `SHORT_RUNS`; `landau_damping_1d1v.jl` has no options and runs at its default, in
-# about 35 s alone. The bump-on-tail drivers run in turn, each in a directory of its own that holds
-# a copy of the files the one before it wrote. Each must exit 0 and write into `--runs-dir` and
-# `--results-dir` exactly the files that `SHORT_RUNS` lists, none of them empty. None of the eight
-# files, `bump_on_tail_common.jl` among them, may name a Makie figure, axis, legend or plot. Each
-# driver, included in a module of its own, must run nothing, so that the checkout's `runs/` and
-# `results/` stay as they were, and must take the options of `DRIVER_DEFAULTS` without a flag. The
-# gate also runs `test/plotting.jl` and `test/integration/makie_extension.jl` in the environment
-# `test/`, and `docs/make.jl` in `docs/`, which must render the document; each must exit 0, and
-# both environments must be instantiated.
+# about 35 s alone. The bump-on-tail drivers run in the order in which each reads what an earlier
+# one writes: training, then projections, then testing and train_hnn at once, each in a directory
+# of its own that holds a copy of what the driver before it holds in `--runs-dir`. Each must exit 0
+# and write into `--runs-dir` and `--results-dir` exactly the files that `SHORT_RUNS` lists, none
+# of them empty. None of the eight files, `bump_on_tail_common.jl` among them, may name a Makie
+# figure, axis, legend or plot. Each driver, included in a module of its own, must run nothing, so
+# that the checkout's `runs/` and `results/` stay as they were, and must take the options of
+# `DRIVER_DEFAULTS` without a flag. The gate also runs `test/plotting.jl` and
+# `test/integration/makie_extension.jl` in the environment `test/`, and `docs/make.jl` in `docs/`,
+# which must render the document; each must exit 0, and both environments must be instantiated.
 #
 # The drivers run at once, so the gate takes about as long as the slowest of them. `BUDGET` is
 # 900 s, measured from the gate's start. Whole gate runs take 230 s to 340 s; the limit is looser
@@ -984,9 +985,10 @@ for script in first.(DRIVER_MODULES)
     given = get(PLOTTING_COPIES, script, String[])
     runs = isdir(job.runs) ? setdiff(readdir(job.runs), given) : String[]
     results = isdir(job.results) ? readdir(job.results) : String[]
-    check(runs == sort(expected.runs), "it writes the files of fea6c16 into --runs-dir: $(runs)")
+    check(runs == sort(expected.runs),
+        "it writes the files that SHORT_RUNS lists into --runs-dir: $(runs)")
     check(results == sort(expected.results),
-        "it writes the files of fea6c16 into --results-dir: $(results)")
+        "it writes the files that SHORT_RUNS lists into --results-dir: $(results)")
     check(
         all(name -> filesize(joinpath(job.runs, name)) > 0, runs) &&
             all(name -> filesize(joinpath(job.results, name)) > 0, results),
