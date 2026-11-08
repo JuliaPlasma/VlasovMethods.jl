@@ -130,9 +130,11 @@
 # environments must be instantiated.
 #
 # The drivers run at once, so the gate takes about as long as the slowest of them. `BUDGET` is
-# 400 s, measured from the gate's start, because whole gate runs take 230 s to 339 s and a loaded
-# machine slows them. The gate prints the size of each file and its own wall-clock time,
-# and exits 1 when a check fails. A driver still running when the gate exits is killed.
+# 900 s, measured from the gate's start. Whole gate runs take 230 s to 340 s; the limit is looser
+# than that because it is there to catch a driver that hangs, not to fail a run on a loaded
+# machine, which slows the drivers several-fold. The gate prints the size of each file and its own
+# wall-clock time, and exits 1 when a check fails. A driver still running when the gate exits is
+# killed.
 
 include(joinpath(@__DIR__, "pd_lb_common.jl"))
 
@@ -145,7 +147,7 @@ include(joinpath(@__DIR__, "landau_cases.jl"))
 end
 
 const ROOT = dirname(@__DIR__)
-const BUDGET = 400.0
+const BUDGET = 900.0
 const MIDPOINT_RESIDUAL = 1e-10
 const EXPECTED_COMMIT = readchomp(`git -C $(ROOT) rev-parse HEAD`)
 
