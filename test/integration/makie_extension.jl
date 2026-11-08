@@ -394,7 +394,7 @@ end
     @test filesize(file) > 0
 end
 
-@testset "a log axis of plot_series and plot_groups refuses a negative value, $T" for T in (Float64, Float32)
+@testset "a log axis of plot_series and plot_groups refuses a negative value and breaks at a zero, $T" for T in (Float64, Float32)
     t = collect(T, 1:4)
     positive = T[1, 0.1, 0.01, 0.001]
     negative = T[1, 0.1, -0.01, 0.001]
@@ -409,8 +409,18 @@ end
     @test occursin("a line holds a negative value",
         message_of(() -> plot_groups(t, ["a" => [negative]]; yscale = log10)))
 
-    # a zero is accepted, also as the single value of a line, and the figure saves: Makie draws no
-    # point at a zero and breaks its line there
+    # a zero is accepted, also as the single value of a line, and drawn as a `NaN`, where its
+    # line breaks: Makie leaves a line that holds a zero out of the axis limits, which then miss
+    # the line's smallest value, `0.001`
+    expected = T[1, 0.1, NaN, 0.001]
+    for ax in (only(plot_series(t, (with_zero,); yscale = log10).content),
+        first(plot_groups(t, ["a" => [with_zero]]; yscale = log10).content))
+        @test isequal(last.(only(ax.scene.plots)[1][]), expected)
+        colorbuffer(ax.parent)
+        @test ax.finallimits[].origin[2] < T(0.001)
+    end
+    # a linear axis draws the zero as it is
+    @test last.(only(plot_series(t, (with_zero,)).content[1].scene.plots)[1][]) == with_zero
     file = tempname() * ".png"
     for fig in (plot_series(t, (positive, with_zero); yscale = log10),
         plot_series(T[1], (T[0],); yscale = log10),

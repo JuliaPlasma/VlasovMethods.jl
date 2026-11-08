@@ -130,26 +130,26 @@ function _check_series(t, series, labels)
     return nothing
 end
 
-# The lines of `plot_series` and of `plot_groups` on a logarithmic `y` axis: `log10` has no value
-# at a negative number, which Makie refuses only when the figure is saved, so a negative value is
-# refused here. A zero stays: Makie draws no point at it, and its line breaks there, as at a `NaN`.
-function _check_log_scale(series, yscale)
-    yscale === log10 || return nothing
-    for y in series
+# The lines of `plot_series` and of `plot_groups` as they are drawn on the `y` axis of `yscale`.
+# `log10` has no value at a negative number, which Makie refuses only when the figure is saved, so
+# a negative value is refused here. A zero has no logarithm either: it is drawn as a `NaN`, where
+# the line breaks, because Makie leaves a line that holds a zero out of the axis limits.
+function _scaled_lines(series, yscale)
+    yscale === log10 || return series
+    return map(series) do y
         any(<(0), y) && throw(ArgumentError(
             "a line holds a negative value, which a logarithmic axis cannot show"))
+        map(v -> iszero(v) ? oftype(float(v), NaN) : float(v), y)
     end
-    return nothing
 end
 
 function VlasovMethods.plot_series(t::AbstractVector, series;
         labels = nothing, xlabel = "t", ylabel = "", yscale = identity)
     _check_series(t, series, labels)
-    _check_log_scale(series, yscale)
 
     fig = Figure()
     ax = Axis(fig[1, 1]; xlabel = xlabel, ylabel = ylabel, yscale = yscale)
-    for (i, y) in enumerate(series)
+    for (i, y) in enumerate(_scaled_lines(series, yscale))
         if isnothing(labels)
             lines!(ax, t, y)
         else
@@ -393,16 +393,16 @@ function VlasovMethods.plot_groups(t::AbstractVector, groups; xlabel = "t", ylab
     isempty(groups) && throw(ArgumentError("no group to plot"))
     length(colors) ≥ length(groups) || throw(DimensionMismatch(
         "the colours hold $(length(colors)) colours; the groups hold $(length(groups)) groups"))
-    for (_, series) in groups
+    scaled = map(groups) do (_, series)
         _check_series(t, series, nothing)
-        _check_log_scale(series, yscale)
+        _scaled_lines(series, yscale)
     end
 
     fig = Figure()
     ax = Axis(fig[1, 1]; xlabel = xlabel, ylabel = ylabel, yscale = yscale)
     # every line of a group is drawn half transparent, so that the lines of a sweep read as a band
     shades = [(colour, 0.5) for (colour, _) in zip(colors, groups)]
-    for ((_, series), shade) in zip(groups, shades)
+    for (series, shade) in zip(scaled, shades)
         for y in series
             lines!(ax, t, y; color = shade)
         end

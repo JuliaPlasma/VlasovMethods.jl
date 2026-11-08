@@ -258,7 +258,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   than its slice count. `plot_series` takes `yscale`, `identity` by default or `log10`, the scale
   of its `y` axis. With `yscale = log10`, `plot_series` and `plot_groups` throw an `ArgumentError`
   at the call for a negative value, which Makie would otherwise refuse only when the figure is
-  saved; a zero is accepted, and its line breaks there.
+  saved; a zero is accepted, and drawn as a `NaN`, where its line breaks, because Makie leaves a
+  line that holds a zero out of the axis limits.
 
 ### Scripts
 

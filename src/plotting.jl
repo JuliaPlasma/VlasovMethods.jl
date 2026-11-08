@@ -104,8 +104,8 @@ read a decaying error or values that span orders of magnitude.
 # Throws
 
 - `ArgumentError` when `series` holds no line, or a line holds no value, and when `yscale` is
-  `log10` and a line holds a negative value. A zero is accepted: it has no place on the axis, and
-  its line breaks there, as at a `NaN`.
+  `log10` and a line holds a negative value. A zero is accepted: it has no place on the axis, so it
+  is drawn as a `NaN`, where its line breaks.
 - `DimensionMismatch` when a series is not as long as `t`, and when `labels` does not hold one
   label per series.
 """
@@ -137,7 +137,7 @@ axis' top right corner. `xlabel` and `ylabel` label the axes, and `yscale` is th
 
 - `ArgumentError` when `groups` holds no group, when a group holds no line, or a line holds no
   value, and when `yscale` is `log10` and a line holds a negative value. A zero is accepted, and
-  its line breaks there, as at a `NaN`.
+  drawn as a `NaN`, as for [`plot_series`](@ref).
 - `DimensionMismatch` when a line is not as long as `t`, and when `colors` holds fewer colours
   than `groups` holds groups.
 """
