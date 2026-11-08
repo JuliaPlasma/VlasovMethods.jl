@@ -107,7 +107,6 @@ has left the file, or that lived only on a merged branch, stays taken.
   package does not use, and nothing in `src/` calls it: `LB_rhs_GI!` (`:73`) computes the same
   right-hand side on the buffers of the model's cache. Outside `src/`, the tests and the reference
   generator call `LB_rhs!` as an oracle for `LB_rhs_GI!`, so it stays until they have another.
-  The plotting copies `LB_rhs`, `CLB_rhs` and `RCLB_rhs`, which had no caller, are deleted.
 - **kind:** dead code
 - **found:** #61
 

@@ -87,6 +87,11 @@ their own, except for what they removed and narrowed, which is listed in full be
 
 ### Breaking Changes
 
+- **`LB_rhs`, `CLB_rhs` and `RCLB_rhs` are deleted.** Nothing in the package called these
+  plotting copies of the right-hand sides. 0.3.0 unexported `LB_rhs` and `CLB_rhs` and pointed
+  their callers to `VlasovMethods.LB_rhs` and `VlasovMethods.CLB_rhs`; such a call now throws an
+  `UndefVarError`. The models' right-hand sides are `LB_rhs_GI!`, `CLB_rhs_GI!` and
+  `RCLB_rhs_GI!`. K24 stays, narrowed to `LB_rhs!`, which the tests use as an oracle.
 - **`MetriplecticLenardBernstein` runs the Dougherty form by default.** Its right-hand side is
   `eq:semidiscrete_equations_of_motion` of the metriplectic Lenard-Bernstein manuscript, which
   the manuscript derives from its bracket `eq:lb_bracket_discrete`. Before, the model ran that
@@ -489,8 +494,6 @@ their own, except for what they removed and narrowed, which is listed in full be
   `src/`; `_stencil_indices_v`, which had no caller; two commented-out lines of
   `src/models/lenard_bernstein.jl`; and the unused locals that `fatou lint` reported in
   `src/gridbased/moments.jl` and `test/distributions/spline_distribution.jl`.
-- **The unexported plotting copies `LB_rhs`, `CLB_rhs` and `RCLB_rhs` are deleted.** None had a
-  caller. K24 stays, narrowed to `LB_rhs!`, which the tests use as an oracle.
 - **The CairoMakie extension imports each name explicitly (K60).**
   `test/quality/explicit_imports.jl` loads CairoMakie and runs `check_no_implicit_imports` and
   `check_no_stale_explicit_imports` on `VlasovMethodsMakieExt`.
