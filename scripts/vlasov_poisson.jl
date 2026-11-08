@@ -2,13 +2,15 @@
 # the splitting method, with the phase-space scatter of the cloud drawn at four times of the run.
 #
 #   julia --project=scripts scripts/vlasov_poisson.jl [--npart 10000] [--ncells 16] [--order 3] \
-#       [--tstep 0.1] [--final-time 20.0] [--runs-dir dir] [--results-dir dir]
+#       [--tstep 0.1] [--final-time 20.0] [--seed 1234] [--runs-dir dir] [--results-dir dir]
 #
-# The HDF5 trajectory goes to `--runs-dir`, the figure to `--results-dir`.
+# The HDF5 trajectory goes to `--runs-dir`, the figure to `--results-dir`. `--seed` seeds the
+# draw of the particle positions, so one command writes the same trajectory and figure.
 
 include(joinpath(@__DIR__, "options.jl"))
 
 using Printf
+using Random
 
 using CairoMakie
 using HDF5
@@ -18,7 +20,7 @@ using VlasovMethods
 "The options of the driver from the command line `args`, defaulting to the values above."
 function driver_options(args)
     return parse_arguments(args; npart = 10000, ncells = 16, order = 3, tstep = 0.1,
-        final_time = 20.0)
+        final_time = 20.0, seed = 1234)
 end
 
 const DOMAIN = (0.0, 1.0)
@@ -26,7 +28,9 @@ const DOMAIN = (0.0, 1.0)
 function main(o)
     tspan = (0.0, o.final_time)
 
-    # create and initialize particle distribution function
+    # create and initialize particle distribution function; `NormalDistribution` draws the
+    # positions before its own `Random.seed!`, so the generator is seeded here
+    Random.seed!(o.seed)
     dist = initialize!(ParticleDistribution(1, 1, o.npart), NormalDistribution())
 
     # create electrostatic potential

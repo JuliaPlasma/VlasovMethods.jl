@@ -91,5 +91,7 @@ if isempty(ARGS)
     exit(medians[2] < medians[1] ? 0 : 1)
 else
     # one path: the value on stdout is all this process prints, so that the caller parses it
+    length(ARGS) == 1 || throw(ArgumentError(
+        "the script takes at most one argument, a path of $PATHS, got $(length(ARGS))"))
     println(measure(ARGS[1]))
 end

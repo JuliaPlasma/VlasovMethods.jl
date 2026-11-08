@@ -1,5 +1,5 @@
 ### Collision Tensor
-# A N × N × N × tensor that discretizes the weak form of a Collision tensor at most quadratic in f: C[f] = C[f;f]
+# A (nx·nv) × (nx·nv) × (nx·nv) tensor that discretizes the weak form of a Collision tensor at most quadratic in f: C[f] = C[f;f]
 struct CollisionTensor{DT, FT} <: AbstractArray{DT, 3}
     nx::Int
     nv::Int
@@ -100,22 +100,9 @@ end
 function Base.size(rt::ReducedCollisionTensor)
     (size(rt.projection_i, 2), size(rt.projection_j, 2), size(rt.projection_k, 2))
 end
-Base.size(rt::ReducedCollisionTensor, i) = size(rt)[i]
-Base.axes(rt::ReducedCollisionTensor, i) = Base.OneTo(size(rt, i))
 
 _nx(t::ReducedCollisionTensor) = _nx(t.tensor)
 _nv(t::ReducedCollisionTensor) = _nv(t.tensor)
-
-function _stencil_indices_v(i::Int, w::Int, nx, nv)
-    indices = zeros(Int, 2*w + 1)
-    ij = Tuple(multiindex(i, nx, nv))
-    k = 1
-    for d2 in (-w):w
-        indices[k] = linearindex(CartesianIndex(mod1.(ij .+ (0, d2), (nx, nv))), nx, nv)
-        k += 1
-    end
-    return indices
-end
 
 function Base.getindex(rt::ReducedCollisionTensor{DT}, i::Int, j::Int, k::Int) where {DT}
     @assert i ≥ 1 && i ≤ size(rt, 1)

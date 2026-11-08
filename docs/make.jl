@@ -6,7 +6,7 @@ DocMeta.setdocmeta!(VlasovMethods, :DocTestSetup, :(using VlasovMethods); recurs
 makedocs(;
     modules = [VlasovMethods],
     authors = "Michael Kraus",
-    repo = "https://github.com/JuliaPlasma/VlasovMethods.jl/blob/{commit}{path}#{line}",
+    repo = Remotes.GitHub("JuliaPlasma", "VlasovMethods.jl"),
     sitename = "VlasovMethods.jl",
     format = Documenter.HTML(;
         prettyurls = get(ENV, "CI", "false") == "true",

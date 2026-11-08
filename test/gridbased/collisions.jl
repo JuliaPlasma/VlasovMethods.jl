@@ -123,6 +123,9 @@ _alloc_call1(f::F, a::A) where {F, A} = (f(a); @allocated f(a))
             Pk = T[exp(T(-0.1) * a * b) for a in 1:N, b in 1:2]
             rt = VlasovMethods.ReducedCollisionTensor(ct, Pi, Pj, Pk)
             @test size(rt) == (2, 3, 2)
+            # past the third dimension, `size` and `axes` give the trailing singleton of any array
+            @test size(rt, 4) == 1
+            @test axes(rt, 4) == Base.OneTo(1)
             for i in axes(rt, 1), j in axes(rt, 2), k in axes(rt, 3)
                 dense = sum(ct[m, n, o] * Pi[m, i] * Pj[n, j] * Pk[o, k]
                 for m in 1:N, n in 1:N, o in 1:N)

@@ -1,7 +1,8 @@
 module VlasovMethodsMakieExt
 
-using CairoMakie
-using VlasovMethods
+using CairoMakie: CairoMakie, Axis, Figure, LineElement, axislegend, contour!, heatmap!,
+                  hist!, lines!, scatter!, series, xlims!, ylims!
+using VlasovMethods: VlasovMethods, GridDistribution, ParticleDistribution, Snapshots
 
 # `x` is periodic on `xdomain`, which is any object with a `first` and a `last`.
 @inline function _wrap(x, xdomain)

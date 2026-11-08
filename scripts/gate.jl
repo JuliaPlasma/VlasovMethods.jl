@@ -258,7 +258,7 @@ const DRIVER_DEFAULTS = Dict(
         batchsize = 100, eta = 1e-4),
     "landau_damping_1d1v.jl" => NamedTuple(),
     "vlasov_poisson.jl" => (npart = 10000, ncells = 16, order = 3, tstep = 0.1,
-        final_time = 20.0))
+        final_time = 20.0, seed = 1234))
 
 const QUICK = Dict(
     "pd_lb_fig1_2.jl" => (figures = ["pd_lb_fig1.pdf", "pd_lb_fig2.pdf"],
@@ -996,6 +996,19 @@ check(
     LandauDamping.RUNS == ((1025, 0.05), (2049, 0.025)) &&
         LandauDamping.TSPAN == (0.0, 40.0),
     "landau_damping_1d1v.jl runs nv = 1025 at dt = 0.05 and nv = 2049 at dt = 0.025 to t = 40")
+
+println("the drift report of analytic_quadratic.jl")
+# No run of the driver exceeds the bound, so a synthetic `H` exceeds it at the second save after
+# `t = 0`; a count that includes `t = 0` gives 3.
+let bound = (AnalyticQuadratic.TEST_β * AnalyticQuadratic.DT_REDUCED)^2,
+    r = AnalyticQuadratic.drift_report([1.0, 1.0, 1.0 + 2bound, 1.0]),
+    r₀ = AnalyticQuadratic.drift_report([1.0, 1.0, 1.0 + bound / 2])
+
+    check(r.bound == bound && r.first_exceedance == 2 && r.max_drift ≈ 2bound,
+        "the first save above the bound is counted from the save after t = 0: $(r)")
+    check(r₀.first_exceedance == 0 && r₀.max_drift ≈ bound / 2,
+        "a history within the bound has no exceedance: $(r₀)")
+end
 
 for script in first.(DRIVER_MODULES)
     expected = SHORT_RUNS[script]

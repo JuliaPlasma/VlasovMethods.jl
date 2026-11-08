@@ -25,7 +25,8 @@ Returns particles drawn from g for the bump-on-tail case.
 input: nb. pf particles Nₚ, x-marginal function gₓ, parameters μ
 output: Particles struct
 """
-function draw!(dist::ParticleDistribution{1, 1}, fᵥ::Base.Callable, params::Bump, ::AcceptRejectSampling)
+function draw!(dist::ParticleDistribution{<:Any, 1, 1}, fᵥ::Base.Callable, params::Bump,
+        ::AcceptRejectSampling)
     @unpack a, b = params
 
     # number of particles

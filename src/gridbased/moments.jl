@@ -15,7 +15,7 @@ function _apply_∫dvᵀ!(y::AbstractVector, ψ::AbstractVector, ci, li, h₁, h
     (length(ψ) == nx && length(y) == nx*nv) || throw(DimensionMismatch())
     y .= 0
     @inbounds for ij in li
-        i, j = Tuple(ci[ij])
+        i, _ = Tuple(ci[ij])
         # (∫ f dv)(xᵢ) = ∑ⱼ f(xᵢ,vⱼ) hᵥ
         y[ij] = ψ[i] * h₂
     end

@@ -43,7 +43,7 @@ struct ConservativeLenardBernstein{
         # What the span requirement controls is the agreement between the two representations:
         # ∫ vᵏ f_s dv equals Σ_α w_α v_α^k only if vᵏ lies in the span, and the manuscript's
         # sentence at main.tex:226 is about that. Measured on a cubic basis over [-8,8]: the
-        # clamped basis reproduces 1, v and v² to 1e-14, a periodic one gets v wrong by 1.2 and
+        # clamped basis reproduces 1, v and v² to 3e-14, a periodic one gets v wrong by 1.2 and
         # v² by 0.12, and a Dirichlet-recombined one gets even the constant wrong by 4e-2. So on
         # a bad basis the diagnostics computed from f_s disagree with the particles', and the
         # H-theorem — which is a statement about f_s — rests on a distribution whose moments are
@@ -206,17 +206,6 @@ function CLB_rhs_GI!(v, t, q::AbstractArray{ST}, params) where {ST}
                (evaluate!(values, fs, qα, 1) / evaluate!(values, fs, qα) + (A1 + A2 * qα))
     end
     return v
-end
-
-# used for plotting
-function CLB_rhs(v::AbstractVector{ST}, params, fs::Spline) where {ST}
-    dist = params.model.cache[ST].sdist
-
-    dfdv = derivative(fs)
-
-    A = compute_coefficients(dist, params.idist, v)
-
-    return -params.ν .* (dfdv.(v) ./ fs.(v) .+ (A[1] .+ A[2] .* v))
 end
 
 # The velocity space is 1D, in any spatial dimension: a scalar velocity and one weight per particle.

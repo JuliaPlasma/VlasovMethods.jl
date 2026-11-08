@@ -77,6 +77,13 @@ their own, except for what they removed and narrowed, which is listed in full be
   for `t₁ = 0.05` and `Δt = 8e-4` the last time written is `0.0496` (62 steps), as for
   `GeometricIntegrators.integrate`. A span that is a whole number of steps gives the same file as
   before.
+- **`initialize!(ParticleDistribution(1, 1, n), Bump())` draws the bump (K68).** Its `draw!`
+  bound `ParticleDistribution{1, 1}`, whose first parameter is the element type, so no
+  distribution matched and the call threw a `MethodError`. A new testset checks the weights
+  `1/n` and that every velocity lies in `[-b, b]`.
+- **`size(rt, i)` and `axes(rt, i)` of a `ReducedCollisionTensor` give `1` and `Base.OneTo(1)`
+  for `i > 3` (K30)**, from the `AbstractArray` fallbacks. The methods of the type indexed past
+  its three dimensions and threw a `BoundsError`.
 
 ### Breaking Changes
 
@@ -385,8 +392,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   `plot_series`, `plot_groups`, `plot_damping`, `plot_phase_space`, `plot_particles` or
   `spectrumplot` of `ReducedBasisMethods`, and save it under the name it had. Their short runs
   write the same files as before, and the same PNG files byte for byte, except
-  `vlasov_poisson.png`: its driver draws the positions of its particles with no seed (K98 of
-  `KNOWN_ISSUES.md`), and `plot_phase_space` limits the `v` axis by the largest speed of every
+  `vlasov_poisson.png`: its driver drew the positions of its particles with no seed until its
+  `--seed` option (K98), and `plot_phase_space` limits the `v` axis by the largest speed of every
   drawn slice, where the driver took that of the first slice only, so a trajectory whose speed
   grows past that of the first slice is now drawn whole. These five, `bump_on_tail_training.jl` and `bump_on_tail_projections.jl` read their options through
   `driver_options` and run `main` only where they are the program, so `vlasov_poisson.jl` now runs
@@ -401,8 +408,25 @@ their own, except for what they removed and narrowed, which is listed in full be
 - **`scripts/lenard_bernstein.jl` builds no figure itself either (K99).** It draws its figure with
   `plot_velocity_projections` and writes the same files as before, the PNG byte for byte. The gate's search for Makie
   calls reads every script in `scripts/`, so a new script that builds a figure fails it.
+- **`scripts/vlasov_poisson.jl` takes `--seed`, by default `1234` (K98)**, and seeds the global
+  generator with it before `NormalDistribution` draws the positions, as
+  `test/integration/vlasov_poisson.jl` does, so one command writes the same trajectory and figure.
+- **`scripts/electric_field_timing.jl` refuses more than one argument with an `ArgumentError`
+  (K75).** It timed the path of the first and dropped the others in silence.
+- **`scripts/gate.jl` checks `drift_report` of `scripts/analytic_quadratic.jl` on a synthetic
+  energy history (K78)**, which exceeds the bound at the second save after `t = 0`, and on one
+  within the bound. A count of the exceedance from `t = 0` fails it; no run of the driver did.
 
 ### Documentation
+
+- **Comments and docstrings state what the code does (K26, K33, K55, K58, K59, K62).** The
+  `LB_rhs!` docstring and comment are in the present tense. The comment of `CollisionTensor`
+  gives its size, `(nx·nv) × (nx·nv) × (nx·nv)`. The comment of `ConservativeLenardBernstein`
+  gives the measured bound `3e-14` of `scripts/verify_conservation.jl` for the reproduction of
+  `1`, `v` and `v²`. The `plot_distribution` docstring says that the grid heatmap's cells are
+  centred on the nodes, and that the particle histogram drops a particle with a non-finite `v`,
+  which a new testset of `test/integration/makie_extension.jl` checks. `docs/make.jl` passes
+  `Remotes.GitHub`, so the manual's navbar links the repository.
 
 - **The docstrings follow the manuscripts' text.** `CollisionEntropy` gives `S_h` as the
   H-functional of `S = ∫ f log f`, which decreases; the `kernel` docstring no longer says that the
@@ -458,6 +482,17 @@ their own, except for what they removed and narrowed, which is listed in full be
   The suite passes on GeometricIntegrators 0.19.0 with GeometricIntegratorsBase 0.7.0, and at the
   `[compat]` floors. A caller who calls a symplectic Euler method directly gets the other method
   on 0.19.
+- **Dead code is deleted (K1, K14, K23, K31, K47).** `src/particles/poisson.jl`, which was not
+  included and named the undefined `PoissonSolverPBSplines`; the one-argument
+  `update_potential!(model)`, which deposited from `model.distribution` and had no caller in
+  `src/`; `_stencil_indices_v`, which had no caller; two commented-out lines of
+  `src/models/lenard_bernstein.jl`; and the unused locals that `fatou lint` reported in
+  `src/gridbased/moments.jl` and `test/distributions/spline_distribution.jl`.
+- **The unexported plotting copies `LB_rhs`, `CLB_rhs` and `RCLB_rhs` are deleted.** None had a
+  caller. K24 stays, narrowed to `LB_rhs!`, which the tests use as an oracle.
+- **The CairoMakie extension imports each name explicitly (K60).**
+  `test/quality/explicit_imports.jl` loads CairoMakie and runs `check_no_implicit_imports` and
+  `check_no_stale_explicit_imports` on `VlasovMethodsMakieExt`.
 
 ## [0.4.1] — 2026-11-04
 
