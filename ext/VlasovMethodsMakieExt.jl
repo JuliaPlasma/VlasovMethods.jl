@@ -106,10 +106,10 @@ function VlasovMethods.plot_particles(SS::Snapshots, ts::Integer, p::Integer;
     return fig
 end
 
-# The arguments of `plot_series`, checked before anything is drawn: an empty collection has no
-# line to draw, an empty line holds no value, a line of another length would pair its values with
-# the wrong abscissae, and a label count that differs from the series count would name the wrong
-# lines.
+# The series of `plot_series` and of each group of `plot_groups`, and the labels of `plot_series`,
+# checked before anything is drawn: an empty collection has no line to draw, an empty line holds
+# no value, a line of another length would pair its values with the wrong abscissae, and a label
+# count that differs from the series count would name the wrong lines.
 function _check_series(t, series, labels)
     isempty(series) && throw(ArgumentError("no series to plot"))
     for y in series
