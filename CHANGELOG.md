@@ -326,7 +326,7 @@ their own, except for what they removed and narrowed, which is listed in full be
   column of every row and a search for ranking words over the output, the tables, the docs
   section and this entry. `--quick` of `landau_cases.jl` takes 200 particles, 5 steps and 4 cells
   per axis. The gate's time limit for every driver rises from 240 s to 400 s, because whole gate
-  runs take up to 229 s.
+  runs take 230 s to 339 s.
 - **The drivers outside the collision manuscripts build no figure themselves.**
   `scripts/analytic_quadratic.jl`, `bump_on_tail_testing.jl`, `bump_on_tail_train_hnn.jl`,
   `landau_damping_1d1v.jl` and `vlasov_poisson.jl` draw each figure with `plot_series`,
