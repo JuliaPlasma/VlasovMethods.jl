@@ -468,7 +468,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K69 · The legend of `plot_series` overflows its axis for many labelled series.
 
-- **location:** `ext/VlasovMethodsMakieExt.jl:146`, `plot_series`
+- **location:** `ext/VlasovMethodsMakieExt.jl:159`, `plot_series`
 - **evidence:** at the default figure size of `600 × 450`, the legend of 20 labelled series is
   481 px high in an axis of 375 px, on `05431f10`; 10 series give 251 px.
   `scripts/bump_on_tail_testing.jl` draws its 30-series figures of items 26 and 27 without
@@ -517,7 +517,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K78 · No test or run sees a wrong count of a non-zero `first_exceedance` of the analytic script.
 
-- **location:** `scripts/analytic_quadratic.jl:114`
+- **location:** `scripts/analytic_quadratic.jl:117`
 - **evidence:** `drift_report` counts the saves from the one after `t = 0`,
   `abs.(energy_drift(H)[2:end])`. With `[1:end]` the drift at `t = 0` is `0`, so `max_drift` stays
   the same and only a non-zero `first_exceedance` moves up by one. No save of any run exceeds the
@@ -738,6 +738,49 @@ has left the file, or that lived only on a merged branch, stays taken.
   and `3.4e-16`.
 - **kind:** defect
 - **found:** 2026-11-07
+
+### K97 · The `GeometricIntegrator` constructors of the two conservative Lenard–Bernstein models fix the implicit midpoint rule, where that of `LenardBernstein` takes the method as an argument.
+
+- **location:** `src/models/lenard_bernstein_conservative.jl:235`
+- **evidence:** `GeometricIntegrator(model::LenardBernstein{1, 1}, tspan, tstep, method =
+  RK438())` takes the time integrator as its fourth argument
+  (`src/models/lenard_bernstein.jl:104`). The constructors of `ConservativeLenardBernstein`
+  (`src/models/lenard_bernstein_conservative.jl:223-243`) and of
+  `RescaledConservativeLenardBernstein`
+  (`src/models/rescaled_lenard_bernstein_conservative.jl:146-169`) take three arguments and pass
+  `Integrators.ImplicitMidpoint()` (`:235` and `:161`), so a caller cannot choose another method
+  for them. Both keep the comment `# put together splitting method` (`:240` and `:166`), which
+  describes no splitting. The fix is a fourth argument `method = Integrators.ImplicitMidpoint()`
+  in both, and the deletion of the two comments.
+- **kind:** defect
+- **found:** #125
+
+### K98 · `scripts/vlasov_poisson.jl` draws the positions of its particles from the global random generator with no seed, so two runs with the same options write different trajectories and figures.
+
+- **location:** `scripts/vlasov_poisson.jl:30`
+- **evidence:** `main` draws `initialize!(ParticleDistribution(1, 1, o.npart),
+  NormalDistribution())`, which draws the positions with `randn` before its own
+  `Random.seed!(1234)` seeds the velocities (`src/examples/normal.jl:15-19`), and no option or
+  line of the driver sets a seed. Two runs of
+  `julia --project=scripts scripts/vlasov_poisson.jl --npart 1000 --final-time 2.0`, one at
+  `fea6c16` and one with `plot_phase_space`, write `vlasov_poisson.png` files of different MD5
+  sums; `plot_phase_space` of the first run's `vlasov_poisson.hdf5` saves that run's PNG byte for
+  byte (`fad6c14276deff75c6987e340ed0d8a5`), so the two differ by the draw alone. A figure of the
+  driver cannot be regenerated from its command.
+- **kind:** defect
+- **found:** 2026-11-08
+
+### K99 · `scripts/lenard_bernstein.jl` builds its figure itself, with a `Figure`, three `Axis` panels and their plot calls, where no other driver names a Makie figure, axis or plot call.
+
+- **location:** `scripts/lenard_bernstein.jl:66-80`
+- **evidence:** `grep -n 'Figure(\|Axis(\|lines!(\|scatter!(\|heatmap!(' scripts/*.jl` finds
+  `scripts/lenard_bernstein.jl` alone, at lines 66, 68, 69, 74, 78 and 79: the right-hand side at
+  `t = 0` as a scatter, then in two panels the particle histogram (`hist!`, line 76), the spline
+  projection and its derivative, with a legend (`axislegend`, line 80). Every plotting routine is
+  to be a method of the extension, declared and documented in `src/plotting.jl`, and the driver is
+  not one of those whose figures moved there.
+- **kind:** defect
+- **found:** 2026-11-08
 
 ### K100 · Inference does not give a concrete type for `GeometricIntegrator(model, tspan, tstep[, method])` of `LenardBernstein`, `ConservativeLenardBernstein` and `RescaledConservativeLenardBernstein`, because the `ODEProblem` constructor of GeometricEquations and the Newton solver of SimpleSolvers infer free type parameters.
 

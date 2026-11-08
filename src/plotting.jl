@@ -75,7 +75,8 @@ a title, a size or an axis label.
 function plot_particles end
 
 @doc raw"""
-    plot_series(t, series; labels = nothing, xlabel = "t", ylabel = "") -> Figure
+    plot_series(t, series; labels = nothing, xlabel = "t", ylabel = "",
+        yscale = identity) -> Figure
 
 One line per element of `series` against the abscissae `t`, on one axis.
 
@@ -83,7 +84,7 @@ Defined in a package extension: load `CairoMakie` to make it available.
 
 ```julia
 using VlasovMethods, CairoMakie
-fig = plot_series(ts, (x2, xmax); labels = ["x2", "xmax"], ylabel = "error")
+fig = plot_series(ts, (x2, xmax); labels = ["x2", "xmax"], ylabel = "error", yscale = log10)
 fig = plot_series(ts, (W_hfm, W_rom); labels = ["HFM", "ROM"], ylabel = "field energy")
 fig = plot_series(μ, (γ_hfm, γ_rom); labels = ["HFM", "ROM"], xlabel = "parameter", ylabel = "γ")
 ```
@@ -96,17 +97,118 @@ or the [`growth_rate`](@ref) values of a sweep against the equation parameter. `
 abscissa of each value, so one figure holds the quantities that share it.
 
 `labels` names the lines. It is `nothing`, which draws no legend, or a collection with one label
-per element of `series`, in the same order, which is drawn as a legend of the axis. `xlabel` and
-`ylabel` label the axes. The axis is linear, so set a log scale on the axis of the returned
-`Figure` to read a decaying error, or values that span orders of magnitude.
+per element of `series`, in the same order, whose `string` is drawn as a legend of the axis.
+`xlabel` and `ylabel` label the axes. `yscale` is the scale of the `y` axis: `identity`, linear,
+or `log10`, to read a decaying error or values that span orders of magnitude.
 
 # Throws
 
-- `ArgumentError` when `series` holds no line, or a line holds no value.
+- `ArgumentError` when `series` holds no line, or a line holds no value, and when `yscale` is
+  `log10` and a line holds a negative value. A zero is accepted: it has no place on the axis, so it
+  is drawn as a `NaN`, where its line breaks.
 - `DimensionMismatch` when a series is not as long as `t`, and when `labels` does not hold one
   label per series.
 """
 function plot_series end
+
+@doc raw"""
+    plot_groups(t, groups; xlabel = "t", ylabel = "", yscale = identity,
+        colors = (:blue, :orange, :green)) -> Figure
+
+The lines of several groups against the abscissae `t`, on one axis, every line of a group in
+the group's colour, with one legend entry per group.
+
+Defined in a package extension: load `CairoMakie` to make it available.
+
+```julia
+using VlasovMethods, CairoMakie
+fig = plot_groups(t, ["HFM" => eachcol(W_hfm), "ROM" => eachcol(W_rom)]; ylabel = "W",
+    yscale = log10)
+```
+
+`groups` is a collection of `name => series` pairs, such as a vector or a `Dict`, whose iteration
+order numbers the groups, and `series` any collection of vectors of `length(t)` values, such as the
+field energy of every sample of a sweep for one model. Group `i` draws each of its lines in
+`colors[i]` at the opacity `0.5`, so that the lines of one group read as a band, and
+`string(name)` is the label of a legend entry of that colour in the axis' top right corner.
+`xlabel` and `ylabel` label the axes, and `yscale` is the scale of the `y` axis, as for
+[`plot_series`](@ref).
+
+# Throws
+
+- `ArgumentError` when `groups` holds no group, when a group holds no line, or a line holds no
+  value, and when `yscale` is `log10` and a line holds a negative value. A zero is accepted, and
+  drawn as a `NaN`, as for [`plot_series`](@ref).
+- `DimensionMismatch` when a line is not as long as `t`, and when `colors` holds fewer colours
+  than `groups` holds groups.
+"""
+function plot_groups end
+
+@doc raw"""
+    plot_damping(runs, reference; title = "", colors = (:steelblue, :firebrick)) -> Figure
+
+The logarithm of the field's first mode, ``\log|E_1|``, of each run against `t`, with the peaks
+that its damping rate is fitted through as markers, and a dashed reference line, on one axis of
+a `Figure` of `1200 × 500` pixels.
+
+Defined in a package extension: load `CairoMakie` to make it available.
+
+```julia
+using VlasovMethods, CairoMakie
+run = (t = times, y = logE, peak_t = ts, peak_y = ys, label = "nv = 1025: γ = -0.1533")
+fig = plot_damping([run], (t = [8.0, 40.0], y = y₀ .- 0.1533 .* ([8.0, 40.0] .- t₀),
+    label = "γ = -0.1533"); title = "k = 0.50")
+```
+
+Each element of `runs` has the fields `t` and `y`, the series drawn as a line, `peak_t` and
+`peak_y`, its peaks drawn as markers of size 8, and `label`, whose `string` is the legend entry of
+its line. Run `i` is drawn in `colors[i]`. `reference` has the fields `t`, `y` and `label`, a line
+drawn black and dashed, such as the textbook rate laid through a peak, so that its slope compares
+with the peaks of each run. The legend is in the axis' bottom left corner. `title` is the axis'
+title.
+
+# Throws
+
+- `ArgumentError` when `runs` holds no run, or a run or the reference holds no value.
+- `DimensionMismatch` when the `y` of a run or of the reference is not as long as its `t`, when
+  the `peak_y` of a run is not as long as its `peak_t`, and when `colors` holds fewer colours
+  than `runs` holds runs.
+"""
+function plot_damping end
+
+@doc raw"""
+    plot_phase_space(z, slices; xdomain, titles) -> Figure
+
+The particles of a trajectory at the time slices `slices`, one scatter of `(x, v)` per slice in
+a row of panels of one `Figure` of `1500 × 400` pixels.
+
+Defined in a package extension: load `CairoMakie` to make it available.
+
+```julia
+using VlasovMethods, CairoMakie
+z = h5read(file, "z")
+fig = plot_phase_space(z, [1, 67, 134, 201]; xdomain = (0.0, 1.0),
+    titles = ["t = 0.0", "t = 6.6", "t = 13.3", "t = 20.0"])
+```
+
+`z` is the `(2, npart, ntime)` array of the trajectory that `run!(::SplittingMethod, h5file)` of
+a 1D1V model writes: `z[1, :, s]` holds the positions and `z[2, :, s]` the velocities at time
+slice `s`. Panel `i` draws slice `slices[i]`, with the positions wrapped into the periodic
+`xdomain`, under the title `titles[i]`. Each particle keeps one colour in every panel: steel blue
+where its velocity at the first time slice, `z[2, k, 1]`, is not negative, and fire brick where it
+is, so that the filamentation of each half of the cloud reads apart. Every panel is limited to
+`xdomain` horizontally and to `[-v_max, v_max]` vertically, with `v_max` the largest finite `|v|`
+of all the slices in `slices` rounded up to an integer, and only the first panel labels its `v`
+axis. A non-finite velocity draws no marker.
+
+# Throws
+
+- `ArgumentError` when `z` does not hold two rows, or holds no particle or no time slice, when
+  `slices` holds no slice, when a slice is not a time slice of `z`, and when no slice in `slices`
+  holds a finite nonzero velocity, so that `v_max` is zero.
+- `DimensionMismatch` when `titles` does not hold one title per slice.
+"""
+function plot_phase_space end
 
 @doc raw"""
     plot_collision_distribution(f, g; xdomain, vdomain, nx = 100, nv = 100) -> Figure

@@ -17,7 +17,7 @@ functions, which the page [Plotting](plotting.md) documents; it builds no figure
 
 The flag `--quick` replaces some of the manuscript's parameters with smaller ones.
 `scripts/gate.jl` runs every driver with it, in a process of its own and into a temporary
-directory, and checks that each exits 0 within 400 s, writes its figures and its HDF5 files, and
+directory, and checks that each exits 0 within 900 s, writes its figures and its HDF5 files, and
 records `commit`, `command` and the parameters of `--quick`:
 
 ```

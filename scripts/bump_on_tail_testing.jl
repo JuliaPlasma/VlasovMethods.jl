@@ -20,30 +20,8 @@ include("bump_on_tail_common.jl")
 using CairoMakie
 using ReducedBasisMethods: get_DEIM_indices
 
-const OPT = parse_arguments(ARGS; BUMP_ON_TAIL..., samples = 10)
-
-"The axis of a figure of `plot_series`, on a log scale."
-function log_scale!(fig)
-    only(c for c in fig.content if c isa Axis).yscale = log10
-    return fig
-end
-
-"""
-    by_model!(fig, models, n)
-
-The figure `fig` of `plot_series` over `n` unlabelled series per model, in the order of the names
-`models`, with one colour and one legend entry per model, as the reference draws all samples at
-once.
-"""
-function by_model!(fig, models, n)
-    ax = only(c for c in fig.content if c isa Axis)
-    colours = [(c, 0.5) for c in (:blue, :orange, :green)][eachindex(models)]
-    for (i, line) in enumerate(filter(p -> p isa Lines, ax.scene.plots))
-        line.color = colours[cld(i, n)]
-    end
-    axislegend(ax, [LineElement(color = c) for c in colours], collect(models))
-    return fig
-end
+"The options of the driver from the command line `args`, defaulting to the paper's parameters."
+driver_options(args) = parse_arguments(args; BUMP_ON_TAIL..., samples = 10)
 
 function main(o)
     Φ, Ψₑ = h5open(runs_path(run_id(o) * "_projections.h5"), "r") do io
@@ -87,6 +65,9 @@ function main(o)
     samples = ["κ = $(round(k; digits = 3))" for k in κ]
     models = ["HFM"; collect(name)]
     columns(M) = collect(eachcol(M))
+    # the columns of `M`, `n` per model in the order of `models`, as the groups of `plot_groups`
+    by_model(M) = [m => columns(M[:, ((j - 1) * n + 1):(j * n)])
+                   for (j, m) in enumerate(models)]
     γ_hfm = fit_growth_rate(t, HFM.W)
     γ_rom = map(R -> fit_growth_rate(t, R.W), ROM)
 
@@ -103,52 +84,50 @@ function main(o)
             R.X[1, :, :, :], R.V[1, :, :, :])
         for q in keys(errors)
             save(results_path("item24_$(q)_time$(suffix[m]).png"),
-                log_scale!(plot_series(
+                plot_series(
                     t[later], columns(errors[q][later, :]); labels = samples,
-                    ylabel = "$(q), $(name[m])")))
+                    ylabel = "$(q), $(name[m])", yscale = log10))
             save(results_path("item24_$(q)_kappa$(suffix[m]).png"),
-                log_scale!(plot_series(κ, [errors[q][i, :] for i in at];
+                plot_series(κ, [errors[q][i, :] for i in at];
                     labels = ["t = $(t[i])" for i in at], xlabel = "κ",
-                    ylabel = "$(q), $(name[m])")))
+                    ylabel = "$(q), $(name[m])", yscale = log10))
         end
 
         # item 25: the absolute error of the potential against time
         save(results_path("item25_potential_error$(suffix[m]).png"),
-            log_scale!(plot_series(
+            plot_series(
                 t[later], columns(potential_error(HFM.Φ, R.Φ)[later, :]);
-                labels = samples, ylabel = "‖Φ_ROM − Φ_HFM‖, $(name[m])")))
+                labels = samples, ylabel = "‖Φ_ROM − Φ_HFM‖, $(name[m])", yscale = log10))
     end
 
     # item 26: the field energy of the three models, of every sample, and of the samples whose
     # growth rates of the HFM and the DEIM model agree best and worst
     save(results_path("item26_field_energy.png"),
-        by_model!(
-            log_scale!(plot_series(t, vcat(columns(HFM.W), (columns(R.W) for R in ROM)...);
-                ylabel = "W")), models, n))
+        plot_groups(t, by_model(hcat(HFM.W, (R.W for R in ROM)...)); ylabel = "W",
+            yscale = log10))
     # a sample whose energy has fewer than two maxima has no rate, and no rank
     finite = findall(p -> isfinite(γ_hfm[p]) && isfinite(γ_rom.DEIM[p]), 1:n)
     ranked = isempty(finite) ? Int[] :
              finite[[best_and_worst(γ_hfm[finite], γ_rom.DEIM[finite])...]]
     for (case, p) in zip(("best", "worst"), ranked)
         save(results_path("item26_field_energy_$(case).png"),
-            log_scale!(plot_series(t, [HFM.W[:, p], (R.W[:, p] for R in ROM)...];
-                labels = models .* ", " .* samples[p], ylabel = "W")))
+            plot_series(t, [HFM.W[:, p], (R.W[:, p] for R in ROM)...];
+                labels = models .* ", " .* samples[p], ylabel = "W", yscale = log10))
     end
 
     # item 27: the energy and its relative drift of the three models, and the size of the drift
     # against κ at T, 0.75T and 0.5T
     H = hcat(HFM.K .+ HFM.W, (R.K .+ R.W for R in ROM)...)
     drift = reduce(hcat, energy_drift.(columns(H)))
-    save(results_path("item27_energy.png"),
-        by_model!(plot_series(t, columns(H); ylabel = "H"), models, n))
+    save(results_path("item27_energy.png"), plot_groups(t, by_model(H); ylabel = "H"))
     save(results_path("item27_energy_drift.png"),
-        by_model!(plot_series(t, columns(drift); ylabel = "ΔH/H"), models, n))
+        plot_groups(t, by_model(drift); ylabel = "ΔH/H"))
     save(results_path("item27_energy_drift_kappa.png"),
-        log_scale!(plot_series(κ,
+        plot_series(κ,
             [abs.(drift[i, ((j - 1) * n + 1):(j * n)]) for j in eachindex(models)
              for i in at];
             labels = ["$(model), t = $(t[i])" for model in models for i in at],
-            xlabel = "κ", ylabel = "|ΔH/H|")))
+            xlabel = "κ", ylabel = "|ΔH/H|", yscale = log10))
 
     # item 28: the growth rate against κ, with the fit of the reference
     save(results_path("item28_growth_rate.png"),
@@ -179,4 +158,6 @@ function main(o)
     return nothing
 end
 
-main(OPT)
+# `scripts/gate.jl` includes this file to read `driver_options`, so `main` runs only where the file
+# is the program
+abspath(PROGRAM_FILE) == @__FILE__() && main(driver_options(ARGS))

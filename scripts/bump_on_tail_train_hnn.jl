@@ -18,8 +18,11 @@ using CairoMakie
 using AbstractNeuralNetworks: Chain, Dense, NeuralNetwork, params
 using GeometricOptimizers
 
-const OPT = parse_arguments(ARGS; BUMP_ON_TAIL..., m = 10, epochs = 1000, batchsize = 100,
-    eta = 1e-4)
+"The options of the driver from the command line `args`, defaulting to the default command's."
+function driver_options(args)
+    return parse_arguments(args; BUMP_ON_TAIL..., m = 10, epochs = 1000, batchsize = 100,
+        eta = 1e-4)
+end
 
 function main(o)
     id = run_id(o)
@@ -41,11 +44,12 @@ function main(o)
         target; η = o.eta, epochs = o.epochs, batchsize = o.batchsize, rng = Xoshiro(o.seed))
     println("loss: $(losses[1]) … $(losses[end])")
 
-    fig = Figure()
-    ax = Axis(fig[1, 1]; xlabel = "epoch", ylabel = "loss", yscale = log10)
-    lines!(ax, 1:o.epochs, losses)
+    epochs = 1:(o.epochs)
+    fig = plot_series(epochs, (losses,); xlabel = "epoch", ylabel = "loss", yscale = log10)
     save(results_path("hnn_loss.png"), fig)
     return nothing
 end
 
-main(OPT)
+# `scripts/gate.jl` includes this file to read `driver_options`, so `main` runs only where the file
+# is the program
+abspath(PROGRAM_FILE) == @__FILE__() && main(driver_options(ARGS))

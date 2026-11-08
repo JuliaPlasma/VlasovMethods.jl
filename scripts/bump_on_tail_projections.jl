@@ -20,8 +20,11 @@ include("bump_on_tail_common.jl")
 using CairoMakie
 using ReducedBasisMethods: CotangentLiftEVD, PODEVD, spectrumplot
 
-const OPT = parse_arguments(ARGS; BUMP_ON_TAIL..., particle_tolerance = 1e-9,
-    field_tolerance = 1e-5)
+"The options of the driver from the command line `args`, defaulting to the paper's tolerances."
+function driver_options(args)
+    return parse_arguments(args; BUMP_ON_TAIL..., particle_tolerance = 1e-9,
+        field_tolerance = 1e-5)
+end
 
 function main(o)
     id = run_id(o)
@@ -43,4 +46,6 @@ function main(o)
     return nothing
 end
 
-main(OPT)
+# `scripts/gate.jl` includes this file to read `driver_options`, so `main` runs only where the file
+# is the program
+abspath(PROGRAM_FILE) == @__FILE__() && main(driver_options(ARGS))

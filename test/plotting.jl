@@ -31,7 +31,8 @@ using VlasovMethods
 
         @assert Base.get_extension(VlasovMethods, :VlasovMethodsMakieExt) === nothing
         const PLOTTING = (VlasovMethods.plot_distribution, VlasovMethods.plot_particles,
-            VlasovMethods.plot_series, VlasovMethods.plot_collision_distribution,
+            VlasovMethods.plot_series, VlasovMethods.plot_groups, VlasovMethods.plot_damping,
+            VlasovMethods.plot_phase_space, VlasovMethods.plot_collision_distribution,
             VlasovMethods.plot_drift, VlasovMethods.plot_entropy, VlasovMethods.plot_error,
             VlasovMethods.plot_convergence, VlasovMethods.plot_cost)
         for f in PLOTTING
@@ -45,6 +46,12 @@ using VlasovMethods
             () -> VlasovMethods.plot_distribution(particles; xdomain = (0.0, 1.0), vdomain = (-1.0, 1.0)),
             () -> VlasovMethods.plot_particles(particles; xdomain = (0.0, 1.0), vdomain = (-1.0, 1.0)),
             () -> VlasovMethods.plot_series([0.0, 1.0], ([0.5, 0.5],)),
+            () -> VlasovMethods.plot_groups([0.0, 1.0], ["a" => [[0.5, 0.5]]]),
+            () -> VlasovMethods.plot_damping(
+                [(t = [0.0, 1.0], y = [0.5, 0.4], peak_t = [0.0], peak_y = [0.5], label = "a")],
+                (t = [0.0, 1.0], y = [0.5, 0.3], label = "b")),
+            () -> VlasovMethods.plot_phase_space(zeros(2, 1, 1), [1]; xdomain = (0.0, 1.0),
+                titles = ["a"]),
             () -> VlasovMethods.plot_collision_distribution(particles, particles;
                 xdomain = (0.0, 1.0), vdomain = (-1.0, 1.0)),
             () -> VlasovMethods.plot_drift([0.0, 1.0], ([1.0, 1.0], [1.0, 1.0], [1.0, 1.0])),
@@ -84,9 +91,11 @@ end
     @test occursin("load `CairoMakie`", string(@doc VlasovMethods.plot_particles))
     @test occursin("package extension", string(@doc VlasovMethods.plot_series))
     @test occursin("load `CairoMakie`", string(@doc VlasovMethods.plot_series))
-    for doc in (@doc(VlasovMethods.plot_collision_distribution), @doc(VlasovMethods.plot_drift),
-        @doc(VlasovMethods.plot_entropy), @doc(VlasovMethods.plot_error),
-        @doc(VlasovMethods.plot_convergence), @doc(VlasovMethods.plot_cost))
+    for doc in (@doc(VlasovMethods.plot_groups), @doc(VlasovMethods.plot_damping),
+        @doc(VlasovMethods.plot_phase_space), @doc(VlasovMethods.plot_collision_distribution),
+        @doc(VlasovMethods.plot_drift), @doc(VlasovMethods.plot_entropy),
+        @doc(VlasovMethods.plot_error), @doc(VlasovMethods.plot_convergence),
+        @doc(VlasovMethods.plot_cost))
         @test occursin("package extension", string(doc))
         @test occursin("load `CairoMakie`", string(doc))
         @test occursin("-> Figure", string(doc))
