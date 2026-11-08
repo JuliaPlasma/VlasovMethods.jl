@@ -292,6 +292,9 @@ their own, except for what they removed and narrowed, which is listed in full be
   `docs/src/collisions.md` lists the stops in place of figures. `scripts/gate.jl` runs the six
   quick runs, the two unknown values, `--tolerance` on the uniform case, a stopped run and two
   runs whose rate check fails, one on its closed form and one on its control.
+  `scripts/lenard_bernstein_metriplectic_rate_stalls.jl` probes each step on which the rate
+  check's fixed-point solve stalls, and prints the step, its residual, the velocity of the particle
+  with the largest residual, and the sample's mean and standard deviation (K95).
 - **`scripts/reference_forms.jl` derives the two closed forms of the 2D reference cases and checks
   them against the moment equations.** The header derives the rate of the second moments at the
   Maxwell molecules of `γ = 0` — `d(T₁₁ − T₂₂)/dt = −8 (T₁₁ − T₂₂)` at density one, unit mass and
