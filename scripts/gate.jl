@@ -7,7 +7,8 @@
 # of its HDF5 files, and each HDF5 file carries
 #
 # - the attribute `commit`, equal to `git rev-parse HEAD` of this checkout,
-# - the attribute `command`, equal to the arguments the gate passed to the driver,
+# - the attribute `command`, equal to the arguments the gate passed to the driver as
+#   `Base.shell_escape` quotes them,
 # - the values of `--quick` in its option attributes, so that a driver that ignores `--quick`
 #   fails here even where its full run fits the budget.
 #
@@ -22,9 +23,10 @@
 # Six more runs check the edges of the drivers:
 #
 # - `pd_lb_fig11.jl` in an empty working directory, with `--runs-dir` and `--results-dir` two
-#   levels below a directory that does not have them, and with `GIT_DIR` naming a path that does
-#   not exist: both directories are created and hold its files, the working directory stays
-#   empty, and `commit` is `"unknown"`;
+#   levels below a directory that does not have them, the first level named with a space, and
+#   with `GIT_DIR` naming a path that does not exist: both directories are created and hold its
+#   files, the working directory stays empty, `commit` is `"unknown"`, and `command` quotes the
+#   paths with the space;
 # - `pd_lb_fig1_2.jl` with the sweeps `M ∈ {24, 25, 26}` at `10⁴` particles and
 #   `N ∈ {1000, 5623, 10000, 31623}`, where the projection is not positive at a particle of
 #   `M = 25`, of `N = 5623` and of `N = 31623`: it exits 0, prints each stop, records
@@ -171,8 +173,9 @@ function check_record(path, args, parameters)
         attributes = HDF5.attrs(file)
         check(haskey(attributes, "commit") && attributes["commit"] == EXPECTED_COMMIT,
             "$(basename(path)) carries commit = $(EXPECTED_COMMIT)")
-        check(haskey(attributes, "command") && attributes["command"] == join(args, " "),
-            "$(basename(path)) carries command = $(join(args, " "))")
+        command = Base.shell_escape(args...)
+        check(haskey(attributes, "command") && attributes["command"] == command,
+            "$(basename(path)) carries command = $(command)")
         for (key, value) in pairs(parameters)
             name = String(key)
             check(haskey(attributes, name) && attributes[name] == value,
@@ -205,16 +208,16 @@ function midpoint_residual(path, tstep)
     dist = initialize!(ParticleDistribution(1, 1, size(z, 1)),
         DoubleMaxwellian(; domain = (-5.0, 5.0), shift = 2.0))
     model = LenardBernstein(dist, CollisionEntropy(spline_distribution(41)))
-    parameters = (ν = model.ν, idist = model.dist, fdist = model.ent.dist, model)
+    problem = GeometricIntegrator(model, (0.0, tstep), tstep).equation
     v̇ = similar(z[:, 1])
-    VlasovMethods.LB_rhs_GI!(v̇, 0.0, (z[:, 1] .+ z[:, 2]) ./ 2, parameters)
+    problem.equation.v(v̇, 0.0, (z[:, 1] .+ z[:, 2]) ./ 2, problem.parameters)
     return maximum(abs, z[:, 2] .- z[:, 1] .- tstep .* v̇) / maximum(abs, z[:, 2] .- z[:, 1])
 end
 
 jobs = [start(script, ["--quick"]) for script in sort!(collect(keys(QUICK)))]
 
 const WORK = mktempdir()
-const NESTED = joinpath(mktempdir(), "new", "deeper")
+const NESTED = joinpath(mktempdir(), "new dir", "deeper")
 stray = start("pd_lb_fig11.jl", ["--quick"]; out = NESTED, dir = WORK,
     env = "GIT_DIR" => joinpath(WORK, "no-such-git-dir"))
 stop = start("pd_lb_fig1_2.jl",
@@ -354,6 +357,10 @@ if check(isfile(joinpath(stray.runs, "pd_lb_fig11.hdf5")),
     commit = h5open(file -> get(HDF5.attrs(file), "commit", nothing),
         joinpath(stray.runs, "pd_lb_fig11.hdf5"), "r")
     check(commit == "unknown", "commit is \"unknown\" outside a git checkout, got $(commit)")
+    command = h5open(file -> get(HDF5.attrs(file), "command", nothing),
+        joinpath(stray.runs, "pd_lb_fig11.hdf5"), "r")
+    check(command == Base.shell_escape(stray.args...) && occursin("'", command),
+        "command quotes the paths with a space: $(command)")
 end
 
 println("pd_lb_fig1_2.jl with sweeps that the projection stops")

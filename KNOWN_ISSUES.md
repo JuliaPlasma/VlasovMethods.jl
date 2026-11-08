@@ -276,9 +276,9 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K47 · Twelve lines of commented-out code remain in three collision model files.
 
-- **location:** `src/models/lenard_bernstein.jl:96`
-- **evidence:** The lines are `src/models/lenard_bernstein.jl:96` and `:106`;
-  `src/models/lenard_bernstein_conservative.jl:228`, `:238-240` and `:244`;
+- **location:** `src/models/lenard_bernstein.jl:107`
+- **evidence:** The lines are `src/models/lenard_bernstein.jl:107` and `:117`;
+  `src/models/lenard_bernstein_conservative.jl:226`, `:236-238` and `:242`;
   `src/models/rescaled_lenard_bernstein_conservative.jl:149`, `:162-164` and `:168`. Each is an
   old assignment, call or `return` behind `#`, such as `# int = Integrators.Integrator(equ,
   Integrators.RK438())`. #69 deleted the other dead code of these files and left these lines,
@@ -660,22 +660,6 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** defect
 - **found:** #119
 
-### K93 · `run!(::GeometricIntegrator, h5file)` throws a `BoundsError` where the time span is not a whole number of steps of its own range.
-
-- **location:** `src/methods/geometric_integrator.jl:34`
-- **evidence:** `run!` steps `n in 1:ntime(prob)` and reads `times[n + 1]` of
-  `times = t₀:Δt:t_end` (`:34`, `:38`). `ntime` rounds the quotient `(t_end − t₀)/Δt` up, and the
-  range ends at the last whole step at or below `t_end`, so where the quotient is not a whole
-  number in floating point the range is one element short. `t_end = 0.05` with `Δt = 8e-4` gives
-  `ntime = 63` and a range of 63 elements, and so do `0.05` with `1e-3` (51 and 51), `0.1` with
-  `1e-2` (11 and 11) and `0.2` with `8e-4` (251 and 251); a run of `ConservativeLenardBernstein`
-  at `0.05` and `8e-4` stops with `BoundsError: attempt to access 63-element StepRangeLen … at
-  index [64]`. `run!(::SplittingMethod, h5file)` takes its step count from the range
-  (`src/methods/splitting.jl:42-47`) and does not have the defect. The drivers
-  `scripts/pd_lb_*.jl` take their steps in `integrate!` of `scripts/pd_lb_common.jl` instead.
-- **kind:** defect
-- **found:** 2026-11-07
-
 ### K94 · The figure drivers of the Lenard–Bernstein manuscript stop where the projection is not positive at a particle: figures 1, 2, 7 and 8 at the manuscript's parameters, and figure 11 with the seed 1234, where the right-hand side of `LenardBernstein` divides by `f_s` without checking its sign.
 
 - **location:** `src/models/lenard_bernstein_conservative.jl:144`
@@ -686,7 +670,7 @@ has left the file, or that lived only on a merged branch, stays taken.
   `npart =   5623` at `v = 3.799579553401782` and `npart =  31623` at `v = 4.432320203818066`; at
   `M = 25` the projected Maxwellian is `−2.4e-5` at two of the `10⁵` velocities. The sweeps leave
   these points out of figures 1 and 2, record `stopped_at = 25` and `stopped_at = 5623`, and
-  exit 0. `julia --project=scripts scripts/pd_lb_fig7_8.jl` stops after 289 s, in the step 1768
+  exit 0. `julia --project=scripts scripts/pd_lb_fig7_8.jl` stops in the step 1768
   to `t = 1.4144`, where the projection is `−1.58e-7` at `v = −6.42`; it writes
   `pd_lb_fig7_8.hdf5` with `stopped_at = 1.4144`, writes no figure and exits non-zero.
   `LB_rhs_GI!` evaluates `f_s'/f_s + v` at each particle (`src/models/lenard_bernstein.jl:82`)
@@ -723,3 +707,19 @@ has left the file, or that lived only on a merged branch, stays taken.
   not a contraction.
 - **kind:** defect
 - **found:** 2026-11-07
+
+### K97 · The `GeometricIntegrator` constructors of the two conservative Lenard–Bernstein models fix the implicit midpoint rule, where that of `LenardBernstein` takes the method as an argument.
+
+- **location:** `src/models/lenard_bernstein_conservative.jl:235`
+- **evidence:** `GeometricIntegrator(model::LenardBernstein{1, 1}, tspan, tstep, method =
+  RK438())` takes the time integrator as its fourth argument
+  (`src/models/lenard_bernstein.jl:104`). The constructors of `ConservativeLenardBernstein`
+  (`src/models/lenard_bernstein_conservative.jl:223-243`) and of
+  `RescaledConservativeLenardBernstein`
+  (`src/models/rescaled_lenard_bernstein_conservative.jl:146-169`) take three arguments and pass
+  `Integrators.ImplicitMidpoint()` (`:235` and `:161`), so a caller cannot choose another method
+  for them. Both keep the comment `# put together splitting method` (`:240` and `:166`), which
+  describes no splitting. The fix is a fourth argument `method = Integrators.ImplicitMidpoint()`
+  in both, and the deletion of the two comments.
+- **kind:** defect
+- **found:** #125

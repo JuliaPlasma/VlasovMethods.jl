@@ -65,6 +65,17 @@ their own, except for what they removed and narrowed, which is listed in full be
   with an `ArgumentError` (K57, K92).** Before, a reversed domain gave a histogram of negative
   density, a cell count of zero threw a `BoundsError`, and an infinite or `NaN` domain end threw
   Base's `ArgumentError` of `range` or an `InexactError` from the cell index.
+- **`run!(::GeometricIntegrator, h5file)` steps over the solution's own time grid (K93).** It sized
+  its datasets by `ntime(equation) + 1` and indexed the range `t₀:Δt:t₁` up to that count, but
+  `ntime` rounds the step count up, and the range is one point shorter wherever the span is not a
+  whole number of steps in floating point: a run to `0.05` with the step `8e-4` threw a
+  `BoundsError` before its last step. The datasets now hold one slice per point of the range, and
+  the loop takes the steps that `GeometricIntegrators.integrate` takes, as
+  `run!(::SplittingMethod, h5file)` does. `run!` writes its last slice at `last(t₀:Δt:t₁)`, the last
+  whole step at or below `t₁`, so a span that is not a whole number of steps ends short of `t₁` —
+  for `t₁ = 0.05` and `Δt = 8e-4` the last time written is `0.0496` (62 steps), as for
+  `GeometricIntegrators.integrate`. A span that is a whole number of steps gives the same file as
+  before.
 
 ### Breaking Changes
 
@@ -95,6 +106,12 @@ their own, except for what they removed and narrowed, which is listed in full be
 
 ### New Features
 
+- **`GeometricIntegrator(model::LenardBernstein, tspan, tstep, method = RK438())` takes the time
+  integrator as its fourth argument**, in the position the grid constructor of `VlasovPoisson`
+  takes it, and has a docstring. The default is the former fixed `RK438()`, so a call without it
+  gives the same run. `scripts/pd_lb_fig11.jl` passes `ImplicitMidpoint()` and `scripts/gate.jl`
+  evaluates the right-hand side through the constructor's problem, in place of their copies of
+  its parameters and of `LB_rhs_GI!`.
 - **`LenardBernsteinBracket`, `DoughertyBracket` and `JeyakumarBracket`** select the metric
   bracket of `MetriplecticLenardBernstein` through its keyword `bracket`. `DoughertyBracket()`, the
   default, is the manuscript's form; `JeyakumarBracket()` is that form times `n/(ε − u²)`. Both
@@ -230,8 +247,9 @@ their own, except for what they removed and narrowed, which is listed in full be
   `pd_lb_fig11.jl` default to the manuscript's parameters, draw each figure with the plotting
   functions of the Makie extension into `--results-dir`, write one HDF5 file per run into
   `--runs-dir` with the attributes `commit`, `command`, `script` and one per option, and print their
-  wall-clock time; `--quick` replaces some parameters with smaller ones. `M` is the number of
-  cubic basis functions, so the manuscript's "41 elements" are 41 basis functions on 38 cells. A
+  wall-clock time; `command` holds the driver's arguments as `Base.shell_escape` quotes them;
+  `--quick` replaces some parameters with smaller ones. `M` is the number of cubic basis
+  functions, so the manuscript's "41 elements" are 41 basis functions on 38 cells. A
   projection that is not positive at a particle stops a run with its `DomainError`: the driver
   writes the HDF5 file of that run with the attribute `stopped_at`, the time of the step that
   threw, and the steps reached, writes no figure for that run and exits non-zero. The sweeps of
@@ -247,6 +265,9 @@ their own, except for what they removed and narrowed, which is listed in full be
   are `8.4e-4`, `1.5e-3` and `1.8e-3`. The drivers that draw velocities from the global random
   number generator take `--seed 1`, because with the seed `1234` the implicit midpoint step of
   figure 11 sends a particle out of the velocity domain (K94). The drivers take their steps
+  themselves, `final_time / tstep` rounded up after rounding the quotient to eight digits.
+  `scripts/gate.jl` runs each driver with `--quick` and checks its files, its records and its edges,
+  a forced stop of figures 7 and 8 among them. `docs/src/collisions.md` gives each command.
   themselves, because `run!` throws a `BoundsError` on a time span that is not a whole number of
   its steps (K93). `scripts/gate.jl` runs each driver with `--quick` and checks its files, its
   records and its edges, a forced stop of figures 7 and 8 among them. `docs/src/collisions.md`
@@ -316,8 +337,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   size threshold.
 - **The figures of the collision manuscripts have a page of their own**, `collisions.md`, with one
   section per driver of the Lenard–Bernstein manuscript: its command, its parameters, its files and
-  its measured time. The six plotting functions of the collision figures are documented on the
-  Plotting page, `plotting.md`.
+  how its figures differ from the manuscript's. The six plotting functions of the collision
+  figures are documented on the Plotting page, `plotting.md`.
 - **The plotting functions have a page of their own**, `plotting.md`, with the docstrings of
   `plot_distribution`, `plot_particles` and `plot_series` and of the six collision figures. The
   home page no longer renders them: with them, its HTML was 199.54 KiB of the 200 KiB that
