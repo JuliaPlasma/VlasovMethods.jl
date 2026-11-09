@@ -645,11 +645,12 @@ has left the file, or that lived only on a merged branch, stays taken.
   `Cache(T, parent(c))` and asserts the result `::CacheType(T, parent(c))`, so a read such as
   `params.model.cache[ST]` (`src/models/lenard_bernstein.jl:74`) infers the concrete cache type
   from that assertion and not from the field. Each read still takes a `Dict` lookup of an abstract
-  value and a type check. `concrete-fields.jl` reports
-  `VlasovMethods.CacheDict.caches::Dict{DataType, VlasovMethods.Cache}`: the value type `Cache`
-  is abstract. The rule flags such a cache by design. The `CacheDict` of GeometricIntegratorsBase
-  has the same pattern. The fix is a design decision: for example, a structure with one concrete
-  field per element type that the model uses, in place of the `Dict`, decided together with
-  GeometricIntegratorsBase.
+  value and a type check. `fieldtype(VlasovMethods.CacheDict, :caches)` returns
+  `Dict{DataType, VlasovMethods.Cache}`, and `isabstracttype(VlasovMethods.Cache)` returns `true`.
+  A check of concrete field types, such as `concrete-fields.jl`, flags such a cache by design: it
+  reports `VlasovMethods.CacheDict.caches::Dict{DataType, VlasovMethods.Cache}`. The `CacheDict`
+  of GeometricIntegratorsBase has the same pattern. The fix is a design decision: for
+  example, a structure with one concrete field per element type that the model uses, in place of
+  the `Dict`, decided together with GeometricIntegratorsBase.
 - **kind:** defect
 - **found:** 2026-11-09
