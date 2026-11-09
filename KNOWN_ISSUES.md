@@ -633,3 +633,23 @@ has left the file, or that lived only on a merged branch, stays taken.
   uses a `γ` near `-6`. The fix checks `T(γ)` with the `T` of the particle state.
 - **kind:** defect
 - **found:** #114
+
+### K103 · The field `caches` of `CacheDict` has the abstract value type `Cache`.
+
+- **location:** `src/cache.jl:8`
+- **evidence:** `caches::Dict{DataType, Cache}` holds the caches of one model, keyed by element
+  type, on `1e60db3`. The constructor (`:10-14`) stores the model's own cache under its
+  `eltype`, and the models build it as `CacheDict(LBCache(dist, ent.dist))`
+  (`src/models/lenard_bernstein.jl:38`, and the same in the other collision models and
+  `src/gridbased/vlasov_poisson_1d1v.jl:160`). `getindex` (`:19-25`) builds a missing cache with
+  `Cache(T, parent(c))` and asserts the result `::CacheType(T, parent(c))`, so a read such as
+  `params.model.cache[ST]` (`src/models/lenard_bernstein.jl:74`) infers the concrete cache type
+  from that assertion and not from the field. Each read still takes a `Dict` lookup of an abstract
+  value and a type check. `concrete-fields.jl` reports
+  `VlasovMethods.CacheDict.caches::Dict{DataType, VlasovMethods.Cache}`: the value type `Cache`
+  is abstract. The rule flags such a cache by design. The `CacheDict` of GeometricIntegratorsBase
+  has the same pattern. The fix is a design decision: for example, a structure with one concrete
+  field per element type that the model uses, in place of the `Dict`, decided together with
+  GeometricIntegratorsBase.
+- **kind:** defect
+- **found:** 2026-11-09
