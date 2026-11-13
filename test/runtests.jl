@@ -1,6 +1,6 @@
 using SafeTestsets
 
-const GROUPS = isempty(ARGS) ? ["core", "slow"] : ARGS
+const GROUPS = isempty(ARGS) ? ["core", "slow", "collisions"] : ARGS
 
 if "core" in GROUPS
     @safetestset "Aqua" include("quality/aqua.jl")
@@ -15,22 +15,12 @@ if "core" in GROUPS
     @safetestset "Geometric Integrator" include("methods/geometric_integrator.jl")
     @safetestset "Splitting Method" include("methods/splitting.jl")
     @safetestset "Parameter Order" include("integration/parameter_order.jl")
-    @safetestset "Landau Solver" include("integration/landau_solver.jl")
-    @safetestset "Metriplectic Solve" include("integration/metriplectic_solve.jl")
-    @safetestset "Collision Operators" include("integration/collision_operators.jl")
-    @safetestset "Lenard–Bernstein Buffers" include("models/lenard_bernstein_buffers.jl")
-    @safetestset "Metriplectic Lenard–Bernstein Brackets" include("models/lenard_bernstein_metriplectic.jl")
-    @safetestset "Landau Buffers" include("models/landau.jl")
-    @safetestset "Pairwise Landau" include("models/landau_pairwise.jl")
-    @safetestset "Discrete Gradient" include("methods/discrete_gradient.jl")
-    @safetestset "Reference Cases" include("examples/reference_cases.jl")
     @safetestset "Cache Dict" include("cache.jl")
     @safetestset "Vlasov–Poisson" include("integration/vlasov_poisson.jl")
     @safetestset "Vlasov with External Fields" include("models/vlasov_with_external_fields.jl")
     @safetestset "ElectromagneticFields Extension" include("integration/electromagnetic_fields_ext.jl")
     @safetestset "SODE Ensemble" include("integration/sodeensemble.jl")
     @safetestset "Names" include("integration/names.jl")
-    @safetestset "Collisions" include("gridbased/collisions.jl")
     @safetestset "Moments" include("gridbased/moments.jl")
     @safetestset "Vlasov–Poisson Advection" include("models/vlasov_poisson.jl")
     @safetestset "Plotting extension" include("integration/makie_extension.jl")
@@ -50,4 +40,17 @@ if "slow" in GROUPS
     @safetestset "Bump-on-tail Runs" include("integration/bump_on_tail_runs.jl")
     @safetestset "HNN" include("hnn.jl")
     @safetestset "Multi-modal Vlasov Frontends" include("rom/multimodal_vlasov_frontends.jl")
+end
+
+if "collisions" in GROUPS
+    @safetestset "Landau Solver" include("integration/landau_solver.jl")
+    @safetestset "Metriplectic Solve" include("integration/metriplectic_solve.jl")
+    @safetestset "Collision Operators" include("integration/collision_operators.jl")
+    @safetestset "Lenard–Bernstein Buffers" include("models/lenard_bernstein_buffers.jl")
+    @safetestset "Metriplectic Lenard–Bernstein Brackets" include("models/lenard_bernstein_metriplectic.jl")
+    @safetestset "Landau Buffers" include("models/landau.jl")
+    @safetestset "Pairwise Landau" include("models/landau_pairwise.jl")
+    @safetestset "Discrete Gradient" include("methods/discrete_gradient.jl")
+    @safetestset "Reference Cases" include("examples/reference_cases.jl")
+    @safetestset "Collisions" include("gridbased/collisions.jl")
 end

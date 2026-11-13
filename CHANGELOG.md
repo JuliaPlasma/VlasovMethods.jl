@@ -228,7 +228,7 @@ their own, except for what they removed and narrowed, which is listed in full be
   fourth moment from the profile's `7.1013` by `−0.51` of the sample's own standard error, which
   tells it from a Gaussian's `8`. A time that is not finite, or that is negative, throws an
   `ArgumentError`. The new file `test/examples/reference_cases.jl` holds the three types' tests, in
-  the `core` group.
+  the `collisions` group.
 - **`plot_collision_distribution`, `plot_drift`, `plot_entropy`, `plot_error`, `plot_convergence`
   and `plot_cost`** draw the figures of the collision runs, each into a `Figure` that a script
   saves without building a figure itself. They are defined in the package extension, so
@@ -497,6 +497,11 @@ their own, except for what they removed and narrowed, which is listed in full be
 - **The CairoMakie extension imports each name explicitly (K60).**
   `test/quality/explicit_imports.jl` loads CairoMakie and runs `check_no_implicit_imports` and
   `check_no_stale_explicit_imports` on `VlasovMethodsMakieExt`.
+- **The tests run in CI as the groups `core`, `slow` and `collisions`, one job each**, as
+  `test/ci-groups.toml` lists them. `collisions` takes the ten Landau, Lenard–Bernstein,
+  metriplectic and collision-tensor test files out of `core`. `Pkg.test()` still runs all three
+  groups. `.github/workflows/CI.yml`, `codecov.yml` and the git hooks in `.githooks/` follow the
+  Harness template, which runs one CI job per group and checks the group files.
 
 ## [0.4.1] — 2026-11-04
 
