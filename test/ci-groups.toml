@@ -1,0 +1,2 @@
+# The test groups that CI runs as separate jobs. GROUPS in runtests.jl lists the same groups.
+groups = ["core", "slow", "collisions"]
