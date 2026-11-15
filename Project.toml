@@ -78,7 +78,7 @@ Random = "1"
 # VlasovMethods; 0.4 is the first that binds ReducedComplexityModeling 0.5.
 ReducedBasisMethods = "0.4"
 # ReducedComplexityModeling provides `ParameterSpace` and its HDF5 generics for the bases.
-ReducedComplexityModeling = "0.5"
+ReducedComplexityModeling = "0.5, 0.6"
 # 0.14.2 is the first SimpleSolvers that admits NeuralNetworkParameters 0.5, which
 # ReducedComplexityModeling 0.5 requires; GeometricOptimizers 0.9 requires it too.
 SimpleSolvers = "0.14.2"
