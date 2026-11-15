@@ -43,7 +43,7 @@ VlasovMethodsMakieExt = "CairoMakie"
 [compat]
 # The two packages of the HNN extension, at the releases the trainer is checked against; each
 # takes `julia = "1.12"`, the floor of this package.
-AbstractNeuralNetworks = "0.9.3"
+AbstractNeuralNetworks = "0.9.3, 0.10"
 CairoMakie = "0.15"
 # 0.9.1 is the first ElectromagneticFields on GeometricBase 0.15, which `GeometricIntegrators`
 # 0.18.6 requires; 0.9.0 pins GeometricBase 0.14.
