@@ -332,8 +332,7 @@ function main(args)
     rate = nothing
     attributes = options
     if case_name == RATE_CASE
-        initial = initial_distribution(case.example, options.npart;
-            seed = get(options, :seed, nothing))
+        initial = initial_distribution(case.example, options.npart; seed = options.seed)
         rate = rate_check(initial, bracket, options)
         @printf("  rate check: fitted λ = %.6f, closed form %.6f, relative difference %.3e\n",
             rate.fitted, rate.closed, rate.difference)

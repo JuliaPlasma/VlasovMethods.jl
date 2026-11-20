@@ -274,7 +274,7 @@ how many steps did so: 2 of the 1250 for the Dougherty form and 4 for the Jeyaku
 largest residual of `2.4e-3` and `1.5e-3`. The quick run, 200 particles to `t = 0.05`, fits
 `1.949225` against `2` and `0.963661` against `1`, within `2.5 %` and `3.6 %`, with controls
 `95 %` and `52 %` away, and no step at the cap. With `--quick --npart 2000` the fits are
-`1.984965` and `0.990136`, with controls `9.85e-1` and `5.05e-1` away.
+`1.984965` and `0.990136`, with controls `98.5 %` and `50.5 %` away.
 
 The quick checks depend on the sample. Over the seeds 1 to 20, the quick fits differ from their
 closed forms by up to `1.1e-1` and `1.5e-1`, and 6 seeds miss 5 % with one bracket or both (K107

@@ -1,5 +1,5 @@
 # The stalled steps of the rate check of `lenard_bernstein_metriplectic.jl` at the shifted
-# normal's parameters (1000 particles, M = 41, h = 8e-4, t = 1, ν = 1), for each bracket.
+# normal's parameters (1000 particles, M = 41, h = 8e-4, t = 1, ν = 1, seed 1), for each bracket.
 #
 #   julia --startup-file=no --project=scripts scripts/lenard_bernstein_metriplectic_rate_stalls.jl
 #
