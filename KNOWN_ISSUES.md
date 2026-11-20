@@ -523,9 +523,9 @@ has left the file, or that lived only on a merged branch, stays taken.
   (Dougherty) and steps 174, 196, 412 and 1068 (Jeyakumar), and finds its largest residual at a
   particle in the lower tail, `v = −1.17` and `−1.30`, and `−1.23`, `−1.30`, `−1.64` and `−2.12`,
   against the mean `2.00` and standard deviations from `1.06` to `1.25` of the last iterate, with
-  2 to 7 particles within `±0.5`. Where a particle in a sparse tail sits where `f_s` is small, the score of `log|f_s|`
-  changes fast across it, and the fixed-point map of the implicit midpoint step is not a
-  contraction.
+  2 to 7 particles within `±0.5`. Where a particle in a sparse tail sits where `f_s` is small, the
+  score of `log|f_s|` changes fast across it, and the fixed-point map of the implicit midpoint
+  step is not a contraction.
 - **kind:** defect
 - **found:** 2026-11-07
 
@@ -656,10 +656,10 @@ has left the file, or that lived only on a merged branch, stays taken.
   checks that each exits 0. The quick runs take 200 particles to `t = 0.05`, and where the
   projection is not positive at a particle (K94) or a Picard solve does not converge (K95), a run
   stops and exits non-zero. Over the seeds 1 to 20, a run of 200 particles of `pd_lb_fig3_6.jl`
-  stops before `t = 0.05` at 4 seeds (4, 9, 11, 19), not at its default seed 2, and the quick metriplectic runs reach `t = 0.05` with both brackets at 9 seeds
-  (1, 4, 6, 7, 12, 13, 14, 17, 19), the default seed 1 among them. A gate that reads a stop with a
-  consistent record as a pass, as it reads the sweeps of `pd_lb_fig1_2.jl`, would not depend on
-  the sample.
+  stops before `t = 0.05` at 4 seeds (4, 9, 11, 19), not at its default seed 2, and the quick
+  metriplectic runs reach `t = 0.05` with both brackets at 9 seeds (1, 4, 6, 7, 12, 13, 14, 17,
+  19), the default seed 1 among them. A gate that reads a stop with a consistent record as a
+  pass, as it reads the sweeps of `pd_lb_fig1_2.jl`, would not depend on the sample.
 - **kind:** defect
 - **found:** 2026-11-20
 
@@ -667,7 +667,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 - **location:** `scripts/gate.jl:317`
 - **evidence:** the gate checks that the fitted rate of each quick shifted normal run, 200
-  particles to `t = 0.05`, lies within `MPLB_RATE_TOLERANCE = 0.05` of its closed form (`:869`),
+  particles to `t = 0.05`, lies within `MPLB_RATE_TOLERANCE = 0.05` of its closed form (`:870`),
   and the driver exits non-zero at its default `--tolerance 0.05`. At the default seed 1 the fits
   differ by `2.5e-2` (Dougherty) and `3.6e-2` (Jeyakumar). Over the seeds 1 to 20 they differ by
   `4.7e-3` to `1.1e-1` and `3.0e-3` to `1.5e-1`, and 6 seeds miss 5 % with one bracket or both

@@ -37,6 +37,22 @@ their own, except for what they removed and narrowed, which is listed in full be
   `[0.1, 2]`, bounds that every seed from 1 to 20 meets. The edge runs of `pd_lb_fig7_8.jl`,
   `lenard_bernstein_metriplectic.jl` and `landau_cases.jl` that stop check that the record holds
   the steps reached and `stopped_at` the step after them, not the step at which they stop.
+- **`ShiftedNormalV` draws its velocities from the caller's stream (K105).** `initialize!` called
+  `Random.seed!(1234)` between the draw of the positions and the draw of the velocities, so every
+  call returned the same velocities, whatever the caller seeded, and reset the global generator
+  for the draws after it. The velocities are now drawn from the global generator without the
+  reseed, so a sample of a given seed differs from before. A new testset of
+  `test/distributions/particle_distribution.jl` checks that the seeds 1 and 2 give different
+  velocities. `scripts/pd_lb_fig3_6.jl` takes `--seed`, 2 by default, and seeds both of its runs
+  with it: 2 is the first seed at which both reach `t = 1`, and at the seed 1 the run of 1000
+  particles stops at `t = 0.0016` (K94). `scripts/lenard_bernstein_metriplectic.jl` seeds the
+  shifted normal with `--seed`, 1 by default, as its other two cases, and
+  `scripts/lenard_bernstein_metriplectic_rate_stalls.jl` seeds its sample with the driver's
+  default seed. At the seed 1 the shifted normal with the Dougherty form reaches
+  `t = 1`, and the Jeyakumar form stops at `t = 0.0016` (K95). The edge run of `scripts/gate.jl`
+  whose Picard solve does not converge now takes the Jeyakumar form. The gate's quick runs of the
+  shifted normal reach their final time and meet the 5 % tolerance at the default seeds but not
+  at every seed (K106, K107).
 - **The metriplectic paths take `log|f_s|`, as the Landau and Lenard-Bernstein manuscripts do.**
   `CollisionEntropy` evaluates `S_h = ∫ f_s log|f_s|` (`eq:disc_entropy`), `compute_J!` of
   `Landau` and of `MetriplecticLenardBernstein` project `1 + log|f_s|` (`eq:defn_Lk`), and
@@ -354,12 +370,13 @@ their own, except for what they removed and narrowed, which is listed in full be
   `2ν n₀ / T₀ = ν n₀` of the Jeyakumar form, with the other form's rate as the control. The
   driver exits non-zero where the fit differs from the closed form by more than `--tolerance`,
   `0.05` by default, or from the control by no more than that; only the shifted normal takes
-  `--tolerance`. At the manuscript's parameters the fits differ from the closed forms by
-  `5.4e-3` and `6.0e-3` and from the controls by `9.9e-1` and `5.0e-1`. Every run at these
-  parameters stops where the Picard solve of a step does not converge (K95), so
-  `docs/src/scripts/collisions.md` lists the stops in place of figures. `scripts/gate.jl` runs the
-  six quick runs, the two unknown values, `--tolerance` on the uniform case, a stopped run and two
-  runs whose rate check fails, one on its closed form and one on its control.
+  `--tolerance`. At the manuscript's parameters and the default `--seed 1` the fits differ from
+  the closed forms by `7.0e-3` and `8.6e-3` and from the controls by `9.9e-1` and `5.0e-1`. Five
+  of the six runs at these parameters stop where the Picard solve of a step does not converge
+  (K95), so `docs/src/scripts/collisions.md` lists the stops in place of figures.
+  `scripts/gate.jl` runs the six quick runs, the two unknown values, `--tolerance` on the uniform
+  case, a stopped run and two runs whose rate check fails, one on its closed form and one on its
+  control.
   `scripts/lenard_bernstein_metriplectic_rate_stalls.jl` probes each step on which the rate
   check's fixed-point solve stalls, and prints the step, its residual, the velocity of the particle
   with the largest residual, and the sample's mean and standard deviation (K95). It then runs the
