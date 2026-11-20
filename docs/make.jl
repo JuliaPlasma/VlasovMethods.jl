@@ -16,25 +16,31 @@ makedocs(;
     ),
     pages = [
         "Home" => "index.md",
-        "Manual" => [
-            "Getting started" => "manual/getting_started.md",
-            "Distribution functions" => "manual/distributions.md",
+        "Getting started" => "manual/getting_started.md",
+        "Distribution functions" => [
+            "Representations" => "manual/distributions.md",
             "Initial conditions" => "manual/initial_conditions.md",
-            "Projections" => "manual/projections.md",
+            "Projections" => "manual/projections.md"
+        ],
+        "Collisionless models" => [
             "Running a model" => "manual/methods.md",
             "Vlasov–Poisson" => "manual/vlasov_poisson.md",
-            "External electromagnetic fields" => "manual/external_fields.md",
+            "External electromagnetic fields" => "manual/external_fields.md"
+        ],
+        "Collision operators" => [
             "Lenard–Bernstein collisions" => "manual/lenard_bernstein.md",
-            "Landau collisions" => "manual/landau.md",
+            "Landau collisions" => "manual/landau.md"
+        ],
+        "Model reduction" => [
             "Grid-based reduced tensors" => "manual/grid_tensors.md",
             "Reduced-order models" => "manual/reduced_order.md",
-            "Multi-modal autoencoder frontends" => "manual/autoencoder.md",
-            "Plotting" => "manual/plotting.md"
+            "Multi-modal autoencoder frontends" => "manual/autoencoder.md"
         ],
-        "Reproducing the papers" => [
-            "Overview" => "papers/index.md",
-            "Symplectic model reduction" => "papers/reduced_basis.md",
-            "The collision manuscripts" => "papers/collisions.md"
+        "Plotting" => "manual/plotting.md",
+        "Scripts" => [
+            "Overview" => "scripts/index.md",
+            "Symplectic model reduction" => "scripts/reduced_basis.md",
+            "The collision manuscripts" => "scripts/collisions.md"
         ],
         "Library" => [
             "Overview" => "library/index.md",

@@ -7,7 +7,7 @@ CurrentModule = VlasovMethods
 A reduced-order model replaces the ``2 N`` particle coordinates of a Vlasov–Poisson run by a few
 coefficients in a reduced basis. The basis is learned from snapshots of full-order runs at several
 values of a parameter, and the reduced model then runs at new values of that parameter. This page
-describes the building blocks; [Symplectic model reduction](../papers/reduced_basis.md) runs the
+describes the building blocks; [Symplectic model reduction](../scripts/reduced_basis.md) runs the
 experiments of the paper with them.
 
 The workflow has four stages.

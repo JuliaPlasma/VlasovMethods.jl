@@ -5,7 +5,7 @@ CurrentModule = VlasovMethods
 # Library
 
 The library holds the docstring of every documented function and type of VlasovMethods, exported
-or internal, in the order of the parts of the manual. An internal name is written with the
+or internal, in the order of the sections of the manual. An internal name is written with the
 module, as `VlasovMethods.compute_coefficients`.
 
 | page | parts of the manual |

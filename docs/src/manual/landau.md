@@ -125,8 +125,10 @@ particle velocity components as basis functions less one, ``dN \ge M - 1``, and 
 support of every basis function.
 
 [`Picard_iterate_Landau_nls!`](@ref) takes one implicit-midpoint step, solved by a Picard
-iteration. The caller keeps the velocities of the two previous steps and the two previous vector
-fields:
+iteration. The implicit midpoint rule is the appendix's choice. It is not a discrete gradient, so
+no discrete H-theorem holds for the spline method: the entropy of a step need not decrease. The
+discrete H-theorem holds for the particle-pair method with its discrete gradient step. The caller
+keeps the velocities of the two previous steps and the two previous vector fields:
 
 ```julia
 landau = Landau(dist, CollisionEntropy(sdist); γ = -3, ν = 1.0)

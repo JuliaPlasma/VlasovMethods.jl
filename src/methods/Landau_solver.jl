@@ -22,6 +22,11 @@ Take one implicit-midpoint step of the Landau model from the velocities `v_prev`
 iteration to the tolerance `abstol`, write the accepted velocities into the particles of
 `landau.dist`, and return `(iterations = …, residual = …)`.
 
+The implicit midpoint rule with the entropy gradient at the midpoint is the appendix's choice
+(`eq:particle_ode_midpoint`). It is not a discrete gradient, so no discrete H-theorem holds for
+this step: the entropy of a step need not decrease. The discrete H-theorem of the manuscript holds
+for [`discrete_gradient_step!`](@ref) of [`PairwiseLandau`](@ref).
+
 From the guess `v₀`, iteration `k = 0, 1, …` evaluates the vector field `f_k` at the midpoint
 `(v_k + v_prev)/2` and the residual ``r_k = v_k - (v_{prev} + Δt \\, f_k)``. The first iterate
 with ``\\|r_k\\|_∞ ≤`` `abstol` is accepted: the particles take `v_prev + Δt f_k`, so that the

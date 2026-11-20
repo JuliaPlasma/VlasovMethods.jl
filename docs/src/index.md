@@ -10,8 +10,8 @@ discretisations of the distribution function, structure-preserving time integrat
 reduced-order models that are built from the snapshots of particle runs.
 
 The package serves as the reference implementation of several papers. Each numerical experiment of
-these papers has a driver script in `scripts/`, and the part
-[Reproducing the papers](papers/index.md) of this manual describes how to run them.
+these papers has a driver script in `scripts/`, and the section [Scripts](scripts/index.md) of
+this manual describes how to run them.
 
 ## What the package contains
 
@@ -42,31 +42,27 @@ Around the models, the package provides
 
 ## How this manual is organised
 
-The **manual** introduces the package from the bottom up.
+The sections introduce the package from the bottom up.
 
-  - [Getting started](manual/getting_started.md) runs a complete Vlasov–Poisson simulation and a
-    complete collision simulation.
-  - [Distribution functions](manual/distributions.md), [Initial conditions](manual/initial_conditions.md)
-    and [Projections](manual/projections.md) describe how a distribution function is stored, how
-    it is initialised, and how the representations are converted into each other.
-  - [Running a model](manual/methods.md) describes the methods, the time integrators and the
-    files that a run writes.
-  - [Vlasov–Poisson](manual/vlasov_poisson.md) and
-    [External electromagnetic fields](manual/external_fields.md) describe the collisionless
-    models.
-  - [Lenard–Bernstein collisions](manual/lenard_bernstein.md) and
-    [Landau collisions](manual/landau.md) describe the collision operators.
-  - [Grid-based reduced tensors](manual/grid_tensors.md),
+  - [**Getting started**](manual/getting_started.md) runs a complete Vlasov–Poisson simulation
+    and a complete collision simulation.
+  - **Distribution functions**: [Representations](manual/distributions.md),
+    [Initial conditions](manual/initial_conditions.md) and [Projections](manual/projections.md)
+    describe how a distribution function is stored, how it is initialised, and how the
+    representations are converted into each other.
+  - **Collisionless models**: [Running a model](manual/methods.md) describes the methods, the time
+    integrators and the files that a run writes; [Vlasov–Poisson](manual/vlasov_poisson.md) and
+    [External electromagnetic fields](manual/external_fields.md) describe the models.
+  - **Collision operators**: [Lenard–Bernstein collisions](manual/lenard_bernstein.md) and
+    [Landau collisions](manual/landau.md).
+  - **Model reduction**: [Grid-based reduced tensors](manual/grid_tensors.md),
     [Reduced-order models](manual/reduced_order.md) and
-    [Multi-modal autoencoder frontends](manual/autoencoder.md) describe the reduction of the
-    models.
-  - [Plotting](manual/plotting.md) lists the figures that the package draws.
-
-**Reproducing the papers** gives, for each paper, the command of every figure, the parameters, and
-the results of a run.
-
-The [**Library**](library/index.md) holds the docstring of every documented function and type, ordered by
-the parts of the manual.
+    [Multi-modal autoencoder frontends](manual/autoencoder.md).
+  - [**Plotting**](manual/plotting.md) lists the figures that the package draws.
+  - [**Scripts**](scripts/index.md) gives, for each paper, the command of every experiment, the
+    parameters, and the results of a run.
+  - The [**Library**](library/index.md) holds the docstring of every documented function and
+    type, ordered by the sections above.
 
 ## Installation
 

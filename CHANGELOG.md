@@ -19,6 +19,14 @@ their own, except for what they removed and narrowed, which is listed in full be
 
 ### Bug Fixes
 
+- **`NormalDistribution` draws independent positions and velocities (K104).** `initialize!` called
+  `Random.seed!(1234)` between the draw of the positions and the draw of the velocities. After a
+  caller's `Random.seed!(1234)`, as in the default run of `scripts/vlasov_poisson.jl`, both were the
+  same normal draws, and every particle lay on one line of phase space; every call also returned
+  the same velocities, and reset the global generator for the draws after it. The velocities are
+  now drawn from the global generator without the reseed, so a sample of a given seed differs
+  from before. A new testset of `test/distributions/particle_distribution.jl` checks the
+  correlation of the positions and the velocities, and that two calls draw different velocities.
 - **The metriplectic paths take `log|f_s|`, as the Landau and Lenard-Bernstein manuscripts do.**
   `CollisionEntropy` evaluates `S_h = ∫ f_s log|f_s|` (`eq:disc_entropy`), `compute_J!` of
   `Landau` and of `MetriplecticLenardBernstein` project `1 + log|f_s|` (`eq:defn_Lk`), and
@@ -426,17 +434,19 @@ their own, except for what they removed and narrowed, which is listed in full be
 ### Documentation
 
 - **The documentation is a manual.** The home page gives an overview of the models and their time
-  integrators and no longer renders the API. Thirteen manual pages, under `docs/src/manual/`,
-  describe the package from the bottom up: getting started, the distribution functions, the initial
+  integrators and no longer renders the API. Thirteen manual pages, under `docs/src/manual/` and
+  in the topical sections "Distribution functions", "Collisionless models", "Collision operators"
+  and "Model reduction" of the navigation, describe the package from the bottom up: getting started, the distribution functions, the initial
   conditions, the projections, the methods and their output, Vlasov–Poisson on particles and on a
   grid, external electromagnetic fields, the Lenard–Bernstein and the Landau operators, the grid
   reduced tensors, the reduced-order models, the autoencoder frontends and the plotting functions.
   Most pages run their examples in the build: a Vlasov–Poisson run on particles and the Landau
   damping of the grid model, a gyro-orbit in a uniform field, the conservative and the metriplectic
   Lenard–Bernstein operators and the pairwise Landau method, each with its conservation checked.
-  The pages of the papers' experiments form the part "Reproducing the papers", `docs/src/papers/`,
-  with an overview of the scripts environment, the options and the gate. The docstrings are in the
-  part "Library", `docs/src/library/`, on five pages ordered by the parts of the manual; one page
+  The pages of the papers' experiments form the section "Scripts", `docs/src/scripts/`, with an
+  overview of the scripts environment, the options and the gate; their headings name what each
+  figure shows, not its number in a manuscript. The docstrings are in the section "Library",
+  `docs/src/library/`, on five pages ordered by the sections of the manual; one page
   would be 318 KiB, above the 200 KiB that Documenter allows. `docs/Project.toml` adds
   `GeometricBrackets`, `GeometricIntegrators` and `HDF5`, which the examples load.
 - **Every exported name has a docstring.** The 17 that had none are documented:
@@ -445,10 +455,12 @@ their own, except for what they removed and narrowed, which is listed in full be
   `Landau`, `SplittingMethod`, both methods of `run!` and `_apply_∫dv!`; `GeometricIntegrator` has
   a docstring for its type beside those of its constructors. The `Landau` docstring states the
   vector field that the code computes, `ν (K_c \ LJ)` for each component, and cites K96 for its
-  difference from the appendix. The docstrings of `NormalDistribution` and `ShiftedNormalV` say
-  that both reseed the global random number generator, and the one of `NormalDistribution` that
-  after a caller's `Random.seed!(1234)` its positions and velocities are the same normal draws,
-  which K104 of `KNOWN_ISSUES.md` records.
+  difference from the appendix. The docstring of `ShiftedNormalV` says that it reseeds the global
+  random number generator.
+- **The docs state that no discrete H-theorem holds for the appendix Landau method (K4).** The
+  docstring of `Picard_iterate_Landau_nls!` and the page of the Landau operator say that its
+  implicit midpoint rule is not a discrete gradient, so the entropy of a step need not decrease,
+  and that the discrete H-theorem holds for `discrete_gradient_step!` of `PairwiseLandau`.
 - **Comments and docstrings state what the code does (K26, K33, K55, K58, K59, K62).** The
   `LB_rhs!` docstring and comment are in the present tense. The comment of `CollisionTensor`
   gives its size, `(nx·nv) × (nx·nv) × (nx·nv)`. The comment of `ConservativeLenardBernstein`
@@ -478,7 +490,7 @@ their own, except for what they removed and narrowed, which is listed in full be
   `apply_G!`, the discrete gradients and `discrete_gradient_step!` are on the page
   `library/landau.md`. The home page no longer renders them, which keeps its HTML under
   Documenter's size threshold.
-- **The figures of the collision manuscripts have a page of their own**, `papers/collisions.md`,
+- **The figures of the collision manuscripts have a page of their own**, `scripts/collisions.md`,
   with one section per driver of the Lenard–Bernstein manuscript: its command, its parameters, its
   files and how its figures differ from the manuscript's.
 - **The plotting functions have a page of their own**, `manual/plotting.md`, which lists

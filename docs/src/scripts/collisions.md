@@ -40,12 +40,12 @@ The drivers `scripts/pd_lb_*.jl` make the eleven figures of the Lenard–Bernste
 domain, a run stops with the model's `DomainError`: the driver writes the HDF5 file of that run
 with the attribute `stopped_at`, the time of the step that threw, and the times `t` and the
 velocities `z` of the steps reached, writes no figure for that run, and exits non-zero. The
-sweeps of figures 1 and 2 are the exception: a point of a sweep where the operator stops is left
-out of its figure, and the driver exits 0. A run to the time `t` with the step `h` takes `t / h`
-steps, rounded up, so the quick run of figures 3 to 6 takes 63 steps of `8e-4` and ends at
-`t = 0.0504`. K94 of `KNOWN_ISSUES.md` records each stop at the manuscript's parameters.
+convergence sweeps are the exception: a point of a sweep where the operator stops is left out of
+its figure, and the driver exits 0. A run to the time `t` with the step `h` takes `t / h` steps,
+rounded up, so the quick run of the shifted normal distribution takes 63 steps of `8e-4` and ends
+at `t = 0.0504`. K94 of `KNOWN_ISSUES.md` records each stop at the manuscript's parameters.
 
-### Figures 1 and 2
+### Convergence in the basis size and in the particle number
 
 ```
 julia --project=scripts scripts/pd_lb_fig1_2.jl
@@ -73,7 +73,7 @@ driver.
 
 `--quick` takes 2000 velocities, `M ∈ {24, 41, 78}` and `N` from 100 to 1778.
 
-### Figures 3 to 6
+### Relaxation of a shifted normal distribution
 
 ```
 julia --project=scripts scripts/pd_lb_fig3_6.jl
@@ -95,7 +95,7 @@ With the defaults the driver exits 0.
 
 `--quick` takes 200 particles and `t = 0.05`.
 
-### Figures 7 and 8
+### Relaxation of a bi-Maxwellian
 
 ```
 julia --project=scripts scripts/pd_lb_fig7_8.jl
@@ -117,7 +117,7 @@ and the 1767 steps reached, writes no figure and exits non-zero; K94 records the
 
 `--quick` takes 200 particles and `t = 0.2`.
 
-### Figures 9 and 10
+### Relaxation of a uniform distribution
 
 ```
 julia --project=scripts scripts/pd_lb_fig9_10.jl
@@ -135,7 +135,7 @@ With the defaults the driver exits 0.
 
 `--quick` takes `h = 1e-3` and `t = 0.05`.
 
-### Figure 11
+### Decay of the fourth cumulant
 
 ```
 julia --project=scripts scripts/pd_lb_fig11.jl
@@ -144,7 +144,8 @@ julia --project=scripts scripts/pd_lb_fig11.jl
 The cumulant appendix fixes the coefficients at `A₁ = 0` and `A₂ = 1`, which is the right-hand
 side of `LenardBernstein`, and runs it with the implicit midpoint scheme of the time
 discretisation, which the driver uses in place of the model's own `RK438`. The bi-Maxwellian of
-figure 7 with 1000 particles, 41 basis functions, `h = 5e-3`, to `t = 1`, seeded with `--seed 1`.
+the relaxation above with 1000 particles, 41 basis functions, `h = 5e-3`, to `t = 1`, seeded with
+`--seed 1`.
 The closed form of the appendix is `κ₄(t) = κ₄(0) exp(−4 ν t)` at the equilibrium variance
 `1 / A₂ = 1`. The driver prints the relative error of the particles' fourth cumulant against it at
 the first three steps, and exits non-zero where one exceeds `--tolerance`, 5 %. Figure 11 is the
@@ -167,11 +168,11 @@ the PD-LB figures of the same distribution, since MP-LB states none: 41 cubic ba
 `[−10, 10]` and `ν = 1` throughout, and
 
 - `--case shifted-normal`, the default: 1000 velocities from the normal distribution of mean 2
-  and variance 1, `h = 8e-4`, to `t = 1`, as figures 3 to 5;
+  and variance 1, `h = 8e-4`, to `t = 1`, as in the relaxation of a shifted normal distribution;
 - `--case double-maxwellian`: 1000 velocities, half from the normal distribution of mean 2 and
-  half from that of mean `−2`, `h = 8e-4`, to `t = 5`, seeded with `--seed 1`, as figures 7 and 8;
+  half from that of mean `−2`, `h = 8e-4`, to `t = 5`, seeded with `--seed 1`, as in the relaxation of a bi-Maxwellian;
 - `--case uniform`: 200 velocities from the uniform distribution on `[−2, 2]`, `h = 1e-4`, to
-  `t = 1`, seeded with `--seed 1`, as figures 9 and 10.
+  `t = 1`, seeded with `--seed 1`, as in the relaxation of a uniform distribution.
 
 `--bracket` takes `dougherty`, the default, for [`DoughertyBracket`](@ref), the bracket of
 MP-LB, or `jeyakumar` for [`JeyakumarBracket`](@ref). A case or a bracket that is not one of these
@@ -213,7 +214,7 @@ records the stops:
 `--quick` takes 200 particles and `t = 0.05` for the shifted normal, `t = 0.05` for the double
 Maxwellian, which keeps its 1000 particles because with 200 the solve of the Jeyakumar form does
 not converge in the step to `t = 0.016`, and `h = 1e-3` and `t = 0.05` for the uniform case, as
-figures 9 and 10 take. Each of the six quick runs exits 0.
+the quick relaxation of the uniform distribution takes. Each of the six quick runs exits 0.
 
 ### The rate check
 

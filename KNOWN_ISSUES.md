@@ -6,22 +6,6 @@ takes the number after the highest `K<n>` that this file, `CHANGELOG.md` or thei
 ever named, which `git log -p -- KNOWN_ISSUES.md CHANGELOG.md` shows, so the ID of an entry that
 has left the file, or that lived only on a merged branch, stays taken.
 
-### K4 · The appendix Landau method takes the implicit midpoint rule, which is not a discrete gradient, so no discrete H-theorem is proven for it.
-
-- **location:** `src/methods/Landau_solver.jl`
-- **evidence:** The manuscript derives two methods. The main-text method is `PairwiseLandau`:
-  the gradient form with the `G` operator of `eq:G_semi-disc` at the midpoint, whose structure
-  *is* the momentum and energy conservation proof, and the Gonzalez discrete gradient of
-  `discrete_gradient_step!`, which *is* the discrete H-theorem proof. The appendix method is
-  `Landau`: the two-step `v̇ = K⁺LJ` with the implicit midpoint rule and `∇S` at the midpoint
-  (`eq:particle_ode_midpoint`), the appendix's own choice, which is not a discrete gradient. The
-  H-theorem of the time discretisation therefore holds for `PairwiseLandau` only. A gap between
-  the appendix method and the main text's proof, not an error in either.
-- **kind:** docs
-- **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
-  migration. None of these are regressions; each is either a numerical-methods decision or work
-  the migration deliberately did not take on.
-
 ### K8 · Positivity of `f_s` is not preserved, and the conservative Lenard-Bernstein operators refuse `f_s ≤ 0`.
 
 - **location:** —
@@ -654,18 +638,3 @@ has left the file, or that lived only on a merged branch, stays taken.
   the `Dict`, decided together with GeometricIntegratorsBase.
 - **kind:** defect
 - **found:** 2026-11-09
-
-### K104 · `NormalDistribution` draws the velocities after `Random.seed!(1234)`, so a caller who seeds the global generator with 1234 gets velocities that are the positions' normal draws, and `scripts/vlasov_poisson.jl` does so by default.
-
-- **location:** `src/examples/normal.jl:30`
-- **evidence:** `initialize!(dist, ::NormalDistribution)` draws `x₀ = randn(npart)`, calls
-  `Random.seed!(1234)`, then draws `v₀ = randn(vsize)`. After `Random.seed!(1234)` in the caller,
-  both calls return the same numbers, and the positions are rescaled linearly into the domain, so
-  every particle lies on one line `v = c (x − 1/2)` of phase space. The phase-space figure of
-  `Random.seed!(1234); initialize!(ParticleDistribution(1, 1, 10_000), NormalDistribution())`
-  shows that line at `t = 0`. `scripts/vlasov_poisson.jl` seeds with `--seed`, default `1234`,
-  before this draw, so its default run starts from the correlated state. `ShiftedNormalV` reseeds
-  the same way, but draws its positions with `rand`, so its positions and velocities are not the
-  same numbers.
-- **kind:** defect
-- **found:** 2026-11-20

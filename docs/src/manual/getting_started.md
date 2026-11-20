@@ -118,4 +118,4 @@ plot_entropy(t, S)
   - [Vlasov–Poisson](vlasov_poisson.md) adds the grid discretisation and the energy of the run.
   - [Lenard–Bernstein collisions](lenard_bernstein.md) and [Landau collisions](landau.md) cover
     all collision operators and their time integrators.
-  - [Reproducing the papers](../papers/index.md) runs the experiments of the papers.
+  - [Scripts](../scripts/index.md) runs the experiments of the papers.

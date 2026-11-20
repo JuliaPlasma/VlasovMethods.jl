@@ -1,6 +1,6 @@
-# Reproducing the papers
+# Scripts
 
-Every numerical experiment of the papers has a driver script in `scripts/`. This part of the
+Every numerical experiment of the papers has a driver script in `scripts/`. This section of the
 manual says how to run the scripts, what each one writes, and what a run with the papers'
 parameters gives.
 

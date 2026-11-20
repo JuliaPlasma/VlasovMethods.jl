@@ -17,7 +17,7 @@ script, and it shows no figure: the figures are files that the scripts write.
 
 ## The figures
 
-[Reproducing the papers](index.md) describes the environment of the scripts and their options.
+[Scripts](index.md) describes the environment of the scripts and their options.
 Each figure is a PNG named `item<NN>_<what>.png`, after the item of the paper that it draws, except
 the Hamiltonian network's loss curve, which is `hnn_loss.png`. A figure plots the quantity of its
 item at the script's parameters. It does not reproduce the paper's numbers: the paper's draws ran

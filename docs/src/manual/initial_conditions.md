@@ -34,15 +34,12 @@ The arguments in parentheses are positional, and those after a semicolon are key
 argument has a default, which the docstring of the example states.
 
 The draws use the global random number generator. Seed it with `Random.seed!` before a draw, so
-that a run can be repeated.
+that a run can be repeated. The positions and the velocities are independent draws.
 
-!!! warning "Two examples reseed the global generator"
-    [`NormalDistribution`](@ref) and [`ShiftedNormalV`](@ref) call `Random.seed!(1234)` between
-    the draw of the positions and the draw of the velocities. Their velocities are therefore the
-    same in every call, and every draw after them starts from the same state of the generator.
-    Do not seed with 1234 before a `NormalDistribution`: its positions and velocities are then
-    the same normal draws, and every particle lies on one line of phase space (K104 of
-    `KNOWN_ISSUES.md`).
+!!! warning "One example reseeds the global generator"
+    [`ShiftedNormalV`](@ref) calls `Random.seed!(1234)` between the draw of the positions and the
+    draw of the velocities. Its velocities are therefore the same in every call, and every draw
+    after it starts from the same state of the generator.
 
 ### The bump-on-tail
 
