@@ -1,3 +1,14 @@
+"""
+    DoubleMaxwellian(; domain = (-5.0, 5.0), shift = 3.0)
+
+Two normal distributions of the variance one and the means `+shift` and `-shift`, on positions
+uniform in `domain`.
+
+`initialize!` draws the first position component uniform on `domain`. The first `N ÷ 2`
+particles take velocities from the normal distribution of the mean `+shift`, and the others from
+the one of the mean `-shift`, in every velocity component. Each particle has the weight `1/N`.
+The draws use the global random number generator.
+"""
 struct DoubleMaxwellian{DT, ST} <: VlasovExample
     domain::DT      # domain for x-dist
     shift::ST       # shift away from 0 for both peaks of v-dist

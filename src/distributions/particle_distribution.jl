@@ -1,3 +1,30 @@
+@doc raw"""
+    ParticleDistribution(xdim, vdim, npart; kwargs...)
+    ParticleDistribution(xdim, vdim, particles::ParticleList)
+
+The distribution function as the Klimontovich measure of ``N`` particles,
+
+```math
+f_p(x, v) = \sum_{\alpha = 1}^{N} w_\alpha \, \delta(x - x_\alpha) \, \delta(v - v_\alpha) ,
+```
+
+with `xdim` position and `vdim` velocity components per particle. It is a
+`DistributionFunction{DT, xdim, vdim}`, beside `SplineDistribution` and `GridDistribution`.
+
+The field `particles` is a `ParticleList` of ParticleMethods with the variables `x`, the
+`xdim × N` positions, `v`, the `vdim × N` velocities, `z`, the `(xdim + vdim) × N` phase-space
+coordinates, positions first, and `w`, the `1 × N` weights. All four are views of one
+`(xdim + vdim + 1) × N` matrix, so a write to one of them changes the others.
+
+The first form allocates `npart` particles of `Float64` zeros and passes `kwargs` to the
+`ParticleList` constructor. The second form wraps an existing list, whose element type is the
+element type of the distribution.
+
+```julia
+dist = ParticleDistribution(1, 1, 1000)
+dist.particles.w .= 1 / 1000
+```
+"""
 struct ParticleDistribution{DT, XD, VD, PT <: ParticleList{DT}} <:
        DistributionFunction{DT, XD, VD}
     particles::PT

@@ -1,4 +1,17 @@
 
+"""
+    NormalDistribution(domain = (0.0, 1.0))
+
+Normal velocities on positions in `domain`.
+
+`initialize!` draws `N` standard normal values of the first position component, shifts and scales
+them into `[0, 1]` by the integer `ceil(maximum(abs, x))`, and maps that interval onto `domain`.
+It then draws every velocity component from the standard normal distribution. Each particle has
+the weight `1/N`. The other position components are not written.
+
+The draws use the global random number generator, so a caller seeds it with `Random.seed!` to
+repeat a sample. The positions and the velocities are independent draws.
+"""
 struct NormalDistribution{DT} <: VlasovExample
     domain::DT
     function NormalDistribution(domain::DT = (0.0, 1.0)) where {DT <: Tuple}
@@ -13,9 +26,6 @@ function initialize!(dist::ParticleDistribution, params::NormalDistribution, ::S
 
     # random initial conditions
     x₀ = randn(npart)
-    # v₀ = randn(npart)
-    Random.seed!(1234)
-
     v₀ = randn(vsize)
 
     # shift x₀ to the interval [0,1]

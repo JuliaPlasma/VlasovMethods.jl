@@ -1,3 +1,13 @@
+"""
+    GeometricIntegrator(model, tspan, tstep[, method])
+
+The method that advances `model` over the time span `tspan` with the step `tstep` as one
+`GeometricEquations.ODEProblem`, solved by the `GeometricIntegrators` method `method`.
+
+The fields `model`, `equation` and `integrator` hold the model, the problem and the integrator.
+Each model defines its own constructor, with its own state and default `method`; the docstrings
+of the constructors below list them. [`run!`](@ref) advances the integrator.
+"""
 struct GeometricIntegrator{MT, ET, IT} <: VlasovMethod
     model::MT
     equation::ET
@@ -9,6 +19,17 @@ struct GeometricIntegrator{MT, ET, IT} <: VlasovMethod
     end
 end
 
+"""
+    run!(int::GeometricIntegrator, h5file)
+
+Advance the method `int` over its time span, write every state into the HDF5 file `h5file`, copy
+the final state into the distribution of the model, and return that distribution.
+
+The file holds the dataset `z` of the size `(n, ntime)`, one column per state, and the dataset
+`t` of the `ntime` times of `t₀:Δt:t₁`, the initial time included. The file is created, or
+overwritten, and closed on return, also when a step throws. A progress bar is shown for a run of
+more than five seconds.
+"""
 function run!(int::GeometricIntegrator, h5file)
     # initial conditions
     prob = int.equation

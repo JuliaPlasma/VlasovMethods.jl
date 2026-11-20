@@ -3,17 +3,19 @@
 # (`fig:spline-convergence`, `fig:particle-convergence`).
 #
 #   julia --project=scripts scripts/pd_lb_fig1_2.jl [--quick] [--npart 100000] \
-#       [--nbasis 24,25,…,78] [--sweep-nbasis 41] [--sweep-npart 100,178,…,100000] \
+#       [--nbasis 24,25,…,78] [--sweep-nbasis 41] [--sweep-npart 100,178,…,100000] [--seed 1] \
 #       [--runs-dir dir] [--results-dir dir]
 #
-# Figure 1: `npart` velocities drawn from the standard normal distribution, which are never
-# projected. For each number of cubic basis functions `M` of `--nbasis` on [−10, 10], the exact
-# Maxwellian is projected onto the basis (`eq:numerical-example-1-coefficients`), and the right-hand
-# side `eq:velocity_maxwellian_ode` is evaluated at the particles, with `A₁` and `A₂` of
-# `eq:discrete_A_solution`. The figure is its Euclidean norm `‖v̇‖₂` against the cell width
-# `20 / (M − 3)`, with the fitted exponent; the manuscript's reference curve is `M⁻⁴`.
+# Figure 1: `npart` velocities drawn from the standard normal distribution after seeding the random
+# number generator with `--seed`, which are never projected. For each number of cubic basis
+# functions `M` of `--nbasis` on [−10, 10], the exact Maxwellian is projected onto the basis
+# (`eq:numerical-example-1-coefficients`), and the right-hand side `eq:velocity_maxwellian_ode` is
+# evaluated at the particles, with `A₁` and `A₂` of `eq:discrete_A_solution`. The figure is its
+# Euclidean norm `‖v̇‖₂` against the cell width `20 / (M − 3)`, with the fitted exponent; the
+# manuscript's reference curve is `M⁻⁴`.
 #
-# Figure 2: for each `N` of `--sweep-npart`, `N` normal velocities are projected onto
+# Figure 2: for each `N` of `--sweep-npart`, `N` normal velocities, drawn after seeding the random
+# number generator with `--seed` again, so that each `N` has its own sample, are projected onto
 # `--sweep-nbasis` basis functions (`eq:projection_f`) and `eq:velocity_ode` is evaluated at them.
 # The figure is the sample variance `Σ v̇² / N` against `1 / N`, with the fitted exponent; the
 # manuscript's reference curve is `1 / N`.
@@ -23,15 +25,16 @@
 # it, leaves it out and goes on, the HDF5 file of the figure records the first such `M` or `N` as
 # the attribute `stopped_at` beside the points it computed, and the figure draws those points. The
 # script then exits 0. Any other error stops the script, which exits non-zero, and so does the
-# `ArgumentError` of `plot_convergence` for a sweep that computes fewer than two points. With the
-# defaults, figure 1 stops at `M = 25`, where the projected Maxwellian is negative at two of the
-# particles, and figure 2 at `N = 5623` and `N = 31623`.
+# `ArgumentError` of `plot_convergence` for a sweep that computes fewer than two points.
+#
+# Which points stop depends on the sample, so on `--seed`, and the numbers of a run move within
+# bounds as the package develops; `scripts/gate.jl` checks the bounds. One run with the defaults,
+# with Julia 1.13.4 on 2026-11-20, stops figure 1 at `M = 25` and figure 2 at `N = 3162` and
+# `N = 17783`, and fits the exponents `3.36` and `0.76`.
 #
 # `--quick` takes 2000 particles, `M ∈ {24, 41, 78}` and the first six `N` of the sweep, 100 to
-# 1778, where neither sweep stops.
-#
-# `NormalDistribution` seeds the random number generator itself, so each `N` has the same
-# velocities in every run.
+# 1778. One quick run, with the same Julia on the same day, stops neither sweep and fits `3.35`
+# and `0.38`; six `N` up to 1778 are too few for the exponent of figure 2 to mean anything.
 
 include(joinpath(@__DIR__, "pd_lb_common.jl"))
 
@@ -39,7 +42,7 @@ using LinearAlgebra: norm
 
 const QUICK, OPT = pd_lb_options(ARGS;
     paper = (npart = 100_000, nbasis = collect(24:78), sweep_nbasis = 41,
-        sweep_npart = round.(Int, 10 .^ (2:0.25:5))),
+        sweep_npart = round.(Int, 10 .^ (2:0.25:5)), seed = 1),
     quick = (npart = 2000, nbasis = [24, 41, 78],
         sweep_npart = round.(Int, 10 .^ (2:0.25:3.25))))
 
@@ -80,10 +83,10 @@ function sweep(f, name, points, labels)
     return reached, values
 end
 
-@printf("pd_lb_fig1_2: %s run, %d particles, M = %s\n", QUICK ? "quick" : "paper",
-    OPT.npart, OPT.nbasis)
+@printf("pd_lb_fig1_2: %s run, %d particles, M = %s, seed %d\n", QUICK ? "quick" : "paper",
+    OPT.npart, OPT.nbasis, OPT.seed)
 
-dist = initial_distribution(NormalDistribution(), OPT.npart)
+dist = initial_distribution(NormalDistribution(), OPT.npart; seed = OPT.seed)
 v = dist.particles.v[1, :]
 M, norms = sweep("pd_lb_fig1.hdf5", OPT.nbasis, ("nbasis", "norm")) do M
     sdist = spline_distribution(M)
@@ -94,7 +97,7 @@ save_figure("pd_lb_fig1.pdf", plot_convergence(cell_width.(M), norms))
 
 sdist = spline_distribution(OPT.sweep_nbasis)
 N, variances = sweep("pd_lb_fig2.hdf5", OPT.sweep_npart, ("npart", "variance")) do N
-    sample = initial_distribution(NormalDistribution(), N)
+    sample = initial_distribution(NormalDistribution(), N; seed = OPT.seed)
     u = sample.particles.v[1, :]
     projection(u, sample, sdist)
     return sum(abs2, velocity_field(sdist, sample, u)) / N

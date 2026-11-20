@@ -1,3 +1,16 @@
+"""
+    ShiftedNormalV(domain = (-5.0, 5.0), shift = 2.0)
+
+The normal distribution of the mean `shift` and the variance one in the first velocity component,
+on positions uniform in `domain`.
+
+`initialize!` draws the first position component uniform on `domain`, calls
+`Random.seed!(1234)`, and draws the first velocity component from the normal distribution of the
+mean `shift`. Each particle has the weight `1/N`. The other components are not written.
+
+The reseeding makes the velocities the same in every call, and it resets the global random
+number generator for every draw that follows.
+"""
 struct ShiftedNormalV{DT, ST} <: VlasovExample
     domain::DT      # domain for x-dist
     shift::ST       # shift for v-dist

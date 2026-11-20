@@ -16,12 +16,40 @@ makedocs(;
     ),
     pages = [
         "Home" => "index.md",
-        "Projections" => "projections.md",
-        "The Landau collision operator" => "landau.md",
-        "Plotting" => "plotting.md",
-        "The figures of the collision manuscripts" => "collisions.md",
-        "Multi-modal autoencoder frontends" => "rom.md",
-        "The paper's examples" => "paper.md"
+        "Getting started" => "manual/getting_started.md",
+        "Distribution functions" => [
+            "Representations" => "manual/distributions.md",
+            "Initial conditions" => "manual/initial_conditions.md",
+            "Projections" => "manual/projections.md"
+        ],
+        "Collisionless models" => [
+            "Running a model" => "manual/methods.md",
+            "Vlasov–Poisson" => "manual/vlasov_poisson.md",
+            "External electromagnetic fields" => "manual/external_fields.md"
+        ],
+        "Collision operators" => [
+            "Lenard–Bernstein collisions" => "manual/lenard_bernstein.md",
+            "Landau collisions" => "manual/landau.md"
+        ],
+        "Model reduction" => [
+            "Grid-based reduced tensors" => "manual/grid_tensors.md",
+            "Reduced-order models" => "manual/reduced_order.md",
+            "Multi-modal autoencoder frontends" => "manual/autoencoder.md"
+        ],
+        "Plotting" => "manual/plotting.md",
+        "Scripts" => [
+            "Overview" => "scripts/index.md",
+            "Symplectic model reduction" => "scripts/reduced_basis.md",
+            "The collision manuscripts" => "scripts/collisions.md"
+        ],
+        "Library" => [
+            "Overview" => "library/index.md",
+            "Distributions and projections" => "library/distributions.md",
+            "Models and methods" => "library/models.md",
+            "Landau collisions" => "library/landau.md",
+            "Reduction" => "library/reduction.md",
+            "Plotting" => "library/plotting.md"
+        ]
     ]
 )
 

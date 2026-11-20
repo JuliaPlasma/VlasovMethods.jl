@@ -1,4 +1,14 @@
 
+"""
+    ShiftedUniformDistribution(xdomain = (0.0, 1.0), vdomain = (-2.0, 2.0), shift = 2.0)
+
+The uniform distribution on `xdomain` in the position and on `vdomain` moved by `shift` in the
+velocity.
+
+`initialize!` draws the first position component uniform on `xdomain` and the first velocity
+component uniform on `vdomain .+ shift`, from the global random number generator. Each particle
+has the weight `1/N`. The other components are not written.
+"""
 struct ShiftedUniformDistribution{XT, VT, ST} <: VlasovExample
     xdomain::XT
     vdomain::VT

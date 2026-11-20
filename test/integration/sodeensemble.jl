@@ -18,8 +18,8 @@ function particle_distribution(::Type{T}, npart) where {T}
     return ParticleDistribution(1, 1, ParticleList(z; variables = vars))
 end
 
-# A member of element type `T`. The generator is seeded before `initialize!`, or the positions
-# differ on every run: `NormalDistribution` draws them before its own `Random.seed!`.
+# A member of element type `T`. The generator is seeded before `initialize!`, or the particles
+# differ on every run: `NormalDistribution` draws them from the global generator.
 function sample(::Type{T}, seed::Integer; npart = 100) where {T}
     Random.seed!(seed)
     return initialize!(particle_distribution(T, npart), NormalDistribution((T(0), T(1))))

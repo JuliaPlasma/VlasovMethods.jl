@@ -35,6 +35,23 @@ domainx = (-5.0, 5.0)
     end
 end
 
+# K104: `initialize!` of `NormalDistribution` draws the positions and the velocities from one
+# stream, with no reseed between them. A `Random.seed!(1234)` there would make them the same normal
+# draws after a caller's seed of 1234, so that the correlation of `x` and `v` is one, and would make
+# every call return the same velocities. Under independent draws the sample correlation has the
+# standard error 1/√N, and two calls share no velocity.
+@testset "NormalDistribution draws independent positions and velocities" begin
+    np = 10_000
+    Random.seed!(1234)
+    first_draw = initialize!(ParticleDistribution(1, 1, np), NormalDistribution())
+    second_draw = initialize!(ParticleDistribution(1, 1, np), NormalDistribution())
+
+    x = vec(first_draw.particles.x)
+    v = vec(first_draw.particles.v)
+    @test abs(cor(x, v)) < 4 / sqrt(np)
+    @test vec(second_draw.particles.v) != v
+end
+
 @testset "1D Particle Distribution Tests - Shifted Normal" begin
     for np in npart_list
         for shift in -2.0:1.0:+2.0

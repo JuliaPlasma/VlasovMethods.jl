@@ -1,4 +1,16 @@
 ### integrate over velocity space
+@doc raw"""
+    _apply_∫dv!(y, f, ci, li, h₁, h₂)
+
+Integrate the grid values `f` over the velocity by the rectangle rule, and write the density
+``y_i = \sum_j f_{ij} h_2`` at each ``x``-node into `y`.
+
+`f` is the state vector `vec(dist.values)` of a [`GridDistribution`](@ref) of `nx × nv` nodes,
+`ci` and `li` are the `CartesianIndices` and the `LinearIndices` of `(nx, nv)`, and `h₁` and `h₂`
+are the grid widths in `x` and in `v`; `h₁` is not read. `y` holds `nx` values. A `y` or an `f` of another length
+throws a `DimensionMismatch`. [`velocity_moments`](@ref) calls it, and with it the stencils of the
+first and the second moment.
+"""
 function _apply_∫dv!(y::AbstractVector, f::AbstractVector, ci, li, h₁, h₂)
     nx, nv = size(ci)
     (length(f) == nx*nv && length(y) == nx) || throw(DimensionMismatch())

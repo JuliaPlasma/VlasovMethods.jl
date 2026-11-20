@@ -2,7 +2,13 @@
 CurrentModule = VlasovMethods
 ```
 
-# The figures of the collision manuscripts
+# The collision manuscripts
+
+This page reproduces the experiments of the three collision manuscripts: PD-LB, the particle
+discretisation of the Lenard–Bernstein operator; MP-LB, its metriplectic particle methods; and
+MP-L, the metriplectic particle methods for the Landau operator. The models are described in
+[Lenard–Bernstein collisions](../manual/lenard_bernstein.md) and
+[Landau collisions](../manual/landau.md).
 
 Each figure on this page has one driver in `scripts/` and one command that makes it.
 A driver reads its flags through `scripts/options.jl`, defaults to the manuscript's parameters,
@@ -13,7 +19,7 @@ driver's arguments quoted for the shell by `Base.shell_escape`, the attribute `s
 driver's file name, and one attribute per option. A directory that does not exist is created.
 
 A driver loads `CairoMakie` and draws each figure with one of the collision figures' plotting
-functions, which the page [Plotting](plotting.md) documents; it builds no figure itself.
+functions, which the page [Plotting](../manual/plotting.md) documents; it builds no figure itself.
 
 The flag `--quick` replaces some of the manuscript's parameters with smaller ones.
 `scripts/gate.jl` runs every driver with it, in a process of its own and into a temporary
@@ -34,24 +40,26 @@ The drivers `scripts/pd_lb_*.jl` make the eleven figures of the Lenard–Bernste
 domain, a run stops with the model's `DomainError`: the driver writes the HDF5 file of that run
 with the attribute `stopped_at`, the time of the step that threw, and the times `t` and the
 velocities `z` of the steps reached, writes no figure for that run, and exits non-zero. The
-sweeps of figures 1 and 2 are the exception: a point of a sweep where the operator stops is left
-out of its figure, and the driver exits 0. A run to the time `t` with the step `h` takes `t / h`
-steps, rounded up, so the quick run of figures 3 to 6 takes 63 steps of `8e-4` and ends at
-`t = 0.0504`. K94 of `KNOWN_ISSUES.md` records each stop at the manuscript's parameters.
+convergence sweeps are the exception: a point of a sweep where the operator stops is left out of
+its figure, and the driver exits 0. A run to the time `t` with the step `h` takes `t / h` steps,
+rounded up, so the quick run of the shifted normal distribution takes 63 steps of `8e-4` and ends
+at `t = 0.0504`. K94 of `KNOWN_ISSUES.md` records each stop at the manuscript's parameters.
 
-### Figures 1 and 2
+### Convergence in the basis size and in the particle number
 
 ```
 julia --project=scripts scripts/pd_lb_fig1_2.jl
 ```
 
-Figure 1 is the norm `‖v̇‖₂` of the right-hand side at `10⁵` normal velocities, which are never
-projected, with the Maxwellian projected onto `M = 24, …, 78` basis functions, against the cell
-width. Figure 2 is the sample variance `Σ v̇² / N` of `N` projected normal velocities on 41 basis
-functions, against `1 / N`, for `N` from `10²` to `10⁵` in steps of a quarter decade. Files:
-`pd_lb_fig1.pdf`, `pd_lb_fig2.pdf`, `pd_lb_fig1.hdf5`, `pd_lb_fig2.hdf5`. Both figures depart
-from the PD-LB manuscript's, which draws `‖v̇‖₂` against `M` with the reference curve `M⁻⁴` and
-the sample variance against `N` with the reference curve `1 / N`, where these draw them against
+Figure 1 is the norm `‖v̇‖₂` of the right-hand side at `10⁵` normal velocities, drawn after
+seeding the random number generator with `--seed 1`, which are never projected, with the
+Maxwellian projected onto `M = 24, …, 78` basis functions, against the cell width. Figure 2 is
+the sample variance `Σ v̇² / N` of `N` projected normal velocities on 41 basis functions, against
+`1 / N`, for `N` from `10²` to `10⁵` in steps of a quarter decade, each sample drawn after seeding
+the generator with `--seed` again. Files: `pd_lb_fig1.pdf`, `pd_lb_fig2.pdf`, `pd_lb_fig1.hdf5`,
+`pd_lb_fig2.hdf5`. Both figures depart from the PD-LB manuscript's, which draws `‖v̇‖₂` against
+`M` with the reference curve `M⁻⁴` and the sample variance against `N` with the reference curve
+`1 / N`, where these draw them against
 the cell width and against `1 / N`, with the least-squares line `C h^p` of `plot_convergence` and
 its exponent `p`.
 
@@ -59,15 +67,25 @@ With the defaults the driver exits 0. Where the projection is not positive at a 
 `DomainError` of `compute_coefficients`, the operator stops at that point of the sweep: the
 driver prints the stop, leaves the point out of the figure and goes on, and the HDF5 file of the
 figure records the first such `M` or `N` as the attribute `stopped_at` beside the points it
-computed. With the defaults, figure 1 stops at `M = 25`, where the projected Maxwellian is
-`−2.4e-5` at two of the `10⁵` velocities, and draws the other 54 values of `M`; figure 2 stops at
-`N = 5623` and `N = 31623`, and draws the other 11 values of `N`. A sweep that computes fewer
-than two points leaves `plot_convergence` nothing to fit, and its `ArgumentError` stops the
-driver.
+computed. A sweep that computes fewer than two points leaves `plot_convergence` nothing to fit,
+and its `ArgumentError` stops the driver.
 
-`--quick` takes 2000 velocities, `M ∈ {24, 41, 78}` and `N` from 100 to 1778.
+Which points stop depends on the sample. The numbers of a run are expected to change within
+bounds as the package develops: the scripts reproduce the manuscript's figures qualitatively, and
+quantitatively within bounds, not to the last digit. `scripts/gate.jl` checks the bounds: each
+sweep computes at least a quarter of its points, and the fitted exponents lie in `[3, 5]` for
+figure 1, around the manuscript's `M⁻⁴`, and in `[0.1, 2]` for figure 2, a variance that
+decreases with `N`, around its `1 / N`. One run with the defaults, with Julia 1.13.4 on 2026-11-20,
+stops figure 1 at `M = 25` and draws the other 54 values of `M`, with the exponent `3.36`; it
+stops figure 2 at `N = 3162` and `N = 17783` and draws the other 11 values of `N`, with the
+exponent `0.76`. Over the seeds 1 to 20, the exponents lie between `3.34` and `3.50` and between
+`0.21` and `1.19`, and figure 2 draws 5 to 12 of the 13 values of `N`: the exponent of figure 2
+depends on the sample far more than that of figure 1.
 
-### Figures 3 to 6
+`--quick` takes 2000 velocities, `M ∈ {24, 41, 78}` and `N` from 100 to 1778. Six values of `N`
+up to 1778 are too few for the exponent of figure 2 to mean anything.
+
+### Relaxation of a shifted normal distribution
 
 ```
 julia --project=scripts scripts/pd_lb_fig3_6.jl
@@ -89,7 +107,7 @@ With the defaults the driver exits 0.
 
 `--quick` takes 200 particles and `t = 0.05`.
 
-### Figures 7 and 8
+### Relaxation of a bi-Maxwellian
 
 ```
 julia --project=scripts scripts/pd_lb_fig7_8.jl
@@ -111,7 +129,7 @@ and the 1767 steps reached, writes no figure and exits non-zero; K94 records the
 
 `--quick` takes 200 particles and `t = 0.2`.
 
-### Figures 9 and 10
+### Relaxation of a uniform distribution
 
 ```
 julia --project=scripts scripts/pd_lb_fig9_10.jl
@@ -129,7 +147,7 @@ With the defaults the driver exits 0.
 
 `--quick` takes `h = 1e-3` and `t = 0.05`.
 
-### Figure 11
+### Decay of the fourth cumulant
 
 ```
 julia --project=scripts scripts/pd_lb_fig11.jl
@@ -138,7 +156,8 @@ julia --project=scripts scripts/pd_lb_fig11.jl
 The cumulant appendix fixes the coefficients at `A₁ = 0` and `A₂ = 1`, which is the right-hand
 side of `LenardBernstein`, and runs it with the implicit midpoint scheme of the time
 discretisation, which the driver uses in place of the model's own `RK438`. The bi-Maxwellian of
-figure 7 with 1000 particles, 41 basis functions, `h = 5e-3`, to `t = 1`, seeded with `--seed 1`.
+the relaxation above with 1000 particles, 41 basis functions, `h = 5e-3`, to `t = 1`, seeded with
+`--seed 1`.
 The closed form of the appendix is `κ₄(t) = κ₄(0) exp(−4 ν t)` at the equilibrium variance
 `1 / A₂ = 1`. The driver prints the relative error of the particles' fourth cumulant against it at
 the first three steps, and exits non-zero where one exceeds `--tolerance`, 5 %. Figure 11 is the
@@ -161,11 +180,11 @@ the PD-LB figures of the same distribution, since MP-LB states none: 41 cubic ba
 `[−10, 10]` and `ν = 1` throughout, and
 
 - `--case shifted-normal`, the default: 1000 velocities from the normal distribution of mean 2
-  and variance 1, `h = 8e-4`, to `t = 1`, as figures 3 to 5;
+  and variance 1, `h = 8e-4`, to `t = 1`, as in the relaxation of a shifted normal distribution;
 - `--case double-maxwellian`: 1000 velocities, half from the normal distribution of mean 2 and
-  half from that of mean `−2`, `h = 8e-4`, to `t = 5`, seeded with `--seed 1`, as figures 7 and 8;
+  half from that of mean `−2`, `h = 8e-4`, to `t = 5`, seeded with `--seed 1`, as in the relaxation of a bi-Maxwellian;
 - `--case uniform`: 200 velocities from the uniform distribution on `[−2, 2]`, `h = 1e-4`, to
-  `t = 1`, seeded with `--seed 1`, as figures 9 and 10.
+  `t = 1`, seeded with `--seed 1`, as in the relaxation of a uniform distribution.
 
 `--bracket` takes `dougherty`, the default, for [`DoughertyBracket`](@ref), the bracket of
 MP-LB, or `jeyakumar` for [`JeyakumarBracket`](@ref). A case or a bracket that is not one of these
@@ -207,7 +226,7 @@ records the stops:
 `--quick` takes 200 particles and `t = 0.05` for the shifted normal, `t = 0.05` for the double
 Maxwellian, which keeps its 1000 particles because with 200 the solve of the Jeyakumar form does
 not converge in the step to `t = 0.016`, and `h = 1e-3` and `t = 0.05` for the uniform case, as
-figures 9 and 10 take. Each of the six quick runs exits 0.
+the quick relaxation of the uniform distribution takes. Each of the six quick runs exits 0.
 
 ### The rate check
 

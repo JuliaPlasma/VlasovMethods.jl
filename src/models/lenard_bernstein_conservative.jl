@@ -20,6 +20,34 @@ end
 
 @collision_cache CLBCache buffers
 
+@doc raw"""
+    ConservativeLenardBernstein(dist, ent; ν = 1.0)
+
+The conservative Lenard–Bernstein collision operator of the PD-LB manuscript on the particles of
+`dist`, with the entropy `ent`, a [`CollisionEntropy`](@ref) of a `SplineDistribution`, and the
+collision frequency `ν`. The particle velocities move with
+
+```math
+\dot{v}_\alpha = - \nu \left( \frac{f_s'(v_\alpha)}{f_s(v_\alpha)} + A_1 + A_2 v_\alpha \right) ,
+```
+
+`eq:velocity_ode` of the manuscript, where ``f_s`` is the projection of the particles onto the
+spline distribution of `ent`, and the coefficients ``A_1`` and ``A_2`` of
+[`compute_coefficients`](@ref) are solved at every evaluation from the conservation of the
+momentum and the energy. Every Maxwellian is an equilibrium.
+
+The particle momentum ``\sum_\alpha w_\alpha v_\alpha`` and energy
+``\sum_\alpha w_\alpha v_\alpha^2`` are conserved by the right-hand side on any basis. The
+moments of ``f_s`` agree with them only where the basis reproduces ``1``, ``v`` and ``v^2``,
+which the default `Free()` boundary condition does; the constructor warns once on a basis that
+does not.
+
+The right-hand side divides by ``f_s(v_\alpha)``, so it throws a `DomainError` where the
+projection is not positive at a particle.
+
+[`GeometricIntegrator`](@ref) steps the model of a distribution of one velocity dimension, with
+`ImplicitMidpoint()` by default.
+"""
 struct ConservativeLenardBernstein{
     XD, VD, DT <: DistributionFunction{<:Any, XD, VD}, ET <: Entropy, T, CT <: CacheDict} <:
        CollisionOperator

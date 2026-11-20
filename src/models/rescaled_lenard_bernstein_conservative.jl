@@ -21,6 +21,29 @@ end
 
 @collision_cache RCLBCache buffers
 
+@doc raw"""
+    RescaledConservativeLenardBernstein(dist, ent; ν = 1.0)
+
+The conservative Lenard–Bernstein collision operator of
+[`ConservativeLenardBernstein`](@ref) in the rescaled parametrisation, in which the coefficient
+of ``v`` is one:
+
+```math
+\dot{v}_\alpha = - \nu \left( A_1 \frac{f_s'(v_\alpha)}{f_s(v_\alpha)} + A_2 + v_\alpha \right) ,
+```
+
+with the coefficients of [`compute_coefficients_rclb`](@ref). It is the conservative operator
+with the time rescaled by ``1/A_2`` of the conservative coefficients, one factor for all
+particles, so it has the same trajectories at another speed. The factor approximates
+``\varepsilon_h - u_h^2``, and equals it where ``u_h B_1 - B_2 = n``, with ``B_1`` and ``B_2`` the
+particle sums of ``f_s'/f_s`` and ``v f_s'/f_s``, whose continuous values are ``0`` and ``-n``.
+The arguments, the conservation properties and the errors are those of
+[`ConservativeLenardBernstein`](@ref), but the constructor does not warn on a basis that does
+not reproduce ``1``, ``v`` and ``v^2``.
+
+[`GeometricIntegrator`](@ref) steps the model of a distribution of one velocity dimension, with
+`ImplicitMidpoint()` by default.
+"""
 struct RescaledConservativeLenardBernstein{
     XD, VD, DT <: DistributionFunction{<:Any, XD, VD}, ET <: Entropy, T, CT <: CacheDict} <:
        CollisionOperator

@@ -54,7 +54,7 @@
 # to `<stem>_rate.md` in `--results-dir`, the values to attributes of the record, and the times
 # and the temperatures of the check to its datasets `rate_t` and `rate_temperature`. The other two
 # cases run no rate check and take no `--tolerance`: on the uniform case the fit of one bracket
-# misses its closed form by more than `5 %` (`docs/src/collisions.md`).
+# misses its closed form by more than `5 %` (`docs/src/scripts/collisions.md`).
 #
 # `--quick` takes 200 particles and the final time 0.05 for `shifted-normal`, the final time 0.05
 # for `double-maxwellian`, and the step 1e-3 and the final time 0.05 for `uniform`. The

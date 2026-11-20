@@ -6,22 +6,6 @@ takes the number after the highest `K<n>` that this file, `CHANGELOG.md` or thei
 ever named, which `git log -p -- KNOWN_ISSUES.md CHANGELOG.md` shows, so the ID of an entry that
 has left the file, or that lived only on a merged branch, stays taken.
 
-### K4 · The appendix Landau method takes the implicit midpoint rule, which is not a discrete gradient, so no discrete H-theorem is proven for it.
-
-- **location:** `src/methods/Landau_solver.jl`
-- **evidence:** The manuscript derives two methods. The main-text method is `PairwiseLandau`:
-  the gradient form with the `G` operator of `eq:G_semi-disc` at the midpoint, whose structure
-  *is* the momentum and energy conservation proof, and the Gonzalez discrete gradient of
-  `discrete_gradient_step!`, which *is* the discrete H-theorem proof. The appendix method is
-  `Landau`: the two-step `v̇ = K⁺LJ` with the implicit midpoint rule and `∇S` at the midpoint
-  (`eq:particle_ode_midpoint`), the appendix's own choice, which is not a discrete gradient. The
-  H-theorem of the time discretisation therefore holds for `PairwiseLandau` only. A gap between
-  the appendix method and the main text's proof, not an error in either.
-- **kind:** docs
-- **found:** 2026-09-07. Carried over from the audit that accompanied the `SimpleSplines`
-  migration. None of these are regressions; each is either a numerical-methods decision or work
-  the migration deliberately did not take on.
-
 ### K8 · Positivity of `f_s` is not preserved, and the conservative Lenard-Bernstein operators refuse `f_s ≤ 0`.
 
 - **location:** —
@@ -102,9 +86,9 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K24 · The Lenard-Bernstein right-hand sides keep an uncalled `LB_rhs!`.
 
-- **location:** `src/models/lenard_bernstein.jl:60`
+- **location:** `src/models/lenard_bernstein.jl:80`
 - **evidence:** `LB_rhs!(v̇, v, params, t)` keeps the argument order of an ODE solver that the
-  package does not use, and nothing in `src/` calls it: `LB_rhs_GI!` (`:73`) computes the same
+  package does not use, and nothing in `src/` calls it: `LB_rhs_GI!` (`:93`) computes the same
   right-hand side on the buffers of the model's cache. Outside `src/`, the tests and the reference
   generator call `LB_rhs!` as an oracle for `LB_rhs_GI!`, so it stays until they have another.
 - **kind:** dead code
@@ -335,7 +319,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **location:** `scripts/options.jl:48`
 - **evidence:** a numeric default is read with `parse(T, value)` and never range-checked, so
   `julia --project=scripts scripts/vlasov_poisson.jl --tstep 0` exits 1 on `ArgumentError: range
-  step cannot be zero`, raised by `Base`'s `(::Colon)` from `src/methods/splitting.jl:47`, and the
+  step cannot be zero`, raised by `Base`'s `(::Colon)` from `src/methods/splitting.jl:75`, and the
   message names neither the flag nor the value. The drivers that parse a `--tstep` are
   `lenard_bernstein.jl`, `lenard_bernstein_metriplectic.jl`, `profile.jl` and `vlasov_poisson.jl`.
 - **kind:** defect
@@ -487,18 +471,20 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K94 · The figure drivers of the Lenard–Bernstein manuscript stop where the projection is not positive at a particle: figures 1, 2, 7 and 8 at the manuscript's parameters, and figure 11 with the seed 1234, where the right-hand side of `LenardBernstein` divides by `f_s` without checking its sign.
 
-- **location:** `src/models/lenard_bernstein_conservative.jl:144`
+- **location:** `src/models/lenard_bernstein_conservative.jl:172`
 - **evidence:** `compute_coefficients` of `ConservativeLenardBernstein` throws a `DomainError`
-  where `f_s ≤ 0` at a particle (`:144`), and the manuscripts' parameters reach it:
-  `julia --project=scripts scripts/pd_lb_fig1_2.jl` prints `nbasis =     25: the operator stops:
-  the projected distribution is non-positive at v = 4.055196391323677`, and the same for
-  `npart =   5623` at `v = 3.799579553401782` and `npart =  31623` at `v = 4.432320203818066`; at
-  `M = 25` the projected Maxwellian is `−2.4e-5` at two of the `10⁵` velocities. The sweeps leave
-  these points out of figures 1 and 2, record `stopped_at = 25` and `stopped_at = 5623`, and
-  exit 0. `julia --project=scripts scripts/pd_lb_fig7_8.jl` stops in the step 1768
-  to `t = 1.4144`, where the projection is `−1.58e-7` at `v = −6.42`; it writes
-  `pd_lb_fig7_8.hdf5` with `stopped_at = 1.4144`, writes no figure and exits non-zero.
-  `LB_rhs_GI!` evaluates `f_s'/f_s + v` at each particle (`src/models/lenard_bernstein.jl:80`)
+  where `f_s ≤ 0` at a particle (`:172`), and the manuscripts' parameters reach it:
+  one run of `julia --project=scripts scripts/pd_lb_fig1_2.jl` at its default `--seed 1`, with
+  Julia 1.13.4 on 2026-11-20, prints `nbasis =     25: the operator stops: the projected
+  distribution is non-positive at v = 3.9517739700081314`, and the same for `npart =   3162` at
+  `v = -3.280449770438173` and `npart =  17783` at `v = -3.815087083306259`. The sweeps leave
+  these points out of figures 1 and 2, record `stopped_at = 25` and `stopped_at = 3162`, and
+  exit 0. Which points stop depends on the sample: over the seeds 1 to 20, `M = 25` stops at
+  every seed, and 1 to 8 of the 13 values of `N` stop.
+  `julia --project=scripts scripts/pd_lb_fig7_8.jl` stops in the step 1768 to `t = 1.4144`, where
+  the projection is `−1.58e-7` at `v = −6.42`; it writes `pd_lb_fig7_8.hdf5` with
+  `stopped_at = 1.4144`, writes no figure and exits non-zero.
+  `LB_rhs_GI!` evaluates `f_s'/f_s + v` at each particle (`src/models/lenard_bernstein.jl:100`)
   and does not refuse `f_s ≤ 0`. Where an iterate of the Newton solve of the implicit midpoint
   rule meets a small or negative `f_s` in the tail, the ratio sends a particle out of `[−10, 10]`,
   and the projection throws its `DomainError` naming the domain rather than the sign of `f_s`.
@@ -538,7 +524,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K96 · `collisional_vectorfield!` of `Landau` returns `v̇_c = ν (K_c \ LJ)`, a pivoted-QR solve for each velocity component `c` alone, with the opposite sign of the appendix's `v̇ = −K⁺LJ` for the stacked matrix `K`, and at `γ = −3` its runs drift the energy by `1.7e-8` to `2.1e-7`, where the runs of `PairwiseLandau` keep it below `2e-15`.
 
-- **location:** `src/models/landau.jl:589-593`
+- **location:** `src/models/landau.jl:613-617`
 - **evidence:** `eq:particle_ode_final` and `eq:particle_ode_midpoint` of the manuscript's
   appendix give `v̇ = −K⁺ L J`; the code solves `v̇[c, :] = K_c \ LJ` for each component `c` with
   `qr!(…, ColumnNorm())` and scales by `ν`, with no minus sign. On the weighted lattice of
@@ -551,7 +537,7 @@ has left the file, or that lived only on a merged branch, stays taken.
   has the rank `323 = M − 1` that `dN ≥ M − 1` gives; each `K_c K_c⁺` projects onto the range of
   `K_c` alone, so `‖K₁ v̇₁ + K₂ v̇₂ − LJ‖ / ‖LJ‖ = 0.73` where `K K⁺ = I` of the appendix would make
   it zero. The pivoted-QR solve of the rank-deficient `K_c` is not `pinv(K_c) LJ`, as the comment
-  at `:575-577` says it is: `‖K₁ \ LJ − pinv(K₁) LJ‖ / ‖K₁ \ LJ‖ = 0.588`, and `0.431` against
+  at `:599-601` says it is: `‖K₁ \ LJ − pinv(K₁) LJ‖ / ‖K₁ \ LJ‖ = 0.588`, and `0.431` against
   `‖pinv(K₁) LJ‖`; for `K₂` the two are `3.03` and `0.889`. The sign is the code's either way: each
   `K_c \ LJ` lies nearer `+pinv(K_c) LJ` than `−pinv(K_c) LJ`. `scripts/landau_cases.jl` therefore
   refuses `--rate-check` with `--method spline`.
@@ -567,13 +553,13 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K100 · Inference does not give a concrete type for `GeometricIntegrator(model, tspan, tstep[, method])` of `LenardBernstein`, `ConservativeLenardBernstein` and `RescaledConservativeLenardBernstein`, because the `ODEProblem` constructor of GeometricEquations and the Newton solver of SimpleSolvers infer free type parameters.
 
-- **location:** `src/models/lenard_bernstein_conservative.jl:229`
+- **location:** `src/models/lenard_bernstein_conservative.jl:257`
 - **evidence:** For each of the three models, `Base.return_types` of the constructor is a
   `UnionAll` over `ET <: EquationProblem` and `IT <: GeometricIntegrator`, or a `Union`, with or
   without the method argument and on `main` as on the branch; the object that the call returns
-  has a concrete type. The constructors (`src/models/lenard_bernstein.jl:95`,
-  `src/models/lenard_bernstein_conservative.jl:223`,
-  `src/models/rescaled_lenard_bernstein_conservative.jl:144`) only call `ODEProblem` and
+  has a concrete type. The constructors (`src/models/lenard_bernstein.jl:115`,
+  `src/models/lenard_bernstein_conservative.jl:251`,
+  `src/models/rescaled_lenard_bernstein_conservative.jl:167`) only call `ODEProblem` and
   `Integrators.GeometricIntegrator`, and both calls infer free parameters on a toy problem, with
   GeometricEquations 0.21.6, GeometricIntegrators 0.18.7 and SimpleSolvers 0.14.3:
   ```julia
@@ -624,7 +610,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K102 · `Landau` checks the kernel exponent `γ > -6` on the `γ` it is given, but `kernel` evaluates `T(γ)` in the element type `T` of the state, so a `Float32` model accepts a `γ` that rounds to the refused `-6`.
 
-- **location:** `src/models/landau.jl:117`
+- **location:** `src/models/landau.jl:141`
 - **evidence:** with the `Float32` fixture of `test/models/landau.jl`,
   `Landau(pdist, CollisionEntropy(sdist); γ = -5.999999999)` builds a model with
   `landau.γ = -5.999999999`, and `Float32(-5.999999999) == -6.0f0`, the exponent for which the
@@ -640,10 +626,10 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **evidence:** `caches::Dict{DataType, Cache}` holds the caches of one model, keyed by element
   type, on `1e60db3`. The constructor (`:10-14`) stores the model's own cache under its
   `eltype`, and the models build it as `CacheDict(LBCache(dist, ent.dist))`
-  (`src/models/lenard_bernstein.jl:38`, and the same in the other collision models and
+  (`src/models/lenard_bernstein.jl:58`, and the same in the other collision models and
   `src/gridbased/vlasov_poisson_1d1v.jl:160`). `getindex` (`:19-25`) builds a missing cache with
   `Cache(T, parent(c))` and asserts the result `::CacheType(T, parent(c))`, so a read such as
-  `params.model.cache[ST]` (`src/models/lenard_bernstein.jl:74`) infers the concrete cache type
+  `params.model.cache[ST]` (`src/models/lenard_bernstein.jl:94`) infers the concrete cache type
   from that assertion and not from the field. Each read still takes a `Dict` lookup of an abstract
   value and a type check. `fieldtype(VlasovMethods.CacheDict, :caches)` returns
   `Dict{DataType, VlasovMethods.Cache}`, and `isabstracttype(VlasovMethods.Cache)` returns `true`.
@@ -654,3 +640,15 @@ has left the file, or that lived only on a merged branch, stays taken.
   the `Dict`, decided together with GeometricIntegratorsBase.
 - **kind:** defect
 - **found:** 2026-11-09
+
+### K105 · `initialize!` of `ShiftedNormalV` calls `Random.seed!(1234)` between the draw of the positions and the draw of the velocities, so every call draws the same velocities and resets the global generator for the draws after it.
+
+- **location:** `src/examples/shiftednormalv.jl:29`
+- **evidence:** the same reseed that K104 removed from `NormalDistribution`. The docstring states
+  it (`:7-12`), and `scripts/pd_lb_common.jl` (`initial_distribution`),
+  `scripts/pd_lb_fig3_6.jl` and `scripts/lenard_bernstein_metriplectic.jl` describe it: figures 3
+  to 6 and the shifted normal case of the metriplectic driver take their fixed sample from it and
+  take no `--seed`. A fix changes those samples, as K104 changed the sample of
+  `scripts/pd_lb_fig1_2.jl`, so it goes with a `--seed` for both drivers and new measurements.
+- **kind:** defect
+- **found:** 2026-11-20
