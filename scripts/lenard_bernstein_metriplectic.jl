@@ -11,13 +11,12 @@
 #
 # `--case` picks the initial condition and its defaults, those of the PD-LB driver of the same
 # distribution: `shifted-normal` draws 1000 velocities from the normal distribution of mean 2 and
-# variance 1 (`ShiftedNormalV`, which seeds the random number generator with 1234 itself) and runs
-# to `t = 1`; `double-maxwellian` draws 1000 velocities, half from the normal distribution of mean
-# 2 and half from that of mean −2 (`DoubleMaxwellian`), and runs to `t = 5`; both step with
-# `h = 8e-4`. `uniform` draws 200 velocities from the uniform distribution on [−2, 2]
-# (`UniformDistribution`) and runs to `t = 1` with `h = 1e-4`. The last two seed the global random
-# number generator with `--seed` first; `shifted-normal` takes no `--seed`. Every case takes 41
-# cubic basis functions on [−10, 10] and `ν = 1`. `--bracket` picks the metric bracket,
+# variance 1 (`ShiftedNormalV`) and runs to `t = 1`; `double-maxwellian` draws 1000 velocities,
+# half from the normal distribution of mean 2 and half from that of mean −2 (`DoubleMaxwellian`),
+# and runs to `t = 5`; both step with `h = 8e-4`. `uniform` draws 200 velocities from the uniform
+# distribution on [−2, 2] (`UniformDistribution`) and runs to `t = 1` with `h = 1e-4`. Each case
+# seeds the global random number generator with `--seed` first. Every case takes 41 cubic basis
+# functions on [−10, 10] and `ν = 1`. `--bracket` picks the metric bracket,
 # `DoughertyBracket` (the default) or `JeyakumarBracket`. A case or a bracket that is not one of
 # these throws an `ArgumentError` that names the flag and the value, before any run.
 #
@@ -71,7 +70,7 @@ const CASES = Dict(
     "shifted-normal" =>
         (example = ShiftedNormalV((-5.0, 5.0), 2.0), xdomain = (-5.0, 5.0),
             paper = (npart = 1000, nbasis = 41, tstep = 8e-4, final_time = 1.0, nu = 1.0,
-                tolerance = 0.05),
+                tolerance = 0.05, seed = 1),
             quick = (npart = 200, final_time = 0.05)),
     "double-maxwellian" =>
         (example = DoubleMaxwellian(; domain = (-5.0, 5.0), shift = 2.0),
@@ -116,7 +115,7 @@ end
     march(case, bracket, options; record, data = (;)) -> NamedTuple
 
 The run of `MetriplecticLenardBernstein` with `bracket` from `options.npart` particles of
-`case.example`, seeded with `options.seed` where the case takes one, on the cubic spline of
+`case.example`, seeded with `options.seed` where `options` holds one, on the cubic spline of
 `options.nbasis` functions, for `nsteps(options.final_time, options.tstep)` steps. Returns the
 initial and the final particles, the times `t`, the velocities `z` and the `diagnostics`.
 
@@ -324,17 +323,16 @@ function main(args)
         paper = (; case = "shifted-normal", bracket = "dougherty", case.paper...),
         quick = case.quick)
 
-    @printf("%s: %s run, case %s, bracket %s, %d particles, M = %d, h = %g, t = %g\n",
+    @printf("%s: %s run, case %s, bracket %s, %d particles, M = %d, h = %g, t = %g, seed %d\n",
         NAME,
         quick ? "quick" : "paper", case_name, bracket_name, options.npart, options.nbasis,
-        options.tstep, options.final_time)
+        options.tstep, options.final_time, options.seed)
     stem = "$(NAME)_$(case_name)_$(bracket_name)"
 
     rate = nothing
     attributes = options
     if case_name == RATE_CASE
-        initial = initial_distribution(case.example, options.npart;
-            seed = get(options, :seed, nothing))
+        initial = initial_distribution(case.example, options.npart; seed = options.seed)
         rate = rate_check(initial, bracket, options)
         @printf("  rate check: fitted λ = %.6f, closed form %.6f, relative difference %.3e\n",
             rate.fitted, rate.closed, rate.difference)

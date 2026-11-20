@@ -4,12 +4,12 @@
 The normal distribution of the mean `shift` and the variance one in the first velocity component,
 on positions uniform in `domain`.
 
-`initialize!` draws the first position component uniform on `domain`, calls
-`Random.seed!(1234)`, and draws the first velocity component from the normal distribution of the
-mean `shift`. Each particle has the weight `1/N`. The other components are not written.
+`initialize!` draws the first position component uniform on `domain` and the first velocity
+component from the normal distribution of the mean `shift`. Each particle has the weight `1/N`.
+The other components are not written.
 
-The reseeding makes the velocities the same in every call, and it resets the global random
-number generator for every draw that follows.
+The draws use the global random number generator, so a caller seeds it with `Random.seed!` to
+repeat a sample. The positions and the velocities are independent draws.
 """
 struct ShiftedNormalV{DT, ST} <: VlasovExample
     domain::DT      # domain for x-dist
@@ -26,7 +26,6 @@ function initialize!(dist::ParticleDistribution, params::ShiftedNormalV, ::Sampl
 
     # random initial conditions
     x₀ = rand(npart)    # sample uniform dist for x₀
-    Random.seed!(1234)
     v₀ = randn(npart)   # sample normal dist for v₀
 
     # # shift x₀ to the interval [0,1]

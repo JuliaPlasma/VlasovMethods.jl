@@ -52,6 +52,17 @@ end
     @test vec(second_draw.particles.v) != v
 end
 
+# K105: `initialize!` of `ShiftedNormalV` draws its velocities from the stream of the caller. A
+# `Random.seed!(1234)` between the positions and the velocities would make every call return the
+# same velocities, whatever the caller seeded.
+@testset "ShiftedNormalV draws its velocities from the caller's stream" begin
+    Random.seed!(1)
+    first_draw = initialize!(ParticleDistribution(1, 1, 100), ShiftedNormalV())
+    Random.seed!(2)
+    second_draw = initialize!(ParticleDistribution(1, 1, 100), ShiftedNormalV())
+    @test second_draw.particles.v != first_draw.particles.v
+end
+
 @testset "1D Particle Distribution Tests - Shifted Normal" begin
     for np in npart_list
         for shift in -2.0:1.0:+2.0
