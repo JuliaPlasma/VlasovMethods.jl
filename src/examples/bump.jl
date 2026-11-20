@@ -1,4 +1,16 @@
 
+@doc raw"""
+    Bump(; a = 10.0, b = 0.5)
+
+The smooth top hat of the half width `b` and the steepness `a` in the velocity,
+
+```math
+f(v) = \frac{1}{4b} \bigl( \tanh(a (v + b)) - \tanh(a (v - b)) \bigr) ,
+```
+
+which integrates to one. `initialize!` fills the velocities of a 1D1V distribution by
+accept–reject sampling, as `draw!` describes, and does not write the positions.
+"""
 struct Bump{T} <: VlasovExample
     a::T # steepness of bump
     b::T # width parameters

@@ -23,6 +23,26 @@ end
 
 @collision_cache LBCache buffers
 
+@doc raw"""
+    LenardBernstein(dist, ent; ν = 1.0)
+
+The Lenard–Bernstein collision operator on the particles of `dist`, with the entropy `ent`, a
+[`CollisionEntropy`](@ref) of a `SplineDistribution`, and the collision frequency `ν`. The
+particle velocities move with
+
+```math
+\dot{v}_\alpha = - \nu \left( \frac{f_s'(v_\alpha)}{f_s(v_\alpha)} + v_\alpha \right) ,
+```
+
+where ``f_s`` is the projection of the particles onto the spline distribution of `ent`. This is
+the conservative operator of [`ConservativeLenardBernstein`](@ref) with the coefficients fixed at
+``A_1 = 0`` and ``A_2 = 1``: it conserves the mass, but not the momentum or the energy, and it
+relaxes every distribution to the unit Maxwellian.
+
+[`GeometricIntegrator`](@ref) steps the model of a 1D1V distribution, with `RK438()` by default.
+The model keeps one cache of work arrays per element type of the state, so an evaluation of the
+right-hand side allocates nothing. A cache belongs to one task.
+"""
 struct LenardBernstein{
     XD, VD, DT <: DistributionFunction{<:Any, XD, VD}, ET <: Entropy, T, CT <: CacheDict} <:
        CollisionOperator

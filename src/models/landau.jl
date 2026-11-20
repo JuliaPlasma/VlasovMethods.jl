@@ -93,6 +93,30 @@ end
 
 @collision_cache LandauCache
 
+@doc raw"""
+    Landau(dist, ent; γ = -3, ν = 1.0)
+
+The Landau collision operator of the MP-L manuscript on the particles of `dist`, a
+`ParticleDistribution` of two velocity components, with the entropy `ent`, a
+[`CollisionEntropy`](@ref) of a `SplineDistribution` of two velocity dimensions, the exponent `γ`
+of the [`kernel`](@ref) and the collision frequency `ν`.
+
+This is the method of the manuscript's appendix. For each velocity component ``c``, its vector
+field ``\dot{v}_c`` is `ν` times the pivoted-QR least-squares solution of
+``\mathbb{K}_c \dot{v}_c = \mathbb{L} \, \mathbb{L}_k``, with ``\mathbb{K}_c`` of
+[`compute_K!`](@ref), ``\mathbb{L}`` of [`compute_L!`](@ref) and ``\mathbb{L}_k`` of
+[`compute_J!`](@ref). The appendix states ``\dot{v} = -\mathbb{K}^{+} \mathbb{L} \, \mathbb{L}_k``
+for the stacked matrix ``\mathbb{K}``; K96 of `KNOWN_ISSUES.md` records the difference in the
+sign and in the solve of each component alone.
+[`Picard_iterate_Landau_nls!`](@ref) takes one implicit-midpoint step of it.
+[`PairwiseLandau`](@ref) holds a `Landau` of the same arguments and takes its projection, its
+matrices and its kernel from it.
+
+`γ = -3` is the Coulomb case and `γ = 0` the Maxwell molecules. The constructor throws an
+`ArgumentError` unless `γ` is finite and `γ > -6`. The model keeps one cache of work arrays per
+element type of the velocities, so an evaluation of the vector field allocates no more than its
+least-squares solves.
+"""
 struct Landau{
     D, G <: Real, XD, VD, DT <: DistributionFunction{<:Any, XD, VD}, ET <: Entropy,
     CT <: CacheDict} <: VlasovModel

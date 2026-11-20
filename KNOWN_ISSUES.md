@@ -654,3 +654,18 @@ has left the file, or that lived only on a merged branch, stays taken.
   the `Dict`, decided together with GeometricIntegratorsBase.
 - **kind:** defect
 - **found:** 2026-11-09
+
+### K104 · `NormalDistribution` draws the velocities after `Random.seed!(1234)`, so a caller who seeds the global generator with 1234 gets velocities that are the positions' normal draws, and `scripts/vlasov_poisson.jl` does so by default.
+
+- **location:** `src/examples/normal.jl:30`
+- **evidence:** `initialize!(dist, ::NormalDistribution)` draws `x₀ = randn(npart)`, calls
+  `Random.seed!(1234)`, then draws `v₀ = randn(vsize)`. After `Random.seed!(1234)` in the caller,
+  both calls return the same numbers, and the positions are rescaled linearly into the domain, so
+  every particle lies on one line `v = c (x − 1/2)` of phase space. The phase-space figure of
+  `Random.seed!(1234); initialize!(ParticleDistribution(1, 1, 10_000), NormalDistribution())`
+  shows that line at `t = 0`. `scripts/vlasov_poisson.jl` seeds with `--seed`, default `1234`,
+  before this draw, so its default run starts from the correlated state. `ShiftedNormalV` reseeds
+  the same way, but draws its positions with `rand`, so its positions and velocities are not the
+  same numbers.
+- **kind:** defect
+- **found:** 2026-11-20

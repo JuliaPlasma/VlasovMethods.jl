@@ -2,7 +2,13 @@
 CurrentModule = VlasovMethods
 ```
 
-# The figures of the collision manuscripts
+# The collision manuscripts
+
+This page reproduces the experiments of the three collision manuscripts: PD-LB, the particle
+discretisation of the Lenard–Bernstein operator; MP-LB, its metriplectic particle methods; and
+MP-L, the metriplectic particle methods for the Landau operator. The models are described in
+[Lenard–Bernstein collisions](../manual/lenard_bernstein.md) and
+[Landau collisions](../manual/landau.md).
 
 Each figure on this page has one driver in `scripts/` and one command that makes it.
 A driver reads its flags through `scripts/options.jl`, defaults to the manuscript's parameters,
@@ -13,7 +19,7 @@ driver's arguments quoted for the shell by `Base.shell_escape`, the attribute `s
 driver's file name, and one attribute per option. A directory that does not exist is created.
 
 A driver loads `CairoMakie` and draws each figure with one of the collision figures' plotting
-functions, which the page [Plotting](plotting.md) documents; it builds no figure itself.
+functions, which the page [Plotting](../manual/plotting.md) documents; it builds no figure itself.
 
 The flag `--quick` replaces some of the manuscript's parameters with smaller ones.
 `scripts/gate.jl` runs every driver with it, in a process of its own and into a temporary

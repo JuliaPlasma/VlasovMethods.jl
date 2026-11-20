@@ -1,32 +1,23 @@
-# Reproducing the paper's examples
+# Symplectic model reduction
+
+This page reproduces the experiments of T. M. Tyranowski and M. Kraus, *Symplectic model reduction
+methods for the Vlasov equation*, Contributions to Plasma Physics 63, e202200046 (2023),
+[doi:10.1002/ctpp.202200046](https://doi.org/10.1002/ctpp.202200046),
+[arXiv:1910.06026](https://arxiv.org/abs/1910.06026). The building blocks of the scripts are
+described in [Reduced-order models](../manual/reduced_order.md).
 
 This page has two examples. The analytic quadratic model, whose solution has a closed form, is the
-experiment of the reduced-order paper ([arXiv:1910.06026](https://arxiv.org/abs/1910.06026)): a
-bump-on-tail initial distribution in a linear external field. The self-consistent bump-on-tail
+experiment of the reduced-order paper: a bump-on-tail initial distribution in a linear external
+field. The self-consistent bump-on-tail
 problem is not in the paper, which names the self-consistent Poisson field as future work. It comes
 from the notebooks and the `bump_on_tail_*.jl` scripts of ReducedBasisMethods 0.2.3, so for this
 problem "the paper's" parameters below are theirs, and a "paper command" runs them. Five scripts in
 `scripts/` compute both. This page says how to run them and what each one writes. It runs no
 script, and it shows no figure: the figures are files that the scripts write.
 
-## Running a script
+## The figures
 
-The scripts have their own environment, `scripts/Project.toml`, which takes VlasovMethods from the
-checkout it is in. Instantiate it once, from the root of the repository:
-
-```
-julia --project=scripts -e 'using Pkg; Pkg.instantiate()'
-```
-
-Every script takes `--runs-dir` and `--results-dir`. A script writes its data, the HDF5 files, to
-the first, and its figures and tables to the second. The defaults are `runs/` and `results/` at the
-root of the repository, which git ignores. A flag that a script does not know stops it with an
-`ArgumentError`, which names the flags it takes.
-
-```
-julia --project=scripts scripts/bump_on_tail_training.jl --runs-dir /tmp/runs --results-dir /tmp/results
-```
-
+[Reproducing the papers](index.md) describes the environment of the scripts and their options.
 Each figure is a PNG named `item<NN>_<what>.png`, after the item of the paper that it draws, except
 the Hamiltonian network's loss curve, which is `hnn_loss.png`. A figure plots the quantity of its
 item at the script's parameters. It does not reproduce the paper's numbers: the paper's draws ran

@@ -1,4 +1,19 @@
 
+"""
+    NormalDistribution(domain = (0.0, 1.0))
+
+Normal velocities on positions in `domain`.
+
+`initialize!` draws `N` standard normal positions, shifts and scales them into `[0, 1]` by the
+integer `ceil(maximum(abs, x))`, and maps that interval onto `domain`. It then calls
+`Random.seed!(1234)` and draws every velocity component from the standard normal distribution.
+Each particle has the weight `1/N`.
+
+The reseeding makes the velocities the same in every call, and it resets the global random
+number generator for every draw that follows. After a `Random.seed!(1234)` of the caller, the
+positions and the velocities are the same normal draws, and every particle lies on one line of
+phase space (K104).
+"""
 struct NormalDistribution{DT} <: VlasovExample
     domain::DT
     function NormalDistribution(domain::DT = (0.0, 1.0)) where {DT <: Tuple}

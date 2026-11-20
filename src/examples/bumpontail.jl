@@ -1,4 +1,22 @@
 
+@doc raw"""
+    BumpOnTail(; ε = 0.03, κ = 0.3, α = 0.1, σ = 0.5, v₀ = 4.5)
+
+The bump-on-tail distribution of the reduced-order experiments,
+
+```math
+f(x, v) = \bigl(1 - \varepsilon \cos(\kappa x)\bigr) \,
+  \frac{1}{\sqrt{2\pi}} \left( (1 - \alpha) \, e^{-v^2/2}
+  + \frac{\alpha}{\sigma} \, e^{-(v - v_0)^2 / (2\sigma^2)} \right) ,
+```
+
+on the periodic interval ``[0, 2\pi/\kappa)``: a Maxwellian bulk and a fraction `α` of particles
+in a beam of the mean velocity `v₀` and the width `σ`, with a perturbation of the amplitude `ε`
+and the wave number `κ` in the density.
+
+`initialize!` fills a 1D1V distribution, by `AcceptRejectSampling()`, the default, or by
+`ImportanceSampling()`; `draw!` describes both.
+"""
 struct BumpOnTail{T} <: VlasovExample
     ε::T    # amplitude of perturbation
     κ::T    # wave number of perturbation

@@ -1,4 +1,13 @@
 
+"""
+    UniformDistribution(xdomain = (0.0, 1.0), vdomain = (-2.0, 2.0))
+
+The uniform distribution on `xdomain × vdomain`.
+
+`initialize!` draws the first position component uniform on `xdomain` and every velocity
+component uniform on `vdomain`, from the global random number generator. Each particle has the
+weight `1/N`.
+"""
 struct UniformDistribution{XT, VT} <: VlasovExample
     xdomain::XT
     vdomain::VT

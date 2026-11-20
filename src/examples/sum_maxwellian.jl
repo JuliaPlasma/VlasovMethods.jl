@@ -1,3 +1,13 @@
+"""
+    SumMaxwellian(; mean_one = 0.0, var_one = 1.0, mean_two = 0.0, var_two = 2.0)
+
+The sum of two normal distributions of equal weight, of the means `mean_one` and `mean_two` and
+the variances `var_one` and `var_two`.
+
+`initialize!` gives the first `N ÷ 2` particles velocities from the first normal distribution
+and the others velocities from the second, in every velocity component, from the global random
+number generator. Each particle has the weight `1/N`. The positions are not written.
+"""
 struct SumMaxwellian{T} <: VlasovExample
     mean_one::T
     var_one::T

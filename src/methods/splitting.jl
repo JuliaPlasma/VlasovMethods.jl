@@ -1,4 +1,21 @@
 
+"""
+    SplittingMethod(model, tspan, tstep)
+
+The splitting method of the particle model `model` over the time span `tspan` with the step
+`tstep`: the `GeometricEquations.SODEProblem` of the parts of the model's vector field and
+their exact solutions, and the `GeometricIntegrators` integrator of their Strang composition. The
+state is a copy of `model.distribution.particles.z`.
+
+A 1D1V [`VlasovPoisson`](@ref) model of a `ParticleDistribution` splits into the advection
+``\\dot{x} = v`` and the acceleration ``\\dot{v} = E(x)``. A
+[`VlasovWithExternalFields`](@ref) model splits into the drift ``\\dot{x} = v`` and the Lorentz
+force, whose exact step is a Boris push.
+
+The fields `model`, `equation` and `integrator` hold the three parts. [`run!`](@ref) advances
+the integrator, and `GeometricIntegrators.integrate(method.integrator)` returns the solution in
+memory.
+"""
 struct SplittingMethod{MT, ET, IT} <: ParticleMethod
     model::MT
     equation::ET
@@ -29,6 +46,17 @@ function copy_to_hdf5(h5z, z, n)
     h5z[:, :, n + 1] = z
 end
 
+"""
+    run!(method::SplittingMethod, h5file)
+
+Advance the splitting method `method` over its time span, write every state into the HDF5 file
+`h5file`, copy the final state into `method.model.distribution.particles.z`, and return that
+distribution.
+
+The file holds the dataset `z` of the size `(nd, npart, ntime)`: `z[:, :, s]` is the state of
+the particles at the `s`-th time of `t₀:Δt:t₁`, the initial state included. The file is created,
+or overwritten, and closed on return, also when a step throws.
+"""
 function run!(method::SplittingMethod, h5file)
     # initial conditions
     z₀ = method.equation.ics.q

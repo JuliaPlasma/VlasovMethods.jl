@@ -425,6 +425,30 @@ their own, except for what they removed and narrowed, which is listed in full be
 
 ### Documentation
 
+- **The documentation is a manual.** The home page gives an overview of the models and their time
+  integrators and no longer renders the API. Thirteen manual pages, under `docs/src/manual/`,
+  describe the package from the bottom up: getting started, the distribution functions, the initial
+  conditions, the projections, the methods and their output, Vlasov–Poisson on particles and on a
+  grid, external electromagnetic fields, the Lenard–Bernstein and the Landau operators, the grid
+  reduced tensors, the reduced-order models, the autoencoder frontends and the plotting functions.
+  Most pages run their examples in the build: a Vlasov–Poisson run on particles and the Landau
+  damping of the grid model, a gyro-orbit in a uniform field, the conservative and the metriplectic
+  Lenard–Bernstein operators and the pairwise Landau method, each with its conservation checked.
+  The pages of the papers' experiments form the part "Reproducing the papers", `docs/src/papers/`,
+  with an overview of the scripts environment, the options and the gate. The docstrings are in the
+  part "Library", `docs/src/library/`, on five pages ordered by the parts of the manual; one page
+  would be 318 KiB, above the 200 KiB that Documenter allows. `docs/Project.toml` adds
+  `GeometricBrackets`, `GeometricIntegrators` and `HDF5`, which the examples load.
+- **Every exported name has a docstring.** The 17 that had none are documented:
+  `ParticleDistribution`, `initialize!`, the eight one-dimensional initial conditions,
+  `LenardBernstein`, `ConservativeLenardBernstein`, `RescaledConservativeLenardBernstein`,
+  `Landau`, `SplittingMethod`, both methods of `run!` and `_apply_∫dv!`; `GeometricIntegrator` has
+  a docstring for its type beside those of its constructors. The `Landau` docstring states the
+  vector field that the code computes, `ν (K_c \ LJ)` for each component, and cites K96 for its
+  difference from the appendix. The docstrings of `NormalDistribution` and `ShiftedNormalV` say
+  that both reseed the global random number generator, and the one of `NormalDistribution` that
+  after a caller's `Random.seed!(1234)` its positions and velocities are the same normal draws,
+  which K104 of `KNOWN_ISSUES.md` records.
 - **Comments and docstrings state what the code does (K26, K33, K55, K58, K59, K62).** The
   `LB_rhs!` docstring and comment are in the present tense. The comment of `CollisionTensor`
   gives its size, `(nx·nv) × (nx·nv) × (nx·nv)`. The comment of `ConservativeLenardBernstein`
@@ -448,19 +472,20 @@ their own, except for what they removed and narrowed, which is listed in full be
   not matter" evaluates that form with `U = 0` and with `U = 7 I` at the coincident pairs and finds
   the same `𝕃`. The error of `𝕃` from the shared quadrature nodes falls under cell refinement. The
   `compute_L!` docstring names `γ`.
-- **The Landau collision operator has a page of its own**, `landau.md`, with the docstrings of
-  both Landau methods: `kernel`, `compute_K!`, `compute_L!`, the `Landau` method of
-  `compute_J!` and `Picard_iterate_Landau_nls!` for the appendix method, and `PairwiseLandau`,
-  `entropy_gradient!`, `apply_G!`, the discrete gradients and `discrete_gradient_step!` for the
-  main-text method. The home page no longer renders them, which keeps its HTML under Documenter's
-  size threshold.
-- **The figures of the collision manuscripts have a page of their own**, `collisions.md`, with one
-  section per driver of the Lenard–Bernstein manuscript: its command, its parameters, its files and
-  how its figures differ from the manuscript's.
-- **The plotting functions have a page of their own**, `plotting.md`, with the docstrings of
+- **The Landau collision operator has a page of its own**, `manual/landau.md`, which describes
+  both Landau methods; the docstrings of `kernel`, `compute_K!`, `compute_L!`, the `Landau` method
+  of `compute_J!`, `Picard_iterate_Landau_nls!`, `PairwiseLandau`, `entropy_gradient!`,
+  `apply_G!`, the discrete gradients and `discrete_gradient_step!` are on the page
+  `library/landau.md`. The home page no longer renders them, which keeps its HTML under
+  Documenter's size threshold.
+- **The figures of the collision manuscripts have a page of their own**, `papers/collisions.md`,
+  with one section per driver of the Lenard–Bernstein manuscript: its command, its parameters, its
+  files and how its figures differ from the manuscript's.
+- **The plotting functions have a page of their own**, `manual/plotting.md`, which lists
   `plot_distribution`, `plot_particles`, `plot_series`, `plot_groups`, `plot_damping` and
-  `plot_phase_space` and of the six collision figures. The home page no longer renders them: with
-  them, its HTML was 199.54 KiB of the 200 KiB that Documenter allows.
+  `plot_phase_space` and the six collision figures; their docstrings are on the page
+  `library/plotting.md`. The home page no longer renders them: with them, its HTML was 199.54 KiB of the
+  200 KiB that Documenter allows.
 
 ### Internal
 

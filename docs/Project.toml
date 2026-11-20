@@ -1,6 +1,9 @@
 [deps]
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+GeometricBrackets = "2a9ffa85-4e0d-473f-b05e-278d80d8d306"
+GeometricIntegrators = "dcce2d33-59f6-5b8d-9047-0defad88ae06"
+HDF5 = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
 PoissonSolvers = "8f9e8900-be71-40de-a258-603fdc860a2d"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 SimpleSplines = "ac480f6c-9a94-4d53-a283-9db69f109154"
