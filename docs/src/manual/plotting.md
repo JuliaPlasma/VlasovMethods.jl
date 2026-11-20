@@ -23,7 +23,7 @@ the examples of this manual use them too.
 | [`plot_particles`](@ref) | the particles of a distribution or of a saved state of [`Snapshots`](@ref) as a scatter |
 | [`plot_series`](@ref) | several series against time on one axis |
 | [`plot_groups`](@ref) | groups of series, one colour per group |
-| [`plot_damping`](@ref) | the peaks of ``\log |E_1|`` of damping runs with their fitted rates |
+| [`plot_damping`](@ref) | the peaks of ``\log \lvert E_1 \rvert`` of damping runs with their fitted rates |
 | [`plot_phase_space`](@ref) | the particles of a trajectory at several time slices, one panel each |
 | [`plot_velocity_projections`](@ref) | the right-hand side of a collision model and the spline projections of the particles |
 

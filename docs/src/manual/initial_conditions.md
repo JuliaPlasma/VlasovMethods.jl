@@ -66,7 +66,8 @@ weighted = initialize!(ParticleDistribution(1, 1, 10_000), params,
 (sum(accepted.particles.w), sum(weighted.particles.w), 2π / params.κ)
 ```
 
-Both samples carry the total weight ``\int f \, dx \, dv = L``.
+The accept–reject sample carries the total weight ``\int f \, dx \, dv = L`` exactly. The weights
+of the importance sample sum to its Sobol quadrature of that integral, which is close to ``L``.
 
 ```@example bumpontail
 using CairoMakie

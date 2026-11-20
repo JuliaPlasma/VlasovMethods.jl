@@ -56,10 +56,12 @@ the energy. The cost of one evaluation is ``O(N^2)`` kernel evaluations.
 
 solved by a fixed-point iteration to the absolute residual `abstol`. The step writes the new
 velocities into the particles, and returns the number of iterations and the final residual. It
-conserves the momentum to rounding, the energy to the tolerance of the iteration, and the discrete
-gradient gives the discrete H-theorem. Two discrete gradients are implemented: the
-[`GonzalezGradient`](@ref), the default and the choice of the manuscript, and the
-[`AVFGradient`](@ref), the average of the gradient along the segment.
+conserves the momentum to rounding and the energy to the tolerance of the iteration. The discrete
+gradient gives the discrete H-theorem at the fixed point of the iteration, which the accepted
+state misses by a residual of at most `abstol`. Two discrete gradients are implemented: the
+[`GonzalezGradient`](@ref), the default and the choice of the manuscript, gives it to rounding, and
+the [`AVFGradient`](@ref), the average of the gradient along the segment, to the quadrature error
+of its rule.
 
 The example below relaxes the BKW profile of 200 particles over 20 steps, on quadratic splines of
 8 cells per axis:

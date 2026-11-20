@@ -560,13 +560,13 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K100 · Inference does not give a concrete type for `GeometricIntegrator(model, tspan, tstep[, method])` of `LenardBernstein`, `ConservativeLenardBernstein` and `RescaledConservativeLenardBernstein`, because the `ODEProblem` constructor of GeometricEquations and the Newton solver of SimpleSolvers infer free type parameters.
 
-- **location:** `src/models/lenard_bernstein_conservative.jl:229`
+- **location:** `src/models/lenard_bernstein_conservative.jl:257`
 - **evidence:** For each of the three models, `Base.return_types` of the constructor is a
   `UnionAll` over `ET <: EquationProblem` and `IT <: GeometricIntegrator`, or a `Union`, with or
   without the method argument and on `main` as on the branch; the object that the call returns
-  has a concrete type. The constructors (`src/models/lenard_bernstein.jl:95`,
-  `src/models/lenard_bernstein_conservative.jl:223`,
-  `src/models/rescaled_lenard_bernstein_conservative.jl:144`) only call `ODEProblem` and
+  has a concrete type. The constructors (`src/models/lenard_bernstein.jl:115`,
+  `src/models/lenard_bernstein_conservative.jl:251`,
+  `src/models/rescaled_lenard_bernstein_conservative.jl:167`) only call `ODEProblem` and
   `Integrators.GeometricIntegrator`, and both calls infer free parameters on a toy problem, with
   GeometricEquations 0.21.6, GeometricIntegrators 0.18.7 and SimpleSolvers 0.14.3:
   ```julia
