@@ -51,13 +51,15 @@ at `t = 0.0504`. K94 of `KNOWN_ISSUES.md` records each stop at the manuscript's 
 julia --project=scripts scripts/pd_lb_fig1_2.jl
 ```
 
-Figure 1 is the norm `‖v̇‖₂` of the right-hand side at `10⁵` normal velocities, which are never
-projected, with the Maxwellian projected onto `M = 24, …, 78` basis functions, against the cell
-width. Figure 2 is the sample variance `Σ v̇² / N` of `N` projected normal velocities on 41 basis
-functions, against `1 / N`, for `N` from `10²` to `10⁵` in steps of a quarter decade. Files:
-`pd_lb_fig1.pdf`, `pd_lb_fig2.pdf`, `pd_lb_fig1.hdf5`, `pd_lb_fig2.hdf5`. Both figures depart
-from the PD-LB manuscript's, which draws `‖v̇‖₂` against `M` with the reference curve `M⁻⁴` and
-the sample variance against `N` with the reference curve `1 / N`, where these draw them against
+Figure 1 is the norm `‖v̇‖₂` of the right-hand side at `10⁵` normal velocities, drawn after
+seeding the random number generator with `--seed 1`, which are never projected, with the
+Maxwellian projected onto `M = 24, …, 78` basis functions, against the cell width. Figure 2 is
+the sample variance `Σ v̇² / N` of `N` projected normal velocities on 41 basis functions, against
+`1 / N`, for `N` from `10²` to `10⁵` in steps of a quarter decade, each sample drawn after seeding
+the generator with `--seed` again. Files: `pd_lb_fig1.pdf`, `pd_lb_fig2.pdf`, `pd_lb_fig1.hdf5`,
+`pd_lb_fig2.hdf5`. Both figures depart from the PD-LB manuscript's, which draws `‖v̇‖₂` against
+`M` with the reference curve `M⁻⁴` and the sample variance against `N` with the reference curve
+`1 / N`, where these draw them against
 the cell width and against `1 / N`, with the least-squares line `C h^p` of `plot_convergence` and
 its exponent `p`.
 
@@ -65,13 +67,23 @@ With the defaults the driver exits 0. Where the projection is not positive at a 
 `DomainError` of `compute_coefficients`, the operator stops at that point of the sweep: the
 driver prints the stop, leaves the point out of the figure and goes on, and the HDF5 file of the
 figure records the first such `M` or `N` as the attribute `stopped_at` beside the points it
-computed. With the defaults, figure 1 stops at `M = 25`, where the projected Maxwellian is
-`−2.4e-5` at two of the `10⁵` velocities, and draws the other 54 values of `M`; figure 2 stops at
-`N = 5623` and `N = 31623`, and draws the other 11 values of `N`. A sweep that computes fewer
-than two points leaves `plot_convergence` nothing to fit, and its `ArgumentError` stops the
-driver.
+computed. A sweep that computes fewer than two points leaves `plot_convergence` nothing to fit,
+and its `ArgumentError` stops the driver.
 
-`--quick` takes 2000 velocities, `M ∈ {24, 41, 78}` and `N` from 100 to 1778.
+Which points stop depends on the sample. The numbers of a run are expected to change within
+bounds as the package develops: the scripts reproduce the manuscript's figures qualitatively, and
+quantitatively within bounds, not to the last digit. `scripts/gate.jl` checks the bounds: each
+sweep computes at least a quarter of its points, and the fitted exponents lie in `[3, 5]` for
+figure 1, around the manuscript's `M⁻⁴`, and in `[0.1, 2]` for figure 2, a variance that
+decreases with `N`, around its `1 / N`. One run with the defaults, with Julia 1.13.4 on 2026-11-20,
+stops figure 1 at `M = 25` and draws the other 54 values of `M`, with the exponent `3.36`; it
+stops figure 2 at `N = 3162` and `N = 17783` and draws the other 11 values of `N`, with the
+exponent `0.76`. Over the seeds 1 to 20, the exponents lie between `3.34` and `3.50` and between
+`0.21` and `1.19`, and figure 2 draws 5 to 12 of the 13 values of `N`: the exponent of figure 2
+depends on the sample far more than that of figure 1.
+
+`--quick` takes 2000 velocities, `M ∈ {24, 41, 78}` and `N` from 100 to 1778. Six values of `N`
+up to 1778 are too few for the exponent of figure 2 to mean anything.
 
 ### Relaxation of a shifted normal distribution
 

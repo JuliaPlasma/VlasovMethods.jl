@@ -474,14 +474,16 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **location:** `src/models/lenard_bernstein_conservative.jl:144`
 - **evidence:** `compute_coefficients` of `ConservativeLenardBernstein` throws a `DomainError`
   where `f_s ≤ 0` at a particle (`:144`), and the manuscripts' parameters reach it:
-  `julia --project=scripts scripts/pd_lb_fig1_2.jl` prints `nbasis =     25: the operator stops:
-  the projected distribution is non-positive at v = 4.055196391323677`, and the same for
-  `npart =   5623` at `v = 3.799579553401782` and `npart =  31623` at `v = 4.432320203818066`; at
-  `M = 25` the projected Maxwellian is `−2.4e-5` at two of the `10⁵` velocities. The sweeps leave
-  these points out of figures 1 and 2, record `stopped_at = 25` and `stopped_at = 5623`, and
-  exit 0. `julia --project=scripts scripts/pd_lb_fig7_8.jl` stops in the step 1768
-  to `t = 1.4144`, where the projection is `−1.58e-7` at `v = −6.42`; it writes
-  `pd_lb_fig7_8.hdf5` with `stopped_at = 1.4144`, writes no figure and exits non-zero.
+  one run of `julia --project=scripts scripts/pd_lb_fig1_2.jl` at its default `--seed 1`, with
+  Julia 1.13.4 on 2026-11-20, prints `nbasis =     25: the operator stops: the projected
+  distribution is non-positive at v = 3.9517739700081314`, and the same for `npart =   3162` at
+  `v = -3.280449770438173` and `npart =  17783` at `v = -3.815087083306259`. The sweeps leave
+  these points out of figures 1 and 2, record `stopped_at = 25` and `stopped_at = 3162`, and
+  exit 0. Which points stop depends on the sample: over the seeds 1 to 20, `M = 25` stops at
+  every seed, and 1 to 8 of the 13 values of `N` stop.
+  `julia --project=scripts scripts/pd_lb_fig7_8.jl` stops in the step 1768 to `t = 1.4144`, where
+  the projection is `−1.58e-7` at `v = −6.42`; it writes `pd_lb_fig7_8.hdf5` with
+  `stopped_at = 1.4144`, writes no figure and exits non-zero.
   `LB_rhs_GI!` evaluates `f_s'/f_s + v` at each particle (`src/models/lenard_bernstein.jl:80`)
   and does not refuse `f_s ≤ 0`. Where an iterate of the Newton solve of the implicit midpoint
   rule meets a small or negative `f_s` in the tail, the ratio sends a particle out of `[−10, 10]`,
@@ -638,3 +640,15 @@ has left the file, or that lived only on a merged branch, stays taken.
   the `Dict`, decided together with GeometricIntegratorsBase.
 - **kind:** defect
 - **found:** 2026-11-09
+
+### K105 · `initialize!` of `ShiftedNormalV` calls `Random.seed!(1234)` between the draw of the positions and the draw of the velocities, so every call draws the same velocities and resets the global generator for the draws after it.
+
+- **location:** `src/examples/shiftednormalv.jl:29`
+- **evidence:** the same reseed that K104 removed from `NormalDistribution`. The docstring states
+  it (`:7-12`), and `scripts/pd_lb_common.jl` (`initial_distribution`),
+  `scripts/pd_lb_fig3_6.jl` and `scripts/lenard_bernstein_metriplectic.jl` describe it: figures 3
+  to 6 and the shifted normal case of the metriplectic driver take their fixed sample from it and
+  take no `--seed`. A fix changes those samples, as K104 changed the sample of
+  `scripts/pd_lb_fig1_2.jl`, so it goes with a `--seed` for both drivers and new measurements.
+- **kind:** defect
+- **found:** 2026-11-20

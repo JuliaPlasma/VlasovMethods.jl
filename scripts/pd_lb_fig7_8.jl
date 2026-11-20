@@ -12,8 +12,8 @@
 # (`sec:time_discretisation`) at the step `--tstep` to `--final-time`.
 #
 # Figure 7 is the initial and the final distribution (`fig:double_maxwellian_example`), and
-# figure 8 the entropy `S_h` (`fig:entropy_ex2`). The page `docs/src/collisions.md` states how
-# each figure departs from the manuscript's.
+# figure 8 the entropy `S_h` (`fig:entropy_ex2`). The page `docs/src/scripts/collisions.md`
+# states how each figure departs from the manuscript's.
 #
 # Where the projection throws, the run stops with its `DomainError`: `relax` writes the record
 # `pd_lb_fig7_8.hdf5` with the attribute `stopped_at`, the time of the step that threw, and the

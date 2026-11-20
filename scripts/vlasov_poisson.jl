@@ -28,8 +28,8 @@ const DOMAIN = (0.0, 1.0)
 function main(o)
     tspan = (0.0, o.final_time)
 
-    # create and initialize particle distribution function; `NormalDistribution` draws the
-    # positions before its own `Random.seed!`, so the generator is seeded here
+    # create and initialize particle distribution function; `NormalDistribution` draws from the
+    # global generator, so it is seeded here
     Random.seed!(o.seed)
     dist = initialize!(ParticleDistribution(1, 1, o.npart), NormalDistribution())
 

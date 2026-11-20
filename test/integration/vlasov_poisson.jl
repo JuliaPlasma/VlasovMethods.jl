@@ -17,8 +17,8 @@ function particle_distribution(::Type{T}, npart) where {T}
     ParticleDistribution(1, 1, ParticleList(z; variables = vars))
 end
 
-# `NormalDistribution` draws `x₀` before its own `Random.seed!`, so the generator is seeded here,
-# before `initialize!`, or the positions differ on every run.
+# `NormalDistribution` draws from the global generator, so it is seeded here, before
+# `initialize!`, or the particles differ on every run.
 function vlasov_poisson(::Type{T}; npart = 1000, ncells = 16, order = 3) where {T}
     Random.seed!(1234)
     dist = initialize!(particle_distribution(T, npart), NormalDistribution((T(0), T(1))))

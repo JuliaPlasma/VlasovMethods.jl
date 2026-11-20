@@ -27,6 +27,16 @@ their own, except for what they removed and narrowed, which is listed in full be
   now drawn from the global generator without the reseed, so a sample of a given seed differs
   from before. A new testset of `test/distributions/particle_distribution.jl` checks the
   correlation of the positions and the velocities, and that two calls draw different velocities.
+  `scripts/pd_lb_fig1_2.jl` took its fixed sample from the reseed; it now takes `--seed`, 1 by
+  default, seeds the draw of figure 1 and each draw of figure 2 with it, and records it in both
+  HDF5 files. At the seed 1, figure 2 stops at `N = 3162` and `N = 17783` where it stopped at
+  `N = 5623` and `N = 31623` (K94). `scripts/gate.jl` checks the convergence figures within bounds
+  instead of at their stop points: it runs the driver with its defaults, checks that each record
+  holds the points that do not stop and `stopped_at` at the first that does, that each sweep
+  computes at least a quarter of its points, and that the fitted exponents lie in `[3, 5]` and
+  `[0.1, 2]`, bounds that every seed from 1 to 20 meets. The edge runs of `pd_lb_fig7_8.jl`,
+  `lenard_bernstein_metriplectic.jl` and `landau_cases.jl` that stop check that the record holds
+  the steps reached and `stopped_at` the step after them, not the step at which they stop.
 - **The metriplectic paths take `log|f_s|`, as the Landau and Lenard-Bernstein manuscripts do.**
   `CollisionEntropy` evaluates `S_h = ∫ f_s log|f_s|` (`eq:disc_entropy`), `compute_J!` of
   `Landau` and of `MetriplecticLenardBernstein` project `1 + log|f_s|` (`eq:defn_Lk`), and
@@ -324,7 +334,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   figure 11 sends a particle out of the velocity domain (K94). The drivers take their steps
   themselves, `final_time / tstep` rounded up after rounding the quotient to eight digits.
   `scripts/gate.jl` runs each driver with `--quick` and checks its files, its records and its edges,
-  a forced stop of figures 7 and 8 among them. `docs/src/collisions.md` gives each command.
+  a forced stop of figures 7 and 8 among them. `docs/src/scripts/collisions.md` gives each
+  command.
 - **`scripts/lenard_bernstein_metriplectic.jl` runs the three tests of the metriplectic
   Lenard–Bernstein manuscript with either bracket.** `--case` takes `shifted-normal`, the default,
   `double-maxwellian` or `uniform`, each with the parameters of the PD-LB figures of the same
@@ -346,8 +357,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   `--tolerance`. At the manuscript's parameters the fits differ from the closed forms by
   `5.4e-3` and `6.0e-3` and from the controls by `9.9e-1` and `5.0e-1`. Every run at these
   parameters stops where the Picard solve of a step does not converge (K95), so
-  `docs/src/collisions.md` lists the stops in place of figures. `scripts/gate.jl` runs the six
-  quick runs, the two unknown values, `--tolerance` on the uniform case, a stopped run and two
+  `docs/src/scripts/collisions.md` lists the stops in place of figures. `scripts/gate.jl` runs the
+  six quick runs, the two unknown values, `--tolerance` on the uniform case, a stopped run and two
   runs whose rate check fails, one on its closed form and one on its control.
   `scripts/lenard_bernstein_metriplectic_rate_stalls.jl` probes each step on which the rate
   check's fixed-point solve stalls, and prints the step, its residual, the velocity of the particle

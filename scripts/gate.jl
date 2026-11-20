@@ -18,29 +18,38 @@
 # `5e-3`, where the quick run measures `4.4e-4` to `1.5e-3`, and its first step must solve the
 # implicit midpoint rule to a relative residual below `1e-10`, where it measures `7e-15`.
 # `pd_lb_fig7_8.jl` must start from the velocities that `DoubleMaxwellian` draws after
-# `Random.seed!(1)`, and the quick records of `pd_lb_fig1_2.jl` must hold no `stopped_at`, because
-# neither quick sweep stops.
+# `Random.seed!(1)`.
 #
-# Six more runs check the edges of the drivers:
+# The figures of `pd_lb_fig1_2.jl` are checked as the PD-LB manuscript shows them, within bounds,
+# and not to the number: the numbers of a run move as the package develops. Each record of a sweep
+# must hold exactly the points that the driver does not print as a stop, and `stopped_at` exactly
+# where it prints one, equal to the first. The quick run must fit the exponent of figure 1 within
+# `FIG1_EXPONENT`; its figure 2, six `N` up to 1778, is too short for its exponent to mean
+# anything. The driver also runs once with its defaults, the manuscript's parameters, in about
+# 20 s alone: each sweep must compute at least a quarter of its points, the run must stop at least
+# once while K94 holds, so that the gate sees a point left out, and the fitted exponents must lie
+# in `FIG1_EXPONENT` around the manuscript's `M⁻⁴` and in `FIG2_EXPONENT`, a variance that
+# decreases with `N`, around its `1 / N`. The bounds hold at every seed from 1 to 20, so that a
+# change that only changes the sample does not fail them: over these seeds the default run fits
+# `3.34` to `3.50` and `0.21` to `1.19`, stops at `M = 25` at every seed and computes 5 to 12 of
+# the 13 `N`; at the seed 1 of `--seed`, `3.36` and `0.76`, and 11 of the 13.
+#
+# Five more runs check the edges of the drivers:
 #
 # - `pd_lb_fig11.jl` in an empty working directory, with `--runs-dir` and `--results-dir` two
 #   levels below a directory that does not have them, the first level named with a space, and
 #   with `GIT_DIR` naming a path that does not exist: both directories are created and hold its
 #   files, the working directory stays empty, `commit` is `"unknown"`, and `command` quotes the
 #   paths with the space;
-# - `pd_lb_fig1_2.jl` with the sweeps `M ∈ {24, 25, 26}` at `10⁴` particles and
-#   `N ∈ {1000, 5623, 10000, 31623}`, where the projection is not positive at a particle of
-#   `M = 25`, of `N = 5623` and of `N = 31623`: it exits 0, prints each stop, records
-#   `stopped_at = 25` beside `M ∈ {24, 26}` and `stopped_at = 5623` beside `N ∈ {1000, 10000}`,
-#   and writes both figures;
 # - `pd_lb_fig1_2.jl` with `M ∈ {24, 3, 41}`, where `M = 3` throws an `ArgumentError`, which is
 #   not the model's: it exits non-zero with that error and writes no figure 1;
 # - `pd_lb_fig11.jl` with `--tolerance 1e-4`, below the relative errors of the quick run, which
 #   are above `4e-4`: it prints the three relative errors and exits non-zero;
 # - `pd_lb_fig7_8.jl` with 60 particles, the step `0.03` and `--seed 4`, where the projection is
-#   not positive at a particle in the fifth step: it exits non-zero with the `DomainError`, writes
-#   no figure, and writes `pd_lb_fig7_8.hdf5` with `commit`, `command`, `stopped_at = 5 * 0.03`,
-#   the four steps reached in `t` and `z`, and the velocities of the seed 4 in the first column;
+#   not positive at a particle in a step before the final time: it exits non-zero with the
+#   `DomainError`, writes no figure, and writes `pd_lb_fig7_8.hdf5` with `commit`, `command`, the
+#   steps reached in `t` and `z`, `stopped_at` the time of the step after the last of them, and
+#   the velocities of the seed 4 in the first column;
 # - `pd_lb_fig11.jl` with `--runs-dir` below a regular file, which cannot be created: it exits
 #   non-zero with an error that names the path given.
 #
@@ -62,10 +71,11 @@
 #   names the flag and the value, and creates neither `--runs-dir` nor `--results-dir`;
 # - `--case uniform` with `--tolerance`, an option of the shifted normal alone: it exits non-zero
 #   with the `ArgumentError` that names `--tolerance`, and creates neither directory;
-# - the shifted normal with the Dougherty bracket and 1000 particles, where the Picard solve of the
-#   sixth step does not converge: it exits non-zero, writes no figure, and writes its record with
-#   `commit`, `command`, `stopped_at = 6 * 8e-4`, the five steps reached in `t` and `z`, and the 64
-#   samples of its rate check in `rate_t` and `rate_temperature`;
+# - the shifted normal with the Dougherty bracket and 1000 particles, where a Picard solve does not
+#   converge in a step before the final time: it exits non-zero, writes no figure, and writes its
+#   record with `commit`, `command`, the steps reached in `t` and `z`, `stopped_at` the time of the
+#   step after the last of them, and the 64 samples of its rate check in `rate_t` and
+#   `rate_temperature`;
 # - the shifted normal with `--tolerance 1e-3`, below the relative difference of the quick fit to
 #   its closed form, which is `1.5e-2`, and with `--tolerance 1.5`, above the relative difference
 #   of the fit to its control, which is `0.97`: each prints its wall-clock time, writes its three
@@ -90,10 +100,10 @@
 # than `2 %` from `4`, and that its record carries the measured rate. Two more runs check its
 # edges:
 #
-# - `--method pairwise --tstep 1e-3 --ncell 8`, whose third step does not converge: it exits
-#   non-zero, writes no figure, and writes its record with `commit`, `command`, `ncell = 8`,
-#   `stopped_at = 3e-3` and the two steps reached. On the 4 cells of `--quick` the same steps
-#   converge;
+# - `--method pairwise --tstep 1e-3 --ncell 8`, where a step before the final time does not
+#   converge: it exits non-zero, writes no figure, and writes its record with `commit`, `command`,
+#   `ncell = 8`, the steps reached, and `stopped_at` the time of the step after the last of them.
+#   On the 4 cells of `--quick` the same steps converge;
 # - the rate check with `--tolerance 1e-4`, below the relative difference `1.2e-3` of the rate: it
 #   writes its files, says that the rate check fails and exits non-zero.
 #
@@ -113,9 +123,9 @@
 # the measured value against it. The measured value carries its sign: at `N = 400`, `M = 324` the
 # pairwise method's is negative and the spline method's positive (K96). No word of the output of
 # `landau_cases.jl` and `landau_compare.jl`, of their tables, of the Landau section of
-# `docs/src/collisions.md` or of the CHANGELOG entries that name them ranks one method above the
-# other: the gate fails on `faster`, `better`, `slower`, `cheaper`, `outperforms` and `wins` in
-# any case.
+# `docs/src/scripts/collisions.md` or of the CHANGELOG entries that name them ranks one method
+# above the other: the gate fails on `faster`, `better`, `slower`, `cheaper`, `outperforms` and
+# `wins` in any case.
 #
 # The drivers outside the collision manuscripts, `analytic_quadratic.jl`, the four
 # `bump_on_tail_*.jl` drivers, `landau_damping_1d1v.jl` and `vlasov_poisson.jl`, run with the small
@@ -262,8 +272,10 @@ const DRIVER_DEFAULTS = Dict(
 
 const QUICK = Dict(
     "pd_lb_fig1_2.jl" => (figures = ["pd_lb_fig1.pdf", "pd_lb_fig2.pdf"],
-        records = ["pd_lb_fig1.hdf5" => (npart = 2000, nbasis = [24, 41, 78]),
-            "pd_lb_fig2.hdf5" => (sweep_npart = [100, 178, 316, 562, 1000, 1778],)]),
+        records = [
+            "pd_lb_fig1.hdf5" => (npart = 2000, nbasis = [24, 41, 78], seed = 1),
+            "pd_lb_fig2.hdf5" =>
+                (sweep_npart = [100, 178, 316, 562, 1000, 1778], seed = 1)]),
     "pd_lb_fig3_6.jl" => (
         figures = ["pd_lb_fig3.pdf", "pd_lb_fig4.pdf", "pd_lb_fig5.pdf", "pd_lb_fig6.pdf"],
         records = ["pd_lb_fig3_5.hdf5" => (npart = 200, final_time = 0.05),
@@ -276,6 +288,17 @@ const QUICK = Dict(
         records = ["pd_lb_fig11.hdf5" =>
             (npart = 200, tstep = 1e-2, final_time = 0.1,
                 tolerance = 0.05)]))
+
+# The sweeps of `pd_lb_fig1_2.jl`: the dataset of the points and that of the values of each
+# record, and the defaults of the driver, the manuscript's parameters.
+const FIG12_SWEEPS = ("pd_lb_fig1.hdf5" => ("nbasis", "norm"),
+    "pd_lb_fig2.hdf5" => ("npart", "variance"))
+const FIG12_DEFAULTS = (npart = 100_000, nbasis = collect(24:78), sweep_nbasis = 41,
+    sweep_npart = round.(Int, 10 .^ (2:0.25:5)), seed = 1)
+# The bounds of the fitted exponents: figure 1 against the cell width, the manuscript's `M⁻⁴`,
+# and figure 2 against `1 / N`, the manuscript's `1 / N`.
+const FIG1_EXPONENT = (3.0, 5.0)
+const FIG2_EXPONENT = (0.1, 2.0)
 
 const CUMULANT_ROW = r"^  κ₄ at t = (\S+): run \S+, closed form \S+, relative error (\S+)$"
 
@@ -367,7 +390,7 @@ function check_record(path, args, parameters)
         for (key, value) in pairs(parameters)
             name = String(key)
             check(haskey(attributes, name) && attributes[name] == value,
-                "$(basename(path)) records the quick $(name) = $(value)")
+                "$(basename(path)) records $(name) = $(value)")
         end
     end
     return nothing
@@ -377,6 +400,55 @@ function check_figure(path)
     check(isfile(path) && filesize(path) > 0, "$(basename(path)) is written") &&
         @printf("    %s: %d bytes\n", basename(path), filesize(path))
     return nothing
+end
+
+# The cell width of a cubic basis of `M` functions on the velocity domain, the `h` of figure 1.
+cell_width(M) = (last(VELOCITY_DOMAIN) - first(VELOCITY_DOMAIN)) / (M - ORDER + 1)
+
+# The slope `p` of the least-squares line through `(ln h, ln err)`, as `plot_convergence` fits it.
+function fitted_exponent(h, err)
+    lnh, lnerr = log.(h), log.(err)
+    dh = lnh .- sum(lnh) / length(lnh)
+    return sum(dh .* lnerr) / sum(abs2, dh)
+end
+
+# The record `name` of a sweep of `pd_lb_fig1_2.jl` in `runs`, against the points `points` that
+# the driver was given and the stops that it printed in `output`: the record must hold the points
+# that do not stop and no other, and `stopped_at` exactly where a point stops, equal to the first.
+# Returns the points and the values that the record holds, empty where it is not written.
+function check_sweep(runs, name, points, output)
+    dataset, value = Dict(FIG12_SWEEPS)[name]
+    path = joinpath(runs, name)
+    isfile(path) || return Int[], Float64[]
+    stop_row = Regex("^  $(dataset) = +(\\d+): the operator stops: ", "m")
+    stops = [parse(Int, m[1]) for m in eachmatch(stop_row, output)]
+    reached, values, stopped = h5open(path, "r") do file
+        attributes = HDF5.attrs(file)
+        read(file[dataset]), read(file[value]), get(attributes, "stopped_at", nothing)
+    end
+    check(reached == setdiff(points, stops),
+        "$(name) holds the $(length(reached)) of the $(length(points)) values of $(dataset) " *
+        "that do not stop, and leaves out $(stops)")
+    check(stopped == (isempty(stops) ? nothing : first(stops)),
+        "$(name) records stopped_at = $(stopped) where the first stop is $(first(stops, 1))")
+    return reached, values
+end
+
+# The record of a run that stopped: the times `t` of the steps reached, `k * tstep` from `k = 0`,
+# and `stopped_at`, the time of the step after the last of them, at or before the final time.
+# Returns the number of times, 0 where the record is not written.
+function check_stopped_steps(path, tstep, final_time)
+    isfile(path) || return 0
+    t = h5read(path, "t")
+    stopped = h5open(file -> get(HDF5.attrs(file), "stopped_at", nothing), path, "r")
+    n = length(t)
+    check(
+        n ≥ 1 && t ≈ collect(0:(n - 1)) .* tstep && stopped !== nothing &&
+            isapprox(stopped, n * tstep; rtol = 1e-12) &&
+            n ≤ nsteps(final_time, tstep),
+        "$(basename(path)) records the $(n - 1) steps reached and stopped_at = $(stopped), " *
+        "the step after them, before the final time $(final_time)")
+    return n
 end
 
 # The times and the relative errors of the rows of the cumulant comparison in `output`.
@@ -402,10 +474,10 @@ function midpoint_residual(path, tstep)
     return maximum(abs, z[:, 2] .- z[:, 1] .- tstep .* v̇) / maximum(abs, z[:, 2] .- z[:, 1])
 end
 
-# The Landau section of `docs/src/collisions.md`: from `LANDAU_DOCS_HEADING` to the next heading
-# of its level, or to the end of the page; empty where the page has no such heading.
+# The Landau section of `docs/src/scripts/collisions.md`: from `LANDAU_DOCS_HEADING` to the next
+# heading of its level, or to the end of the page; empty where the page has no such heading.
 function landau_docs_section()
-    lines = readlines(joinpath(ROOT, "docs", "src", "collisions.md"))
+    lines = readlines(joinpath(ROOT, "docs", "src", "scripts", "collisions.md"))
     from = findfirst(==(LANDAU_DOCS_HEADING), lines)
     from === nothing && return ""
     to = findnext(line -> startswith(line, "## "), lines, from + 1)
@@ -432,9 +504,7 @@ const WORK = mktempdir()
 const NESTED = joinpath(mktempdir(), "new dir", "deeper")
 stray = start("pd_lb_fig11.jl", ["--quick"]; out = NESTED, dir = WORK,
     env = "GIT_DIR" => joinpath(WORK, "no-such-git-dir"))
-stop = start("pd_lb_fig1_2.jl",
-    ["--quick", "--npart", "10000", "--nbasis", "24,25,26", "--sweep-npart",
-        "1000,5623,10000,31623"])
+sweeps = start("pd_lb_fig1_2.jl", String[])
 other = start("pd_lb_fig1_2.jl", ["--quick", "--nbasis", "24,3,41"])
 miss = start("pd_lb_fig11.jl", ["--quick", "--tolerance", "1e-4"])
 halt = start("pd_lb_fig7_8.jl",
@@ -492,7 +562,7 @@ const DOCS_BUILD = start_julia("the docs build", "docs", ["docs/make.jl"])
 atexit(() -> foreach(
     job -> process_running(job.process) && kill(job.process, Base.SIGKILL),
     [jobs; mplb; landau; collect(values(PLOTTING_JOBS));
-     [stray, stop, other, miss, halt, unmade, unknown_case, unknown_bracket,
+     [stray, sweeps, other, miss, halt, unmade, unknown_case, unknown_bracket,
          untolerant, unsolved, tight, loose, landau_rate, landau_stop, landau_tight, compare,
          PLOTTING_TESTS, DOCS_BUILD]]))
 
@@ -651,11 +721,15 @@ for job in jobs
         check(z[:, 1] == drawn.particles.v[1, :],
             "pd_lb_fig7_8.jl starts from the velocities of the seed 1")
     elseif job.script == "pd_lb_fig1_2.jl"
-        for record in ("pd_lb_fig1.hdf5", "pd_lb_fig2.hdf5")
-            path = joinpath(job.runs, record)
-            isfile(path) || continue
-            check(!h5open(file -> haskey(HDF5.attrs(file), "stopped_at"), path, "r"),
-                "$(record) records no stopped_at where the sweep does not stop")
+        quick = Dict(expected.records)
+        M, norms = check_sweep(
+            job.runs, "pd_lb_fig1.hdf5", quick["pd_lb_fig1.hdf5"].nbasis,
+            output)
+        check_sweep(job.runs, "pd_lb_fig2.hdf5", quick["pd_lb_fig2.hdf5"].sweep_npart, output)
+        if length(M) ≥ 2
+            p = fitted_exponent(cell_width.(M), norms)
+            check(FIG1_EXPONENT[1] ≤ p ≤ FIG1_EXPONENT[2],
+                "the exponent of figure 1 lies in $(FIG1_EXPONENT): $(p)")
         end
     end
 end
@@ -676,24 +750,25 @@ if check(isfile(joinpath(stray.runs, "pd_lb_fig11.hdf5")),
         "command quotes the paths with a space: $(command)")
 end
 
-println("pd_lb_fig1_2.jl with sweeps that the projection stops")
-output = finish(stop)
-for (figure, record, dataset, reached, stops) in (
-    ("pd_lb_fig1.pdf", "pd_lb_fig1.hdf5", "nbasis", [24, 26], [25]),
-    ("pd_lb_fig2.pdf", "pd_lb_fig2.hdf5", "npart", [1000, 10000], [5623, 31623]))
-    check(
-        all(
-            p -> occursin(Regex("^  $(dataset) = +$(p): the operator stops: ", "m"), output),
-            stops),
-        "it prints the stop at $(dataset) = $(stops)")
-    check_figure(joinpath(stop.results, figure))
-    check(isfile(joinpath(stop.runs, record)), "$(record) is written") || continue
-    h5open(joinpath(stop.runs, record), "r") do file
-        attributes = HDF5.attrs(file)
-        check(haskey(attributes, "stopped_at") && attributes["stopped_at"] == first(stops),
-            "$(record) records stopped_at = $(first(stops))")
-        check(read(file[dataset]) == reached, "$(record) records $(dataset) = $(reached) alone")
-    end
+println("pd_lb_fig1_2.jl with the manuscript's parameters")
+output = finish(sweeps)
+check(occursin("the operator stops: ", output), "a point stops and is left out of its figure")
+for (name, figure, h, bounds, parameters) in (
+    ("pd_lb_fig1.hdf5", "pd_lb_fig1.pdf", cell_width, FIG1_EXPONENT,
+    (; FIG12_DEFAULTS.npart, FIG12_DEFAULTS.nbasis)),
+    ("pd_lb_fig2.hdf5", "pd_lb_fig2.pdf", N -> 1 / N, FIG2_EXPONENT,
+    (; FIG12_DEFAULTS.sweep_nbasis, FIG12_DEFAULTS.sweep_npart)))
+    # the last parameter holds the points of the sweep
+    points = last(parameters)
+    check_figure(joinpath(sweeps.results, figure))
+    check_record(joinpath(sweeps.runs, name), sweeps.args,
+        (; parameters..., seed = FIG12_DEFAULTS.seed))
+    reached, values = check_sweep(sweeps.runs, name, points, output)
+    check(4 * length(reached) ≥ length(points),
+        "$(name) computes at least a quarter of its $(length(points)) points: $(length(reached))")
+    length(reached) ≥ 2 || continue
+    p = fitted_exponent(h.(reached), values)
+    check(bounds[1] ≤ p ≤ bounds[2], "the exponent of $(figure) lies in $(bounds): $(p)")
 end
 
 println("pd_lb_fig1_2.jl with a basis too small for the spline")
@@ -713,16 +788,18 @@ check(occursin("DomainError", output), "it stops with the DomainError of the pro
 foreach(name -> check(!isfile(joinpath(halt.results, name)), "$(name) is not written"),
     ["pd_lb_fig7.pdf", "pd_lb_fig8.pdf"])
 check_record(joinpath(halt.runs, "pd_lb_fig7_8.hdf5"), halt.args,
-    (npart = 60, tstep = 0.03, seed = 4, stopped_at = 5 * 0.03))
-if isfile(joinpath(halt.runs, "pd_lb_fig7_8.hdf5"))
-    Random.seed!(4)
-    drawn = initialize!(ParticleDistribution(1, 1, 60),
-        DoubleMaxwellian(; domain = (-5.0, 5.0), shift = 2.0))
-    t = h5read(joinpath(halt.runs, "pd_lb_fig7_8.hdf5"), "t")
-    z = h5read(joinpath(halt.runs, "pd_lb_fig7_8.hdf5"), "z")
-    check(t == collect(0:4) .* 0.03 && size(z) == (60, 5),
-        "it records the four steps reached: t = $(t), z of size $(size(z))")
-    check(z[:, 1] == drawn.particles.v[1, :], "it records the velocities of the seed 4 first")
+    (npart = 60, tstep = 0.03, seed = 4))
+let record = joinpath(halt.runs, "pd_lb_fig7_8.hdf5"),
+    n = check_stopped_steps(record, 0.03, QUICK["pd_lb_fig7_8.jl"].records[1][2].final_time)
+
+    if n ≥ 1
+        Random.seed!(4)
+        drawn = initialize!(ParticleDistribution(1, 1, 60),
+            DoubleMaxwellian(; domain = (-5.0, 5.0), shift = 2.0))
+        z = h5read(record, "z")
+        check(size(z) == (60, n), "it records the velocities of each step: z of size $(size(z))")
+        check(z[:, 1] == drawn.particles.v[1, :], "it records the velocities of the seed 4 first")
+    end
 end
 
 println("pd_lb_fig11.jl with a --runs-dir that cannot be created")
@@ -806,12 +883,11 @@ let unsolved_output = finish(unsolved; fails = true, timed = false),
         name -> check(!isfile(joinpath(unsolved.results, "$(stem)_$(name).pdf")),
             "$(stem)_$(name).pdf is not written"),
         MPLB_FIGURES)
-    check_record(record, unsolved.args, (npart = 1000, stopped_at = 6 * 8e-4))
-    if isfile(record)
-        t = h5read(record, "t")
+    check_record(record, unsolved.args, (npart = 1000,))
+    n = check_stopped_steps(record, 8e-4, MPLB_QUICK["shifted-normal"].final_time)
+    if n ≥ 1
         z = h5read(record, "z")
-        check(t == collect(0:5) .* 8e-4 && size(z) == (1000, 6),
-            "it records the five steps reached: t = $(t), z of size $(size(z))")
+        check(size(z) == (1000, n), "it records the velocities of each step: z of size $(size(z))")
         check(
             h5open(
                 file -> haskey(file, "rate_t") &&
@@ -898,13 +974,11 @@ let stop_output = finish(landau_stop; fails = true, timed = false),
         name -> check(!isfile(joinpath(landau_stop.results, "$(stem)_$(name).pdf")),
             "$(stem)_$(name).pdf is not written"),
         LANDAU_FIGURES)
-    check_record(record, landau_stop.args,
-        (npart = 200, ncell = 8, tstep = 1e-3, stopped_at = 3 * 1e-3))
-    if isfile(record)
-        t = h5read(record, "t")
+    check_record(record, landau_stop.args, (npart = 200, ncell = 8, tstep = 1e-3))
+    n = check_stopped_steps(record, 1e-3, LANDAU_QUICK.nsteps * 1e-3)
+    if n ≥ 1
         v = h5read(record, "v")
-        check(t == collect(0:2) .* 1e-3 && size(v) == (2, 200, 3),
-            "it records the two steps reached: t = $(t), v of size $(size(v))")
+        check(size(v) == (2, 200, n), "it records the velocities of each step: v of size $(size(v))")
     end
 end
 
@@ -966,9 +1040,10 @@ end
 
 println("the text that names the Landau methods")
 let section = landau_docs_section(), entries = landau_changelog_entries()
-    check(!isempty(section), "docs/src/collisions.md has the section $(LANDAU_DOCS_HEADING)")
+    check(!isempty(section),
+        "docs/src/scripts/collisions.md has the section $(LANDAU_DOCS_HEADING)")
     check(!isempty(entries), "CHANGELOG.md has an entry that names the Landau scripts")
-    push!(ranked_texts, "the Landau section of docs/src/collisions.md" => section)
+    push!(ranked_texts, "the Landau section of docs/src/scripts/collisions.md" => section)
     foreach(entry -> push!(ranked_texts, "the CHANGELOG entry" => entry), entries)
     hits = [name * ": " * m.match for (name, text) in ranked_texts
             for m in eachmatch(RANKING, text)]

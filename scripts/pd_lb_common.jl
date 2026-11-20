@@ -72,8 +72,8 @@ end
     initial_distribution(example, npart; seed = nothing)
 
 `npart` particles of one position and one velocity dimension, drawn from `example`. With a
-`seed`, the global random number generator is seeded with it first. `NormalDistribution` and
-`ShiftedNormalV` seed it with `1234` themselves before they draw the velocities.
+`seed`, the global random number generator is seeded with it first. `ShiftedNormalV` seeds it
+with `1234` itself before it draws the velocities.
 """
 function initial_distribution(example, npart::Integer; seed = nothing)
     seed === nothing || Random.seed!(seed)

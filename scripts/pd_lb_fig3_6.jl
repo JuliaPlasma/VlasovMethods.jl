@@ -16,7 +16,7 @@
 # initial and the final distribution of the same run with `--npart-fig6` particles
 # (`fig:shifted_normal_ex2`).
 #
-# The page `docs/src/collisions.md` states how each figure departs from the manuscript's.
+# The page `docs/src/scripts/collisions.md` states how each figure departs from the manuscript's.
 #
 # `--quick` takes 200 particles and the final time 0.05. `ShiftedNormalV` seeds the random number
 # generator itself, so the velocities are the same in every run.
