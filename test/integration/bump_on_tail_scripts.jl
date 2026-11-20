@@ -299,14 +299,19 @@ function pages_argument(expr)
     return nothing
 end
 
+"The page files of a `pages` value, with its nested sections flattened."
+page_files(page::Pair) = page_files(page.second)
+page_files(pages::AbstractVector) = mapreduce(page_files, vcat, pages)
+page_files(file::AbstractString) = [file]
+
 @testset "docs page" begin
     # the pages of the manual, from the parsed `docs/make.jl`, so a commented entry is not one
     make = Meta.parseall(read(joinpath(REPOSITORY, "docs", "make.jl"), String))
     pages = Core.eval(Module(), pages_argument(make))
-    @test "paper.md" in last.(pages)
+    @test "scripts/reduced_basis.md" in page_files(pages)
 
     # each script has its own section, which gives its paper command, its run time and its files
-    page = read(joinpath(REPOSITORY, "docs", "src", "paper.md"), String)
+    page = read(joinpath(REPOSITORY, "docs", "src", "scripts", "reduced_basis.md"), String)
     sections = split(page, r"^#+ "m)
     for f in ("bump_on_tail_training.jl", "bump_on_tail_projections.jl",
         "bump_on_tail_testing.jl", "bump_on_tail_train_hnn.jl", "analytic_quadratic.jl")

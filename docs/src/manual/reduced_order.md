@@ -83,9 +83,24 @@ for p in 1:length(pspace)
 end
 ```
 
-The march does not write the accelerations `SS.A`; the script
-`scripts/bump_on_tail_training.jl` computes them from the saved positions before the field basis
-is built. `h5save(io, SS)` and `Snapshots(io)` write and read the snapshots in HDF5.
+The march does not write the accelerations `SS.A`, which the field basis reduces. The field of each
+sample, deposited from the saved positions and evaluated at them, gives them, as in the script
+`scripts/bump_on_tail_training.jl`:
+
+```julia
+using VlasovMethods: efield!, update!
+
+w = vec(particles.w)
+a = zeros(size(SS.A, 2))
+for p in 1:length(pspace), ts in axes(SS.A, 3)
+    field = ScaledField(PoissonField(poisson), pspace(p).χ)
+    x = @view SS.X[1, :, ts, p]
+    update!(field, x, w, 0.0)
+    SS.A[1, :, ts, p] .= efield!(field, a, x)
+end
+```
+
+`h5save(io, SS)` and `Snapshots(io)` write and read the snapshots in HDF5.
 
 ## Reduced bases
 

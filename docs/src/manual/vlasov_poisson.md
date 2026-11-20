@@ -15,7 +15,9 @@ E = - \frac{\partial \phi}{\partial x} ,
 - \frac{\partial^2 \phi}{\partial x^2} = \rho = \int f \, dv ,
 ```
 
-on a periodic interval in ``x``. Its energy
+on a periodic interval in ``x``. The periodic Poisson equation has a solution only for a source of
+zero mean: the solver of the potential drops the mean of ``\rho``, a uniform neutralising
+background, and returns the potential of zero mean. The energy of the system
 
 ```math
 H = \frac{1}{2} \int\!\!\int v^2 f \, dx \, dv + \frac{1}{2} \int \left( \frac{\partial \phi}{\partial x} \right)^2 dx

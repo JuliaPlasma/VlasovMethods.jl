@@ -33,8 +33,11 @@ of ``v`` is one:
 ```
 
 with the coefficients of [`compute_coefficients_rclb`](@ref). It is the conservative operator
-with the time rescaled by ``\varepsilon_h - u_h^2``, so it has the same trajectories at another
-speed. The arguments, the conservation properties and the errors are those of
+with the time rescaled by ``1/A_2`` of the conservative coefficients, one factor for all
+particles, so it has the same trajectories at another speed. The factor approximates
+``\varepsilon_h - u_h^2``, and equals it where ``u_h B_1 - B_2 = n``, with ``B_1`` and ``B_2`` the
+particle sums of ``f_s'/f_s`` and ``v f_s'/f_s``, whose continuous values are ``0`` and ``-n``.
+The arguments, the conservation properties and the errors are those of
 [`ConservativeLenardBernstein`](@ref), but the constructor does not warn on a basis that does
 not reproduce ``1``, ``v`` and ``v^2``.
 

@@ -4,13 +4,13 @@
 
 The splitting method of the particle model `model` over the time span `tspan` with the step
 `tstep`: the `GeometricEquations.SODEProblem` of the parts of the model's vector field and
-their exact solutions, and the `GeometricIntegrators` integrator of their Strang composition. The
+the step of each part, and the `GeometricIntegrators` integrator of their Strang composition. The
 state is a copy of `model.distribution.particles.z`.
 
 A 1D1V [`VlasovPoisson`](@ref) model of a `ParticleDistribution` splits into the advection
-``\\dot{x} = v`` and the acceleration ``\\dot{v} = E(x)``. A
-[`VlasovWithExternalFields`](@ref) model splits into the drift ``\\dot{x} = v`` and the Lorentz
-force, whose exact step is a Boris push.
+``\\dot{x} = v`` and the acceleration ``\\dot{v} = E(x)``, each solved exactly. A
+[`VlasovWithExternalFields`](@ref) model splits into the drift ``\\dot{x} = v``, solved exactly,
+and the Lorentz force, whose step is a Boris push, an approximation of its exact solution.
 
 The fields `model`, `equation` and `integrator` hold the three parts. [`run!`](@ref) advances
 the integrator, and `GeometricIntegrators.integrate(method.integrator)` returns the solution in

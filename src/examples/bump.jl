@@ -9,7 +9,9 @@ f(v) = \frac{1}{4b} \bigl( \tanh(a (v + b)) - \tanh(a (v - b)) \bigr) ,
 ```
 
 which integrates to one. `initialize!` fills the velocities of a 1D1V distribution by
-accept–reject sampling, as `draw!` describes, and does not write the positions.
+accept–reject sampling of proposals in ``[-b, b]``, as `draw!` describes, and does not write the
+positions. The sample therefore follows ``f`` conditioned on ``[-b, b]``, without the tails of
+``f`` beyond ``\pm b``.
 """
 struct Bump{T} <: VlasovExample
     a::T # steepness of bump
