@@ -35,10 +35,11 @@ domainx = (-5.0, 5.0)
     end
 end
 
-# K104: `initialize!` of `NormalDistribution` called `Random.seed!(1234)` between the positions and
-# the velocities. After a caller's seed of 1234 both were the same normal draws, so the correlation
-# of `x` and `v` was one, and every call returned the same velocities. Under independent draws the
-# sample correlation has the standard error 1/√N, and two calls share no velocity.
+# K104: `initialize!` of `NormalDistribution` draws the positions and the velocities from one
+# stream, with no reseed between them. A `Random.seed!(1234)` there would make them the same normal
+# draws after a caller's seed of 1234, so that the correlation of `x` and `v` is one, and would make
+# every call return the same velocities. Under independent draws the sample correlation has the
+# standard error 1/√N, and two calls share no velocity.
 @testset "NormalDistribution draws independent positions and velocities" begin
     np = 10_000
     Random.seed!(1234)

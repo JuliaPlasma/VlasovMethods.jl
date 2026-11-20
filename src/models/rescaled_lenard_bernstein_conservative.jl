@@ -35,7 +35,8 @@ of ``v`` is one:
 with the coefficients of [`compute_coefficients_rclb`](@ref). It is the conservative operator
 with the time rescaled by ``\varepsilon_h - u_h^2``, so it has the same trajectories at another
 speed. The arguments, the conservation properties and the errors are those of
-[`ConservativeLenardBernstein`](@ref).
+[`ConservativeLenardBernstein`](@ref), but the constructor does not warn on a basis that does
+not reproduce ``1``, ``v`` and ``v^2``.
 
 [`GeometricIntegrator`](@ref) steps the model of a distribution of one velocity dimension, with
 `ImplicitMidpoint()` by default.
