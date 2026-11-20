@@ -65,7 +65,7 @@ end
 
 for name in ("dougherty", "jeyakumar")
     bracket = BRACKETS[name]
-    initial = initial_distribution(CASE.example, OPTIONS.npart)
+    initial = initial_distribution(CASE.example, OPTIONS.npart; seed = OPTIONS.seed)
     println(name)
     p = probe(initial, bracket, OPTIONS)
     d = relax_frozen(initial, bracket, OPTIONS)

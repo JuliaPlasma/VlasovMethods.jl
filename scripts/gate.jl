@@ -18,7 +18,8 @@
 # `5e-3`, where the quick run measures `4.4e-4` to `1.5e-3`, and its first step must solve the
 # implicit midpoint rule to a relative residual below `1e-10`, where it measures `7e-15`.
 # `pd_lb_fig7_8.jl` must start from the velocities that `DoubleMaxwellian` draws after
-# `Random.seed!(1)`.
+# `Random.seed!(1)`, and both records of `pd_lb_fig3_6.jl` from those that `ShiftedNormalV` draws
+# after `Random.seed!(2)`, its default seed.
 #
 # The figures of `pd_lb_fig1_2.jl` are checked as the PD-LB manuscript shows them, within bounds,
 # and not to the number: the numbers of a run move as the package develops. Each record of a sweep
@@ -63,23 +64,28 @@
 # takes the closed form `2ν` for the Dougherty bracket and `2ν n₀ / T₀ = ν` for the Jeyakumar
 # bracket, from the bracket that it passed, and checks that the printed closed form and control are
 # these two, that the record's `rate_temperature` starts at `1`, that the fitted rate lies within a
-# relative `5 %` of the closed form, and that it lies more than `5 %` from the control. The record
-# of the double Maxwellian with the Dougherty bracket must start from the velocities that
-# `DoubleMaxwellian` draws after `Random.seed!(1)`. Six more runs check its edges:
+# relative `5 %` of the closed form, and that it lies more than `5 %` from the control. The records
+# of the double Maxwellian and of the shifted normal with the Dougherty bracket must start from the
+# velocities that `DoubleMaxwellian` and `ShiftedNormalV` draw after `Random.seed!(1)`. Six more
+# runs check its edges:
 #
 # - `--case maxwellian` and `--bracket landau`: each exits non-zero with the `ArgumentError` that
 #   names the flag and the value, and creates neither `--runs-dir` nor `--results-dir`;
 # - `--case uniform` with `--tolerance`, an option of the shifted normal alone: it exits non-zero
 #   with the `ArgumentError` that names `--tolerance`, and creates neither directory;
-# - the shifted normal with the Dougherty bracket and 1000 particles, where a Picard solve does not
+# - the shifted normal with the Jeyakumar bracket and 1000 particles, where a Picard solve does not
 #   converge in a step before the final time: it exits non-zero, writes no figure, and writes its
 #   record with `commit`, `command`, the steps reached in `t` and `z`, `stopped_at` the time of the
 #   step after the last of them, and the 64 samples of its rate check in `rate_t` and
 #   `rate_temperature`;
 # - the shifted normal with `--tolerance 1e-3`, below the relative difference of the quick fit to
-#   its closed form, which is `1.5e-2`, and with `--tolerance 1.5`, above the relative difference
-#   of the fit to its control, which is `0.97`: each prints its wall-clock time, writes its three
-#   figures and its record, says that the rate check fails and exits non-zero.
+#   its closed form, which one quick run measures at `2.5e-2`, and with `--tolerance 1.5`, above
+#   the relative difference of the fit to its control, measured at `0.95`: each prints its
+#   wall-clock time, writes its three figures and its record, says that the rate check fails and
+#   exits non-zero.
+#
+# The checks of the quick shifted normal hold at the default seeds but depend on the sample: K106
+# and K107 of `KNOWN_ISSUES.md` give the seeds at which they fail.
 #
 # The gate also includes the driver in a module of its own and checks that `fit_rate` throws an
 # `ArgumentError` where a temperature reaches or crosses `T₀`, that it fits the rate of an exact
@@ -278,8 +284,8 @@ const QUICK = Dict(
                 (sweep_npart = [100, 178, 316, 562, 1000, 1778], seed = 1)]),
     "pd_lb_fig3_6.jl" => (
         figures = ["pd_lb_fig3.pdf", "pd_lb_fig4.pdf", "pd_lb_fig5.pdf", "pd_lb_fig6.pdf"],
-        records = ["pd_lb_fig3_5.hdf5" => (npart = 200, final_time = 0.05),
-            "pd_lb_fig6.hdf5" => (npart = 200, final_time = 0.05)]),
+        records = ["pd_lb_fig3_5.hdf5" => (npart = 200, final_time = 0.05, seed = 2),
+            "pd_lb_fig6.hdf5" => (npart = 200, final_time = 0.05, seed = 2)]),
     "pd_lb_fig7_8.jl" => (figures = ["pd_lb_fig7.pdf", "pd_lb_fig8.pdf"],
         records = ["pd_lb_fig7_8.hdf5" => (npart = 200, final_time = 0.2)]),
     "pd_lb_fig9_10.jl" => (figures = ["pd_lb_fig9.pdf", "pd_lb_fig10.pdf"],
@@ -304,7 +310,7 @@ const CUMULANT_ROW = r"^  κ₄ at t = (\S+): run \S+, closed form \S+, relative
 
 const MPLB_SCRIPT = "lenard_bernstein_metriplectic.jl"
 const MPLB_QUICK = Dict(
-    "shifted-normal" => (npart = 200, final_time = 0.05),
+    "shifted-normal" => (npart = 200, final_time = 0.05, seed = 1),
     "double-maxwellian" => (npart = 1000, final_time = 0.05),
     "uniform" => (npart = 200, tstep = 1e-3, final_time = 0.05))
 const MPLB_FIGURES = ("initial_final_distribution", "conservation", "entropy_log")
@@ -518,7 +524,7 @@ mplb = [start(MPLB_SCRIPT, ["--quick", "--case", case, "--bracket", bracket])
 unknown_case = start(MPLB_SCRIPT, ["--quick", "--case", "maxwellian"])
 unknown_bracket = start(MPLB_SCRIPT, ["--quick", "--bracket", "landau"])
 untolerant = start(MPLB_SCRIPT, ["--quick", "--case", "uniform", "--tolerance", "0.05"])
-unsolved = start(MPLB_SCRIPT, ["--quick", "--bracket", "dougherty", "--npart", "1000"])
+unsolved = start(MPLB_SCRIPT, ["--quick", "--bracket", "jeyakumar", "--npart", "1000"])
 tight = start(MPLB_SCRIPT, ["--quick", "--tolerance", "1e-3"])
 loose = start(MPLB_SCRIPT, ["--quick", "--tolerance", "1.5"])
 landau = [start(LANDAU_SCRIPT, ["--quick", "--method", method, "--case", case])
@@ -720,6 +726,16 @@ for job in jobs
         z = h5read(joinpath(job.runs, "pd_lb_fig7_8.hdf5"), "z")
         check(z[:, 1] == drawn.particles.v[1, :],
             "pd_lb_fig7_8.jl starts from the velocities of the seed 1")
+    elseif job.script == "pd_lb_fig3_6.jl"
+        for record in ("pd_lb_fig3_5.hdf5", "pd_lb_fig6.hdf5")
+            isfile(joinpath(job.runs, record)) || continue
+            Random.seed!(2)
+            example = ShiftedNormalV((-5.0, 5.0), 2.0)
+            drawn = initialize!(ParticleDistribution(1, 1, 200), example)
+            z = h5read(joinpath(job.runs, record), "z")
+            check(z[:, 1] == drawn.particles.v[1, :],
+                "$(record) starts from the velocities of the seed 2")
+        end
     elseif job.script == "pd_lb_fig1_2.jl"
         quick = Dict(expected.records)
         M, norms = check_sweep(
@@ -827,6 +843,13 @@ for job in mplb
             "$(run_stem).hdf5 starts from the velocities of the seed 1")
     end
     case == "shifted-normal" || continue
+    if bracket == "dougherty"
+        Random.seed!(1)
+        local drawn = initialize!(ParticleDistribution(1, 1, 200),
+            ShiftedNormalV((-5.0, 5.0), 2.0))
+        check(h5read(run_record, "z")[:, 1] == drawn.particles.v[1, :],
+            "$(run_stem).hdf5 starts from the velocities of the seed 1")
+    end
     check_figure(joinpath(job.results, run_stem * "_rate.md"))
     rate = match(RATE_ROW, run_output)
     control = match(CONTROL_ROW, run_output)
@@ -871,7 +894,7 @@ end
 
 println("$(MPLB_SCRIPT) with a Picard solve that does not converge")
 let unsolved_output = finish(unsolved; fails = true, timed = false),
-    stem = "lenard_bernstein_metriplectic_shifted-normal_dougherty",
+    stem = "lenard_bernstein_metriplectic_shifted-normal_jeyakumar",
     record = joinpath(unsolved.runs, stem * ".hdf5")
 
     check(

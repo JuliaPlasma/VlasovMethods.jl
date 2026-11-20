@@ -469,7 +469,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** defect
 - **found:** #119
 
-### K94 · The figure drivers of the Lenard–Bernstein manuscript stop where the projection is not positive at a particle: figures 1, 2, 7 and 8 at the manuscript's parameters, and figure 11 with the seed 1234, where the right-hand side of `LenardBernstein` divides by `f_s` without checking its sign.
+### K94 · The figure drivers of the Lenard–Bernstein manuscript stop where the projection is not positive at a particle: figures 1, 2, 7 and 8 at the manuscript's parameters, figures 3 to 6 at some seeds, and figure 11 with the seed 1234, where the right-hand side of `LenardBernstein` divides by `f_s` without checking its sign.
 
 - **location:** `src/models/lenard_bernstein_conservative.jl:144`
 - **evidence:** `compute_coefficients` of `ConservativeLenardBernstein` throws a `DomainError`
@@ -481,6 +481,10 @@ has left the file, or that lived only on a merged branch, stays taken.
   these points out of figures 1 and 2, record `stopped_at = 25` and `stopped_at = 3162`, and
   exit 0. Which points stop depends on the sample: over the seeds 1 to 20, `M = 25` stops at
   every seed, and 1 to 8 of the 13 values of `N` stop.
+  `julia --project=scripts scripts/pd_lb_fig3_6.jl --seed 1` stops in the second step of its run
+  of 1000 particles (`t = 0.0016`), where the projection is `−2.66e-4` at `v = 4.93`. Over the
+  seeds 1 to 20, the run of 1000 particles to `t = 1` stops at 7 (1, 4, 7, 8, 9, 12, 14), the run
+  of 200 particles at 4 (4, 9, 11, 19); the driver's default seed 2 completes both.
   `julia --project=scripts scripts/pd_lb_fig7_8.jl` stops in the step 1768 to `t = 1.4144`, where
   the projection is `−1.58e-7` at `v = −6.42`; it writes `pd_lb_fig7_8.hdf5` with
   `stopped_at = 1.4144`, writes no figure and exits non-zero.
@@ -495,28 +499,31 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** defect
 - **found:** 2026-11-07
 
-### K95 · The Picard solve of `MetriplecticLenardBernstein` does not converge at the parameters of the three tests of the metriplectic Lenard–Bernstein manuscript, so each of the six runs of `scripts/lenard_bernstein_metriplectic.jl` stops before its final time.
+### K95 · The Picard solve of `MetriplecticLenardBernstein` does not converge at the parameters of the three tests of the metriplectic Lenard–Bernstein manuscript, so five of the six runs of `scripts/lenard_bernstein_metriplectic.jl` at the default seed 1 stop before their final time.
 
 - **location:** `src/models/lenard_bernstein_metriplectic.jl:492`
-- **evidence:** `julia --project=scripts scripts/lenard_bernstein_metriplectic.jl --case <case>
+- **evidence:** at the default `--seed 1`, with Julia 1.13.4 on 2026-11-20,
+  `julia --project=scripts scripts/lenard_bernstein_metriplectic.jl --case <case>
   --bracket <bracket>` stops with `the Picard solve of the metriplectic Lenard–Bernstein step did
   not converge` (`:492`), writes its record with `stopped_at`, writes no figure and exits
-  non-zero: the shifted normal at `t = 0.0048` (Dougherty) and `t = 0.2208` (Jeyakumar) of 1, the
-  double Maxwellian at `t = 0.1248` and `t = 0.2968` of 5, and the uniform case at `t = 0.0399`
-  and `t = 0.8046` of 1. Five of the six stop after 4 to 9 of the 1000 iterations, at residuals
-  from `2.4e-5` to `4.2e-4`, and the uniform Dougherty run after the 1000 iterations at a residual
-  of `1.07e-10`. A smaller step does not remove them: with
+  non-zero: the shifted normal with the Jeyakumar form at `t = 0.0016` of 1, after 4 iterations at
+  the residual `1.6e-3`; the double Maxwellian at `t = 0.1248` and `t = 0.2968` of 5, after 4
+  iterations at `4.2e-4` and `1.6e-4`; and the uniform case at `t = 0.0399` and `t = 0.8046` of 1,
+  after the 1000 iterations at `1.07e-10` and after 5 at `2.4e-5`. The shifted normal with the
+  Dougherty form completes. Which runs stop depends on the sample: over the seeds 1 to 20 the
+  shifted normal stops at 11 seeds with the Dougherty form and at 13 with the Jeyakumar form,
+  between `t = 0.0008` and `t = 0.41`. A smaller step does not remove them: with
   `--quick --case double-maxwellian --bracket dougherty --npart 200`, the run completes at
   `h = 8e-4` and stops at `t = 0.0036` with `--tstep 4e-4`, and with `--bracket jeyakumar` and 200
   particles it stops at `t = 0.016`. The damped fixed-point solve of the driver's rate check,
-  which freezes the bracket's moments, stalls on 1 of its 1250 steps under the Dougherty form and
-  on 2 under the Jeyakumar form at the shifted normal's parameters, with the largest residuals
-  `3.12e-3` and `2.07e-4`. `julia --startup-file=no --project=scripts
-  scripts/lenard_bernstein_metriplectic_rate_stalls.jl` probes each stalled step, step 350
-  (Dougherty) and steps 209 and 689 (Jeyakumar), and finds its largest residual at a particle in
-  the lower tail, `v = −1.19`, `−1.56` and `−1.18` against the mean `1.98` and the standard
-  deviation `1.19`, `1.07` and `1.19` of the last iterate, with 10, 2 and 10 particles within
-  `±0.5`. Where a particle in a sparse tail sits where `f_s` is small, the score of `log|f_s|`
+  which freezes the bracket's moments, stalls on 2 of its 1250 steps under the Dougherty form and
+  on 4 under the Jeyakumar form at the shifted normal's parameters and seed 1, with the largest
+  residuals `2.36e-3` and `1.45e-3`. `julia --startup-file=no --project=scripts
+  scripts/lenard_bernstein_metriplectic_rate_stalls.jl` probes each stalled step, steps 94 and 98
+  (Dougherty) and steps 174, 196, 412 and 1068 (Jeyakumar), and finds its largest residual at a
+  particle in the lower tail, `v = −1.17` and `−1.30`, and `−1.23`, `−1.30`, `−1.64` and `−2.12`,
+  against the mean `2.00` and standard deviations from `1.06` to `1.25` of the last iterate, with
+  2 to 7 particles within `±0.5`. Where a particle in a sparse tail sits where `f_s` is small, the score of `log|f_s|`
   changes fast across it, and the fixed-point map of the implicit midpoint step is not a
   contraction.
 - **kind:** defect
@@ -641,14 +648,30 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** defect
 - **found:** 2026-11-09
 
-### K105 · `initialize!` of `ShiftedNormalV` calls `Random.seed!(1234)` between the draw of the positions and the draw of the velocities, so every call draws the same velocities and resets the global generator for the draws after it.
+### K106 · `scripts/gate.jl` requires the quick runs of the shifted normal to reach their final time, which they do at the default seeds but not at every seed, so a change that only changes the sample can fail the gate.
 
-- **location:** `src/examples/shiftednormalv.jl:29`
-- **evidence:** the same reseed that K104 removed from `NormalDistribution`. The docstring states
-  it (`:7-12`), and `scripts/pd_lb_common.jl` (`initial_distribution`),
-  `scripts/pd_lb_fig3_6.jl` and `scripts/lenard_bernstein_metriplectic.jl` describe it: figures 3
-  to 6 and the shifted normal case of the metriplectic driver take their fixed sample from it and
-  take no `--seed`. A fix changes those samples, as K104 changed the sample of
-  `scripts/pd_lb_fig1_2.jl`, so it goes with a `--seed` for both drivers and new measurements.
+- **location:** `scripts/gate.jl:507`
+- **evidence:** the gate runs `pd_lb_fig3_6.jl --quick` (`:507`) and
+  `lenard_bernstein_metriplectic.jl --quick --case shifted-normal` with both brackets (`:521`), and
+  checks that each exits 0. The quick runs take 200 particles to `t = 0.05`, and where the
+  projection is not positive at a particle (K94) or a Picard solve does not converge (K95), a run
+  stops and exits non-zero. Over the seeds 1 to 20, a run of 200 particles of `pd_lb_fig3_6.jl`
+  stops before `t = 0.05` at 4 seeds (4, 9, 11, 19), not at its default seed 2, and the quick metriplectic runs reach `t = 0.05` with both brackets at 9 seeds
+  (1, 4, 6, 7, 12, 13, 14, 17, 19), the default seed 1 among them. A gate that reads a stop with a
+  consistent record as a pass, as it reads the sweeps of `pd_lb_fig1_2.jl`, would not depend on
+  the sample.
+- **kind:** defect
+- **found:** 2026-11-20
+
+### K107 · The quick rate check of the metriplectic shifted normal meets its tolerance of 5 % at the default seed but not at every seed.
+
+- **location:** `scripts/gate.jl:317`
+- **evidence:** the gate checks that the fitted rate of each quick shifted normal run, 200
+  particles to `t = 0.05`, lies within `MPLB_RATE_TOLERANCE = 0.05` of its closed form (`:869`),
+  and the driver exits non-zero at its default `--tolerance 0.05`. At the default seed 1 the fits
+  differ by `2.5e-2` (Dougherty) and `3.6e-2` (Jeyakumar). Over the seeds 1 to 20 they differ by
+  `4.7e-3` to `1.1e-1` and `3.0e-3` to `1.5e-1`, and 6 seeds miss 5 % with one bracket or both
+  (2, 6, 9, 14, 16, 19); the controls stay `0.78` and `0.49` away or more. At the manuscript's
+  1000 particles to `t = 1`, every seed from 1 to 20 meets 5 %, with differences below `1e-2`.
 - **kind:** defect
 - **found:** 2026-11-20

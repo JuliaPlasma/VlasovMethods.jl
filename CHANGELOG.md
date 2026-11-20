@@ -466,8 +466,7 @@ their own, except for what they removed and narrowed, which is listed in full be
   `Landau`, `SplittingMethod`, both methods of `run!` and `_apply_∫dv!`; `GeometricIntegrator` has
   a docstring for its type beside those of its constructors. The `Landau` docstring states the
   vector field that the code computes, `ν (K_c \ LJ)` for each component, and cites K96 for its
-  difference from the appendix. The docstring of `ShiftedNormalV` says that it reseeds the global
-  random number generator.
+  difference from the appendix.
 - **The docs state that no discrete H-theorem holds for the appendix Landau method (K4).** The
   docstring of `Picard_iterate_Landau_nls!` and the page of the Landau operator say that its
   implicit midpoint rule is not a discrete gradient, so the entropy of a step need not decrease,

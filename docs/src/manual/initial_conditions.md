@@ -36,11 +36,6 @@ argument has a default, which the docstring of the example states.
 The draws use the global random number generator. Seed it with `Random.seed!` before a draw, so
 that a run can be repeated. The positions and the velocities are independent draws.
 
-!!! warning "One example reseeds the global generator"
-    [`ShiftedNormalV`](@ref) calls `Random.seed!(1234)` between the draw of the positions and the
-    draw of the velocities. Its velocities are therefore the same in every call, and every draw
-    after it starts from the same state of the generator.
-
 ### The bump-on-tail
 
 The bump-on-tail is the initial condition of the reduced-order experiments,
