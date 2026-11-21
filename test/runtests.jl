@@ -1,58 +1,78 @@
-using SafeTestsets
+using ParallelTestRunner
+using VlasovMethods
 
-const GROUPS = isempty(ARGS) ? ["core", "slow", "collisions"] : ARGS
+const TESTS = [
+    "core" => [
+        "Spline Distribution" => "distributions/spline_distribution.jl",
+        "Grid Distribution" => "distributions/grid_distribution.jl",
+        "Low-Rank Distribution" => "lowrank/distribution.jl",
+        "Particle Distribution" => "distributions/particle_distribution.jl",
+        "Projections" => "projections/projections.jl",
+        "Reduced Tensors" => "gridbased/reduced_tensors.jl",
+        "Geometric Integrator" => "methods/geometric_integrator.jl",
+        "Splitting Method" => "methods/splitting.jl",
+        "Parameter Order" => "integration/parameter_order.jl",
+        "Cache Dict" => "cache.jl",
+        "Vlasov–Poisson" => "integration/vlasov_poisson.jl",
+        "Vlasov with External Fields" => "models/vlasov_with_external_fields.jl",
+        "ElectromagneticFields Extension" => "integration/electromagnetic_fields_ext.jl",
+        "SODE Ensemble" => "integration/sodeensemble.jl",
+        "Names" => "integration/names.jl",
+        "Moments" => "gridbased/moments.jl",
+        "Vlasov–Poisson Advection" => "models/vlasov_poisson.jl",
+        "Grid 1D1V Vlasov–Poisson" => "gridbased/vlasov_poisson_1d1v.jl",
+        "Snapshots" => "particles/snapshots.jl",
+        "Electric Field" => "electric_field.jl",
+        "Reduced Electric Field" => "particles/electric_field.jl",
+        "Reduced March" => "particles/time_marching.jl",
+        "Diagnostics" => "particles/diagnostics.jl",
+        "Reduced Equations" => "particles/reduced_equations.jl",
+        "Bump-on-tail Scripts" => "integration/bump_on_tail_scripts.jl"
+    ],
+    "quality" => [
+        "Aqua" => "quality/aqua.jl",
+        "JET" => "quality/jet.jl",
+        "ExplicitImports" => "quality/explicit_imports.jl",
+        "Plotting" => "plotting.jl",
+        "Plotting extension" => "integration/makie_extension.jl"
+    ],
+    "slow" => [
+        "Bump-on-tail Runs" => "integration/bump_on_tail_runs.jl",
+        "HNN" => "hnn.jl",
+        "Multi-modal Vlasov Frontends" => "rom/multimodal_vlasov_frontends.jl",
+        "GeometricIntegrators Scaling" => "integration/geometric_integrators_scaling.jl"
+    ],
+    "collisions" => [
+        "Landau Solver" => "integration/landau_solver.jl",
+        "Metriplectic Solve" => "integration/metriplectic_solve.jl",
+        "Collision Operators" => "integration/collision_operators.jl",
+        "Lenard–Bernstein Buffers" => "models/lenard_bernstein_buffers.jl",
+        "Metriplectic Lenard–Bernstein Brackets" => "models/lenard_bernstein_metriplectic.jl",
+        "Landau Buffers" => "models/landau.jl",
+        "Pairwise Landau" => "models/landau_pairwise.jl",
+        "Discrete Gradient" => "methods/discrete_gradient.jl",
+        "Reference Cases" => "examples/reference_cases.jl",
+        "Collisions" => "gridbased/collisions.jl"
+    ],
+    "verification" => [
+        "Reduced March at T = 1000" => "verification/time_marching.jl",
+        "Reduced Equations at T = 100" => "verification/reduced_equations.jl"
+    ]
+]
 
-if "core" in GROUPS
-    @safetestset "Aqua" include("quality/aqua.jl")
-    @safetestset "JET" include("quality/jet.jl")
-    @safetestset "ExplicitImports" include("quality/explicit_imports.jl")
-    @safetestset "Spline Distribution" include("distributions/spline_distribution.jl")
-    @safetestset "Grid Distribution" include("distributions/grid_distribution.jl")
-    @safetestset "Low-Rank Distribution" include("lowrank/distribution.jl")
-    @safetestset "Particle Distribution" include("distributions/particle_distribution.jl")
-    @safetestset "Plotting" include("plotting.jl")
-    @safetestset "Projections" include("projections/projections.jl")
-    @safetestset "Reduced Tensors" include("gridbased/reduced_tensors.jl")
-    @safetestset "Geometric Integrator" include("methods/geometric_integrator.jl")
-    @safetestset "Splitting Method" include("methods/splitting.jl")
-    @safetestset "Parameter Order" include("integration/parameter_order.jl")
-    @safetestset "Cache Dict" include("cache.jl")
-    @safetestset "Vlasov–Poisson" include("integration/vlasov_poisson.jl")
-    @safetestset "Vlasov with External Fields" include("models/vlasov_with_external_fields.jl")
-    @safetestset "ElectromagneticFields Extension" include("integration/electromagnetic_fields_ext.jl")
-    @safetestset "SODE Ensemble" include("integration/sodeensemble.jl")
-    @safetestset "Names" include("integration/names.jl")
-    @safetestset "Moments" include("gridbased/moments.jl")
-    @safetestset "Vlasov–Poisson Advection" include("models/vlasov_poisson.jl")
-    @safetestset "Plotting extension" include("integration/makie_extension.jl")
-    @safetestset "Grid 1D1V Vlasov–Poisson" include("gridbased/vlasov_poisson_1d1v.jl")
-    @safetestset "Snapshots" include("particles/snapshots.jl")
-    @safetestset "Electric Field" include("electric_field.jl")
-    @safetestset "Reduced Electric Field" include("particles/electric_field.jl")
-    @safetestset "Reduced March" include("particles/time_marching.jl")
-    @safetestset "Diagnostics" include("particles/diagnostics.jl")
-    @safetestset "Reduced Equations" include("particles/reduced_equations.jl")
-    @safetestset "Bump-on-tail Scripts" include("integration/bump_on_tail_scripts.jl")
-end
+const SELECTED = filter(!startswith("--"), ARGS)
+const GROUPS = isempty(SELECTED) ?
+               ["core", "quality", "slow", "collisions", "verification"] : SELECTED
+const UNKNOWN = setdiff(SELECTED, first.(TESTS))
+isempty(UNKNOWN) ||
+    error("no test group ", join(UNKNOWN, ", "), " in runtests.jl; its groups are ", join(first.(TESTS), ", "))
 
-if "slow" in GROUPS
-    @safetestset "Reduced March at T = 1000" include("verification/time_marching.jl")
-    @safetestset "Reduced Equations at T = 100" include("verification/reduced_equations.jl")
-    @safetestset "Bump-on-tail Runs" include("integration/bump_on_tail_runs.jl")
-    @safetestset "HNN" include("hnn.jl")
-    @safetestset "Multi-modal Vlasov Frontends" include("rom/multimodal_vlasov_frontends.jl")
-    @safetestset "GeometricIntegrators Scaling" include("integration/geometric_integrators_scaling.jl")
-end
-
-if "collisions" in GROUPS
-    @safetestset "Landau Solver" include("integration/landau_solver.jl")
-    @safetestset "Metriplectic Solve" include("integration/metriplectic_solve.jl")
-    @safetestset "Collision Operators" include("integration/collision_operators.jl")
-    @safetestset "Lenard–Bernstein Buffers" include("models/lenard_bernstein_buffers.jl")
-    @safetestset "Metriplectic Lenard–Bernstein Brackets" include("models/lenard_bernstein_metriplectic.jl")
-    @safetestset "Landau Buffers" include("models/landau.jl")
-    @safetestset "Pairwise Landau" include("models/landau_pairwise.jl")
-    @safetestset "Discrete Gradient" include("methods/discrete_gradient.jl")
-    @safetestset "Reference Cases" include("examples/reference_cases.jl")
-    @safetestset "Collisions" include("gridbased/collisions.jl")
-end
+runtests(VlasovMethods, filter(startswith("--"), ARGS);
+    testsuite = Dict(label => :(include($(joinpath(@__DIR__, path))))
+    for (group, files) in TESTS if group in GROUPS for (label, path) in files),
+    serial = [label for (group, files) in TESTS if group in ("metal", "cuda")
+              for (label, _) in files],
+    serial_position = :after,
+    retries = 0,
+    exeflags = ["--threads=$(Threads.nthreads())"],
+    max_default_jobs = max(1, Sys.CPU_THREADS ÷ Threads.nthreads()))
