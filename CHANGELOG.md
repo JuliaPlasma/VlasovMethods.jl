@@ -325,6 +325,19 @@ their own, except for what they removed and narrowed, which is listed in full be
 
 ### Scripts
 
+- **`scripts/geometric_integrators_scaling.jl` measures the RK4 step of GeometricIntegrators on
+  the state of the grid 1D1V Vlasov–Poisson model** against a hand-written RK4 loop with the same
+  tableau, at the grids 64 × 128, 256 × 512 and 1024 × 1024 of the Landau problem, with the step
+  `0.5 hₓ / 8.6`. The two codes take the same steps from the same state, alternating in samples,
+  and their states must agree to `8 · nsteps · eps` relative, or the run stops with no record.
+  The verdict is "accepted" when the integrator's time per step is at most 1.2 times the loop's
+  at every size and its bytes per step do not increase from one size to the next, and "rejected"
+  otherwise. The implicit midpoint rule is measured alone where its dense Newton Jacobian takes at
+  most a quarter of the memory. The record goes to `--results-dir` as
+  `geometric_integrators_scaling.toml`, with the thread counts, `uptime`, the load average and the
+  versions of the nine packages a step runs. `test/integration/geometric_integrators_scaling.jl`,
+  in the group `slow`, tests its functions and runs its `scaling_record` at the smallest grid;
+  `scripts/Project.toml` lists `TOML`.
 - **The eleven figures of the Lenard–Bernstein manuscript have one driver per figure group.**
   `scripts/pd_lb_fig1_2.jl`, `pd_lb_fig3_6.jl`, `pd_lb_fig7_8.jl`, `pd_lb_fig9_10.jl` and
   `pd_lb_fig11.jl` default to the manuscript's parameters, draw each figure with the plotting

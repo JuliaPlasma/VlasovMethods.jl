@@ -40,6 +40,7 @@ if "slow" in GROUPS
     @safetestset "Bump-on-tail Runs" include("integration/bump_on_tail_runs.jl")
     @safetestset "HNN" include("hnn.jl")
     @safetestset "Multi-modal Vlasov Frontends" include("rom/multimodal_vlasov_frontends.jl")
+    @safetestset "GeometricIntegrators Scaling" include("integration/geometric_integrators_scaling.jl")
 end
 
 if "collisions" in GROUPS
