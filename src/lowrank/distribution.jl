@@ -110,8 +110,8 @@ function LowRankDistribution(dist::GridDistribution{DT}, r::Integer;
     # the leading right singular vectors of the part of f outside the fixed modes
     w = sqrt(hx * hv)
     g = f - (hv .* (f * Vm)) * Vm'
-    F = svd(w .* g)
-    q = min(r - m, count(>(max(nx, nv) * eps(DT) * norm(w .* f)), F.S))
+    F = svd!(w .* g)
+    q = min(r - m, count(>(max(nx, nv) * eps(DT) * w * norm(f)), F.S))
 
     # the first r columns of the full orthogonal factor: orthonormal to working precision, and
     # a deterministic completion below the rank
