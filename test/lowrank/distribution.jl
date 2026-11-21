@@ -358,7 +358,7 @@ end
     end
 
     @testset "the moments do not form f" begin
-        # a 512 × 512 grid holds 2 MiB of Float64 values
+        # a 512 × 512 grid holds 2 MiB of Float64 values, 1 MiB of Float32 values
         big = GridDistribution(zeros(T, 512, 512), T.(XD), T.(VD))
         bs = GridFactorSpace(big)
         Xb, _ = orthonormalize_x(bs, randn(Xoshiro(9), T, 512, 8))
