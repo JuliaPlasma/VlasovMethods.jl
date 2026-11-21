@@ -1,6 +1,6 @@
 # Check 1 of §5V.P37: the reduced leapfrog of the analytic model at `k = 20` against the closed form,
-# over `T = 1000`. It is the `T = 1000` run and belongs to the `slow` group alone: the two marches of
-# `10^7` steps are about three minutes, and the check is not run beside the core files.
+# over `T = 1000`. It is the `T = 1000` run and belongs to the `verification` group: the two
+# marches of `10^7` steps are about three minutes.
 
 using LinearAlgebra
 using ParticleMethods: ParticleList
