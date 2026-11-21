@@ -17,12 +17,12 @@ JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 MultiIndexArrays = "2f7e0951-2673-41f4-a6a8-e6772a4b2a08"
 OffsetArrays = "6fe1bfb0-de20-5000-8ca7-80f57d26f881"
+ParallelTestRunner = "d3525ed8-44d0-4b2c-a655-542cee43accc"
 ParticleMethods = "b097825d-39ce-45b2-a4ab-941e2c2df7e8"
 PoissonSolvers = "8f9e8900-be71-40de-a258-603fdc860a2d"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 ReducedBasisMethods = "91da5cd7-58ae-4d67-87db-f03d1c8da121"
 ReducedComplexityModeling = "abb4722c-1d8e-48eb-a3bd-45b3116bfaba"
-SafeTestsets = "1bc83da4-3b8d-516f-aca4-4fe02f6d838f"
 SimpleSplines = "ac480f6c-9a94-4d53-a283-9db69f109154"
 StableRNGs = "860ef19b-820b-49d6-a774-d7a799459cd3"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
@@ -53,7 +53,7 @@ JET = "0.10.1, 0.11, 0.12, 0.13"
 # 1.14.0 is the first OffsetArrays that does not redefine `Base.fill` on Julia 1.12; 1.13.0 does,
 # and the packages that load it then fail to precompile.
 OffsetArrays = "1.14"
-SafeTestsets = "0.1"
+ParallelTestRunner = "2.10"
 StableRNGs = "0.1, 1"
 
 [sources]

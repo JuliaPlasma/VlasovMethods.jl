@@ -1,2 +1,7 @@
-# The test groups that CI runs as separate jobs. GROUPS in runtests.jl lists the same groups.
-groups = ["core", "slow", "collisions"]
+# The test groups of CI. GROUPS in runtests.jl lists the same groups, and empty ARGS runs them all.
+# `split = false` runs all groups of a matrix entry in one CI job, which names them in ARGS.
+# `once` names the groups that a pull request and a push run on Ubuntu × Julia 1 only; the weekly
+# run, a tag and a run by hand run every group on every entry.
+groups = ["core", "quality", "slow", "collisions", "verification"]
+split = false
+once = ["quality", "verification"]

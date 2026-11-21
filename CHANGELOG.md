@@ -579,6 +579,17 @@ their own, except for what they removed and narrowed, which is listed in full be
   metriplectic and collision-tensor test files out of `core`. `Pkg.test()` still runs all three
   groups. `.github/workflows/CI.yml`, `codecov.yml` and the git hooks in `.githooks/` follow the
   Harness template, which runs one CI job per group and checks the group files.
+- **The test files run in parallel worker processes, and CI runs one job per matrix entry.**
+  `test/runtests.jl` hands its 45 files to ParallelTestRunner, which runs each in a worker process
+  of its own, in place of the `@safetestset` blocks of SafeTestsets; `test/Project.toml` lists
+  `ParallelTestRunner = "2.10"` and no longer SafeTestsets. The groups are `core`, `quality`,
+  `slow`, `collisions` and `verification`, and `Pkg.test()` runs all of them. `quality` takes the
+  Aqua, JET and ExplicitImports checks and the two plotting tests out of `core`; `verification`
+  takes the two long reduced-model runs out of `slow`. `test/ci-groups.toml` sets
+  `split = false`, so each CI matrix entry runs every group in one job, in place of the one job
+  per group above, and `once = ["quality", "verification"]`, so a pull request and a push run
+  those two groups on Ubuntu with Julia 1 only. An argument that starts with `--`, such as
+  `--jobs=4`, goes to the runner, and an unknown group name stops the run.
 
 ## [0.4.1] — 2026-11-04
 
