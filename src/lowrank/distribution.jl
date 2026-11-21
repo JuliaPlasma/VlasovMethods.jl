@@ -126,10 +126,6 @@ end
 Base.eltype(::LowRankDistribution{DT}) where {DT} = DT
 Base.size(d::LowRankDistribution) = size(d.space)
 
-function Base.show(io::IO, d::LowRankDistribution{DT}) where {DT}
-    print(io, "LowRankDistribution{", DT, "}(", size(d), ", rank ", size(d.S, 1), ")")
-end
-
 """
     GridDistribution(d::LowRankDistribution)
 

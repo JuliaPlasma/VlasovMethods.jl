@@ -291,6 +291,15 @@ end
         @test_throws dependent LowRankDistribution(dist, 4; fixed = hcat(one.(v), zero.(v)))
         # one fixed mode: a zero mode is refused, the constant is the first column of V
         @test_throws dependent LowRankDistribution(dist, 4; fixed = zeros(T, 40, 1))
+        # two modes whose weighted singular values are 1 and c nv eps(T) by construction, on
+        # both sides of the threshold nv eps(T) σ_max
+        U = Matrix(qr(hcat(one.(v), v)).Q)
+        θ = T(0.3)
+        W = [cos(θ) -sin(θ); sin(θ) cos(θ)]
+        Φc(c) = U * Diagonal(T[1, T(c) * 40 * e]) * W' ./ sqrt(hv)
+        @test_throws dependent LowRankDistribution(dist, 4; fixed = Φc(0.8))
+        dc = LowRankDistribution(dist, 4; fixed = Φc(1.25))
+        @test dc.nfixed == 2 && eltype(dc) === T && eltype(dc.V) === T
         d1 = LowRankDistribution(dist, 4; fixed = ones(T, 40, 1))
         @test d1.nfixed == 1
         @test norm(d1.V[:, 1] * (hv * sum(d1.V[:, 1])) - ones(T, 40)) ≤ 50e * sqrt(T(40))

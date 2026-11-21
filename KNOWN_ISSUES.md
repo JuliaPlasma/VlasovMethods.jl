@@ -675,3 +675,19 @@ has left the file, or that lived only on a merged branch, stays taken.
   1000 particles to `t = 1`, every seed from 1 to 20 meets 5 %, with differences below `1e-2`.
 - **kind:** defect
 - **found:** 2026-11-20
+
+### K108 · `GridDistribution(values, xdomain, vdomain)` accepts a reversed x or v domain, whose negative step gives negative moment weights and makes `LowRankDistribution(dist, r)` throw a `DomainError`.
+
+- **location:** `src/distributions/grid_distribution.jl:54`
+- **evidence:** the constructor builds `range(first(domain), last(domain))` without a check of the
+  order, so `step(dist.v) < 0` for `vdomain = (10, -10)` and `step(dist.x) < 0` for
+  `xdomain = (4π, 0)`. On the `24 × 40` grid of the smooth fixture of
+  `test/lowrank/distribution.jl`, `velocity_moments(dist).density[1]` is `-1.69` with
+  `vdomain = (10.0, -10.0)`, against `1.69` with `(-10.0, 10.0)`. `LowRankDistribution(dist, 4)`
+  then throws a `DomainError` (`sqrt was called with a negative real argument`), from
+  `sqrt(h)` in `src/lowrank/grid_space.jl:105` for the reversed v domain, and from
+  `sqrt(hx * hv)` in `src/lowrank/distribution.jl:111` for the reversed x domain. Whether a
+  reversed domain is refused or reordered is not decided; the check belongs in the constructor of
+  `GridDistribution`, so that every consumer of its grid gets it.
+- **kind:** defect
+- **found:** 2026-11-21
