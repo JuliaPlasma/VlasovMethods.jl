@@ -15,9 +15,12 @@ function setup(; nx = 16, nv = 32, α = 0.3, k = 0.5)
     x = (0:(nx - 1)) .* hx
     v = collect(range(-6, 6; length = nv))
     hv = v[2] - v[1]
+    # Green's matrix of -φ'' = ρ - mean(ρ), spectral, symmetric: the conjugate pairs of modes
+    # with the weight 2/nx, and for even nx the Nyquist mode with the weight 1/nx
     G = zeros(nx, nx)
-    for a in 1:nx, b in 1:nx, m in 1:(nx ÷ 2 - 1)
-        G[a, b] += 2 / nx * cos(m * k * hx * (a - b)) / (m * k)^2
+    for a in 1:nx, b in 1:nx, m in 1:(nx ÷ 2)
+        w = 2m == nx ? 1 / nx : 2 / nx
+        G[a, b] += w * cos(m * k * hx * (a - b)) / (m * k)^2
     end
     f0 = (1 .+ α .* cos.(k .* x)) .* (exp.(-v .^ 2 ./ 2) ./ sqrt(2π))'
     (; nx, nv, hx, hv, v, G, f0)
