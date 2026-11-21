@@ -1,6 +1,6 @@
 # Check 3: the paper's central claim. The PODE form of the reduced equation — the PSD cotangent basis
 # at `k = 20` integrated by Lobatto IIIA–IIIB(2) — conserves the analytic model's Hamiltonian to
-# `O(dt²)`. This file runs it to `T = 100` and belongs to the `slow` group: the PODE's `10^6` steps
+# `O(dt²)`. This file runs it to `T = 100` in the `verification` group: the PODE's `10^6` steps
 # take over a minute. The `T = 1000` run of both reduced forms, the PODE form and the ODE
 # form in the POD basis at `k = 5` integrated by RK4, is the paper command of
 # `scripts/analytic_quadratic.jl`, which writes the bound, the largest drift and the first save

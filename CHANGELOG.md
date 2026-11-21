@@ -574,11 +574,11 @@ their own, except for what they removed and narrowed, which is listed in full be
 - **The CairoMakie extension imports each name explicitly (K60).**
   `test/quality/explicit_imports.jl` loads CairoMakie and runs `check_no_implicit_imports` and
   `check_no_stale_explicit_imports` on `VlasovMethodsMakieExt`.
-- **The tests run in CI as the groups `core`, `slow` and `collisions`, one job each**, as
+- **The tests fall into the groups `core`, `slow` and `collisions`**, as
   `test/ci-groups.toml` lists them. `collisions` takes the ten Landau, Lenard–Bernstein,
-  metriplectic and collision-tensor test files out of `core`. `Pkg.test()` still runs all three
-  groups. `.github/workflows/CI.yml`, `codecov.yml` and the git hooks in `.githooks/` follow the
-  Harness template, which runs one CI job per group and checks the group files.
+  metriplectic and collision-tensor test files out of `core`. `Pkg.test()` runs every group.
+  `.github/workflows/CI.yml`, `codecov.yml` and the git hooks in `.githooks/` follow the
+  Harness template, which checks the group files.
 - **The test files run in parallel worker processes, and CI runs one job per matrix entry.**
   `test/runtests.jl` hands its 45 files to ParallelTestRunner, which runs each in a worker process
   of its own, in place of the `@safetestset` blocks of SafeTestsets; `test/Project.toml` lists
@@ -586,8 +586,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   `slow`, `collisions` and `verification`, and `Pkg.test()` runs all of them. `quality` takes the
   Aqua, JET and ExplicitImports checks and the two plotting tests out of `core`; `verification`
   takes the two files under `test/verification/` out of `slow`. `test/ci-groups.toml` sets
-  `split = false`, so each CI matrix entry runs every group in one job, in place of the one job
-  per group above, and `once = ["quality", "verification"]`, so a pull request and a push run
+  `split = false`, so each CI matrix entry runs every group in one job, not one job per group,
+  and `once = ["quality", "verification"]`, so a pull request and a push run
   those two groups on Ubuntu with Julia 1 only. An argument that starts with `--`, such as
   `--jobs=4`, goes to the runner, and an unknown group name stops the run.
 
