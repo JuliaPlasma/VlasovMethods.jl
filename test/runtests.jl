@@ -8,6 +8,7 @@ if "core" in GROUPS
     @safetestset "ExplicitImports" include("quality/explicit_imports.jl")
     @safetestset "Spline Distribution" include("distributions/spline_distribution.jl")
     @safetestset "Grid Distribution" include("distributions/grid_distribution.jl")
+    @safetestset "Low-Rank Distribution" include("lowrank/distribution.jl")
     @safetestset "Particle Distribution" include("distributions/particle_distribution.jl")
     @safetestset "Plotting" include("plotting.jl")
     @safetestset "Projections" include("projections/projections.jl")

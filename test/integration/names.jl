@@ -126,6 +126,8 @@ const NEW_EXPORTS = Symbol[
     :AnisotropicBiMaxwellian,
     :BKWDistribution,
     :DoubleMaxwellian2D,
+    :GridFactorSpace,
+    :LowRankDistribution,
     :build_grid_parity_factors,
     :build_spline_parity_factors,
     :dual_parity_modes,
