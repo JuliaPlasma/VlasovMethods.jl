@@ -38,10 +38,12 @@ function rates(; nx = 16, nv = 24, r = 4, fixed = true, seed = 1)
     v = range(-6, 6; length = nv)
     hv = step(v)
     k = 2π / L
-    # Green's matrix of -φ'' = ρ - mean(ρ), spectral, symmetric
+    # Green's matrix of -φ'' = ρ - mean(ρ), spectral, symmetric: the conjugate pairs of modes
+    # with the weight 2/nx, and for even nx the Nyquist mode with the weight 1/nx
     G = zeros(nx, nx)
-    for a in 1:nx, b in 1:nx, m in 1:(nx ÷ 2 - 1)
-        G[a, b] += 2 / nx * cos(m * k * hx * (a - b)) / (m * k)^2
+    for a in 1:nx, b in 1:nx, m in 1:(nx ÷ 2)
+        w = 2m == nx ? 1 / nx : 2 / nx
+        G[a, b] += w * cos(m * k * hx * (a - b)) / (m * k)^2
     end
     X = orth(randn(rng, nx, r), hx)
     Vr = randn(rng, nv, r)

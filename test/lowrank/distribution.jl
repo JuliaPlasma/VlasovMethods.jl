@@ -1,5 +1,6 @@
 using LinearAlgebra
 using Random
+using SparseArrays
 using Test
 using VlasovMethods
 using VlasovMethods: AbstractFactorSpace, DistributionFunction, inner_v, inner_x,
@@ -155,6 +156,15 @@ end
                 zeros(T, n, n + 1))
             Qs, Rs = orth(space, randn(Xoshiro(17), T, n, n))
             @test size(Qs) == (n, n) && size(Rs) == (n, n) && orthogonality(Qs, h) ≤ 50
+            # a sparse factor whose sparse QR permutes rows and columns
+            Ad = zeros(T, n, 3)
+            Ad[n, 1], Ad[2, 1], Ad[1, 2], Ad[n - 1, 2] = 3, 1, 2, -1
+            Ad[3, 3], Ad[n ÷ 2, 3], Ad[n, 3] = 5, 1, 2
+            Qp, Rp = orth(space, sparse(Ad))
+            @test size(Qp) == (n, 3) && size(Rp) == (3, 3)
+            @test eltype(Qp) === T && eltype(Rp) === T
+            @test orthogonality(Qp, h) ≤ 50
+            @test maximum(abs, Qp * Rp - Ad) ≤ 50e * maximum(abs, Ad)
         end
     end
 

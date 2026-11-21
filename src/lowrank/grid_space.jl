@@ -96,14 +96,16 @@ function _weighted_inner(A, B, h, n, axis)
     return h * (A' * B)
 end
 
-# Q = Q̃ / √h and R = R̃ of the thin Householder QR √h A = Q̃ R̃, so A = Q R and h QᵀQ = I
+# Q = Q̃ / √h and R = R̃ of the thin Householder QR √h A = Q̃ R̃, so A = Q R and h QᵀQ = I.
+# The working matrix is dense: the QR of a sparse matrix permutes its rows and columns, which
+# Q and R do not carry. `convert` copies nothing for the dense `s .* A` of a dense `A`.
 function _weighted_qr(A, h, n, axis)
     _check_rows(A, n, axis)
     k = size(A, 2)
     k ≤ n || throw(ArgumentError(
         "cannot orthonormalise $k columns on the $axis grid of $n nodes"))
     s = sqrt(h)
-    F = qr(s .* A)
+    F = qr(convert(Matrix, s .* A))
     return Matrix(F.Q) ./ s, F.R
 end
 
