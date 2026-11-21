@@ -585,7 +585,7 @@ their own, except for what they removed and narrowed, which is listed in full be
   `ParallelTestRunner = "2.10"` and no longer SafeTestsets. The groups are `core`, `quality`,
   `slow`, `collisions` and `verification`, and `Pkg.test()` runs all of them. `quality` takes the
   Aqua, JET and ExplicitImports checks and the two plotting tests out of `core`; `verification`
-  takes the two long reduced-model runs out of `slow`. `test/ci-groups.toml` sets
+  takes the two files under `test/verification/` out of `slow`. `test/ci-groups.toml` sets
   `split = false`, so each CI matrix entry runs every group in one job, in place of the one job
   per group above, and `once = ["quality", "verification"]`, so a pull request and a push run
   those two groups on Ubuntu with Julia 1 only. An argument that starts with `--`, such as
