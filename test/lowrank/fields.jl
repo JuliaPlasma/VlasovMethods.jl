@@ -9,7 +9,7 @@ using VlasovMethods: LowRankFields1D1V, _kfield!, _lfield!, _potential!, _sfield
 
 const VM = VlasovMethods
 
-# Every expected value comes from the full-order right-hand side `_grid_1d1v_rhs!` of the base,
+# Every expected value comes from the full-order right-hand side `_grid_1d1v_rhs!` of the model,
 # or from GeometricBrackets' `poisson_apply`, applied to the grid function `f` that the test
 # forms from the factors, and projected onto the other factor. The tolerance `1e-12` in `Float64`
 # is 4504 eps(Float64); the same budget in units of eps(T), rounded down to a power of 2, gives
@@ -20,7 +20,7 @@ tolerance(::Type{Float32}) = 4096 * eps(Float32)
 
 rel(a, b) = norm(a .- b) / norm(b)
 
-# the grid on [0, 4π) × [-6, 6], its model, the parameters of the base's integrator (with the
+# the grid on [0, 4π) × [-6, 6], its model, the parameters of the model's integrator (with the
 # buffers `ρ`, `ϕ` and `h`) and the workspace of the fields
 function problem(T, nx, nv)
     xd = (zero(T), T(4π))
@@ -35,7 +35,7 @@ end
 const PROBLEMS = Dict{Any, Any}()
 cached_problem(T, nx, nv) = get!(() -> problem(T, nx, nv), PROBLEMS, (T, nx, nv))
 
-# F(f) of the base's buffered `_grid_1d1v_rhs!`, which also leaves `G (hv Σⱼ f)` in `p.ϕ`
+# F(f) of the model's buffered `_grid_1d1v_rhs!`, which also leaves `G (hv Σⱼ f)` in `p.ϕ`
 function dense(f, p)
     a = p.arakawa
     ḟ = similar(vec(f))
