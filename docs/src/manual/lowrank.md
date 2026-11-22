@@ -69,3 +69,19 @@ maximum(abs, f.values - dist.values) / maximum(abs, dist.values)
 A step of a method replaces the factors of the mutable `LowRankDistribution`, also by factors
 of another rank. `LowRankDistribution(space, X, S, V; nfixed)` wraps given factors on any factor
 space, and checks their sizes but not their orthonormality.
+
+## The factored fields
+
+A dynamical low-rank step evolves the factors through the projections of the full-order
+right-hand side ``F(f) = [h, f]`` of the grid model, with ``h = \phi \otimes 1 + 1 \otimes v^2/2``:
+the K-field ``\dot{K} = h_v F(K V^\mathsf{T}) V``, the L-field
+``\dot{L} = h_x F(X L^\mathsf{T})^\mathsf{T} X`` and the S-field
+``\dot{S} = h_x h_v X^\mathsf{T} F(X S V^\mathsf{T}) V``. The workspace
+[`VlasovMethods.LowRankFields1D1V`](@ref) holds the Arakawa bracket, the Green's matrix and the
+kinetic energy ``v^2/2`` of the grid, and the functions `VlasovMethods._kfield!`,
+`VlasovMethods._lfield!`, `VlasovMethods._sfield!` and `VlasovMethods._potential!` evaluate the
+K-, L- and S-fields and the potential on the factors, without forming ``f``. The Hamiltonian
+``h`` has rank 2, so each term of Arakawa's stencil projects onto the other factor through
+``r \times r`` matrices of shifted columns, and a field costs ``O((n_x + n_v) r^2)`` beyond the
+product with the Green's matrix. Each field also takes a given, frozen potential ``\phi``. The
+workspace and the functions are documented, but not exported.

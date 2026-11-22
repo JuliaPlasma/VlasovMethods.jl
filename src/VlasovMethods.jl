@@ -95,6 +95,7 @@ include("distributions/spline_distribution.jl")
 include("distributions/grid_distribution.jl")
 include("lowrank/grid_space.jl")
 include("lowrank/distribution.jl")
+include("lowrank/fields.jl")
 
 export ParticleDistribution
 export SplineDistribution
