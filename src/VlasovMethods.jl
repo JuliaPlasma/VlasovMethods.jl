@@ -93,10 +93,13 @@ include("distributions/maxwellian.jl")
 include("distributions/particle_distribution.jl")
 include("distributions/spline_distribution.jl")
 include("distributions/grid_distribution.jl")
+include("lowrank/grid_space.jl")
+include("lowrank/distribution.jl")
 
 export ParticleDistribution
 export SplineDistribution
 export GridDistribution, velocity_moments
+export LowRankDistribution, GridFactorSpace
 export check_conservation_basis, project_function, project_Maxwellian
 
 # plotting

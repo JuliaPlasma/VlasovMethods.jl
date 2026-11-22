@@ -36,6 +36,10 @@ makedocs(;
             "Reduced-order models" => "manual/reduced_order.md",
             "Multi-modal autoencoder frontends" => "manual/autoencoder.md"
         ],
+        "Dynamical low rank" => [
+            "Low-rank distributions" => "manual/lowrank.md",
+            "Library" => "library/lowrank.md"
+        ],
         "Plotting" => "manual/plotting.md",
         "Scripts" => [
             "Overview" => "scripts/index.md",

@@ -5,6 +5,7 @@ const TESTS = [
     "core" => [
         "Spline Distribution" => "distributions/spline_distribution.jl",
         "Grid Distribution" => "distributions/grid_distribution.jl",
+        "Low-Rank Distribution" => "lowrank/distribution.jl",
         "Particle Distribution" => "distributions/particle_distribution.jl",
         "Projections" => "projections/projections.jl",
         "Reduced Tensors" => "gridbased/reduced_tensors.jl",

@@ -322,6 +322,27 @@ their own, except for what they removed and narrowed, which is listed in full be
   1600 × 450 pixels. Each panel is a named tuple of `v`, `f`, `df` and `title`. It throws an
   `ArgumentError` for an empty `v`, `v̇` or panel, for no panel, and for an empty or reversed
   `vdomain`, and a `DimensionMismatch` for a `v̇` of another length than `v`.
+- **`LowRankDistribution`** holds a 1D1V distribution function in the factored form `f ≈ X S Vᵀ`,
+  the state of the dynamical low-rank methods: the factor space, the factors `X`, `S` and `V`, and
+  the number `nfixed` of leading columns of `V` that span fixed velocity modes. It is a mutable
+  `DistributionFunction`, so a step can replace the factors by factors of another rank.
+  `LowRankDistribution(space, X, S, V; nfixed)` wraps given factors on any factor space and checks
+  their sizes, the rank and `nfixed`. `LowRankDistribution(dist::GridDistribution, r; fixed)`
+  factorises the node values of a grid distribution at the rank `r` by a weighted truncated SVD:
+  the modes of `fixed`, such as `[1 v v²]`, are the first columns of `V`, so the density, the
+  momentum and the energy of `velocity_moments` are kept; the next columns are the leading right
+  singular vectors of the part of `f` outside them; a basis below the rank is completed by a
+  Householder QR, without random numbers. It throws an `ArgumentError` for a rank outside
+  `1:min(nx, nv)`, for more fixed modes than the rank, for linearly dependent fixed modes and for
+  a non-finite entry. `GridDistribution(d)` forms `X S Vᵀ` on the grid, for tests and diagnostics;
+  `velocity_moments(d)` takes the three moments from the factors, and `evaluate(d, x, v)` the
+  bilinear interpolant of the grid distribution from two rows of `X` and of `V`, both without the
+  `nx × nv` array.
+- **`GridFactorSpace`** is the factor space of the grid of a `GridDistribution`, with the
+  weighted inner products `inner_x` and `inner_v` of the rectangle rules of the grid and the
+  orthonormalisations `orthonormalize_x` and `orthonormalize_v` in them, by Householder QR. These
+  four functions and the supertype `AbstractFactorSpace`, which a factor space implements, are
+  documented but not exported, and are reached as `VlasovMethods.inner_x` and so on.
 
 ### Scripts
 
@@ -471,6 +492,14 @@ their own, except for what they removed and narrowed, which is listed in full be
 - **`scripts/gate.jl` checks `drift_report` of `scripts/analytic_quadratic.jl` on a synthetic
   energy history (K78)**, which exceeds the bound at the second save after `t = 0`, and on one
   within the bound. A count of the exceedance from `t = 0` fails it; no run of the driver did.
+- **Three probes of the dynamical low-rank design**, in the scripts environment with the standard
+  library only. `scripts/dlr_energy_tangency.jl` shows on the doubly periodic Arakawa grid that the
+  projected field keeps the energy when 1 and v² lie in the velocity basis, and not without them.
+  `scripts/dlr_ksl_energy.jl` runs the projector-splitting integrator with implicit-midpoint
+  substeps, once with the projected gradient of the energy and once with the plain gradient, and
+  reports the drifts of the energy and the L² norm. `scripts/parity_splitting.jl` checks the
+  parity grading of the Arakawa bracket and runs the parity Strang splitting, its energy drift and
+  its order against a fine RK4 reference. Each returns its numbers as a named tuple.
 
 ### Documentation
 
@@ -538,6 +567,9 @@ their own, except for what they removed and narrowed, which is listed in full be
   `plot_phase_space` and the six collision figures; their docstrings are on the page
   `library/plotting.md`. The home page no longer renders them: with them, its HTML was 199.54 KiB of the
   200 KiB that Documenter allows.
+- **The dynamical low-rank methods have a section of their own**, "Dynamical low rank", with the
+  manual page `manual/lowrank.md`, which describes `LowRankDistribution`, its factorisation and
+  `GridFactorSpace`, and the library page `library/lowrank.md` of their docstrings.
 
 ### Internal
 
