@@ -691,3 +691,15 @@ has left the file, or that lived only on a merged branch, stays taken.
   `GridDistribution`, so that every consumer of its grid gets it.
 - **kind:** defect
 - **found:** 2026-11-21
+
+### K109 · The library index page does not list the low-rank library page, so its `@index` block and its table of pages leave out the low-rank docstrings.
+
+- **location:** `docs/src/library/index.md:22`
+- **evidence:** the `@index` block takes
+  `Pages = ["distributions.md", "models.md", "landau.md", "reduction.md", "plotting.md"]`, and the
+  table above it names the same five pages; `grep -c lowrank docs/src/library/index.md` gives `0`.
+  `docs/make.jl:41` builds `library/lowrank.md` under "Dynamical low rank", whose `@autodocs`
+  blocks render `LowRankDistribution`, `GridFactorSpace` and `LowRankFields1D1V`, so the index
+  of the library names none of them.
+- **kind:** docs
+- **found:** 2026-11-21
