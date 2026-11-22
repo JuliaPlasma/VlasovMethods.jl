@@ -17,3 +17,10 @@ Pages = ["lowrank/grid_space.jl", "lowrank/distribution.jl"]
 Modules = [VlasovMethods]
 Pages = ["lowrank/fields.jl"]
 ```
+
+## The projector splitting
+
+```@autodocs
+Modules = [VlasovMethods]
+Pages = ["lowrank/projector_splitting.jl"]
+```

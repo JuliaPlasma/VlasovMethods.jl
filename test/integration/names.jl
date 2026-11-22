@@ -128,12 +128,14 @@ const NEW_EXPORTS = Symbol[
     :DoubleMaxwellian2D,
     :GridFactorSpace,
     :LowRankDistribution,
+    :ProjectorSplitting,
     :build_grid_parity_factors,
     :build_spline_parity_factors,
     :dual_parity_modes,
     :klimontovich_bridge_loss,
     :klimontovich_deposition,
     :kruskal_oberman_free_energy,
+    :lowrank_step!,
     :tie_continuum_frontends!
 ]
 

@@ -14,7 +14,7 @@ module, as `VlasovMethods.compute_coefficients`.
 | [Models and methods](models.md) | methods, Vlasov–Poisson, external fields, Lenard–Bernstein collisions |
 | [Landau collisions](landau.md) | both Landau methods and their time integrators |
 | [Reduction](reduction.md) | grid reduced tensors, reduced-order models, autoencoder frontends |
-| [Dynamical low rank](lowrank.md) | low-rank distributions, the grid factor space, the factored fields |
+| [Dynamical low rank](lowrank.md) | low-rank distributions, the grid factor space, the factored fields, the projector splitting |
 | [Plotting](plotting.md) | the plotting functions |
 
 ## Index
