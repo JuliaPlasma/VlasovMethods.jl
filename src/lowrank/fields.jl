@@ -12,8 +12,8 @@ full-order right-hand side [`_grid_1d1v_rhs!`](@ref) on the same bracket, `G` an
 The first method throws a `DimensionMismatch` when `size(G) != (nx, nx)` or
 `length(v) != nv`. The second builds the bracket `Arakawa(nx, nv, step(space.x), step(space.v))`
 of the grid of `space`, with `(nx, nv) = size(space)`, and takes the nodes `space.v`. The third is
-the second on the space of `dist`; a distribution on a space other than a [`GridFactorSpace`](@ref)
-has no method, because the stencil and its weights belong to the grid.
+the second on the space of `dist`, so it throws a `MethodError` for a distribution on a space
+other than a [`GridFactorSpace`](@ref), because the stencil and its weights belong to the grid.
 
 The functions [`_kfield!`](@ref), [`_lfield!`](@ref), [`_sfield!`](@ref) and
 [`_potential!`](@ref) take the workspace.

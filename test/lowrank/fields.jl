@@ -60,12 +60,20 @@ function factors(T, nx, nv, r, seed)
     return X, S, V, K, L
 end
 
-kfield(K, V, w) = _kfield!(similar(K), K, V, w)
-lfield(X, L, w) = _lfield!(similar(L), X, L, w)
-sfield(X, S, V, w) = _sfield!(similar(S), X, S, V, w)
-kfield(K, V, w, ϕ) = _kfield!(similar(K), K, V, w, ϕ)
-lfield(X, L, w, ϕ) = _lfield!(similar(L), X, L, w, ϕ)
-sfield(X, S, V, w, ϕ) = _sfield!(similar(S), X, S, V, w, ϕ)
+# `f!(out, args...)` returns its output `out`, and the test reads the output buffer itself
+function written(f!, out, args...)
+    @test f!(out, args...) === out
+    return out
+end
+
+kfield(K, V, w) = written(_kfield!, similar(K), K, V, w)
+lfield(X, L, w) = written(_lfield!, similar(L), X, L, w)
+sfield(X, S, V, w) = written(_sfield!, similar(S), X, S, V, w)
+kfield(K, V, w, ϕ) = written(_kfield!, similar(K), K, V, w, ϕ)
+lfield(X, L, w, ϕ) = written(_lfield!, similar(L), X, L, w, ϕ)
+sfield(X, S, V, w, ϕ) = written(_sfield!, similar(S), X, S, V, w, ϕ)
+potential(K, V, w) = written(_potential!, zeros(eltype(K), size(K, 1)), K, V, w)
+potential(X, S, V, w) = written(_potential!, zeros(eltype(X), size(X, 1)), X, S, V, w)
 
 # columns orthonormal in the weighted product h Σ aᵢ bᵢ
 orth(A, h) = Matrix(qr(sqrt(h) .* A).Q)[:, 1:size(A, 2)] ./ sqrt(h)
@@ -135,15 +143,15 @@ end
         X, S, V, K, L = factors(T, nx, nv, r, seed)
 
         dense(K * V', p)
-        ϕ = _potential!(zeros(T, nx), K, V, w)
+        ϕ = potential(K, V, w)
         @test eltype(ϕ) === T
         @test rel(ϕ, p.ϕ) ≤ tol
 
         dense(X * L', p)
-        @test rel(_potential!(zeros(T, nx), X, L, w), p.ϕ) ≤ tol
+        @test rel(potential(X, L, w), p.ϕ) ≤ tol
 
         dense(X * S * V', p)
-        ϕ = _potential!(zeros(T, nx), X, S, V, w)
+        ϕ = potential(X, S, V, w)
         @test eltype(ϕ) === T
         @test rel(ϕ, p.ϕ) ≤ tol
     end
@@ -178,12 +186,10 @@ end
     (; w) = cached_problem(T, 16, 24)
     for seed in SEEDS
         X, S, V, K, L = factors(T, 16, 24, 4, seed)
-        @test rel(kfield(K, V, w), kfield(K, V, w, _potential!(zeros(T, 16), K, V, w))) ≤
+        @test rel(kfield(K, V, w), kfield(K, V, w, potential(K, V, w))) ≤ 8 * eps(T)
+        @test rel(lfield(X, L, w), lfield(X, L, w, potential(X, L, w))) ≤ 8 * eps(T)
+        @test rel(sfield(X, S, V, w), sfield(X, S, V, w, potential(X, S, V, w))) ≤
               8 * eps(T)
-        @test rel(lfield(X, L, w), lfield(X, L, w, _potential!(zeros(T, 16), X, L, w))) ≤
-              8 * eps(T)
-        @test rel(sfield(X, S, V, w),
-            sfield(X, S, V, w, _potential!(zeros(T, 16), X, S, V, w))) ≤ 8 * eps(T)
     end
 end
 
@@ -241,9 +247,10 @@ function dense_kfield!(K̇, K, V, p)
 end
 
 @testset "allocations of the fields, $T" for T in (Float64, Float32)
-    # `--check-bounds=yes` and coverage instrumentation allocate on their own, so under either
-    # the measurement does not run rather than being weakened; it is skipped where a run forces
-    # `--check-bounds=yes`
+    # `--check-bounds=yes` changes the compiled code that the bound measures, so the measurement
+    # does not run rather than being weakened; it is skipped where a run forces
+    # `--check-bounds=yes`, and under coverage instrumentation, as the allocation tests of the
+    # other test files are
     if Base.JLOptions().check_bounds != 1 && Base.JLOptions().code_coverage == 0
         for (nx, nv) in ((64, 128), (512, 1024)), r in (4, 8)
 
