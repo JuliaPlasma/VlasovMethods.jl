@@ -232,9 +232,12 @@ end
     end
 end
 
-# The bytes of one call of `f(args...)` after a warm call, through a barrier with concrete
-# argument types.
-allocations(f::F, args::A) where {F, A} = (f(args...); @allocated f(args...))
+# The bytes of one call of `f(args...)` after a warm call, the minimum over three calls, through
+# a barrier with concrete argument types.
+function allocations(f::F, args::A) where {F, A}
+    f(args...)
+    return minimum(@allocated(f(args...)) for _ in 1:3)
+end
 
 # the K-field formed through the full-order right-hand side, as a control that forms f
 function dense_kfield!(K̇, K, V, p)
@@ -261,7 +264,10 @@ end
             w = LowRankFields1D1V(a, model.work, dist.v)
             X, S, V, K, L = factors(T, nx, nv, r, 1)
             ϕ = draw(Xoshiro(2), T, nx)
-            bound = 32 * (nx + nv) * r * sizeof(T) + 16384
+            # a call allocates at most three vectors of length nx (ϕ, ρ and ϕ̃), one of length nv
+            # (k̃), two of length r and five r × r matrices; 2048 bytes cover the array headers.
+            # One more nx × r array breaks the bound at (512, 1024), one more nv × r at (64, 128).
+            bound = (3nx + nv + 2r + 5r^2) * sizeof(T) + 2048
 
             @test allocations(_kfield!, (similar(K), K, V, w)) ≤ bound
             @test allocations(_lfield!, (similar(L), X, L, w)) ≤ bound
@@ -371,38 +377,38 @@ end
 
     # rank zero: the empty output, and a zero potential
     X0, S0, V0, K0, L0 = factors(T, nx, nv, 0, 1)
-    @test size(_kfield!(similar(K0), K0, V0, w)) == (nx, 0)
-    @test size(_lfield!(similar(L0), X0, L0, w)) == (nv, 0)
-    @test size(_sfield!(similar(S0), X0, S0, V0, w)) == (0, 0)
-    @test size(_kfield!(similar(K0), K0, V0, w, ϕ)) == (nx, 0)
-    @test size(_lfield!(similar(L0), X0, L0, w, ϕ)) == (nv, 0)
-    @test size(_sfield!(similar(S0), X0, S0, V0, w, ϕ)) == (0, 0)
-    @test _potential!(filled(nx), K0, V0, w) == zeros(T, nx)
-    @test _potential!(filled(nx), X0, S0, V0, w) == zeros(T, nx)
+    @test size(written(_kfield!, similar(K0), K0, V0, w)) == (nx, 0)
+    @test size(written(_lfield!, similar(L0), X0, L0, w)) == (nv, 0)
+    @test size(written(_sfield!, similar(S0), X0, S0, V0, w)) == (0, 0)
+    @test size(written(_kfield!, similar(K0), K0, V0, w, ϕ)) == (nx, 0)
+    @test size(written(_lfield!, similar(L0), X0, L0, w, ϕ)) == (nv, 0)
+    @test size(written(_sfield!, similar(S0), X0, S0, V0, w, ϕ)) == (0, 0)
+    @test written(_potential!, filled(nx), K0, V0, w) == zeros(T, nx)
+    @test written(_potential!, filled(nx), X0, S0, V0, w) == zeros(T, nx)
 
     # zero factors: an exactly zero field and potential, also at a given ϕ
     Z = zero
-    @test all(==(0), _kfield!(filled(nx, r), Z(K), Z(V), w))
-    @test all(==(0), _lfield!(filled(nv, r), Z(X), Z(L), w))
-    @test all(==(0), _sfield!(filled(r, r), Z(X), Z(S), Z(V), w))
-    @test all(==(0), _kfield!(filled(nx, r), Z(K), Z(V), w, ϕ))
-    @test all(==(0), _lfield!(filled(nv, r), Z(X), Z(L), w, ϕ))
-    @test all(==(0), _sfield!(filled(r, r), Z(X), Z(S), Z(V), w, ϕ))
-    @test all(==(0), _potential!(filled(nx), Z(K), Z(V), w))
-    @test all(==(0), _potential!(filled(nx), Z(X), Z(S), Z(V), w))
+    @test all(==(0), written(_kfield!, filled(nx, r), Z(K), Z(V), w))
+    @test all(==(0), written(_lfield!, filled(nv, r), Z(X), Z(L), w))
+    @test all(==(0), written(_sfield!, filled(r, r), Z(X), Z(S), Z(V), w))
+    @test all(==(0), written(_kfield!, filled(nx, r), Z(K), Z(V), w, ϕ))
+    @test all(==(0), written(_lfield!, filled(nv, r), Z(X), Z(L), w, ϕ))
+    @test all(==(0), written(_sfield!, filled(r, r), Z(X), Z(S), Z(V), w, ϕ))
+    @test all(==(0), written(_potential!, filled(nx), Z(K), Z(V), w))
+    @test all(==(0), written(_potential!, filled(nx), Z(X), Z(S), Z(V), w))
 
     # a non-finite entry propagates, without an error
     for bad in (T(NaN), T(Inf))
         Kb, Lb, Sb = copy(K), copy(L), copy(S)
         Kb[3, 2] = Lb[5, 1] = Sb[2, 3] = bad
-        @test any(!isfinite, _kfield!(similar(K), Kb, V, w))
-        @test any(!isfinite, _kfield!(similar(K), Kb, V, w, ϕ))
-        @test any(!isfinite, _lfield!(similar(L), X, Lb, w))
-        @test any(!isfinite, _lfield!(similar(L), X, Lb, w, ϕ))
-        @test any(!isfinite, _sfield!(similar(S), X, Sb, V, w))
-        @test any(!isfinite, _sfield!(similar(S), X, Sb, V, w, ϕ))
-        @test any(!isfinite, _potential!(similar(ϕ), Kb, V, w))
-        @test any(!isfinite, _potential!(similar(ϕ), X, Sb, V, w))
+        @test any(!isfinite, written(_kfield!, similar(K), Kb, V, w))
+        @test any(!isfinite, written(_kfield!, similar(K), Kb, V, w, ϕ))
+        @test any(!isfinite, written(_lfield!, similar(L), X, Lb, w))
+        @test any(!isfinite, written(_lfield!, similar(L), X, Lb, w, ϕ))
+        @test any(!isfinite, written(_sfield!, similar(S), X, Sb, V, w))
+        @test any(!isfinite, written(_sfield!, similar(S), X, Sb, V, w, ϕ))
+        @test any(!isfinite, written(_potential!, similar(ϕ), Kb, V, w))
+        @test any(!isfinite, written(_potential!, similar(ϕ), X, Sb, V, w))
     end
 
     # another element type has no method

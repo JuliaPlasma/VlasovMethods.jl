@@ -351,8 +351,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   `f = X S Vᵀ`. They work on the factors and never form the `nx × nv` array: the Hamiltonian has
   rank 2, so each term of Arakawa's stencil projects through `r × r` matrices of shifted columns.
   Each field also takes a frozen potential `ϕ` as its last argument. The workspace is built from
-  the Green's matrix and an `Arakawa` bracket with the velocity nodes, a `GridFactorSpace`, or a
-  `LowRankDistribution` on one. The five names are documented but not exported.
+  an `Arakawa` bracket with the velocity nodes, a `GridFactorSpace`, or a `LowRankDistribution` on
+  one, each with the Green's matrix. The five names are documented but not exported.
 
 ### Scripts
 
