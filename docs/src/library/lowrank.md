@@ -17,3 +17,10 @@ Pages = ["lowrank/grid_space.jl", "lowrank/distribution.jl"]
 Modules = [VlasovMethods]
 Pages = ["lowrank/fields.jl"]
 ```
+
+## The BUG integrators and the run driver
+
+```@autodocs
+Modules = [VlasovMethods]
+Pages = ["lowrank/bug.jl"]
+```

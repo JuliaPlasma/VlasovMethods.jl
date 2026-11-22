@@ -96,11 +96,13 @@ include("distributions/grid_distribution.jl")
 include("lowrank/grid_space.jl")
 include("lowrank/distribution.jl")
 include("lowrank/fields.jl")
+include("lowrank/bug.jl")
 
 export ParticleDistribution
 export SplineDistribution
 export GridDistribution, velocity_moments
 export LowRankDistribution, GridFactorSpace
+export BUG, AugmentedBUG, MidpointBUG, lowrank_step!, LowRankIntegrator
 export check_conservation_basis, project_function, project_Maxwellian
 
 # plotting

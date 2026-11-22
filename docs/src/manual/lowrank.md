@@ -85,3 +85,41 @@ K-, L- and S-fields and the potential on the factors, without forming ``f``. The
 ``r \times r`` matrices of shifted columns, and a field costs ``O((n_x + n_v) r^2)`` beyond the
 product with the Green's matrix. Each field also takes a given, frozen potential ``\phi``. The
 workspace and the functions are documented, but not exported.
+
+## The BUG integrators
+
+The basis-update & Galerkin (BUG) integrators are the reference methods of dynamical low rank.
+Each step evolves the factors through the K-, L- and S-fields, and none forms ``f``:
+
+  - [`BUG`](@ref) is the fixed-rank integrator of Ceruti & Lubich 2022
+    ([doi:10.1007/s10543-021-00873-0](https://doi.org/10.1007/s10543-021-00873-0)): the K- and
+    L-steps from the old bases give the new bases, and the S-step runs on them.
+  - [`AugmentedBUG`](@ref) is the rank-adaptive integrator of Ceruti, Kusch & Lubich 2022
+    ([doi:10.1007/s10543-021-00907-7](https://doi.org/10.1007/s10543-021-00907-7)): the S-step
+    runs on the new bases augmented by the old ones, and the SVD of its result truncates the step,
+    to the rank of the input or by a tolerance on the discarded singular values.
+  - [`MidpointBUG`](@ref) is the second-order "Midpoint BUG (4r)" of Ceruti, Einkemmer, Kusch &
+    Lubich 2024 ([doi:10.1007/s10543-024-01032-x](https://doi.org/10.1007/s10543-024-01032-x)),
+    truncated to the rank of its input.
+
+[`lowrank_step!`](@ref)`(Y, method, field, t, τ)` takes one step in place on a
+[`LowRankDistribution`](@ref), with the workspace of the fields; each substep is one step of the
+classical RK4 tableau. A step counts the fixed modes in the rank and sets `nfixed = 0`, because
+no BUG integrator keeps the fixed modes in the span of `V`. A step whose S-step leaves a
+non-finite value does not throw; `all(isfinite, Y.S)` is its status. At the full rank
+``r = n_x`` with ``n_x \le n_v \le 2 n_x``, every projection of the augmented and the midpoint
+BUG is the identity, and a step is the RK4 step of the full-order model:
+
+```@example lowrank
+using PoissonSolvers: FFTWBasis, Potential
+
+model = VlasovPoisson(dist, Potential(FFTWBasis((0.0, 4π), nx)))
+Y = LowRankDistribution(dist, nx)
+field = VlasovMethods.LowRankFields1D1V(Y, model.work)
+lowrank_step!(Y, AugmentedBUG(), field, 0.0, 0.05)
+(rank = size(Y.S, 1), nfixed = Y.nfixed, status = all(isfinite, Y.S))
+```
+
+[`LowRankIntegrator`](@ref)`(Y, method, field, tspan, tstep)` holds a run of any method with a
+`lowrank_step!`, and [`run!`](@ref) writes the times, the ranks and the factors of every state
+into an HDF5 file, with the file attribute `status`.

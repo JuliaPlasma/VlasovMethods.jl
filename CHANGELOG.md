@@ -353,6 +353,34 @@ their own, except for what they removed and narrowed, which is listed in full be
   Each field also takes a frozen potential `ϕ` as its last argument. The workspace is built from
   an `Arakawa` bracket with the velocity nodes, a `GridFactorSpace`, or a `LowRankDistribution` on
   one, each with the Green's matrix. The five names are documented but not exported.
+- **`BUG`** is the fixed-rank basis-update & Galerkin integrator of Ceruti & Lubich 2022
+  (doi 10.1007/s10543-021-00873-0), a reference method of dynamical low rank: the K- and
+  L-steps from the old bases, the new bases from their results, and the S-step on the new bases.
+- **`AugmentedBUG`** is the augmented basis-update & Galerkin integrator of Ceruti, Kusch & Lubich
+  2022 (doi 10.1007/s10543-021-00907-7): the S-step runs on the bases of `[K(τ) X₀]` and
+  `[L(τ) V₀]`, and the SVD of its result truncates the step. `AugmentedBUG()` truncates to the
+  rank of the step's input, `AugmentedBUG(tol; rmin = 1, rmax)` to the least rank whose discarded
+  singular values have a norm of at most `tol`, clamped to `rmin:rmax`. The truncated `S` is the
+  diagonal of the leading singular values. The constructor throws an `ArgumentError` unless `tol`
+  is a finite real `≥ 0` and `1 ≤ rmin ≤ rmax`, and a step throws one for a state whose rank lies
+  outside `rmin:rmax`.
+- **`MidpointBUG`** is the midpoint basis-update & Galerkin integrator, "Midpoint BUG (4r)" of
+  Ceruti, Einkemmer, Kusch & Lubich 2024 (doi 10.1007/s10543-024-01032-x), truncated to the rank
+  of its input: an augmented step of `τ/2` without truncation, bases augmented by the field at its
+  result, a Galerkin step of `τ` on them, and the truncation.
+- **`lowrank_step!`** takes one step `lowrank_step!(Y, method, field, t, τ)` of `BUG`,
+  `AugmentedBUG` or `MidpointBUG` in place on a `LowRankDistribution` on a `GridFactorSpace`, with
+  the workspace `LowRankFields1D1V` of the fields, and returns `Y`. Each substep is one step of the
+  classical RK4 tableau, and no field or step forms the `nx × nv` array. The step converts `τ` to
+  the element type of `Y`, throws an `ArgumentError` for a non-finite `τ`, counts the fixed modes
+  in the rank and sets `nfixed = 0`. A step whose S-step leaves a non-finite value does not throw:
+  it leaves the untruncated factors in `Y`, and `all(isfinite, Y.S)` is the status that a caller
+  tests.
+- **`LowRankIntegrator`** holds a run of any method with a `lowrank_step!` from a
+  `LowRankDistribution` over a span with a step, and `run!(int, h5file)` writes the times, the
+  ranks and the factors `X`, `S` and `V` of every state into an HDF5 file, zero beyond each rank.
+  A step that leaves a non-finite `S` stops the run without an error and sets the file attribute
+  `status` to `"failed at step <s>"`; a complete run sets `"ok"`.
 
 ### Scripts
 
