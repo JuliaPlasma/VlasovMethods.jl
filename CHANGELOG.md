@@ -343,6 +343,16 @@ their own, except for what they removed and narrowed, which is listed in full be
   orthonormalisations `orthonormalize_x` and `orthonormalize_v` in them, by Householder QR. These
   four functions and the supertype `AbstractFactorSpace`, which a factor space implements, are
   documented but not exported, and are reached as `VlasovMethods.inner_x` and so on.
+- **`LowRankFields1D1V`** is the workspace of the K-, L- and S-fields of 1D1V Vlasov–Poisson on
+  the Arakawa grid, the fields through which a dynamical low-rank step evolves its factors.
+  `_kfield!(K̇, K, V, w)`, `_lfield!(L̇, X, L, w)` and `_sfield!(Ṡ, X, S, V, w)` write
+  `K̇ = F(K Vᵀ) hv V`, `L̇ = F(X Lᵀ)ᵀ hx X` and `Ṡ = hx hv Xᵀ F(X S Vᵀ) V`, with `F` the
+  right-hand side of `_grid_1d1v_rhs!`, and `_potential!` writes the potential of `f = K Vᵀ` or
+  `f = X S Vᵀ`. They work on the factors and never form the `nx × nv` array: the Hamiltonian has
+  rank 2, so each term of Arakawa's stencil projects through `r × r` matrices of shifted columns.
+  Each field also takes a frozen potential `ϕ` as its last argument. The workspace is built from
+  an `Arakawa` bracket with the velocity nodes, a `GridFactorSpace`, or a `LowRankDistribution` on
+  one, each with the Green's matrix. The five names are documented but not exported.
 
 ### Scripts
 

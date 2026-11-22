@@ -10,3 +10,10 @@ CurrentModule = VlasovMethods
 Modules = [VlasovMethods]
 Pages = ["lowrank/grid_space.jl", "lowrank/distribution.jl"]
 ```
+
+## The factored fields
+
+```@autodocs
+Modules = [VlasovMethods]
+Pages = ["lowrank/fields.jl"]
+```
