@@ -90,9 +90,9 @@ workspace and the functions are documented, but not exported.
 
 The workspace takes the closure of the velocity grid as the keyword `closure` of each of its
 constructors, as the grid model does. The default `PeriodicVelocityClosure()` gives the fields
-above. With `BoundedVelocityClosure()`, the fields are those of the
-[bounded velocity closure](@ref "Bounded velocity closure") of the grid model,
-``F_b(f) = \chi \circ [P h, \chi \circ f]``. The cut Hamiltonian
+above. With `BoundedVelocityClosure()`, the fields are those of the bounded field
+``F_b(f) = \chi \circ [P h, \chi \circ f]`` of the grid model, from the section
+[Bounded velocity closure](@ref). The cut Hamiltonian
 ``P h = \phi \otimes \chi + 1 \otimes (\chi \circ v^2/2)`` has rank 2 too, so the fields keep
 their factored form: the velocity sums run over the unknowns ``j = 2, \dots, n_v - 1``, the term
 of ``\phi`` is weighted by ``\chi`` at the velocity neighbour, the kinetic energy is cut to the

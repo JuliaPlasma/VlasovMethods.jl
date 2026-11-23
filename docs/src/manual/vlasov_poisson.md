@@ -129,8 +129,8 @@ as `RK4()` is the practical choice.
 !!! warning "The grid is periodic in the velocity"
     The Arakawa bracket wraps both directions of the grid. The scheme is valid only while ``f``
     vanishes at both ends of the velocity range, to `eps(T)` times its maximum. This is the
-    default closure of the velocity grid; the
-    [bounded velocity closure](@ref "Bounded velocity closure") does not wrap.
+    default closure of the velocity grid; the closure of the section
+    [Bounded velocity closure](@ref) does not wrap.
 
 The example below is the linear Landau damping of the wave number ``k = 0.5`` with the amplitude
 ``0.01``. The amplitude of the first Fourier mode of the field decays at the rate
@@ -206,7 +206,8 @@ and ``\dot{f} = 0`` at the end nodes. On grid functions that vanish on and beyon
 Arakawa's form ``T(a, b, c) = \langle a, [b, c] \rangle``, with
 ``\langle a, b \rangle = h_x h_v \sum_i \sum_{j=2}^{n_v-1} a_{ij} b_{ij}``, is the form of the
 infinite lattice, which is totally antisymmetric. So ``\dot{f}`` is the field of the cyclic
-average of ``T``, and the energy rate ``\langle P h, \dot{f} \rangle = T(P h, P h, f)`` vanishes.
+average of ``T``, and the energy rate
+``\langle P h, \dot{f} \rangle = T(P h, P h, \chi \circ f)`` vanishes.
 The discrete energy
 
 ```math
