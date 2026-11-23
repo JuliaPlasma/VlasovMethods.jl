@@ -124,9 +124,9 @@ their own, except for what they removed and narrowed, which is listed in full be
   is then the number of states that `GeometricIntegrators.integrate` and `run!` write, except on
   some spans whose last step ends a few ulps past `t₁`: there `ntime` counts that step and the
   grid can drop it, so `ntime(equation) + 1` can be one more than the number of states. `run!`
-  takes its step count from the grid in either case. The tests of `run!(::SplittingMethod, h5file)` and
-  `run!(::GeometricIntegrator, h5file)` assert the agreement on their spans, so they fail on
-  0.21.5 to 0.21.7.
+  takes its step count from the grid in either case. The tests of
+  `run!(::SplittingMethod, h5file)` and `run!(::GeometricIntegrator, h5file)` assert the agreement
+  on their spans, so they fail on 0.21.5 to 0.21.7.
 
 ### Breaking Changes
 
