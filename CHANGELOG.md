@@ -369,8 +369,12 @@ their own, except for what they removed and narrowed, which is listed in full be
   potential of the bounded field, without the `nx × nv` array. The runs of
   `test/verification/bounded_closure.jl`, in the `verification` group, check the energy, the
   mass balance against the boundary flux, and the agreement with the periodic run where `f`
-  vanishes at both ends of the velocity range. The abstract type `VelocityClosure` is documented
-  but not exported.
+  vanishes, to round-off, on the two outermost nodes at each end, `j ∈ {1, 2, nv-1, nv}`; with `f`
+  zero on the end nodes alone the two closures give different fields. The abstract type
+  `VelocityClosure` is documented but not exported; the `closure` keyword of the grid model and of
+  the three `LowRankFields1D1V` constructors takes `PeriodicVelocityClosure()` or
+  `BoundedVelocityClosure()`, and throws a `TypeError` for any other value, a further subtype of
+  `VelocityClosure` included.
 - **`PeriodicVelocityClosure`** is the periodic closure of the velocity grid, which the grid model
   and the low-rank fields have used so far. It is the default of the `closure` keyword, so a call
   without the keyword builds the same problem and the same fields as before.

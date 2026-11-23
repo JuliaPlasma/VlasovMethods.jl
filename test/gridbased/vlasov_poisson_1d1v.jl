@@ -126,6 +126,9 @@ function cut(a::AbstractMatrix)
     return b
 end
 
+# a subtype of `VelocityClosure` that is neither closure, which `GeometricIntegrator` refuses
+struct OtherClosure <: VM.VelocityClosure end
+
 # the model and the problem of the bounded closure on [0, 4π) × [-6, 6]
 function bounded_problem(T, nx, nv)
     xd = (zero(T), T(4π))
@@ -545,6 +548,8 @@ end
 
         @test_throws r"^TypeError: in keyword argument closure, expected VlasovMethods\.VelocityClosure, got a value of type Symbol$" GeometricIntegrator(
             model, tspan, dt; closure = :bounded)
+        @test_throws r"^TypeError: in GeometricIntegrator, in keyword closure, expected Union\{.*\}, got a value of type .*OtherClosure$" GeometricIntegrator(
+            model, tspan, dt; closure = OtherClosure())
     end
 
     @testset "the bounded field is the T̄ field, $T" for T in (Float32, Float64)

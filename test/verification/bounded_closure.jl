@@ -2,14 +2,15 @@
 # model's `GeometricIntegrator` and its default `ImplicitMidpoint()`.
 #
 # Run A needs `f` at the boundary of the velocity domain, `[-3.5, 3.5]`: the bounded closure differs
-# from the periodic one only where `f` reaches the end nodes, and a run whose `f` vanishes there
-# shows neither the boundary flux nor the failure of the control. Its discrete Hamiltonian
+# from the periodic one only where `f` reaches the two outermost nodes at each end,
+# `j ∈ {1, 2, nv-1, nv}`, and a run whose `f` vanishes there shows neither the boundary flux nor
+# the failure of the control. Its discrete Hamiltonian
 # `H = hx hv Σ_i Σ_{j=2}^{nv-1} f_ij v_j²/2 + (hx/2) ρᵀ G ρ` is quadratic, so the implicit midpoint
 # keeps it to the Newton solve, and the mass change of each step is `τ` times the boundary flux
 # `−hx hv Σ_i Σ_{j ∈ {1, nv}} [Ph, χ ∘ f]_ij` at the midpoint state. The control brackets with the
-# Hamiltonian from its formula on every node, the uncut `h`. Run B keeps `f` round-off at `±vmax`,
-# where the bounded and the periodic closure give the same run. H, the mass and the flux are
-# computed here and not in `src`.
+# Hamiltonian from its formula on every node, the uncut `h`. Run B keeps `f` round-off on those
+# four nodes, where the bounded and the periodic closure give the same field. H, the mass and the
+# flux are computed here and not in `src`.
 
 using GeometricBrackets: poisson_apply
 using GeometricEquations: GeometricEquations

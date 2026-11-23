@@ -40,9 +40,18 @@ field of the cyclic average of ``T``, and ``\langle P h, \dot{f} \rangle = 0``: 
 energy ``H = h_x h_v \sum_i \sum_{j=2}^{n_v-1} f_{ij} v_j^2 / 2 + (h_x / 2) \rho^\mathsf{T} G \rho``
 is kept by the field, and by the implicit midpoint rule. The mass is not kept: its rate is the
 flux ``-h_x h_v \sum_i \sum_{j \in \{1, n_v\}} [P h, \chi \circ f]_{ij}`` through the end nodes.
-On a velocity range where ``f`` vanishes at both ends, the two closures give the same run.
+Where ``f`` vanishes on the two outermost nodes at each end, ``j \in \{1, 2, n_v - 1, n_v\}``,
+the two closures give the same field.
 """
 struct BoundedVelocityClosure <: VelocityClosure end
+
+# The guard of the `closure` keyword of `fname`: a `TypeError` for a subtype of `VelocityClosure`
+# other than the two closures above, which would otherwise run as the periodic closure.
+function _check_closure(fname, closure)
+    closures = Union{PeriodicVelocityClosure, BoundedVelocityClosure}
+    closure isa closures || throw(TypeError(fname, "keyword closure", closures, closure))
+    return nothing
+end
 
 @doc raw"""
     _green_matrix(dist::GridDistribution, potential::Potential)
@@ -288,6 +297,7 @@ type throws a `TypeError`.
 function GeometricIntegrator(model::VlasovPoisson{1, 1, <:GridDistribution}, tspan::Tuple,
         tstep::Real, method = Integrators.ImplicitMidpoint();
         closure::VelocityClosure = PeriodicVelocityClosure())
+    _check_closure(:GeometricIntegrator, closure)
     dist = model.distribution
     T = eltype(dist.values)
     nx, nv = size(dist.values)

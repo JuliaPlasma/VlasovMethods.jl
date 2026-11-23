@@ -14,8 +14,8 @@ With the [`BoundedVelocityClosure`](@ref), `kinetic` is zero at the end nodes ``
 ``j = n_v``, and the fields are those of [`_grid_1d1v_bounded_rhs!`](@ref).
 
 The first method throws a `DimensionMismatch` when `size(G) != (nx, nx)` or
-`length(v) != nv`, and a `TypeError` for a `closure` that is not a
-[`VlasovMethods.VelocityClosure`](@ref). The second builds the bracket
+`length(v) != nv`, and a `TypeError` for a `closure` other than
+[`PeriodicVelocityClosure`](@ref) and [`BoundedVelocityClosure`](@ref). The second builds the bracket
 `Arakawa(nx, nv, step(space.x), step(space.v))` of the grid of `space`, with
 `(nx, nv) = size(space)`, and takes the nodes `space.v`. The third is the second on the space of
 `dist`, so it throws a `MethodError` for a distribution on a space other than a
@@ -40,6 +40,7 @@ struct LowRankFields1D1V{T, GT <: AbstractMatrix{T}, CT}
             "LowRankFields1D1V on a $nx × $nv grid takes $nv velocity nodes; got $(length(v))"))
         closure isa VelocityClosure ||
             throw(TypeError(:LowRankFields1D1V, "keyword closure", VelocityClosure, closure))
+        _check_closure(:LowRankFields1D1V, closure)
         kinetic = Vector{T}(collect(v) .^ 2 ./ 2)
         if closure isa BoundedVelocityClosure
             kinetic[1] = kinetic[nv] = zero(T)

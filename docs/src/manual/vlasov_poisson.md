@@ -219,9 +219,9 @@ its rate ``\langle 1, \dot{f} \rangle`` is the flux
 ``-h_x h_v \sum_i \sum_{j \in \{1, n_v\}} [P h, \chi \circ f]_{ij}`` through the end nodes.
 
 The initial state of the run is the distribution with its end columns set to zero; the
-distribution itself changes only when `run!` writes the states back. On a velocity range where
-``f`` vanishes at both ends, the bounded and the periodic closure give the same run. The default
-is [`PeriodicVelocityClosure`](@ref).
+distribution itself changes only when `run!` writes the states back. Where ``f`` vanishes on the
+two outermost nodes at each end, ``j \in \{1, 2, n_v - 1, n_v\}``, the bounded and the periodic
+closure give the same field. The default is [`PeriodicVelocityClosure`](@ref).
 
 ## Reduced tensors
 

@@ -267,6 +267,9 @@ end
 # nv = 4 is the smallest grid with a velocity stencil among the unknowns
 const BOUNDED_SIZES = ((3, 4, 2), (16, 24, 4), (32, 64, 6), (17, 40, 1))
 
+# a subtype of `VelocityClosure` that is neither closure, which the constructors refuse
+struct OtherClosure <: VM.VelocityClosure end
+
 @testset "the bounded fields equal the dense bounded field, $T" for T in (Float64, Float32)
     # the end rows of V and L are drawn too, so a field that read them would differ
     tol = tolerance(T)
@@ -599,6 +602,10 @@ end
     tmsg = r"^TypeError: in LowRankFields1D1V, in keyword closure, expected VlasovMethods\.VelocityClosure, got a value of type Symbol$"
     @test_throws tmsg LowRankFields1D1V(a, G, dist.v; closure = :bounded)
     @test_throws tmsg LowRankFields1D1V(space, G; closure = :bounded)
+    omsg = r"^TypeError: in LowRankFields1D1V, in keyword closure, expected Union\{.*\}, got a value of type .*OtherClosure$"
+    @test_throws omsg LowRankFields1D1V(a, G, dist.v; closure = OtherClosure())
+    @test_throws omsg LowRankFields1D1V(space, G; closure = OtherClosure())
+    @test_throws omsg LowRankFields1D1V(d, G; closure = OtherClosure())
 end
 
 @testset "allocations of the bounded fields, $T" for T in (Float64, Float32)
