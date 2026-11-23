@@ -96,9 +96,8 @@ end
             fin = Dict{T, T}()
             for (i, Δt) in enumerate((T_g / 32, T_g / 64))
                 sol = trajectory(T, field, x₀, v₀, q, m, (zero(T), 10 * T_g), Δt)
-                # The step count of the equation rounds up (`div(t₁ - t₀, Δt, RoundUp)`), while
-                # the solution's time series is the range `t₀:Δt:t₁`, so the two disagree by one
-                # whenever the span is not an exact multiple. Both errors are therefore taken at
+                # The solution's time series is the range `t₀:Δt:t₁`, and the rounded span
+                # `10 * T_g` is not an exact multiple of `Δt`. Both errors are therefore taken at
                 # the times the solution carries, never at an assumed count.
                 N = lastindex(sol.q)
                 err[i] = zero(T)
