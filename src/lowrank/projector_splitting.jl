@@ -25,7 +25,7 @@ The projector-splitting integrator of dynamical low rank (Lubich and Oseledets 2
 doi:10.1007/s10543-013-0454-0), a method for [`lowrank_step!`](@ref). `composition` is `:lie`, the
 first-order K–S–L splitting, or `:strang`, the second-order splitting with the prediction of the
 midpoint potential of Einkemmer and Lubich 2018 (doi:10.1137/18m116383x, Algorithm 1). The two
-compositions are methods of two different types. Each substep is one step of the classical RK4
+compositions are instances of two different types. Each substep is one step of the classical RK4
 tableau over the substep's interval.
 
 Throws an `ArgumentError` for any other `composition`, a `String` included.
@@ -108,7 +108,7 @@ forms no ``n_x \times n_v`` array, writes only `Y`, assigns new factors to it, a
 `Y.nfixed = 0`: the splitting does not keep fixed velocity modes in the leading columns of `V`.
 
 `τ` is a signed step, converted to the element type `T` of `Y` before its first use, as is `t`;
-`τ = 0` returns the state unchanged up to the round-off of the orthonormalisations. Throws an
+`τ = 0` leaves `X S Vᵀ` unchanged up to round-off, while the factors can change. Throws an
 `ArgumentError` before any write when `τ` is not finite in `T`. The entries of `Y` are not
 checked: a non-finite entry propagates.
 

@@ -394,7 +394,6 @@ end
             Y = state(P, f0, nx)
             X, S, V = copy(Y.X), copy(Y.S), copy(Y.V)
             err = thrown(() -> lowrank_step!(Y, method, P.w, zero(T), τ))
-            @test err isa ArgumentError
             @test err isa ArgumentError && occursin(pattern, err.msg)
             @test Y.X == X && Y.S == S && Y.V == V
         end

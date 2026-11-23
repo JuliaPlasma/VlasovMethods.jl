@@ -90,7 +90,7 @@ end
     t, y = run(P, state(P, 0.01, maxwellian, 16), method, τ, round(Int, tend / 0.05))
     @test eltype(y) === T
     n = length(y)
-    peaks = [s for s in 2:(n - 1) if 0 ≤ t[s] ≤ tend && y[s - 1] < y[s] ≥ y[s + 1]]
+    peaks = [s for s in 2:(n - 1) if y[s - 1] < y[s] ≥ y[s + 1]]
     γ = slope(t[peaks], y[peaks])
     @test γ < 0
     @test abs(γ / -LANDAU - 1) ≤ 0.02
