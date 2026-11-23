@@ -7,6 +7,7 @@ const TESTS = [
         "Grid Distribution" => "distributions/grid_distribution.jl",
         "Low-Rank Distribution" => "lowrank/distribution.jl",
         "Low-Rank Fields" => "lowrank/fields.jl",
+        "Low-Rank BUG" => "lowrank/bug.jl",
         "Particle Distribution" => "distributions/particle_distribution.jl",
         "Projections" => "projections/projections.jl",
         "Reduced Tensors" => "gridbased/reduced_tensors.jl",
@@ -58,7 +59,8 @@ const TESTS = [
     "verification" => [
         "Reduced March at T = 1000" => "verification/time_marching.jl",
         "Reduced Equations at T = 100" => "verification/reduced_equations.jl",
-        "Bounded Velocity Closure Runs" => "verification/bounded_closure.jl"
+        "Bounded Velocity Closure Runs" => "verification/bounded_closure.jl",
+        "Low-Rank BUG Rates" => "verification/lowrank_bug_rates.jl"
     ]
 ]
 
