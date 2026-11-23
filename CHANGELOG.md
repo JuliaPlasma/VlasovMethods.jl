@@ -331,6 +331,9 @@ their own, except for what they removed and narrowed, which is listed in full be
   type, such as a view or a `Diagonal`, converts it. `LowRankDistribution(space, X, S, V; nfixed)`
   takes factors on any factor space, stores a `Matrix{DT}` factor without a copy, converts any
   other `AbstractMatrix{DT}` to a new `Matrix{DT}`, and checks the sizes, the rank and `nfixed`.
+  So `lowrank_step!` of every low-rank integrator takes a state built from views or a `Diagonal`
+  `S`, and steps it as the state built from the same factors as `Matrix` values; this closes
+  K118.
   `LowRankDistribution(dist::GridDistribution, r; fixed)` factorises the node values of a grid
   distribution at the rank `r` by a weighted truncated SVD:
   the modes of `fixed`, such as `[1 v v²]`, are the first columns of `V`, so the density, the
