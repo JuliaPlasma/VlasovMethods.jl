@@ -335,9 +335,16 @@ their own, except for what they removed and narrowed, which is listed in full be
   the state of the dynamical low-rank methods: the factor space, the factors `X`, `S` and `V`, and
   the number `nfixed` of leading columns of `V` that span fixed velocity modes. It is a mutable
   `DistributionFunction`, so a step can replace the factors by factors of another rank.
-  `LowRankDistribution(space, X, S, V; nfixed)` wraps given factors on any factor space and checks
-  their sizes, the rank and `nfixed`. `LowRankDistribution(dist::GridDistribution, r; fixed)`
-  factorises the node values of a grid distribution at the rank `r` by a weighted truncated SVD:
+  The factors are `Matrix{DT}` values, with `DT` the element type of the space, so a step can
+  assign the `Matrix` results of a QR, a substep or a truncation; an assignment of another matrix
+  type, such as a view or a `Diagonal`, converts it. `LowRankDistribution(space, X, S, V; nfixed)`
+  takes factors on any factor space, stores a `Matrix{DT}` factor without a copy, converts any
+  other `AbstractMatrix{DT}` to a new `Matrix{DT}`, and checks the sizes, the rank and `nfixed`.
+  So `lowrank_step!` of every low-rank integrator takes a state built from views or a `Diagonal`
+  `S`, and steps it as the state built from the same factors as `Matrix` values; this closes
+  K118.
+  `LowRankDistribution(dist::GridDistribution, r; fixed)` factorises the node values of a grid
+  distribution at the rank `r` by a weighted truncated SVD:
   the modes of `fixed`, such as `[1 v v²]`, are the first columns of `V`, so the density, the
   momentum and the energy of `velocity_moments` are kept; the next columns are the leading right
   singular vectors of the part of `f` outside them; a basis below the rank is completed by a
