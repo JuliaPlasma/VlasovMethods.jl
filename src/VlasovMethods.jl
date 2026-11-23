@@ -96,6 +96,7 @@ include("distributions/grid_distribution.jl")
 include("lowrank/grid_space.jl")
 include("lowrank/distribution.jl")
 include("lowrank/fields.jl")
+include("lowrank/integrator.jl")
 include("lowrank/bug.jl")
 include("lowrank/projector_splitting.jl")
 

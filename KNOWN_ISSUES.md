@@ -692,14 +692,14 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** defect
 - **found:** 2026-11-21
 
-### K110 · The edge, rank-guard and run-driver testsets of the BUG tests run on 16 or 24 nodes of `v ∈ [−10, 10]`, where f at `±10` does not stay below `1e-14` of its largest value.
+### K110 · The edge, rank-guard and run-driver testsets of the BUG tests run on 16, 24 or 32 nodes of `v ∈ [−10, 10]`, where f at `±10` does not stay below `1e-14` of its largest value.
 
 - **location:** `test/lowrank/bug.jl:242`
 - **evidence:** the fixtures of "a rank outside the bounds, $T" (`:168`), "the edges of the step,
-  $T" (`:242`, `:297`, `:329`, `:338`, `:351`) and "the run driver, $T" (`:377`). After 5 steps
-  of `τ = 0.05` from the rank-3 factorisation `LowRankDistribution(dist, 3)` of
+  $T" (`:242`, `:311`, `:333`, `:362`, `:371`, `:384`) and "the run driver, $T" (`:437`). After
+  5 steps of `τ = 0.05` from the rank-3 factorisation `LowRankDistribution(dist, 3)` of
   `(1 + 0.3 cos(x/2)) M(v)` on `16 × 24` nodes of `[0, 4π) × [−10, 10]` with the model's Green's
-  matrix (the fixture of `:242` and `:377`), f at `±10` is `8.1e-14` (`BUG()`), `7.9e-14`
+  matrix (the fixture of `:242` and `:437`), f at `±10` is `8.1e-14` (`BUG()`), `7.9e-14`
   (`AugmentedBUG()`) and `4.2e-12` (`MidpointBUG()`) of its largest value in Float64, and
   `8.3e-9`, `4.4e-6` and `1.2e-6` in Float32; at `t = 0` it is `2.1e-22`. The plan's velocity-domain rule asks for round-off, and
   its spec names `1e-14`; the fixtures of the numerical bounds run on 64 velocity nodes for this
@@ -707,26 +707,11 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** not verified
 - **found:** 2026-11-23
 
-### K111 · `lowrank_step!` of a `ProjectorSplitting` refuses a finite `τ` that overflows the element type of the state with a message that names the converted `τ`, `Inf`, and not the `τ` it was given.
-
-- **location:** `src/lowrank/projector_splitting.jl:72`
-- **evidence:** The cause is the form that the part's spec decides: `lowrank_step!` converts
-  `τ` to `T` before its first use, and the test anchors the message to
-  `^the step τ of a projector splitting is finite; got (NaN|Inf|-Inf)(32)?$`. So `_step_length`
-  converts `τ` to `T` before its check, and the message interpolates the converted value. On a
-  `Float32` state, `lowrank_step!(Y, ProjectorSplitting(:lie), w, 0, 1.0e39)` and the same call with
-  `floatmax(Float64)` throw `ArgumentError: the step τ of a projector splitting is finite; got Inf`.
-  The step tests cover NaN, `Inf` and `-Inf` only, for which the two values agree. Naming both
-  the given and the converted `τ` in the message would remove the mismatch.
-- **kind:** found late
-- **found:** 2026-11-23, PR #147; a limit of the requirement "The decided edges of the step" of
-  the plan's part L5
-
 ### K112 · The element-type assertions on the factors of a `LowRankDistribution` after a step cannot fail, so a promotion inside `lowrank_step!` is not seen there.
 
 - **location:** `test/lowrank/projector_splitting.jl:115`
 - **evidence:** `@test eltype(Y.X) === eltype(Y.S) === eltype(Y.V) === T` at lines 115, 161 and
-  413. The exactness testset at line 226 asserts no element type, and an assertion on `Y` there
+  428. The exactness testset at line 226 asserts no element type, and an assertion on `Y` there
   could not fail either. `LowRankDistribution` is a mutable struct whose factor fields have the
   concrete types of its parameters, so the assignment `Y.X, Y.S, Y.V, Y.nfixed = …` in the step
   converts a `Float64` matrix to the field's type. A `Float32` state fails on a promoted `τ` only
@@ -780,73 +765,3 @@ has left the file, or that lived only on a merged branch, stays taken.
   term in the unweighted calls.
 - **kind:** defect
 - **found:** 2026-11-23
-
-### K116 · The non-finite-step guard of `lowrank_step!` for the BUG methods prints the step converted to the element type, so a finite `τ` that overflows `T` reads `got Inf`.
-
-- **location:** `src/lowrank/bug.jl:207`
-- **evidence:** `h = T(τ)` comes before `isfinite(h)`, and the message prints `h`. A Float32 `Y`
-  with `τ = 1e300` throws `ArgumentError: the step τ of a BUG integrator is finite; got Inf`
-  (`test/lowrank/bug.jl:262`). The order is the spec's: convert `τ` to `T` first, then refuse a
-  non-finite step. The message does not show the `τ` that the caller passed.
-- **kind:** found late
-- **found:** 2026-11-23; a limit of the form that the spec's clause "The decided edges of the
-  step" prescribes (the conversion of `τ` to `T` before its first use, and the message)
-
-### K119 · The manual says that a full-rank step of the augmented BUG is the RK4 step of the full-order model, which does not hold for `AugmentedBUG(tol; rmin, rmax)`, whose truncation also applies at full rank.
-
-- **location:** `docs/src/manual/lowrank.md:126`
-- **evidence:** On a 16 × 24 grid at rank 16, Float64, with σ₁₆ set to `1e-9`:
-  `AugmentedBUG()` with τ = 0.05 keeps rank 16 and differs from the full-order RK4 step by
-  `8.2e-16` (relative); `AugmentedBUG(1e-6; rmin = 1, rmax = 16)` with τ = 0 gives rank 1, and with
-  τ = 0.05 rank 5 at `4.7e-7` from the RK4 step. The truncation is `_truncation_rank` at
-  `src/lowrank/bug.jl:133`. The docstring of `lowrank_step!` states that the truncation applies at
-  τ = 0; the manual sentence does not restrict itself to `AugmentedBUG()` and `MidpointBUG()`.
-- **kind:** docs
-- **found:** PR #150, from its review
-
-### K120 · A step of the augmented or the midpoint BUG from a state with a non-finite core installs the untruncated, possibly rectangular core in the state, which the factor constructor then refuses.
-
-- **location:** `src/lowrank/bug.jl:140`
-- **evidence:** `all(isfinite, Ŝ) || return X̂, Ŝ, V̂` returns the augmented factors, and the step
-  assigns them to `Y`. With `S[1, 1] = NaN` and τ = 0.05, for `AugmentedBUG()`, `MidpointBUG()`
-  and `AugmentedBUG(1e-6; rmax = 16)`: on 32 × 16 nodes at rank 16, `size(Y.S) == (32, 16)`,
-  `size(Y.X) == (32, 32)`, `size(Y.V) == (16, 16)`, and `LowRankDistribution(space, Y.X, Y.S,
-  Y.V; nfixed)` throws `ArgumentError: the rank 32 is not in 1:16 for a space of 32 × 16 nodes`;
-  on 16 × 32 nodes, `size(Y.S) == (16, 32)` and the constructor throws
-  `DimensionMismatch: factors of sizes (16, 16), (16, 32) and (32, 32) in a space of 16 × 32
-  nodes`. `all(isfinite, Y.S)` still signals the failure. The test of the non-finite core
-  (`test/lowrank/bug.jl:313`) runs only on 16 × 24 nodes at rank 3, where the core is square.
-- **kind:** defect
-- **found:** PR #150, from its review
-
-### K121 · `run!` of a low-rank method passes the same time to two steps, and writes it twice, when the step does not change a time near the end of the precision of its type.
-
-- **location:** `src/lowrank/bug.jl:277`
-- **evidence:** `times = t₀:tstep:t₁` with `tspan = (16777216f0, 16777218f0)` and `tstep = 1f0`
-  collects to `Float32[1.6777216f7, 1.6777216f7, 1.6777218f7]`. The steps receive
-  `t = 1.6777216f7` twice, the file's `t` holds the same three values, and the `status`
-  attribute is `"ok"`. `run!` does not refuse a time grid that is not strictly increasing.
-- **kind:** defect
-- **found:** PR #150, from its review
-
-### K122 · `run!` of a low-rank method truncates an existing output file before HDF5 refuses the element type of the times, so a call with `Int128` times destroys the file and writes nothing.
-
-- **location:** `src/lowrank/bug.jl:285`
-- **evidence:** `h5open(h5file, "w")` (`:285`) comes before `create_dataset(h5, "t",
-  eltype(times), …)` (`:286`). With `BUG()`, `tspan = (Int128(0), Int128(2))` and
-  `tstep = Int128(1)`, on a file of 2072 bytes with one dataset: `MethodError: no method matching
-  create_dataset(::HDF5.File, ::String, ::Type{Int128}, ::Tuple{Int128}; chunk::Tuple{Int64})`;
-  afterwards the file has 195 bytes, no dataset and no attribute.
-- **kind:** defect
-- **found:** PR #150, from its review
-
-### K123 · `run!` of a low-rank method writes no `status` attribute when a step throws, so a file of a failed run does not say where it failed.
-
-- **location:** `src/lowrank/bug.jl:306`
-- **evidence:** A method whose `lowrank_step!` throws `error("probe: step 2 throws")` on its
-  second call leaves a file with the datasets `S`, `V`, `X`, `rank` and `t`, `rank` equal to
-  `[3, 3, 0, 0, 0, 0]`, and no attribute: the error leaves the `do` block before
-  `attrs(h5)["status"] = status` (`:321`). A non-finite state writes its status; an exception
-  does not.
-- **kind:** defect
-- **found:** PR #150, from its review

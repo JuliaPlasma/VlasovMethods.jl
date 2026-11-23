@@ -40,14 +40,10 @@ struct ProjectorSplitting{C}
     end
 end
 
-# One step of the classical RK4 tableau of ẏ = rhs(y, s) over [t, t + τ], with
-# `rhs!(ẏ, y, s)` writing ẏ and returning it. The substep solver of the projector splitting.
+# The substep solver of the projector splitting: one RK4 step of ẏ = rhs(y, s) over [t, t + τ],
+# with `rhs!(ẏ, y, s)` writing ẏ and returning it. A method of another substep type joins here.
 function _substep(::ProjectorSplitting, rhs!, y, t, τ)
-    k1 = rhs!(similar(y), y, t)
-    k2 = rhs!(similar(y), y .+ (τ / 2) .* k1, t + τ / 2)
-    k3 = rhs!(similar(y), y .+ (τ / 2) .* k2, t + τ / 2)
-    k4 = rhs!(similar(y), y .+ τ .* k3, t + τ)
-    return y .+ (τ / 6) .* (k1 .+ 2 .* k2 .+ 2 .* k3 .+ k4)
+    return _rk4(rhs!, y, t, τ)
 end
 
 # the backward S-substep: Ṡ = −hx hv Xᵀ F(X S Vᵀ, s) V
@@ -66,14 +62,6 @@ end
 
 function _lstep(method, X, L, field, t, τ, ϕ)
     _substep(method, (L̇, L, s) -> _lowrank_lfield!(L̇, X, L, field, s, ϕ), L, t, τ)
-end
-
-# τ in the element type T of the state, refused where it is not finite in T
-function _step_length(τ, ::Type{T}) where {T}
-    τT = T(τ)
-    isfinite(τT) ||
-        throw(ArgumentError("the step τ of a projector splitting is finite; got $τT"))
-    return τT
 end
 
 @doc raw"""
@@ -107,10 +95,9 @@ The step needs no inverse of `S`, so a rank-deficient `S`, the zero state includ
 forms no ``n_x \times n_v`` array, writes only `Y`, assigns new factors to it, and sets
 `Y.nfixed = 0`: the splitting does not keep fixed velocity modes in the leading columns of `V`.
 
-`τ` is a signed step, converted to the element type `T` of `Y` before its first use, as is `t`;
-`τ = 0` leaves `X S Vᵀ` unchanged up to round-off, while the factors can change. Throws an
-`ArgumentError` before any write when `τ` is not finite in `T`. The entries of `Y` are not
-checked: a non-finite entry propagates.
+`τ` is a signed step; `τ = 0` leaves `X S Vᵀ` unchanged up to round-off, while the factors can
+change. A non-finite entry of `Y` propagates. The contract of every step, the conversion of `t`
+and `τ` and the refusal of a non-finite `τ`, is that of the generic [`lowrank_step!`](@ref).
 
 A field of another kind joins the step through the methods `_lowrank_kfield!(K̇, K, V, field, t)`,
 `_lowrank_sfield!(Ṡ, X, S, V, field, t)` (with the plus sign, ``h_x h_v X^\mathsf{T} F V``) and
@@ -121,7 +108,7 @@ A field of another kind joins the step through the methods `_lowrank_kfield!(K̇
 function lowrank_step!(
         Y::LowRankDistribution, method::ProjectorSplitting{:lie}, field, t, τ)
     T = eltype(Y)
-    τ = _step_length(τ, T)
+    τ = _finite_step(τ, T)
     t = T(t)
     K = _kstep(method, Y.X * Y.S, Y.V, field, t, τ)
     X, S₁ = orthonormalize_x(Y.space, K)
@@ -135,7 +122,7 @@ end
 function lowrank_step!(
         Y::LowRankDistribution, method::ProjectorSplitting{:strang}, field, t, τ)
     T = eltype(Y)
-    τ = _step_length(τ, T)
+    τ = _finite_step(τ, T)
     t = T(t)
     τ½ = τ / 2
     t½ = t + τ½
