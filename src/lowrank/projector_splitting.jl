@@ -96,7 +96,8 @@ weighted products of the space, ``h_x X^\mathsf{T} X = I`` and ``h_v V^\mathsf{T
   - `:lie` runs the K-substep over ``[t, t + τ]`` from ``K = X S``, the backward S-substep over
     ``[t, t + τ]``, and the L-substep over ``[t, t + τ]`` from ``L = V S^\mathsf{T}``.
   - `:strang` runs Algorithm 1 of Einkemmer and Lubich 2018: the K- and the backward S-substep
-    over ``[t, t + τ/2]``; the potential ``\phi^0`` of ``X S V^\mathsf{T}``; an L-substep over
+    over ``[t, t + τ/2]``; the potential ``\phi^0`` of ``X S V^\mathsf{T}`` with the `X` and `S`
+    of these two substeps and the `V` of the start; an L-substep over
     ``[t, t + τ/2]`` at the frozen ``\phi^0``, which predicts ``L^{1/2}``; the potential
     ``\phi^{1/2}`` of ``X (L^{1/2})^\mathsf{T}``; the L-substep over ``[t, t + τ]`` at the frozen
     ``\phi^{1/2}``; and the backward S- and the K-substep over ``[t + τ/2, t + τ]``. The K- and

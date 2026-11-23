@@ -691,3 +691,29 @@ has left the file, or that lived only on a merged branch, stays taken.
   `GridDistribution`, so that every consumer of its grid gets it.
 - **kind:** defect
 - **found:** 2026-11-21
+
+### K109 · `lowrank_step!` of a `ProjectorSplitting` refuses a finite `τ` that overflows the element type of the state with a message that names the converted `τ`, `Inf`, and not the `τ` it was given.
+
+- **location:** `src/lowrank/projector_splitting.jl:72`
+- **evidence:** `_step_length` converts `τ` to `T` before its check, as the step's contract
+  decides, and the message interpolates the converted value. On a `Float32` state,
+  `lowrank_step!(Y, ProjectorSplitting(:lie), w, 0, 1.0e39)` and the same call with
+  `floatmax(Float64)` throw `ArgumentError: the step τ of a projector splitting is finite; got Inf`.
+  The step tests cover NaN, `Inf` and `-Inf` only, for which the two values agree. Naming both
+  the given and the converted `τ` in the message would remove the mismatch.
+- **kind:** found late
+- **found:** 2026-11-23
+
+### K110 · The element-type assertions on the factors of a `LowRankDistribution` after a step cannot fail, so a promotion inside `lowrank_step!` is not seen there.
+
+- **location:** `test/lowrank/projector_splitting.jl:115`
+- **evidence:** `@test eltype(Y.X) === eltype(Y.S) === eltype(Y.V) === T` at lines 115, 161 and
+  414. `LowRankDistribution` is a mutable struct whose factor fields have the concrete types of
+  its parameters, so the assignment `Y.X, Y.S, Y.V = …` in the step converts a `Float64` matrix
+  to the field's type. A `Float32` state fails on a promoted `τ` only because the fields of
+  `LowRankFields1D1V` take `Matrix{T}` alone and raise a `MethodError`; with a generic field,
+  such as the test's `PathField`, a promotion inside the step would pass these assertions. An
+  assertion on a value the step computes, such as the `K` that a logging field receives, would
+  see it.
+- **kind:** missing test
+- **found:** 2026-11-23
