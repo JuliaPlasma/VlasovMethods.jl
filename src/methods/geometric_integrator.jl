@@ -41,7 +41,7 @@ function run!(int::GeometricIntegrator, h5file)
 
     # The time grid of a `Solution` of the same problem, as in `run!(::SplittingMethod, h5file)`:
     # one point per state, the initial one included, which can be one point fewer than
-    # `ntime(prob) + 1` where the last step ends a few ulps past `t₁`.
+    # `ntime(prob) + 1` where `ntime` counts a partial last step that the range drops.
     times = t₀:GeometricEquations.timestep(prob):GeometricEquations.finaltime(prob)
 
     # create HDF5 file and copy initial conditions

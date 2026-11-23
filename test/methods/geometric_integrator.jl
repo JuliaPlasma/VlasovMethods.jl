@@ -111,16 +111,18 @@ end
     @test residual(rk.q) > 1e-6
 end
 
-# The span `0.05` is 62.5 steps of `8e-4`. `ntime` and the range `0.0:8e-4:0.05` drop the partial
-# last step: 62 steps on 63 points, the last at `0.0496`.
+# The span ends two ulps below `62 * 8e-4`, so the last of 62 steps of `8e-4` ends past `t₁`: the
+# equation's `ntime` counts it, 62 steps, and the range `t₀:8e-4:t₁` drops it, 61 steps on 62
+# points, the last at `0.0488`. `run!` writes one slice per point of the range, not `ntime + 1`
+# (K93).
 @testset "run! of a GeometricIntegrator over a span that is not a whole number of steps" begin
-    tspan = (0.0, 0.05)
+    tspan = (0.0, prevfloat(prevfloat(62 * 8e-4)))
     tstep = 8e-4
     times = tspan[1]:tstep:tspan[2]
 
     model = lenard_bernstein(LenardBernstein)
     method = VlasovMethods.GeometricIntegrator(model, tspan, tstep)
-    @test ntime(method.equation) + 1 == length(times) == 63
+    @test ntime(method.equation) == length(times) == 62
     h5file = joinpath(mktempdir(), "geometric_integrator.hdf5")
     @test run!(method, h5file) === model.dist
     z = h5read(h5file, "z")
