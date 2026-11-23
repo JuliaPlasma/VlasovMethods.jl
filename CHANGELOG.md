@@ -335,9 +335,13 @@ their own, except for what they removed and narrowed, which is listed in full be
   the state of the dynamical low-rank methods: the factor space, the factors `X`, `S` and `V`, and
   the number `nfixed` of leading columns of `V` that span fixed velocity modes. It is a mutable
   `DistributionFunction`, so a step can replace the factors by factors of another rank.
-  `LowRankDistribution(space, X, S, V; nfixed)` wraps given factors on any factor space and checks
-  their sizes, the rank and `nfixed`. `LowRankDistribution(dist::GridDistribution, r; fixed)`
-  factorises the node values of a grid distribution at the rank `r` by a weighted truncated SVD:
+  The factors are `Matrix{DT}` values, with `DT` the element type of the space, so a step can
+  assign the `Matrix` results of a QR, a substep or a truncation; an assignment of another matrix
+  type, such as a view or a `Diagonal`, converts it. `LowRankDistribution(space, X, S, V; nfixed)`
+  takes factors on any factor space, stores a `Matrix{DT}` factor without a copy, converts any
+  other `AbstractMatrix{DT}` to a new `Matrix{DT}`, and checks the sizes, the rank and `nfixed`.
+  `LowRankDistribution(dist::GridDistribution, r; fixed)` factorises the node values of a grid
+  distribution at the rank `r` by a weighted truncated SVD:
   the modes of `fixed`, such as `[1 v v²]`, are the first columns of `V`, so the density, the
   momentum and the energy of `velocity_moments` are kept; the next columns are the leading right
   singular vectors of the part of `f` outside them; a basis below the rank is completed by a
@@ -362,6 +366,31 @@ their own, except for what they removed and narrowed, which is listed in full be
   Each field also takes a frozen potential `ϕ` as its last argument. The workspace is built from
   an `Arakawa` bracket with the velocity nodes, a `GridFactorSpace`, or a `LowRankDistribution` on
   one, each with the Green's matrix. The five names are documented but not exported.
+- **`BoundedVelocityClosure`** is a bounded closure of the velocity grid of the grid 1D1V
+  Vlasov–Poisson model, with zero inflow. The unknowns are the nodes `j = 2 … nv-1`; `f` and the
+  Hamiltonian are read as zero on and beyond the end nodes, and the field is
+  `ḟ = χ ∘ [Ph, χ ∘ f]` with `Ph = χ ∘ (ϕ ⊗ 1 + 1 ⊗ v²/2)` and the density summed over the
+  unknowns, zero at the end nodes. The discrete energy is kept by the field, because Arakawa's
+  form is totally antisymmetric on grid functions that vanish at the end nodes, so the implicit
+  midpoint rule keeps it to the Newton solve. The mass is not kept: its rate is the flux through
+  the end nodes. `GeometricIntegrator(model, tspan, tstep[, method]; closure)` of the grid model
+  takes the closure as a keyword: with `BoundedVelocityClosure()` the vector field is the new
+  `_grid_1d1v_bounded_rhs!`, which reads no stored value of `f` in the end columns and allocates
+  nothing, and the initial state has zero end columns, without a change to `model.distribution`.
+  `LowRankFields1D1V(…; closure)` takes the same keyword on its three constructors, and on a
+  bounded workspace `_kfield!`, `_lfield!`, `_sfield!` and `_potential!` give the fields and the
+  potential of the bounded field, without the `nx × nv` array. The runs of
+  `test/verification/bounded_closure.jl`, in the `verification` group, check the energy, the
+  mass balance against the boundary flux, and the agreement with the periodic run where `f`
+  vanishes, to round-off, on the two outermost nodes at each end, `j ∈ {1, 2, nv-1, nv}`; with `f`
+  zero on the end nodes alone the two closures give different fields. The abstract type
+  `VelocityClosure` is documented but not exported; the `closure` keyword of the grid model and of
+  the three `LowRankFields1D1V` constructors takes `PeriodicVelocityClosure()` or
+  `BoundedVelocityClosure()`, and throws a `TypeError` for any other value, a further subtype of
+  `VelocityClosure` included.
+- **`PeriodicVelocityClosure`** is the periodic closure of the velocity grid, which the grid model
+  and the low-rank fields have used so far. It is the default of the `closure` keyword, so a call
+  without the keyword builds the same problem and the same fields as before.
 - **`BUG`** is the fixed-rank basis-update & Galerkin integrator of Ceruti & Lubich 2022
   (doi 10.1007/s10543-021-00873-0), a reference method of dynamical low rank: the K- and
   L-steps from the old bases, the new bases from their results, and the S-step on the new bases.

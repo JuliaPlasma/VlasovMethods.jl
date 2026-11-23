@@ -59,6 +59,7 @@ const TESTS = [
     "verification" => [
         "Reduced March at T = 1000" => "verification/time_marching.jl",
         "Reduced Equations at T = 100" => "verification/reduced_equations.jl",
+        "Bounded Velocity Closure Runs" => "verification/bounded_closure.jl",
         "Low-Rank BUG Rates" => "verification/lowrank_bug_rates.jl"
     ]
 ]
