@@ -686,7 +686,7 @@ has left the file, or that lived only on a merged branch, stays taken.
   `vdomain = (10.0, -10.0)`, against `1.69` with `(-10.0, 10.0)`. `LowRankDistribution(dist, 4)`
   then throws a `DomainError` (`sqrt was called with a negative real argument`), from
   `sqrt(h)` in `src/lowrank/grid_space.jl:107` for the reversed v domain, and from
-  `sqrt(hx * hv)` in `src/lowrank/distribution.jl:111` for the reversed x domain. Whether a
+  `sqrt(hx * hv)` in `src/lowrank/distribution.jl:114` for the reversed x domain. Whether a
   reversed domain is refused or reordered is not decided; the check belongs in the constructor of
   `GridDistribution`, so that every consumer of its grid gets it.
 - **kind:** defect

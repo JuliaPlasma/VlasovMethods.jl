@@ -67,8 +67,10 @@ maximum(abs, f.values - dist.values) / maximum(abs, dist.values)
 ```
 
 A step of a method replaces the factors of the mutable `LowRankDistribution`, also by factors
-of another rank. `LowRankDistribution(space, X, S, V; nfixed)` wraps given factors on any factor
-space, and checks their sizes but not their orthonormality.
+of another rank. The factors are `Matrix{DT}` values, with `DT` the element type of the space.
+`LowRankDistribution(space, X, S, V; nfixed)` takes factors on any factor space, stores a
+`Matrix{DT}` factor without a copy and converts any other `AbstractMatrix{DT}`, such as a view
+or a `Diagonal`, to a new `Matrix{DT}`. It checks their sizes but not their orthonormality.
 
 ## The factored fields
 
