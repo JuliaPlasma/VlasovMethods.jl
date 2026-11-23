@@ -124,10 +124,16 @@ const REMOVED_EXPORTS = Symbol[:CLB_rhs, Symbol("DiffEq", "Integrator"), :LB_rhs
 # ships without a line in the record fails here.
 const NEW_EXPORTS = Symbol[
     :AnisotropicBiMaxwellian,
+    :AugmentedBUG,
     :BKWDistribution,
+    :BUG,
+    :BoundedVelocityClosure,
     :DoubleMaxwellian2D,
     :GridFactorSpace,
     :LowRankDistribution,
+    :LowRankIntegrator,
+    :MidpointBUG,
+    :PeriodicVelocityClosure,
     :ProjectorSplitting,
     :build_grid_parity_factors,
     :build_spline_parity_factors,

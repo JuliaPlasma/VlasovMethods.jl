@@ -224,9 +224,9 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K51 · The grid `VlasovPoisson` checks the grid size and the grid nodes with two guards and two exception types.
 
-- **location:** `src/gridbased/vlasov_poisson_1d1v.jl:29`
-- **evidence:** `_green_matrix` throws `DimensionMismatch` when `length(b) != nx` (`:29`), and
-  `ArgumentError` when `b.xgrid[1:nx] != dist.x` (`:33`). The second comparison also fails on a
+- **location:** `src/gridbased/vlasov_poisson_1d1v.jl:82`
+- **evidence:** `_green_matrix` throws `DimensionMismatch` when `length(b) != nx` (`:82`), and
+  `ArgumentError` when `b.xgrid[1:nx] != dist.x` (`:86`). The second comparison also fails on a
   wrong length, so one guard with one exception type would do. The `VlasovPoisson` docstring, the
   CHANGELOG and the guard test name `DimensionMismatch`, so the merge changes a documented
   exception. Whether to merge the two guards is open.
@@ -235,8 +235,8 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K52 · The grid `VlasovPoisson` reads two internal fields of PoissonSolvers.
 
-- **location:** `src/gridbased/vlasov_poisson_1d1v.jl:22`
-- **evidence:** `_green_matrix` reads `potential.solver` (`:22`) and `b.xgrid` (`:33`). Neither
+- **location:** `src/gridbased/vlasov_poisson_1d1v.jl:75`
+- **evidence:** `_green_matrix` reads `potential.solver` (`:75`) and `b.xgrid` (`:86`). Neither
   field has a public accessor in PoissonSolvers, so a change of the field names in PoissonSolvers
   breaks the constructor. The fix is a public accessor upstream.
 - **kind:** upstream
@@ -686,11 +686,26 @@ has left the file, or that lived only on a merged branch, stays taken.
   `vdomain = (10.0, -10.0)`, against `1.69` with `(-10.0, 10.0)`. `LowRankDistribution(dist, 4)`
   then throws a `DomainError` (`sqrt was called with a negative real argument`), from
   `sqrt(h)` in `src/lowrank/grid_space.jl:107` for the reversed v domain, and from
-  `sqrt(hx * hv)` in `src/lowrank/distribution.jl:111` for the reversed x domain. Whether a
+  `sqrt(hx * hv)` in `src/lowrank/distribution.jl:114` for the reversed x domain. Whether a
   reversed domain is refused or reordered is not decided; the check belongs in the constructor of
   `GridDistribution`, so that every consumer of its grid gets it.
 - **kind:** defect
 - **found:** 2026-11-21
+
+### K110 · The edge, rank-guard and run-driver testsets of the BUG tests run on 16 or 24 nodes of `v ∈ [−10, 10]`, where f at `±10` does not stay below `1e-14` of its largest value.
+
+- **location:** `test/lowrank/bug.jl:242`
+- **evidence:** the fixtures of "a rank outside the bounds, $T" (`:168`), "the edges of the step,
+  $T" (`:242`, `:297`, `:329`, `:338`, `:351`) and "the run driver, $T" (`:377`). After 5 steps
+  of `τ = 0.05` from the rank-3 factorisation `LowRankDistribution(dist, 3)` of
+  `(1 + 0.3 cos(x/2)) M(v)` on `16 × 24` nodes of `[0, 4π) × [−10, 10]` with the model's Green's
+  matrix (the fixture of `:242` and `:377`), f at `±10` is `8.1e-14` (`BUG()`), `7.9e-14`
+  (`AugmentedBUG()`) and `4.2e-12` (`MidpointBUG()`) of its largest value in Float64, and
+  `8.3e-9`, `4.4e-6` and `1.2e-6` in Float32; at `t = 0` it is `2.1e-22`. The plan's velocity-domain rule asks for round-off, and
+  its spec names `1e-14`; the fixtures of the numerical bounds run on 64 velocity nodes for this
+  reason. Whether the boundary values change an assertion of these testsets is not checked.
+- **kind:** not verified
+- **found:** 2026-11-23
 
 ### K111 · `lowrank_step!` of a `ProjectorSplitting` refuses a finite `τ` that overflows the element type of the state with a message that names the converted `τ`, `Inf`, and not the `τ` it was given.
 
@@ -721,6 +736,61 @@ has left the file, or that lived only on a merged branch, stays taken.
   field receives, would see it.
 - **kind:** missing test
 - **found:** 2026-11-23
+
+### K113 · Seven testsets of the bounded velocity closure assert no element type of their results.
+
+- **location:** `test/gridbased/vlasov_poisson_1d1v.jl:570`
+- **evidence:** "the end columns are not read" (`:570`), "energy, reflection and mass flux"
+  (`:590`), "the edges of the bounded right-hand side" (`:615`) and "the initial state of a bounded
+  run" (`:675`) of `test/gridbased/vlasov_poisson_1d1v.jl`, "the bounded DLR field: full rank and
+  energy" (`:307`) and "the bounded workspace" (`:568`) of `test/lowrank/fields.jl`, and "run A
+  over 10⁴ steps" (`:148`) of `test/verification/bounded_closure.jl` hold no `eltype` assertion.
+  Each function they call has its element type asserted in both precisions in another testset of
+  the same file: `eltype(ḟ) === T` for the bounded right-hand side (`:545`, `:564`), the fields
+  and `_potential!` in "the bounded fields equal the dense bounded field", and
+  `eltype(Fs[end]) === T` of run A (`test/verification/bounded_closure.jl:121`). The fix adds
+  `@test eltype(...) === T` to each of the seven.
+- **kind:** missing test
+- **found:** 2026-11-23
+
+### K114 · The aliasing error of the bounded grid right-hand side names the arguments of GeometricBrackets' stencil, not those of the right-hand side.
+
+- **location:** `src/gridbased/vlasov_poisson_1d1v.jl:251`
+- **evidence:** `_grid_1d1v_bounded_buffered!` throws
+  `ArgumentError("Pc shares memory with û or c, which the stencil reads while it writes Pc")` when
+  `ḟ` shares memory with `f`, the message that `poisson_apply!` gives the periodic right-hand side.
+  `_grid_1d1v_bounded_rhs!` has the arguments `ḟ` and `f`, and no `Pc`, `û` or `c`. The bounded
+  path reads its copy `g` of the unknowns and not `f`, so an aliased `ḟ` would not corrupt the
+  stencil; the check exists so that both right-hand sides throw one error with one message. A
+  message that names `ḟ` and `f` for both right-hand sides changes the periodic message too.
+- **kind:** docs
+- **found:** 2026-11-23
+
+### K115 · The bounded low-rank fields add four range-restricted loops, `_cut_gram!` and `_cut_apply!` with and without a weight, that repeat `_shifted_gram!` and `_shifted_apply!`.
+
+- **location:** `src/lowrank/fields.jl:151`
+- **evidence:** `_cut_gram!(M, Y, s, js[, u])` (`:151`, `:164`) and
+  `_cut_apply!(out, Y, s, js[, u], P)` (`:177`, `:189`) are each the loop of the periodic helper restricted to the rows `js` of
+  `_unknowns`, about 50 lines, and each weighted method repeats its unweighted one with one more
+  factor. In `_bounded_kfield!` (`:433`), two of the three `_shifted_apply!` calls of each offset
+  add the zero matrix `Z`. Two simpler forms keep every clause: copies of `V` and `L` with zero
+  end rows, `O(nv r)` bytes inside the asserted allocation bound, passed to the weighted
+  `_shifted_gram!` with the weight `χ[j + dv]` and followed by zeroing rows `1` and `nv` of `L̇`;
+  or one method per name with a weight argument, which removes about 24 lines at one multiply per
+  term in the unweighted calls.
+- **kind:** defect
+- **found:** 2026-11-23
+
+### K116 · The non-finite-step guard of `lowrank_step!` for the BUG methods prints the step converted to the element type, so a finite `τ` that overflows `T` reads `got Inf`.
+
+- **location:** `src/lowrank/bug.jl:207`
+- **evidence:** `h = T(τ)` comes before `isfinite(h)`, and the message prints `h`. A Float32 `Y`
+  with `τ = 1e300` throws `ArgumentError: the step τ of a BUG integrator is finite; got Inf`
+  (`test/lowrank/bug.jl:262`). The order is the spec's: convert `τ` to `T` first, then refuse a
+  non-finite step. The message does not show the `τ` that the caller passed.
+- **kind:** found late
+- **found:** 2026-11-23; a limit of the form that the spec's clause "The decided edges of the
+  step" prescribes (the conversion of `τ` to `T` before its first use, and the message)
 
 ### K118 · `lowrank_step!` of a `ProjectorSplitting` throws a `MethodError` on a `LowRankDistribution` whose factors are views, and with only `S` a view it throws after it has replaced `Y.X`.
 

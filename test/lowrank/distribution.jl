@@ -258,6 +258,13 @@ end
         @test d.nfixed == 3
         @test GridDistribution(d).values == GridDistribution(d6).values
         @test velocity_moments(d) == velocity_moments(d6)
+        # an assigned Diagonal and an assigned view are stored as equal Matrix{T} values
+        Sd = Diagonal(randn(Xoshiro(18), T, 6))
+        Vp = randn(Xoshiro(19), T, 43, 6)
+        d.S = Sd
+        d.V = view(Vp, 2:41, :)
+        @test d.S isa Matrix{T} && d.S == Sd
+        @test d.V isa Matrix{T} && d.V == Vp[2:41, :]
     end
 
     @testset "rank min(nx, nv)" begin
@@ -359,6 +366,55 @@ end
         @test_throws r"^ArgumentError: the rank 25 is not in 1:24" LowRankDistribution(
             space,
             zeros(T, 24, 25), zeros(T, 25, 25), zeros(T, 40, 25))
+        # the same guards on wrapped factors
+        Xp = zeros(T, 30, 3)
+        Xw, Sw, Vw = view(Xp, 3:26, :), Diagonal(ones(T, 3)), transpose(zeros(T, 3, 40))
+        @test LowRankDistribution(space, Xw, Sw, Vw).nfixed == 0
+        @test_throws sizes LowRankDistribution(space, view(Xp, 1:23, :), Sw, Vw)
+        @test_throws sizes LowRankDistribution(space, Xw, Sw, transpose(zeros(T, 3, 39)))
+        @test_throws r"^ArgumentError: the rank 0 is not in 1:24" LowRankDistribution(
+            space, view(Xp, 1:24, 1:0), Diagonal(T[]), view(zeros(T, 40, 1), :, 1:0))
+        @test_throws r"^ArgumentError: the number of fixed modes 4 is not in 0:3" LowRankDistribution(
+            space, Xw, Sw, Vw; nfixed = 4)
+    end
+
+    @testset "the factor types" begin
+        rng = Xoshiro(20)
+        X, S, V = randn(rng, T, 24, 3), randn(rng, T, 3, 3), randn(rng, T, 40, 3)
+        # two type parameters and concrete Matrix fields
+        d = LowRankDistribution(space, X, S, V; nfixed = 1)
+        @test typeof(d) === LowRankDistribution{T, typeof(space)}
+        for k in (:X, :S, :V)
+            @test fieldtype(typeof(d), k) === Matrix{T}
+        end
+        @test all(k -> isconcretetype(fieldtype(typeof(d), k)), fieldnames(typeof(d)))
+        # a Matrix{T} factor is stored without a copy
+        @test d.X === X && d.S === S && d.V === V
+        X[1, 1] += one(T)
+        @test d.X[1, 1] == X[1, 1]
+        # a view, a Diagonal, a transpose and an adjoint are stored as equal new Matrix{T} values
+        Xp = randn(rng, T, 30, 3)
+        Xw = view(Xp, 3:26, :)
+        Sw = Diagonal(randn(rng, T, 3))
+        Vw = transpose(randn(rng, T, 3, 40))
+        X0, S0, V0 = Matrix(Xw), Matrix(Sw), Matrix(Vw)
+        dw = LowRankDistribution(space, Xw, Sw, Vw)
+        @test dw.X isa Matrix{T} && dw.S isa Matrix{T} && dw.V isa Matrix{T}
+        @test dw.X == X0 && dw.S == S0 && dw.V == V0
+        @test typeof(dw) === typeof(d)
+        Xp[3, 1] += one(T)
+        @test dw.X == X0
+        Va = randn(rng, T, 3, 40)'
+        da = LowRankDistribution(space, X, S, Va)
+        @test da.V isa Matrix{T} && da.V == Matrix(Va)
+        F0 = X0 * S0 * V0'
+        @test maximum(abs, GridDistribution(dw).values - F0) ≤ 8eps(T) * maximum(abs, F0)
+        # a factor of the other element type is refused
+        O = T === Float64 ? Float32 : Float64
+        nomethod = r"^MethodError: no method matching (VlasovMethods\.)?LowRankDistribution\("
+        @test_throws nomethod LowRankDistribution(space, O.(X), S, V)
+        @test_throws nomethod LowRankDistribution(space, X, O.(S), V)
+        @test_throws nomethod LowRankDistribution(space, X, S, O.(V))
     end
 
     @testset "the reconstruction and the factored moments" begin

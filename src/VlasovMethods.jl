@@ -96,13 +96,15 @@ include("distributions/grid_distribution.jl")
 include("lowrank/grid_space.jl")
 include("lowrank/distribution.jl")
 include("lowrank/fields.jl")
+include("lowrank/bug.jl")
 include("lowrank/projector_splitting.jl")
 
 export ParticleDistribution
 export SplineDistribution
 export GridDistribution, velocity_moments
 export LowRankDistribution, GridFactorSpace
-export ProjectorSplitting, lowrank_step!
+export BUG, AugmentedBUG, MidpointBUG, lowrank_step!, LowRankIntegrator
+export ProjectorSplitting
 export check_conservation_basis, project_function, project_Maxwellian
 
 # plotting
@@ -210,6 +212,8 @@ include("gridbased/collisions.jl")
 # The grid 1D1V Vlasov–Poisson scheme adds methods whose signatures name `VlasovPoisson` and
 # `GeometricIntegrator`, so it is included after both.
 include("gridbased/vlasov_poisson_1d1v.jl")
+
+export PeriodicVelocityClosure, BoundedVelocityClosure
 
 # The particle-based reduction: the snapshots of a sweep, the reduced bases of the particle and
 # of the field snapshot matrix they hold, and the reduced electric field over the full-order
