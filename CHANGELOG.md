@@ -367,10 +367,12 @@ their own, except for what they removed and narrowed, which is listed in full be
   that is not finite throws an `ArgumentError` before it writes the state. At full rank the Lie
   step agrees with the full-order RK4 step, and the Strang step with the full-order step of the
   same frozen-potential composition, to `1e-10` relative over 20 steps in `Float64`; the Lie step
-  is exact on a path of rank at most `r` whose derivative RK4 integrates exactly; the fitted
-  orders are within 0.2 of 1 and 2; and at rank 16 on 64 × 256 nodes the Landau damping rate is
-  within 2 % and the two-stream growth rate within 5 % of the roots of the dispersion relation,
-  which `test/verification/projector_splitting_rates.jl` checks.
+  from `A(t)` is exact on a path `A` of rank at most `r` whose derivative RK4 integrates exactly,
+  where `A(t + τ) V₀` has the rank of `A(t + τ)`, `V₀` the velocity factor at `t` (for rank
+  exactly `r`: `V(t + τ)ᵀ V₀` nonsingular); the fitted orders are within 0.2 of 1 and 2; and at
+  rank 16 on 64 × 256 nodes the Landau damping rate is within 2 % and the two-stream growth rate
+  within 5 % of the roots of the dispersion relation, which
+  `test/verification/projector_splitting_rates.jl` checks.
 
 ### Scripts
 

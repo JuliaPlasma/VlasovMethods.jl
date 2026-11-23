@@ -720,3 +720,22 @@ has left the file, or that lived only on a merged branch, stays taken.
   field receives, would see it.
 - **kind:** missing test
 - **found:** 2026-11-23
+
+### K118 · `lowrank_step!` of a `ProjectorSplitting` throws a `MethodError` on a `LowRankDistribution` whose factors are views, and with only `S` a view it throws after it has replaced `Y.X`.
+
+- **location:** `src/lowrank/distribution.jl:66`
+- **evidence:** The constructor `LowRankDistribution(space, X, S, V)` accepts any
+  `AbstractMatrix{DT}` factor without a copy and fixes the factor types as type parameters of
+  the mutable struct. The fields of `LowRankFields1D1V` take `Matrix{T}` only
+  (`src/lowrank/fields.jl:187`), and the step assigns new `Matrix` factors with
+  `Y.X, Y.S, Y.V, Y.nfixed = …` (`src/lowrank/projector_splitting.jl:131` and `:155`). On the
+  16 × 32 grid at rank 5, one step of τ = 0.05, for both compositions: with `view(V, :, :)` the
+  first K-substep throws `MethodError: no method matching _kfield!(::Matrix{Float64},
+  ::Matrix{Float64}, ::SubArray{…})`; with `view(X, :, :)` the assignment throws
+  `MethodError: Cannot convert an object of type Matrix{Float64} to an object of type
+  SubArray{…}` before it writes the state; with `view(S, :, :)` the same error comes after
+  `Y.X` is replaced, so the state holds the new `X` with the old `S` and `V`. A fix in the
+  constructor, which converts or narrows its factors to `Matrix{DT}`, changes a public
+  constructor, which is for the user to decide.
+- **kind:** defect
+- **found:** PR #147, from its review
