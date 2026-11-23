@@ -704,7 +704,8 @@ has left the file, or that lived only on a merged branch, stays taken.
   The step tests cover NaN, `Inf` and `-Inf` only, for which the two values agree. Naming both
   the given and the converted `τ` in the message would remove the mismatch.
 - **kind:** found late
-- **found:** 2026-11-23
+- **found:** 2026-11-23, PR #147; a limit of the requirement "The decided edges of the step" of
+  the plan's part L5
 
 ### K112 · The element-type assertions on the factors of a `LowRankDistribution` after a step cannot fail, so a promotion inside `lowrank_step!` is not seen there.
 
