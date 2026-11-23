@@ -81,9 +81,12 @@ end
 
 for T in (Float64, Float32)
     @testset "one step against the dense transcription, $T" begin
-        # 16 × 24 nodes, r = 3 ≤ min(nx, nv)/4, one step of τ = 0.1; f at ±10 stays below
-        # 1.1e-15 of its largest value over the step
-        fx = fixture(T, 16, 24; r = 3)
+        # the shifted profile (1 + 0.3 cos(x/2)) M(v - sin(x/2)) on 16 × 64 nodes, r = 3 ≤
+        # min(nx, nv)/4, one step of τ = 0.1: its singular values have a clear gap below σ₃, so
+        # the augmented directions do not come from round-off; f at ±10 stays below 6.5e-18 of its
+        # largest value over the step
+        shifted = (x, v) -> (1 + T(0.3) * cos(x / 2)) * maxwellian(v - sin(x / 2))
+        fx = fixture(T, 16, 64; r = 3, f₀ = shifted)
         bound = T === Float64 ? 1e-12 : 1e-4
         τ = T(0.1)
         X, S, V = factors(fx.Y)
@@ -111,6 +114,8 @@ for T in (Float64, Float32)
         @test size(dense_bug(d, X, S, V, τ)[2], 1) == 3
         @test size(dense_augmented_bug(d, X, S, V, τ)[2], 1) == 3
         @test size(dense_midpoint_bug(d, X, S, V, τ)[2], 1) == 3
+        adaptive = dense_augmented_bug(d, X, S, V, τ; tol = 1e-6, rmin = 1, rmax = 6)
+        @test size(adaptive[2], 1) == 6
     end
 end
 
