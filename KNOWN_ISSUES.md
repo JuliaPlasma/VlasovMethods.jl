@@ -691,3 +691,16 @@ has left the file, or that lived only on a merged branch, stays taken.
   `GridDistribution`, so that every consumer of its grid gets it.
 - **kind:** defect
 - **found:** 2026-11-21
+
+### K110 · The edge, rank-guard and run-driver testsets of the BUG tests run on 16 or 24 nodes of `v ∈ [−10, 10]`, where f at `±10` does not stay below `1e-14` of its largest value.
+
+- **location:** `test/lowrank/bug.jl:242`
+- **evidence:** the fixtures of "a rank outside the bounds, $T" (`:168`), "the edges of the step,
+  $T" (`:242`, `:286`, `:318`, `:327`, `:340`) and "the run driver, $T" (`:366`). After 5 steps
+  of `τ = 0.05` from the rank-3 fixture on `16 × 24` nodes, f at `±10` is `9.3e-14`
+  (`AugmentedBUG()`) and `5.7e-12` (`MidpointBUG()`) of its largest value in Float64, and
+  `5.4e-6` (`AugmentedBUG()`) in Float32. The plan's velocity-domain rule asks for round-off, and
+  its spec names `1e-14`; the fixtures of the numerical bounds run on 64 velocity nodes for this
+  reason. Whether the boundary values change an assertion of these testsets is not checked.
+- **kind:** not verified
+- **found:** 2026-11-23

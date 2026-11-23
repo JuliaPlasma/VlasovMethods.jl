@@ -163,7 +163,7 @@ function _bug_step(method::MidpointBUG, X, S, V, w, hx, hv, τ)
     return _truncate(method, Ū, _sstep(Ū, S̄₀, V̄, w, τ), V̄, size(S, 1))
 end
 
-_check_rank_bounds(::BUGMethod, r) = nothing
+_check_rank_bounds(method, r) = nothing
 function _check_rank_bounds(m::AugmentedBUG{<:Real}, r)
     m.rmin ≤ r ≤ m.rmax || throw(ArgumentError(
         "the rank $r of the state is not in rmin:rmax = $(m.rmin):$(m.rmax) of the method"))
@@ -193,7 +193,7 @@ status that a caller tests is `all(isfinite, Y.S)`.
 function lowrank_step!(Y::LowRankDistribution{T, <:GridFactorSpace}, method::BUGMethod,
         field::LowRankFields1D1V{T}, t, τ::Real) where {T}
     h = T(τ)
-    isfinite(h) || throw(ArgumentError("the step τ of a BUG integrator is finite; got $τ"))
+    isfinite(h) || throw(ArgumentError("the step τ of a BUG integrator is finite; got $h"))
     _check_rank_bounds(method, size(Y.S, 1))
     hx, hv = _weights(Y.space)
     Y.X, Y.S, Y.V = _bug_step(method, Y.X, Y.S, Y.V, field, hx, hv, h)
@@ -240,7 +240,8 @@ _stored_rank(method, Y) = size(Y.S, 1)
 Advance the state `Y` of `int` over the times `t₀:tstep:t₁`, the initial time included, in place
 with `lowrank_step!(Y, method, field, tₙ, tstep)`, write every state into the HDF5 file
 `h5file`, and return `Y`. The file is created, or overwritten, and closed on return, also when a
-step throws.
+step throws. A state whose rank is outside `rmin:rmax` of an `AugmentedBUG(tol; rmin, rmax)`
+throws an `ArgumentError` before the file is opened.
 
 Time `t₀` is the initial state, written before any step, and step `s` is the `s`-th call of
 `lowrank_step!`, which writes the time `t₀ + s · tstep`. The file holds the datasets `t` of the
@@ -258,6 +259,7 @@ function run!(int::LowRankIntegrator, h5file)
     times = t₀:tstep:t₁
     nt = length(times)
     nx, nv = size(Y)
+    _check_rank_bounds(method, size(Y.S, 1))
     R = _stored_rank(method, Y)
     DT = eltype(Y)
 

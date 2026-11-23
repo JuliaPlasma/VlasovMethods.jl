@@ -9,9 +9,10 @@ using VlasovMethods: LowRankFields1D1V
 include("../helpers/dense_bug.jl")
 include("../helpers/rate_fits.jl")
 
-# Every fixture lies on x ∈ [0, 4π), v ∈ [-10, 10], where f at v = ±10 stays at round-off of its
-# largest value over each run (§V of the plan), with `G` the Green's matrix of the model's FFT
-# backend. The expected values come from the dense transcription of each paper's algorithm in
+# Every fixture lies on x ∈ [0, 4π), v ∈ [-10, 10], with `G` the Green's matrix of the model's FFT
+# backend. On 64 velocity nodes f at v = ±10 stays at round-off of its largest value over each run;
+# on the 16 and 24 nodes of the edge, rank-guard and driver fixtures it does not
+# (KNOWN_ISSUES.md K110). The expected values come from the dense transcription of each paper's algorithm in
 # `test/helpers/dense_bug.jl`, from the base's full-order RK4 integrator, or from the published
 # orders of the three methods.
 
@@ -81,12 +82,14 @@ end
 
 for T in (Float64, Float32)
     @testset "one step against the dense transcription, $T" begin
-        # the shifted profile (1 + 0.3 cos(x/2)) M(v - sin(x/2)) on 16 × 64 nodes, r = 3 ≤
-        # min(nx, nv)/4, one step of τ = 0.1: its singular values have a clear gap below σ₃, so
-        # the augmented directions do not come from round-off; f at ±10 stays below 6.5e-18 of its
-        # largest value over the step
+        # the shifted profile (1 + 0.3 cos(x/2)) M(v - sin(x/2)) on 16 × 64 nodes, r = 2, one step
+        # of τ = 0.1: the smallest weighted singular values of [K(τ) X₀] and [L(τ) V₀] are 9.1e-3
+        # and 6.8e-3, and those of the midpoint's augmentation 1.8e-5 and 6.2e-8, so no augmented
+        # direction comes from round-off (at r = 1 and, for the midpoint, at r = 3 one does, and
+        # one ulp of the input then moves the dense transcription past the Float64 bound); f at
+        # ±10 is at most 2.1e-15 (Float64) and 2e-7 (Float32) of its largest value after the step
         shifted = (x, v) -> (1 + T(0.3) * cos(x / 2)) * maxwellian(v - sin(x / 2))
-        fx = fixture(T, 16, 64; r = 3, f₀ = shifted)
+        fx = fixture(T, 16, 64; r = 2, f₀ = shifted)
         bound = T === Float64 ? 1e-12 : 1e-4
         τ = T(0.1)
         X, S, V = factors(fx.Y)
@@ -111,11 +114,11 @@ for T in (Float64, Float32)
                 @test all(≥(0), diag(Y.S))
             end
         end
-        @test size(dense_bug(d, X, S, V, τ)[2], 1) == 3
-        @test size(dense_augmented_bug(d, X, S, V, τ)[2], 1) == 3
-        @test size(dense_midpoint_bug(d, X, S, V, τ)[2], 1) == 3
+        @test size(dense_bug(d, X, S, V, τ)[2], 1) == 2
+        @test size(dense_augmented_bug(d, X, S, V, τ)[2], 1) == 2
+        @test size(dense_midpoint_bug(d, X, S, V, τ)[2], 1) == 2
         adaptive = dense_augmented_bug(d, X, S, V, τ; tol = 1e-6, rmin = 1, rmax = 6)
-        @test size(adaptive[2], 1) == 6
+        @test size(adaptive[2], 1) == 4
     end
 end
 
@@ -254,6 +257,11 @@ for T in (Float64, Float32)
             @test occursin(phrase, err.msg)
             @test factors(Y) == before
         end
+        if T === Float32
+            # a finite Float64 step that overflows in Float32 names the converted value
+            @test_throws r"^ArgumentError: the step τ of a BUG integrator is finite; got Inf$" lowrank_step!(
+                copy_state(fx.Y), BUG(), fx.w, zero(T), 1e300)
+        end
 
         # τ of another float type is converted to T before its first use
         for method in methods
@@ -376,6 +384,7 @@ for T in (Float64, Float32)
             @test read(h5["t"]) == times
             @test read(h5["rank"]) == fill(3, 6)
             X, S, V = read(h5["X"]), read(h5["S"]), read(h5["V"])
+            @test eltype(X) == eltype(S) == eltype(V) == T
             @test size(X) == (nx, 3, 6) && size(S) == (3, 3, 6) && size(V) == (nv, 3, 6)
             @test all(n -> (X[:, :, n], S[:, :, n], V[:, :, n]) == hand[n], 1:6)
             @test attrs(h5)["status"] == "ok"
@@ -390,6 +399,7 @@ for T in (Float64, Float32)
             file)
         h5open(file, "r") do h5
             X, S, V, rank = read(h5["X"]), read(h5["S"]), read(h5["V"]), read(h5["rank"])
+            @test eltype(X) == eltype(S) == eltype(V) == T
             @test size(X) == (nx, 8, 6) && size(S) == (8, 8, 6) && size(V) == (nv, 8, 6)
             @test rank[1] == 3 && rank[end] == size(Y.S, 1)
             @test all(2 .≤ rank .≤ 8)
@@ -401,6 +411,30 @@ for T in (Float64, Float32)
             end
             @test attrs(h5)["status"] == "ok"
         end
+
+        # an rmax above min(nx, nv): R = min(nx, nv)
+        file = joinpath(dir, "wide.h5")
+        Y = copy_state(fx.Y)
+        run!(
+            LowRankIntegrator(Y, AugmentedBUG(1e-6; rmin = 2, rmax = 100), fx.w, (0, 0.1),
+                0.05), file)
+        h5open(file, "r") do h5
+            R = min(nx, nv)
+            @test size(read(h5["X"])) == (nx, R, 3) && size(read(h5["S"])) == (R, R, 3)
+            @test size(read(h5["V"])) == (nv, R, 3)
+            @test attrs(h5)["status"] == "ok"
+        end
+
+        # a state whose rank is outside rmin:rmax is refused before the file is written
+        file = joinpath(dir, "refused.h5")
+        Y = copy_state(fx.Y)
+        before = factors(Y)
+        @test_throws r"^ArgumentError: the rank 3 of the state is not in rmin:rmax = 1:2" run!(
+            LowRankIntegrator(
+                Y, AugmentedBUG(1e-6; rmin = 1, rmax = 2), fx.w, (0, 0.1), 0.05),
+            file)
+        @test factors(Y) == before
+        @test !isfile(file)
 
         # any method with a lowrank_step!, and a run that fails at its third step
         file = joinpath(dir, "failing.h5")
@@ -417,7 +451,6 @@ for T in (Float64, Float32)
             @test iszero(S[:, :, 4:6])
         end
 
-        # the guards of the constructor
         # a span of one time holds the initial state alone
         file = joinpath(dir, "single.h5")
         Y = copy_state(fx.Y)
@@ -430,6 +463,7 @@ for T in (Float64, Float32)
             @test attrs(h5)["status"] == "ok"
         end
 
+        # the guards of the constructor
         for (tspan, tstep) in (((0, 1), 0), ((0, 1), -0.1), ((0, 1), NaN), ((0, 1), Inf),
             ((1, 0), 0.1), ((0, Inf), 0.1), ((-Inf, 0), 0.1))
             err = try
