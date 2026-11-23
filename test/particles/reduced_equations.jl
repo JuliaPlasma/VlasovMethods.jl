@@ -30,10 +30,8 @@ include("../helpers/vlasov_ode_reference.jl")
     prob = reduced_ode(b, h, (zero(T), chunk_span(T, nsteps, dt)), dt, z0)
 
     # **The step count is asserted on an integrated solution, never on the problem.** The problem
-    # here is built and not integrated, so it asserts no count: GeometricEquations' `ntime(prob)` is
-    # `div(tend - tbegin, tstep, RoundUp)`, which is not the number of steps the integrator takes
-    # over the solution's `tbegin:Δt:tend` grid — it is one larger for this span in `Float64`. Check
-    # 3's chunks and check 5's problems carry the assertion on their solutions.
+    # here is built and not integrated, so it asserts no count. Check 3's chunks and check 5's
+    # problems carry the assertion on their solutions.
 
     # the emitted vector field is the reference's to `√eps`, at 100 points from
     # `randn(Xoshiro(3), T, 5)`
@@ -79,7 +77,6 @@ end
         sol = integrate(prob, LobattoIIIAIIIB(2); f_abstol = lobatto_abstol(T, k))
 
         # the plain chunk span takes the chunk's own `1000` steps, which is what the solution counts
-        # and what `ntime(prob)` does not report
         @test ntime(sol) == nsteps
 
         ql, pl = lift_solution(b, sol)
