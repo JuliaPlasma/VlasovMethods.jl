@@ -712,11 +712,11 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **evidence:** `@test eltype(Y.X) === eltype(Y.S) === eltype(Y.V) === T` at lines 115, 161 and
   414. The exactness testset at line 226 asserts no element type, and an assertion on `Y` there
   could not fail either. `LowRankDistribution` is a mutable struct whose factor fields have the
-  concrete types of its parameters, so the assignment `Y.X, Y.S, Y.V = …` in the step converts a `Float64` matrix
-  to the field's type. A `Float32` state fails on a promoted `τ` only because the fields of
-  `LowRankFields1D1V` take `Matrix{T}` alone and raise a `MethodError`; with a generic field,
-  such as the test's `PathField`, a promotion inside the step would pass these assertions. An
-  assertion on a value the step computes, such as the `K` that a logging field receives, would
-  see it.
+  concrete types of its parameters, so the assignment `Y.X, Y.S, Y.V, Y.nfixed = …` in the step
+  converts a `Float64` matrix to the field's type. A `Float32` state fails on a promoted `τ` only
+  because the fields of `LowRankFields1D1V` take `Matrix{T}` alone and raise a `MethodError`;
+  with a generic field, such as the test's `PathField`, a promotion inside the step would pass
+  these assertions. An assertion on a value the step computes, such as the `K` that a logging
+  field receives, would see it.
 - **kind:** missing test
 - **found:** 2026-11-23
