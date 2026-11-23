@@ -692,7 +692,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** defect
 - **found:** 2026-11-21
 
-### K109 · `lowrank_step!` of a `ProjectorSplitting` refuses a finite `τ` that overflows the element type of the state with a message that names the converted `τ`, `Inf`, and not the `τ` it was given.
+### K111 · `lowrank_step!` of a `ProjectorSplitting` refuses a finite `τ` that overflows the element type of the state with a message that names the converted `τ`, `Inf`, and not the `τ` it was given.
 
 - **location:** `src/lowrank/projector_splitting.jl:72`
 - **evidence:** `_step_length` converts `τ` to `T` before its check, as the step's contract
@@ -704,7 +704,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** found late
 - **found:** 2026-11-23
 
-### K110 · The element-type assertions on the factors of a `LowRankDistribution` after a step cannot fail, so a promotion inside `lowrank_step!` is not seen there.
+### K112 · The element-type assertions on the factors of a `LowRankDistribution` after a step cannot fail, so a promotion inside `lowrank_step!` is not seen there.
 
 - **location:** `test/lowrank/projector_splitting.jl:115`
 - **evidence:** `@test eltype(Y.X) === eltype(Y.S) === eltype(Y.V) === T` at lines 115, 161 and
