@@ -362,8 +362,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   rank of the step's input, `AugmentedBUG(tol; rmin = 1, rmax)` to the least rank whose discarded
   singular values have a norm of at most `tol`, clamped to `rmin:rmax`. The truncated `S` is the
   diagonal of the leading singular values. The constructor throws an `ArgumentError` unless `tol`
-  is a finite real `≥ 0` and `1 ≤ rmin ≤ rmax`, and a step throws one for a state whose rank lies
-  outside `rmin:rmax`.
+  is a finite real `≥ 0` and `rmin` and `rmax` are integers with `1 ≤ rmin ≤ rmax`, and a step
+  throws one for a state whose rank lies outside `rmin:rmax`.
 - **`MidpointBUG`** is the midpoint basis-update & Galerkin integrator, "Midpoint BUG (4r)" of
   Ceruti, Einkemmer, Kusch & Lubich 2024 (doi 10.1007/s10543-024-01032-x), truncated to the rank
   of its input: an augmented step of `τ/2` without truncation, bases augmented by the field at its
@@ -373,14 +373,17 @@ their own, except for what they removed and narrowed, which is listed in full be
   the workspace `LowRankFields1D1V` of the fields, and returns `Y`. Each substep is one step of the
   classical RK4 tableau, and no field or step forms the `nx × nv` array. The step converts `τ` to
   the element type of `Y`, throws an `ArgumentError` for a non-finite `τ`, counts the fixed modes
-  in the rank and sets `nfixed = 0`. A step whose S-step leaves a non-finite value does not throw:
-  it leaves the untruncated factors in `Y`, and `all(isfinite, Y.S)` is the status that a caller
-  tests.
+  in the rank and sets `nfixed = 0`. A step whose S-step or Galerkin step leaves a non-finite
+  value does not throw: it leaves the untruncated factors in `Y`, and `all(isfinite, Y.S)` is the
+  status that a caller tests.
 - **`LowRankIntegrator`** holds a run of any method with a `lowrank_step!` from a
   `LowRankDistribution` over a span with a step, and `run!(int, h5file)` writes the times, the
   ranks and the factors `X`, `S` and `V` of every state into an HDF5 file, zero beyond each rank.
   A step that leaves a non-finite `S` stops the run without an error and sets the file attribute
-  `status` to `"failed at step <s>"`; a complete run sets `"ok"`.
+  `status` to `"failed at step <s>"`; a complete run sets `"ok"`. For `BUG`, `AugmentedBUG` and
+  `MidpointBUG`, `run!` throws an `ArgumentError` before it opens the file when the step is zero
+  or not finite in the element type of `Y`, as a `Float64` step `1e-50` is on a `Float32` state,
+  because the run would not advance in time.
 
 ### Scripts
 

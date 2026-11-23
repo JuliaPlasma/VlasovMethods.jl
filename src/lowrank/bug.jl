@@ -37,7 +37,8 @@ absolute tolerance in the weighted Frobenius norm, which is the Frobenius norm o
 orthonormal bases. A step of this method throws an `ArgumentError` before any write when the
 rank of its input lies outside `rmin:rmax`.
 
-Throws an `ArgumentError` unless `tol` is a finite real `≥ 0` and `1 ≤ rmin ≤ rmax`.
+Throws an `ArgumentError` unless `tol` is a finite real `≥ 0` and `rmin` and `rmax` are integers
+with `1 ≤ rmin ≤ rmax`.
 [`lowrank_step!`](@ref) takes the step.
 """
 struct AugmentedBUG{TT <: Union{Nothing, Real}}
@@ -47,11 +48,11 @@ struct AugmentedBUG{TT <: Union{Nothing, Real}}
 
     AugmentedBUG() = new{Nothing}(nothing, 1, typemax(Int))
 
-    function AugmentedBUG(tol; rmin::Integer = 1, rmax::Integer)
+    function AugmentedBUG(tol; rmin = 1, rmax)
         tol isa Real && isfinite(tol) && tol ≥ 0 ||
             throw(ArgumentError("the tolerance of AugmentedBUG is a finite real ≥ 0; got $tol"))
-        1 ≤ rmin ≤ rmax || throw(ArgumentError(
-            "AugmentedBUG takes 1 ≤ rmin ≤ rmax; got rmin = $rmin and rmax = $rmax"))
+        rmin isa Integer && rmax isa Integer && 1 ≤ rmin ≤ rmax || throw(ArgumentError(
+            "AugmentedBUG takes integers 1 ≤ rmin ≤ rmax; got rmin = $rmin and rmax = $rmax"))
         new{typeof(tol)}(tol, rmin, rmax)
     end
 end
@@ -170,6 +171,15 @@ function _check_rank_bounds(m::AugmentedBUG{<:Real}, r)
     return nothing
 end
 
+# the step of a run, which `lowrank_step!` of a BUG method converts to the element type of Y
+_check_run_step(method, Y, tstep) = nothing
+function _check_run_step(::BUGMethod, Y, tstep)
+    h = eltype(Y)(tstep)
+    isfinite(h) && h > 0 || throw(ArgumentError(
+        "the step $tstep is zero or not finite in the element type $(eltype(Y)) of the state"))
+    return nothing
+end
+
 """
     lowrank_step!(Y, method, field, t, τ)
 
@@ -182,7 +192,9 @@ fields are autonomous, so `t` is accepted and not read. Each K-, L-, S- and Gale
 one step of the classical RK4 tableau over its interval.
 
 `τ` is converted to `T` before its first use; a non-finite `τ` throws an `ArgumentError` before
-any write, and `τ = 0` keeps `X S Vᵀ` to round-off. The step replaces the factors `X`, `S` and
+any write. `τ = 0` keeps `X S Vᵀ` to round-off, except for `AugmentedBUG(tol; rmin, rmax)`,
+whose truncation still applies and changes `X S Vᵀ` by up to `tol` in the weighted Frobenius
+norm. The step replaces the factors `X`, `S` and
 `V` of `Y`, counts every column of `V` in the rank, the fixed modes of `Y` included, and sets
 `nfixed = 0`, because no reference method keeps the fixed modes in the span of `V`.
 
@@ -241,7 +253,9 @@ Advance the state `Y` of `int` over the times `t₀:tstep:t₁`, the initial tim
 with `lowrank_step!(Y, method, field, tₙ, tstep)`, write every state into the HDF5 file
 `h5file`, and return `Y`. The file is created, or overwritten, and closed on return, also when a
 step throws. A state whose rank is outside `rmin:rmax` of an `AugmentedBUG(tol; rmin, rmax)`
-throws an `ArgumentError` before the file is opened.
+throws an `ArgumentError` before the file is opened, and so does, for [`BUG`](@ref),
+[`AugmentedBUG`](@ref) and [`MidpointBUG`](@ref), a `tstep` that is zero or not finite in the
+element type of `Y`.
 
 Time `t₀` is the initial state, written before any step, and step `s` is the `s`-th call of
 `lowrank_step!`, which writes the time `t₀ + s · tstep`. The file holds the datasets `t` of the
@@ -260,6 +274,7 @@ function run!(int::LowRankIntegrator, h5file)
     nt = length(times)
     nx, nv = size(Y)
     _check_rank_bounds(method, size(Y.S, 1))
+    _check_run_step(method, Y, tstep)
     R = _stored_rank(method, Y)
     DT = eltype(Y)
 

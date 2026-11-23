@@ -68,8 +68,8 @@ end
         @test err isa ArgumentError
         @test occursin(tolerance_phrase, err.msg)
     end
-    bounds_phrase = r"^AugmentedBUG takes 1 ≤ rmin ≤ rmax; got rmin = "
-    for (rmin, rmax) in ((0, 4), (5, 4), (-1, 0))
+    bounds_phrase = r"^AugmentedBUG takes integers 1 ≤ rmin ≤ rmax; got rmin = "
+    for (rmin, rmax) in ((0, 4), (5, 4), (-1, 0), (2.5, 4), (1, 4.0))
         err = try
             AugmentedBUG(1e-3; rmin, rmax)
         catch e
@@ -159,8 +159,8 @@ for T in (Float64, Float32)
                 push!(ranks, size(Y.S, 1))
             end
             @test all(r -> 2 ≤ r ≤ 6, ranks)
-            first_step = tol == 0.1 ? ranks : ranks[2:end]
-            @test all(==(expected), first_step)
+            settled = tol == 0.1 ? ranks : ranks[2:end]
+            @test all(==(expected), settled)
         end
     end
 
@@ -278,6 +278,17 @@ for T in (Float64, Float32)
             lowrank_step!(Y, method, fx.w, zero(T), zero(T))
             @test rel(reconstruction(Y), reconstruction(fx.Y)) ≤ 8 * eps(T)
         end
+
+        # the truncation of AugmentedBUG(tol) applies at τ = 0: on the core diag(1, 1/2, 1/4),
+        # tol = 0.6 admits the tail (1/2, 1/4), so the step keeps rank 1 and changes X S Vᵀ by
+        # the norm √(1/4 + 1/16) of the tail in the weighted Frobenius norm
+        Y = LowRankDistribution(fx.Y.space, copy(fx.Y.X), T[1 0 0; 0 0.5 0; 0 0 0.25],
+            copy(fx.Y.V))
+        Y₀ = reconstruction(Y)
+        lowrank_step!(Y, AugmentedBUG(0.6; rmin = 1, rmax = 3), fx.w, zero(T), zero(T))
+        @test size(Y.S) == (1, 1)
+        change = sqrt(step(fx.dist.x) * step(fx.dist.v)) * norm(reconstruction(Y) - Y₀)
+        @test change ≈ sqrt(T(5) / 16) rtol=50 * eps(T)
 
         # the zero state stays at zero, and a rank-deficient core needs no inverse of S: the
         # profile has rank 2, its factorisation at r = 6 a core of rank 2
@@ -435,6 +446,20 @@ for T in (Float64, Float32)
             file)
         @test factors(Y) == before
         @test !isfile(file)
+
+        # a step that is zero or not finite in T is refused before the file is written: 1e-50
+        # and 1e300 are finite and positive in Float64, and 0 and Inf in Float32
+        if T === Float32
+            for (tspan, tstep) in (((0, 5e-50), 1e-50), ((0, 1e301), 1e300))
+                file = joinpath(dir, "step.h5")
+                Y = copy_state(fx.Y)
+                before = factors(Y)
+                @test_throws r"^ArgumentError: the step [^ ]+ is zero or not finite in the element type Float32 of the state$" run!(
+                    LowRankIntegrator(Y, BUG(), fx.w, tspan, tstep), file)
+                @test factors(Y) == before
+                @test !isfile(file)
+            end
+        end
 
         # any method with a lowrank_step!, and a run that fails at its third step
         file = joinpath(dir, "failing.h5")
