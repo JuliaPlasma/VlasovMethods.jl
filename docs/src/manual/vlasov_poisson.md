@@ -128,7 +128,9 @@ as `RK4()` is the practical choice.
 
 !!! warning "The grid is periodic in the velocity"
     The Arakawa bracket wraps both directions of the grid. The scheme is valid only while ``f``
-    vanishes at both ends of the velocity range, to `eps(T)` times its maximum.
+    vanishes at both ends of the velocity range, to `eps(T)` times its maximum. This is the
+    default closure of the velocity grid; the
+    [bounded velocity closure](@ref "Bounded velocity closure") does not wrap.
 
 The example below is the linear Landau damping of the wave number ``k = 0.5`` with the amplitude
 ``0.01``. The amplitude of the first Fourier mode of the field decays at the rate
@@ -184,6 +186,41 @@ fig
 
 The script `scripts/landau_damping_1d1v.jl` fits the rate to the peaks of ``|E_1|`` on a finer
 grid, and checks it against the textbook value.
+
+## Bounded velocity closure
+
+The keyword `closure = BoundedVelocityClosure()` of
+[`GeometricIntegrator`](@ref)`(model, tspan, tstep, method; closure)` bounds the velocity range
+instead of wrapping it, with zero inflow. The unknowns are the interior nodes
+``j = 2, \dots, n_v - 1``; ``f`` and the Hamiltonian are read as zero on and beyond the end nodes,
+with ``\chi`` the indicator of the unknowns. The Hamiltonian argument of the bracket is cut to the
+unknowns, and the field is the periodic bracket of the cut data, read at the unknowns:
+
+```math
+\dot{f} = \chi \circ [P h, \chi \circ f] , \qquad
+P h = \chi \circ (\phi \otimes 1 + 1 \otimes \tfrac{v^2}{2}) , \qquad
+\phi = G \rho , \qquad \rho_i = h_v \sum_{j=2}^{n_v-1} f_{ij} ,
+```
+
+and ``\dot{f} = 0`` at the end nodes. On grid functions that vanish on and beyond the end nodes,
+Arakawa's form ``T(a, b, c) = \langle a, [b, c] \rangle``, with
+``\langle a, b \rangle = h_x h_v \sum_i \sum_{j=2}^{n_v-1} a_{ij} b_{ij}``, is the form of the
+infinite lattice, which is totally antisymmetric. So ``\dot{f}`` is the field of the cyclic
+average of ``T``, and the energy rate ``\langle P h, \dot{f} \rangle = T(P h, P h, f)`` vanishes.
+The discrete energy
+
+```math
+H = h_x h_v \sum_i \sum_{j=2}^{n_v-1} f_{ij} \frac{v_j^2}{2} + \frac{h_x}{2} \rho^\mathsf{T} G \rho
+```
+
+is quadratic, so the implicit midpoint rule keeps it to the Newton solve. The mass is not kept:
+its rate ``\langle 1, \dot{f} \rangle`` is the flux
+``-h_x h_v \sum_i \sum_{j \in \{1, n_v\}} [P h, \chi \circ f]_{ij}`` through the end nodes.
+
+The initial state of the run is the distribution with its end columns set to zero; the
+distribution itself changes only when `run!` writes the states back. On a velocity range where
+``f`` vanishes at both ends, the bounded and the periodic closure give the same run. The default
+is [`PeriodicVelocityClosure`](@ref).
 
 ## Reduced tensors
 

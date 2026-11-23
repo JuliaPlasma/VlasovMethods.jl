@@ -21,19 +21,24 @@ tolerance(::Type{Float32}) = 4096 * eps(Float32)
 rel(a, b) = norm(a .- b) / norm(b)
 
 # the grid on [0, 4π) × [-6, 6], its model, the parameters of the model's integrator (with the
-# buffers `ρ`, `ϕ` and `h`) and the workspace of the fields
-function problem(T, nx, nv)
+# buffers `ρ`, `ϕ` and `h`) and the workspace of the fields, both of the velocity closure `closure`
+function problem(T, nx, nv, closure)
     xd = (zero(T), T(4π))
     vd = (T(-6), T(6))
     dist = GridDistribution(zeros(T, nx, nv), xd, vd)
     model = VlasovPoisson(dist, Potential(FFTWBasis(xd, nx)))
-    int = GeometricIntegrator(model, (zero(T), one(T)), T(1) / 10, GeometricIntegrators.RK4())
-    w = LowRankFields1D1V(Arakawa(nx, nv, step(dist.x), step(dist.v)), model.work, dist.v)
+    int = GeometricIntegrator(
+        model, (zero(T), one(T)), T(1) / 10, GeometricIntegrators.RK4();
+        closure)
+    w = LowRankFields1D1V(Arakawa(nx, nv, step(dist.x), step(dist.v)), model.work, dist.v;
+        closure)
     return (dist = dist, model = model, p = int.equation.parameters, w = w)
 end
 
 const PROBLEMS = Dict{Any, Any}()
-cached_problem(T, nx, nv) = get!(() -> problem(T, nx, nv), PROBLEMS, (T, nx, nv))
+function cached_problem(T, nx, nv, closure = PeriodicVelocityClosure())
+    get!(() -> problem(T, nx, nv, closure), PROBLEMS, (T, nx, nv, closure))
+end
 
 # F(f) of the model's buffered `_grid_1d1v_rhs!`, which also leaves `G (hv Σⱼ f)` in `p.ϕ`
 function dense(f, p)
@@ -49,6 +54,33 @@ function dense_at(f, ϕ, p)
     h = vec(ϕ .+ p.kinetic')
     return reshape(poisson_apply(a, vec(f), h) ./ (a.hx * a.hv), a.nx, a.nv)
 end
+
+# The bounded velocity closure: the unknowns are the nodes j = 2 … nv-1, and the field is
+# F_b(f) = χ ∘ [Ph, χ ∘ f] with Ph = χ ∘ (ϕ ⊗ 1 + 1 ⊗ v²/2). `cut` sets columns 1 and nv to zero
+# by assignment.
+function cut(a::AbstractMatrix)
+    b = copy(a)
+    b[:, [1, end]] .= 0
+    return b
+end
+
+# F_b(f) of the model's bounded vector field
+function dense_bounded(f, p)
+    a = p.arakawa
+    ḟ = similar(vec(f))
+    VM._grid_1d1v_bounded_rhs!(ḟ, zero(eltype(f)), copy(vec(f)), p)
+    return reshape(ḟ, a.nx, a.nv)
+end
+
+# F_b(f) at a given ϕ, by GeometricBrackets' `poisson_apply` on the cut data
+function dense_bounded_at(f, ϕ, p)
+    a = p.arakawa
+    Ph = cut(ϕ .+ p.kinetic')
+    return cut(reshape(poisson_apply(a, vec(cut(f)), vec(Ph)) ./ (a.hx * a.hv), a.nx, a.nv))
+end
+
+# the potential G (hv Σ_{j=2}^{nv-1} f) of the bounded closure
+bounded_potential(f, p) = p.G * (p.arakawa.hv .* vec(sum(cut(f); dims = 2)))
 
 # standard-normal draws in Float64, rounded to T
 draw(rng, T, dims...) = T.(randn(rng, dims...))
@@ -232,6 +264,87 @@ end
     end
 end
 
+# nv = 4 is the smallest grid with a velocity stencil among the unknowns
+const BOUNDED_SIZES = ((3, 4, 2), (16, 24, 4), (32, 64, 6), (17, 40, 1))
+
+@testset "the bounded fields equal the dense bounded field, $T" for T in (Float64, Float32)
+    # the end rows of V and L are drawn too, so a field that read them would differ
+    tol = tolerance(T)
+    for (nx, nv, r) in BOUNDED_SIZES, seed in SEEDS, frozen in (false, true)
+        (; p, w) = cached_problem(T, nx, nv, BoundedVelocityClosure())
+        hx, hv = p.arakawa.hx, p.arakawa.hv
+        X, S, V, K, L = factors(T, nx, nv, r, seed)
+        ϕ = draw(Xoshiro(100 + seed), T, nx)
+        Fb(f) = frozen ? dense_bounded_at(f, ϕ, p) : dense_bounded(f, p)
+
+        K̇ = frozen ? kfield(K, V, w, ϕ) : kfield(K, V, w)
+        L̇ = frozen ? lfield(X, L, w, ϕ) : lfield(X, L, w)
+        Ṡ = frozen ? sfield(X, S, V, w, ϕ) : sfield(X, S, V, w)
+        @test eltype(K̇) === eltype(L̇) === eltype(Ṡ) === T
+        @test rel(K̇, Fb(K * V') * (hv .* V)) ≤ tol
+        @test rel(L̇, Fb(X * L')' * (hx .* X)) ≤ tol
+        @test all(==(0), L̇[[1, nv], :])
+        F = Fb(X * S * V')
+        Ṡref = (hx * hv) .* (X' * F * V)
+        if r == 1
+            @test norm(Ṡ .- Ṡref) ≤ tol * hx * hv * norm(X) * norm(F) * norm(V)
+        else
+            @test rel(Ṡ, Ṡref) ≤ tol
+        end
+
+        if !frozen
+            ϕK = potential(K, V, w)
+            @test eltype(ϕK) === T
+            @test rel(ϕK, bounded_potential(K * V', p)) ≤ tol
+            @test rel(potential(X, S, V, w), bounded_potential(X * S * V', p)) ≤ tol
+        end
+    end
+end
+
+@testset "the bounded DLR field: full rank and energy, $T" for T in (Float64, Float32)
+    # V has zero end rows and is orthonormal in hv Σ, so that P(f) is the orthogonal projector of
+    # the tangent space in the inner product over the unknowns
+    function cut_orth(rng, p, nv, r; modes = false)
+        Vr = draw(rng, T, nv, r)
+        if modes
+            Vr[:, 1] .= one(T)
+            Vr[:, 2] .= collect(p.v) .^ 2
+        end
+        Vr[[1, nv], :] .= 0
+        return orth(Vr, p.arakawa.hv)
+    end
+
+    for (nx, nv) in ((8, 12), (8, 10), (3, 5)), seed in SEEDS
+
+        (; p, w) = cached_problem(T, nx, nv, BoundedVelocityClosure())
+        rng = Xoshiro(seed)
+        X = orth(draw(rng, T, nx, nx), p.arakawa.hx)
+        V = cut_orth(rng, p, nv, nx)
+        S = draw(rng, T, nx, nx)
+        @test rel(dlr(X, S, V, w), dense_bounded(X * S * V', p)) ≤ tolerance(T)
+    end
+
+    (; p, w) = cached_problem(T, 16, 24, BoundedVelocityClosure())
+    hx, hv = p.arakawa.hx, p.arakawa.hv
+    ip(a, b) = hx * hv * sum((a .* b)[:, 2:(end - 1)])
+    for seed in SEEDS, modes in (true, false)
+
+        rng = Xoshiro(seed)
+        X = orth(draw(rng, T, 16, 4), hx)
+        V = cut_orth(rng, p, 24, 4; modes)
+        S = draw(rng, T, 4, 4)
+        f = X * S * V'
+        Ph = cut(bounded_potential(f, p) .+ p.kinetic')
+        PF = dlr(X, S, V, w)
+        rate = abs(ip(Ph, PF)) / sqrt(ip(Ph, Ph) * ip(PF, PF))
+        if modes
+            @test rate ≤ tolerance(T)
+        else
+            @test rate ≥ 1e-3
+        end
+    end
+end
+
 # The bytes of one call of `f(args...)` after a warm call, the minimum over three calls, through
 # a barrier with concrete argument types.
 function allocations(f::F, args::A) where {F, A}
@@ -287,9 +400,11 @@ end
     end
 end
 
-@testset "the edges of the fields, $T" for T in (Float64, Float32)
+@testset "the edges of the fields, $T, $(nameof(typeof(closure)))" for T in (Float64, Float32),
+    closure in (PeriodicVelocityClosure(), BoundedVelocityClosure())
+
     nx, nv, r = 16, 24, 4
-    (; w) = cached_problem(T, nx, nv)
+    (; w) = cached_problem(T, nx, nv, closure)
     X, S, V, K, L = factors(T, nx, nv, r, 1)
     ϕ = draw(Xoshiro(7), T, nx)
     sentinel = T(12345)
@@ -352,7 +467,7 @@ end
     @test (Kc, Lc, Sc) == (K, L, S)
     # outputs that share memory with the factors of the other direction, at a square grid
     # where the sizes fit
-    w3 = cached_problem(T, 3, 3).w
+    w3 = cached_problem(T, 3, 3, closure).w
     A3 = draw(Xoshiro(3), T, 3, 3)
     B3 = draw(Xoshiro(4), T, 3, 3)
     C3 = draw(Xoshiro(5), T, 3, 3)
@@ -444,5 +559,73 @@ end
         @test_throws gmsg((16, 17)) LowRankFields1D1V(a, zeros(T, nx, nx + 1), dist.v)
         @test_throws r"^DimensionMismatch: LowRankFields1D1V on a 16 × 24 grid takes 24 velocity nodes; got 25$" LowRankFields1D1V(
             a, G, range(T(-6), T(6); length = nv + 1))
+    end
+end
+
+@testset "the bounded workspace, $T" for T in (Float64, Float32)
+    nx, nv, r = 16, 24, 4
+    xd = (zero(T), T(4π))
+    dist = GridDistribution(zeros(T, nx, nv), xd, (T(-6), T(6)))
+    dist.values .= (1 .+ T(0.3) .* cos.(dist.x ./ 2)) .* exp.(-dist.v' .^ 2 ./ 2) .+
+                   T(0.2) .* sin.(dist.x) .* dist.v' .* exp.(-(dist.v' .- 1) .^ 2)
+    G = VlasovPoisson(dist, Potential(FFTWBasis(xd, nx))).work
+    d = LowRankDistribution(dist, r)
+    a = Arakawa(nx, nv, step(dist.x), step(dist.v))
+    space = GridFactorSpace(dist)
+    bounded = BoundedVelocityClosure()
+    periodic = PeriodicVelocityClosure()
+
+    # factors whose end rows of V are not zero, where the two closures differ
+    X, S, V = d.X, d.S, d.V
+    @test all(!=(0), V[[1, nv], 1])
+    fields(w) = (kfield(X * S, V, w), lfield(X, V * S', w), sfield(X, S, V, w),
+        potential(X, S, V, w))
+
+    w1 = LowRankFields1D1V(a, G, dist.v; closure = bounded)
+    w2 = LowRankFields1D1V(space, G; closure = bounded)
+    w3 = LowRankFields1D1V(d, G; closure = bounded)
+    @test w1.closure === w2.closure === w3.closure === bounded
+    @test fields(w1) == fields(w2) == fields(w3)
+
+    p1 = LowRankFields1D1V(a, G, dist.v)
+    p2 = LowRankFields1D1V(space, G)
+    p3 = LowRankFields1D1V(d, G)
+    @test p1.closure === p2.closure === p3.closure === periodic
+    @test fields(p1) == fields(p2) == fields(p3) ==
+          fields(LowRankFields1D1V(a, G, dist.v; closure = periodic))
+    @test all(fields(p1) .!= fields(w1))
+
+    # the guard's own message, which names the constructor
+    tmsg = r"^TypeError: in LowRankFields1D1V, in keyword closure, expected VlasovMethods\.VelocityClosure, got a value of type Symbol$"
+    @test_throws tmsg LowRankFields1D1V(a, G, dist.v; closure = :bounded)
+    @test_throws tmsg LowRankFields1D1V(space, G; closure = :bounded)
+end
+
+@testset "allocations of the bounded fields, $T" for T in (Float64, Float32)
+    # skipped where a run forces `--check-bounds=yes`, and under coverage instrumentation, as
+    # the allocation testset of the periodic fields is
+    if Base.JLOptions().check_bounds != 1 && Base.JLOptions().code_coverage == 0
+        for (nx, nv) in ((64, 128), (512, 1024)), r in (4, 8)
+
+            xd = (zero(T), T(4π))
+            dist = GridDistribution(zeros(T, nx, nv), xd, (T(-6), T(6)))
+            model = VlasovPoisson(dist, Potential(FFTWBasis(xd, nx)))
+            a = Arakawa(nx, nv, step(dist.x), step(dist.v))
+            w = LowRankFields1D1V(a, model.work, dist.v; closure = BoundedVelocityClosure())
+            X, S, V, K, L = factors(T, nx, nv, r, 1)
+            ϕ = draw(Xoshiro(2), T, nx)
+            # an nx × nv array breaks the bound at (512, 1024)
+            bound = 32 * (nx + nv) * r * sizeof(T) + 16384
+
+            @test allocations(_kfield!, (similar(K), K, V, w)) ≤ bound
+            @test allocations(_lfield!, (similar(L), X, L, w)) ≤ bound
+            @test allocations(_sfield!, (similar(S), X, S, V, w)) ≤ bound
+            @test allocations(_kfield!, (similar(K), K, V, w, ϕ)) ≤ bound
+            @test allocations(_lfield!, (similar(L), X, L, w, ϕ)) ≤ bound
+            @test allocations(_sfield!, (similar(S), X, S, V, w, ϕ)) ≤ bound
+            @test allocations(_potential!, (similar(ϕ), K, V, w)) ≤ bound
+            @test allocations(_potential!, (similar(ϕ), X, S, V, w)) ≤ bound
+            (nx, nv, r) == (512, 1024, 4) && @test bound < nx * nv * sizeof(T)
+        end
     end
 end

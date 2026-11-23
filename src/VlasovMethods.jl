@@ -209,6 +209,8 @@ include("gridbased/collisions.jl")
 # `GeometricIntegrator`, so it is included after both.
 include("gridbased/vlasov_poisson_1d1v.jl")
 
+export PeriodicVelocityClosure, BoundedVelocityClosure
+
 # The particle-based reduction: the snapshots of a sweep, the reduced bases of the particle and
 # of the field snapshot matrix they hold, and the reduced electric field over the full-order
 # field of `src/electric_field.jl`.
