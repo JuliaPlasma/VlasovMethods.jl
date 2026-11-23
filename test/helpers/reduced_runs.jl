@@ -7,8 +7,8 @@
 
 The timespan of one chunk of `nsave` steps of `dt`, taken from zero: `T(nsave)·dt`.
 
-The integrator takes `nsave` steps over this span, while the problem's own `ntime` can count one
-more, so a test asserts `ntime(sol)` and never `ntime(prob)`. The analytic model is autonomous, so
+The integrator takes `nsave` steps over this span, and a test asserts the count of the solution,
+`ntime(sol)`, not the count of the problem. The analytic model is autonomous, so
 every chunk restarts the clock at zero. A span built from the run's own clock, `(t_{j-1}, t_j)`, is
 not exactly `nsave·dt` long, and its solution takes `nsave - 1` steps at some `j`.
 """

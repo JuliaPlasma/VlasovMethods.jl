@@ -102,8 +102,9 @@ their own, except for what they removed and narrowed, which is listed in full be
   Base's `ArgumentError` of `range` or an `InexactError` from the cell index.
 - **`run!(::GeometricIntegrator, h5file)` steps over the solution's own time grid (K93).** It sized
   its datasets by `ntime(equation) + 1` and indexed the range `t₀:Δt:t₁` up to that count, but
-  `ntime` rounds the step count up, and the range is one point shorter wherever the span is not a
-  whole number of steps in floating point: a run to `0.05` with the step `8e-4` threw a
+  before GeometricEquations 0.21.8 `ntime` rounded the step count up, and the range was one point
+  shorter wherever the span is not a whole number of steps in floating point: a run to `0.05` with
+  the step `8e-4` threw a
   `BoundsError` before its last step. The datasets now hold one slice per point of the range, and
   the loop takes the steps that `GeometricIntegrators.integrate` takes, as
   `run!(::SplittingMethod, h5file)` does. `run!` writes its last slice at `last(t₀:Δt:t₁)`, the last
@@ -118,6 +119,12 @@ their own, except for what they removed and narrowed, which is listed in full be
 - **`size(rt, i)` and `axes(rt, i)` of a `ReducedCollisionTensor` give `1` and `Base.OneTo(1)`
   for `i > 3` (K30)**, from the `AbstractArray` fallbacks. The methods of the type indexed past
   its three dimensions and threw a `BoundsError`.
+- **The floor of GeometricEquations is 0.21.8**, whose `ntime(equation)` counts the steps of the
+  solution's time grid `t₀:Δt:t₁`, so `ntime(equation) + 1` is the number of states that
+  `GeometricIntegrators.integrate` and `run!` write. Before 0.21.8, `ntime` rounded
+  `(t₁ - t₀) / Δt` up and counted one step more than the grid wherever the span is not a whole
+  number of steps in floating point. The tests of `run!(::SplittingMethod, h5file)` and
+  `run!(::GeometricIntegrator, h5file)` assert this agreement, so they fail on 0.21.5 to 0.21.7.
 
 ### Breaking Changes
 

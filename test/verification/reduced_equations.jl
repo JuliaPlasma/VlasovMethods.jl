@@ -11,10 +11,10 @@
 # saves, `1001` of them, where every step would hold `10^6` states. Each chunk is one emitted
 # problem over the timespan `chunk_span`, and **what is asserted is the number of steps its
 # solution takes, never the problem's own count**: the plain span `(0, T(1000)·dt)` takes exactly
-# `1000` steps, while `ntime(prob)` counts `1001` and the span rounded down by one `eps` takes
-# `999`. A chunk built from the run's own clock — the float span `(t_{j-1}, t_j)` — takes `1000` at
-# some `j` and `999` at others, which puts every later save at the wrong time. The chunk's equation
-# is autonomous — the PODE form does not read `t` — so the clock starts at zero each time.
+# `1000` steps, while the span rounded down by one `eps` takes `999`. A chunk built from the run's
+# own clock — the float span `(t_{j-1}, t_j)` — takes `1000` at some `j` and `999` at others, which
+# puts every later save at the wrong time. The chunk's equation is autonomous — the PODE form does
+# not read `t` — so the clock starts at zero each time.
 
 using LinearAlgebra
 using ReducedBasisMethods: ReducedBasis, CotangentLiftSVD, project, lift, reduced_pode
@@ -63,9 +63,8 @@ include("../helpers/reduced_runs.jl")
     end
 
     # the steps taken: every chunk of the plain span takes exactly the `1000` steps it means, and the
-    # `10^3` chunks are the `10^6` steps of the horizon. `ntime(prob)` is not this count — it is
-    # `div(tend - tbegin, tstep, RoundUp)`, which is `1001` here — and the span rounded down by one
-    # `eps` takes `999`, as the float span `(t_{j-1}, t_j)` takes at some `j`, so this is where a
+    # `10^3` chunks are the `10^6` steps of the horizon. The span rounded down by one `eps` takes
+    # `999`, as the float span `(t_{j-1}, t_j)` takes at some `j`, so this is where a
     # chunk that falls a step short is caught and the saves after it are known to be at the right
     # time
     @test all(==(nsave), counts)
