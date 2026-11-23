@@ -125,9 +125,11 @@ const REMOVED_EXPORTS = Symbol[:CLB_rhs, Symbol("DiffEq", "Integrator"), :LB_rhs
 const NEW_EXPORTS = Symbol[
     :AnisotropicBiMaxwellian,
     :BKWDistribution,
+    :BoundedVelocityClosure,
     :DoubleMaxwellian2D,
     :GridFactorSpace,
     :LowRankDistribution,
+    :PeriodicVelocityClosure,
     :build_grid_parity_factors,
     :build_spline_parity_factors,
     :dual_parity_modes,

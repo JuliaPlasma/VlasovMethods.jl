@@ -369,6 +369,31 @@ their own, except for what they removed and narrowed, which is listed in full be
   Each field also takes a frozen potential `ϕ` as its last argument. The workspace is built from
   an `Arakawa` bracket with the velocity nodes, a `GridFactorSpace`, or a `LowRankDistribution` on
   one, each with the Green's matrix. The five names are documented but not exported.
+- **`BoundedVelocityClosure`** is a bounded closure of the velocity grid of the grid 1D1V
+  Vlasov–Poisson model, with zero inflow. The unknowns are the nodes `j = 2 … nv-1`; `f` and the
+  Hamiltonian are read as zero on and beyond the end nodes, and the field is
+  `ḟ = χ ∘ [Ph, χ ∘ f]` with `Ph = χ ∘ (ϕ ⊗ 1 + 1 ⊗ v²/2)` and the density summed over the
+  unknowns, zero at the end nodes. The discrete energy is kept by the field, because Arakawa's
+  form is totally antisymmetric on grid functions that vanish at the end nodes, so the implicit
+  midpoint rule keeps it to the Newton solve. The mass is not kept: its rate is the flux through
+  the end nodes. `GeometricIntegrator(model, tspan, tstep[, method]; closure)` of the grid model
+  takes the closure as a keyword: with `BoundedVelocityClosure()` the vector field is the new
+  `_grid_1d1v_bounded_rhs!`, which reads no stored value of `f` in the end columns and allocates
+  nothing, and the initial state has zero end columns, without a change to `model.distribution`.
+  `LowRankFields1D1V(…; closure)` takes the same keyword on its three constructors, and on a
+  bounded workspace `_kfield!`, `_lfield!`, `_sfield!` and `_potential!` give the fields and the
+  potential of the bounded field, without the `nx × nv` array. The runs of
+  `test/verification/bounded_closure.jl`, in the `verification` group, check the energy, the
+  mass balance against the boundary flux, and the agreement with the periodic run where `f`
+  vanishes, to round-off, on the two outermost nodes at each end, `j ∈ {1, 2, nv-1, nv}`; with `f`
+  zero on the end nodes alone the two closures give different fields. The abstract type
+  `VelocityClosure` is documented but not exported; the `closure` keyword of the grid model and of
+  the three `LowRankFields1D1V` constructors takes `PeriodicVelocityClosure()` or
+  `BoundedVelocityClosure()`, and throws a `TypeError` for any other value, a further subtype of
+  `VelocityClosure` included.
+- **`PeriodicVelocityClosure`** is the periodic closure of the velocity grid, which the grid model
+  and the low-rank fields have used so far. It is the default of the `closure` keyword, so a call
+  without the keyword builds the same problem and the same fields as before.
 
 ### Scripts
 

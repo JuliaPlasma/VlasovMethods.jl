@@ -87,3 +87,18 @@ K-, L- and S-fields and the potential on the factors, without forming ``f``. The
 ``r \times r`` matrices of shifted columns, and a field costs ``O((n_x + n_v) r^2)`` beyond the
 product with the Green's matrix. Each field also takes a given, frozen potential ``\phi``. The
 workspace and the functions are documented, but not exported.
+
+## The closure of the fields
+
+The workspace takes the closure of the velocity grid as the keyword `closure` of each of its
+constructors, as the grid model does. The default `PeriodicVelocityClosure()` gives the fields
+above. With `BoundedVelocityClosure()`, the fields are those of the bounded field
+``F_b(f) = \chi \circ [P h, \chi \circ f]`` of the grid model, from the section
+[Bounded velocity closure](@ref). The cut Hamiltonian
+``P h = \phi \otimes \chi + 1 \otimes (\chi \circ v^2/2)`` has rank 2 too, so the fields keep
+their factored form: the velocity sums run over the unknowns ``j = 2, \dots, n_v - 1``, the term
+of ``\phi`` is weighted by ``\chi`` at the velocity neighbour, the kinetic energy is cut to the
+unknowns, and the density is ``\rho = h_v K (V^\mathsf{T} \chi)``. Rows ``1`` and ``n_v`` of `V`
+and `L` are read as zero, and rows ``1`` and ``n_v`` of ``\dot{L}`` are zero. No field forms
+``f``. With `X` and `V` orthonormal and the end rows of `V` zero, the DLR field keeps the energy
+when ``\chi`` and ``\chi \circ v^2`` lie in the span of `V`.
