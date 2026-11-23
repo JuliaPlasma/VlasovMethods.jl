@@ -697,11 +697,11 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **location:** `test/lowrank/bug.jl:242`
 - **evidence:** the fixtures of "a rank outside the bounds, $T" (`:168`), "the edges of the step,
   $T" (`:242`, `:286`, `:318`, `:327`, `:340`) and "the run driver, $T" (`:366`). After 5 steps
-  of `τ = 0.05` from L1's rank-3 factorisation of `(1 + 0.3 cos(x/2)) M(v)` on `16 × 24` nodes
-  of `[0, 4π) × [−10, 10]` with the model's Green's matrix (the fixture of `:242` and `:366`),
-  f at `±10` is `8.1e-14` (`BUG()`), `7.9e-14` (`AugmentedBUG()`) and `4.2e-12`
-  (`MidpointBUG()`) of its largest value in Float64, and `8.3e-9`, `4.4e-6` and `1.2e-6` in
-  Float32; at `t = 0` it is `2.1e-22`. The plan's velocity-domain rule asks for round-off, and
+  of `τ = 0.05` from the rank-3 factorisation `LowRankDistribution(dist, 3)` of
+  `(1 + 0.3 cos(x/2)) M(v)` on `16 × 24` nodes of `[0, 4π) × [−10, 10]` with the model's Green's
+  matrix (the fixture of `:242` and `:366`), f at `±10` is `8.1e-14` (`BUG()`), `7.9e-14`
+  (`AugmentedBUG()`) and `4.2e-12` (`MidpointBUG()`) of its largest value in Float64, and
+  `8.3e-9`, `4.4e-6` and `1.2e-6` in Float32; at `t = 0` it is `2.1e-22`. The plan's velocity-domain rule asks for round-off, and
   its spec names `1e-14`; the fixtures of the numerical bounds run on 64 velocity nodes for this
   reason. Whether the boundary values change an assertion of these testsets is not checked.
 - **kind:** not verified

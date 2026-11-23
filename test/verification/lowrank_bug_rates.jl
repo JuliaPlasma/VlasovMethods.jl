@@ -33,8 +33,8 @@ function e1(Y, G, x)
     return abs(sum(ϕ[i] * exp(-im * x[i] / 2) for i in eachindex(x))) / length(x)
 end
 
-# log|E₁| at each time of t₀:τ:tend of the method from L1's factorisation at the rank 16 of
-# (1 + α cos(x/2)) g(v)
+# log|E₁| at each time of t₀:τ:tend of the method from the factorisation
+# `LowRankDistribution(dist, r)` at the rank 16 of (1 + α cos(x/2)) g(v)
 function log_e1(T, method, profile, α, tend; τ = 0.05, r = 16)
     xd, vd = (zero(T), T(4π)), (T(-10), T(10))
     dist = GridDistribution(zeros(T, 64, 256), xd, vd)

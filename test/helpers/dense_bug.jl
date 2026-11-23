@@ -1,6 +1,6 @@
 # The three BUG integrators transcribed from their papers on the formed grid function
 # `f = X S Vᵀ`, the oracle of `test/lowrank/bug.jl`. The field is the full-order right-hand side
-# `F(f)` of the base's generic `_grid_1d1v_rhs!`, applied to the formed `f` and projected onto
+# `F(f)` of the package's generic `_grid_1d1v_rhs!`, applied to the formed `f` and projected onto
 # the other factor; the weighted orthonormal bases come from `LinearAlgebra.qr` of `√h A`; each
 # substep is one step of the classical RK4 tableau.
 #

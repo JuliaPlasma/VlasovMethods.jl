@@ -13,8 +13,8 @@ include("../helpers/rate_fits.jl")
 # backend. On 64 velocity nodes f at v = ±10 stays at round-off of its largest value over each run;
 # on the 16 and 24 nodes of the edge, rank-guard and driver fixtures it does not
 # (KNOWN_ISSUES.md K110). The expected values come from the dense transcription of each paper's
-# algorithm in `test/helpers/dense_bug.jl`, from the base's full-order RK4 integrator, or from the
-# published orders of the three methods.
+# algorithm in `test/helpers/dense_bug.jl`, from the package's full-order RK4 integrator, or from
+# the published orders of the three methods.
 
 rel(a, b) = norm(a .- b) / norm(b)
 reconstruction(Y) = Y.X * Y.S * Y.V'
@@ -23,9 +23,9 @@ copy_state(Y) = LowRankDistribution(Y.space, factors(Y)...; nfixed = Y.nfixed)
 
 maxwellian(v) = exp(-v^2 / 2) / sqrt(2 * oftype(v, π))
 
-# the profile f₀(x, v), by default (1 + α cos(x/2)) M(v), on nx × nv nodes, its model, L1's
-# factorisation at the rank r, the workspace of the fields and the parameters of the dense
-# transcription
+# the profile f₀(x, v), by default (1 + α cos(x/2)) M(v), on nx × nv nodes, its model, its
+# factorisation `LowRankDistribution(dist, r)`, the workspace of the fields and the parameters of
+# the dense transcription
 function fixture(
         T, nx, nv; r, α = 0.3, f₀ = (x, v) -> (1 + T(α) * cos(x / 2)) * maxwellian(v),
         field = true, fixed = nothing)
