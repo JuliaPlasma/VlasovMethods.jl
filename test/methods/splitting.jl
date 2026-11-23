@@ -18,14 +18,14 @@ include("../helpers/external_fields.jl")
     model = VlasovWithExternalFields(one_particle(T, x₀, v₀), field; charge = q, mass = m)
     method = SplittingMethod(model, (zero(T), 10 * T_g), T_g / 32)
 
-    # `T_g/32` is exact, but the rounded span `10 * T_g` exceeds `320Δt`, so the equation's
-    # `ntime` (`div(t₁ - t₀, Δt, RoundUp)`) rounds the step count up to 321. The solution carries
-    # the range `t₀:Δt:t₁`, 321 points, one state per point, so `run!` has to take its step count
-    # from the solution. The pinned values guard that the test exercises this mismatched grid.
-    @test ntime(method.equation) == 321
+    # `T_g/32` is exact, and the span is 320 whole steps in exact arithmetic. The rounded span
+    # `10 * T_g` is half an ulp or less off `320Δt`, and `320Δt` rounds to it. The equation's
+    # `ntime` and the solution's grid `t₀:Δt:t₁` agree on 320 steps, 321 points, one state per
+    # point.
+    @test ntime(method.equation) == 320
     sol = GeometricIntegrators.integrate(method.integrator)
     @test length(sol.t) == 321
-    @test ntime(method.equation) + 1 != length(sol.t)
+    @test ntime(method.equation) + 1 == length(sol.t)
 
     h5file = joinpath(mktempdir(), "splitting.hdf5")
     @test run!(method, h5file) === model.distribution
