@@ -791,3 +791,62 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** found late
 - **found:** 2026-11-23; a limit of the form that the spec's clause "The decided edges of the
   step" prescribes (the conversion of `τ` to `T` before its first use, and the message)
+
+### K119 · The manual says that a full-rank step of the augmented BUG is the RK4 step of the full-order model, which does not hold for `AugmentedBUG(tol; rmin, rmax)`, whose truncation also applies at full rank.
+
+- **location:** `docs/src/manual/lowrank.md:126`
+- **evidence:** On a 16 × 24 grid at rank 16, Float64, with σ₁₆ set to `1e-9`:
+  `AugmentedBUG()` with τ = 0.05 keeps rank 16 and differs from the full-order RK4 step by
+  `8.2e-16` (relative); `AugmentedBUG(1e-6; rmin = 1, rmax = 16)` with τ = 0 gives rank 1, and with
+  τ = 0.05 rank 5 at `4.7e-7` from the RK4 step. The truncation is `_truncation_rank` at
+  `src/lowrank/bug.jl:133`. The docstring of `lowrank_step!` states that the truncation applies at
+  τ = 0; the manual sentence does not restrict itself to `AugmentedBUG()` and `MidpointBUG()`.
+- **kind:** docs
+- **found:** PR #150, from its review
+
+### K120 · A step of the augmented or the midpoint BUG from a state with a non-finite core installs the untruncated, possibly rectangular core in the state, which the factor constructor then refuses.
+
+- **location:** `src/lowrank/bug.jl:140`
+- **evidence:** `all(isfinite, Ŝ) || return X̂, Ŝ, V̂` returns the augmented factors, and the step
+  assigns them to `Y`. With `S[1, 1] = NaN` and τ = 0.05, for `AugmentedBUG()`, `MidpointBUG()`
+  and `AugmentedBUG(1e-6; rmax = 16)`: on 32 × 16 nodes at rank 16, `size(Y.S) == (32, 16)`,
+  `size(Y.X) == (32, 32)`, `size(Y.V) == (16, 16)`, and `LowRankDistribution(space, Y.X, Y.S,
+  Y.V; nfixed)` throws `ArgumentError: the rank 32 is not in 1:16 for a space of 32 × 16 nodes`;
+  on 16 × 32 nodes, `size(Y.S) == (16, 32)` and the constructor throws
+  `DimensionMismatch: factors of sizes (16, 16), (16, 32) and (32, 32) in a space of 16 × 32
+  nodes`. `all(isfinite, Y.S)` still signals the failure. The test of the non-finite core
+  (`test/lowrank/bug.jl:313`) runs only on 16 × 24 nodes at rank 3, where the core is square.
+- **kind:** defect
+- **found:** PR #150, from its review
+
+### K121 · `run!` of a low-rank method passes the same time to two steps, and writes it twice, when the step does not change a time near the end of the precision of its type.
+
+- **location:** `src/lowrank/bug.jl:277`
+- **evidence:** `times = t₀:tstep:t₁` with `tspan = (16777216f0, 16777218f0)` and `tstep = 1f0`
+  collects to `Float32[1.6777216f7, 1.6777216f7, 1.6777218f7]`. The steps receive
+  `t = 1.6777216f7` twice, the file's `t` holds the same three values, and the `status`
+  attribute is `"ok"`. `run!` does not refuse a time grid that is not strictly increasing.
+- **kind:** defect
+- **found:** PR #150, from its review
+
+### K122 · `run!` of a low-rank method truncates an existing output file before HDF5 refuses the element type of the times, so a call with `Int128` times destroys the file and writes nothing.
+
+- **location:** `src/lowrank/bug.jl:285`
+- **evidence:** `h5open(h5file, "w")` (`:285`) comes before `create_dataset(h5, "t",
+  eltype(times), …)` (`:286`). With `BUG()`, `tspan = (Int128(0), Int128(2))` and
+  `tstep = Int128(1)`, on a file of 2072 bytes with one dataset: `MethodError: no method matching
+  create_dataset(::HDF5.File, ::String, ::Type{Int128}, ::Tuple{Int128}; chunk::Tuple{Int64})`;
+  afterwards the file has 195 bytes, no dataset and no attribute.
+- **kind:** defect
+- **found:** PR #150, from its review
+
+### K123 · `run!` of a low-rank method writes no `status` attribute when a step throws, so a file of a failed run does not say where it failed.
+
+- **location:** `src/lowrank/bug.jl:306`
+- **evidence:** A method whose `lowrank_step!` throws `error("probe: step 2 throws")` on its
+  second call leaves a file with the datasets `S`, `V`, `X`, `rank` and `t`, `rank` equal to
+  `[3, 3, 0, 0, 0, 0]`, and no attribute: the error leaves the `do` block before
+  `attrs(h5)["status"] = status` (`:321`). A non-finite state writes its status; an exception
+  does not.
+- **kind:** defect
+- **found:** PR #150, from its review
