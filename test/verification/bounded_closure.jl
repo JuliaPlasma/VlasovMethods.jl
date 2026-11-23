@@ -131,7 +131,7 @@ const RUN_A = (nx = 16, nv = 32, vlim = 3.5, α = 0.5, τ = 0.05)
 end
 
 @testset "run B agrees with the periodic run, $T" for T in (Float64, Float32)
-    # the base's Float64 conservation row, whose f stays round-off at ±vmax
+    # the Float64 row of the grid model's conservation check, where f stays round-off at ±vmax
     nx, nv, τ, nsteps = 16, 64, T(0.05), 40
     model = model_of(T, nx, nv, 10, 0.01)
     p, Fb = bounded_run(model, τ, nsteps)

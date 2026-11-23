@@ -716,8 +716,8 @@ has left the file, or that lived only on a merged branch, stays taken.
   `ḟ` shares memory with `f`, the message that `poisson_apply!` gives the periodic right-hand side.
   `_grid_1d1v_bounded_rhs!` has the arguments `ḟ` and `f`, and no `Pc`, `û` or `c`. The bounded
   path reads its copy `g` of the unknowns and not `f`, so an aliased `ḟ` would not corrupt the
-  stencil; the check exists because the guard is required with the base's message. A message
-  that names `ḟ` and `f` for both right-hand sides changes the periodic message too.
+  stencil; the check exists so that both right-hand sides throw one error with one message. A
+  message that names `ḟ` and `f` for both right-hand sides changes the periodic message too.
 - **kind:** docs
 - **found:** 2026-11-23
 

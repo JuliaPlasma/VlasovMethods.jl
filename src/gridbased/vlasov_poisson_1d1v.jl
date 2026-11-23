@@ -209,7 +209,7 @@ periodic bracket of [`_grid_1d1v_rhs!`](@ref). It writes zero in columns ``1`` a
 `ḟ`, and reads no value of `f` in those columns: it copies the unknowns of `f` into the buffer
 `g` of the cache, whose end columns are zero, so a non-finite value there does not reach `ḟ`.
 
-`params` is that of [`_grid_1d1v_rhs!`](@ref), with the buffers `ρ`, `ϕ`, `h` and `g`. A state
+`params` is that of [`_grid_1d1v_rhs!`](@ref), and its cache holds `g` too. A state
 of the element type `T` of the buffers allocates nothing; a state of another element type, such
 as the `ForwardDiff.Dual` numbers of the implicit midpoint's Jacobian, takes the buffers of its
 own element type from `params.cache`. It throws the errors of [`_grid_1d1v_rhs!`](@ref), with
