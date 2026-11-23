@@ -18,9 +18,10 @@ include("../helpers/external_fields.jl")
     model = VlasovWithExternalFields(one_particle(T, x₀, v₀), field; charge = q, mass = m)
     method = SplittingMethod(model, (zero(T), 10 * T_g), T_g / 32)
 
-    # `T_g/32` is exact, and the span is 320 whole steps in exact arithmetic, but the rounded span
-    # `10 * T_g` is a few ulps off `320Δt`. The equation's `ntime` and the solution's grid
-    # `t₀:Δt:t₁` agree on 320 steps, 321 points, one state per point.
+    # `T_g/32` is exact, and the span is 320 whole steps in exact arithmetic. The rounded span
+    # `10 * T_g` is half an ulp or less off `320Δt`, and `320Δt` rounds to it. The equation's
+    # `ntime` and the solution's grid `t₀:Δt:t₁` agree on 320 steps, 321 points, one state per
+    # point.
     @test ntime(method.equation) == 320
     sol = GeometricIntegrators.integrate(method.integrator)
     @test length(sol.t) == 321

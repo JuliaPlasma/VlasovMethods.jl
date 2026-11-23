@@ -104,8 +104,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   its datasets by `ntime(equation) + 1` and indexed the range `t₀:Δt:t₁` up to that count, but
   before GeometricEquations 0.21.8 `ntime` rounded the step count up, and the range was one point
   shorter wherever the span is not a whole number of steps in floating point: a run to `0.05` with
-  the step `8e-4` threw a
-  `BoundsError` before its last step. The datasets now hold one slice per point of the range, and
+  the step `8e-4` threw a `BoundsError` before its last step. The datasets now hold one slice per
+  point of the range, and
   the loop takes the steps that `GeometricIntegrators.integrate` takes, as
   `run!(::SplittingMethod, h5file)` does. `run!` writes its last slice at `last(t₀:Δt:t₁)`, the last
   whole step at or below `t₁`, so a span that is not a whole number of steps ends short of `t₁` —
@@ -119,12 +119,15 @@ their own, except for what they removed and narrowed, which is listed in full be
 - **`size(rt, i)` and `axes(rt, i)` of a `ReducedCollisionTensor` give `1` and `Base.OneTo(1)`
   for `i > 3` (K30)**, from the `AbstractArray` fallbacks. The methods of the type indexed past
   its three dimensions and threw a `BoundsError`.
-- **The floor of GeometricEquations is 0.21.8**, whose `ntime(equation)` counts the steps of the
-  solution's time grid `t₀:Δt:t₁`, so `ntime(equation) + 1` is the number of states that
-  `GeometricIntegrators.integrate` and `run!` write. Before 0.21.8, `ntime` rounded
-  `(t₁ - t₀) / Δt` up and counted one step more than the grid wherever the span is not a whole
-  number of steps in floating point. The tests of `run!(::SplittingMethod, h5file)` and
-  `run!(::GeometricIntegrator, h5file)` assert this agreement, so they fail on 0.21.5 to 0.21.7.
+- **The floor of GeometricEquations is 0.21.8**, whose `ntime(equation)` drops a partial last
+  step: for `t₁ = 0.05` and `Δt = 8e-4` it counts 62 steps, as the solution's time grid
+  `t₀:Δt:t₁` does, where 0.21.5 to 0.21.7 rounded `(t₁ - t₀) / Δt` up to 63. `ntime(equation) + 1`
+  is then the number of states that `GeometricIntegrators.integrate` and `run!` write, except
+  where the last step ends a few ulps past `t₁`: there `ntime` counts that step and the grid drops
+  it, so `ntime(equation) + 1` is one more than the number of states. `run!` takes its step count
+  from the grid in either case. The tests of `run!(::SplittingMethod, h5file)` and
+  `run!(::GeometricIntegrator, h5file)` assert the agreement on their spans, so they fail on
+  0.21.5 to 0.21.7.
 
 ### Breaking Changes
 

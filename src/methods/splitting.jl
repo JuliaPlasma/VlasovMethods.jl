@@ -66,8 +66,9 @@ function run!(method::SplittingMethod, h5file)
     np = size(z₀, 2)
 
     # The time grid of a `Solution` of the same problem, the range `t₀:Δt:t₁`. Its length is the
-    # number of states a run holds, the initial one included, and it agrees with
-    # `ntime(equation) + 1`.
+    # number of states a run holds, the initial one included. It is one point shorter than
+    # `ntime(equation) + 1` where the last step ends a few ulps past `t₁`: `ntime` counts that
+    # step, and the range drops it.
     prob = method.equation
     t₀ = GeometricEquations.initialtime(prob)
     t₁ = GeometricEquations.finaltime(prob)
