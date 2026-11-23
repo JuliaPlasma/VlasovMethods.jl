@@ -1,5 +1,5 @@
 @doc raw"""
-    LowRankDistribution{DT, ST, XT, SMT, VT}
+    LowRankDistribution{DT, ST}
 
 A distribution function of a 1D1V phase space in the factored form
 
@@ -11,21 +11,24 @@ a `DistributionFunction{DT, 1, 1}`. Its fields:
 
   - `space`, the factor space, a concrete subtype of
     [`VlasovMethods.AbstractFactorSpace`](@ref)`{DT}`, with `nx, nv = size(space)`;
-  - `X`, the `nx × r` matrix of the x factors;
-  - `S`, the `r × r` coefficient matrix, so the rank is `r = size(S, 1)`;
-  - `V`, the `nv × r` matrix of the v factors;
+  - `X`, the `nx × r` `Matrix{DT}` of the x factors;
+  - `S`, the `r × r` coefficient `Matrix{DT}`, so the rank is `r = size(S, 1)`;
+  - `V`, the `nv × r` `Matrix{DT}` of the v factors;
   - `nfixed`, the number of leading columns of `V` that span the fixed velocity modes.
 
-The type is mutable: a step may assign to `X`, `S`, `V` and `nfixed` factors of another rank of
-the same array types. The assignment is not checked against the sizes. `size(d)` is
-`size(d.space)` and `eltype(d)` is `DT`.
+The type is mutable: a step may assign to `X`, `S`, `V` and `nfixed` factors of another rank.
+An assignment of another `AbstractMatrix{DT}` to `X`, `S` or `V` converts it to a `Matrix{DT}`.
+The assignment is not checked against the sizes. `size(d)` is `size(d.space)` and `eltype(d)` is
+`DT`.
 
     LowRankDistribution(space, X, S, V; nfixed = 0)
 
-Wrap the factors `X`, `S` and `V`, of the element type `DT` of `space`, without a copy. Throws a
-`DimensionMismatch` for factors of other sizes, and an `ArgumentError` for a rank `r` outside
-`1:min(nx, nv)` or `nfixed` outside `0:r`. It does not check that `X` and `V` are orthonormal:
-that is the caller's contract.
+Take the factors `X`, `S` and `V`, of the element type `DT` of `space`. A `Matrix{DT}` factor is
+stored without a copy; any other `AbstractMatrix{DT}`, such as a view or a `Diagonal`, is
+converted to a new `Matrix{DT}`. A factor of another element type raises a `MethodError`.
+Throws a `DimensionMismatch` for factors of other sizes, and an `ArgumentError` for a rank `r`
+outside `1:min(nx, nv)` or `nfixed` outside `0:r`. It does not check that `X` and `V` are
+orthonormal: that is the caller's contract.
 
     LowRankDistribution(dist::GridDistribution, r; fixed)
 
@@ -54,18 +57,17 @@ Throws an `ArgumentError` for `r` outside `1:min(nx, nv)`, for `m > r`, for line
 fixed modes, and for a non-finite entry of `f` or of `fixed`; and a `DimensionMismatch` for
 `fixed` of another number of rows than `nv`.
 """
-mutable struct LowRankDistribution{
-    DT, ST <: AbstractFactorSpace{DT}, XT <: AbstractMatrix{DT},
-    SMT <: AbstractMatrix{DT}, VT <: AbstractMatrix{DT}} <: DistributionFunction{DT, 1, 1}
+mutable struct LowRankDistribution{DT, ST <: AbstractFactorSpace{DT}} <:
+               DistributionFunction{DT, 1, 1}
     const space::ST
-    X::XT
-    S::SMT
-    V::VT
+    X::Matrix{DT}
+    S::Matrix{DT}
+    V::Matrix{DT}
     nfixed::Int
 
-    function LowRankDistribution(space::ST, X::XT, S::SMT, V::VT;
-            nfixed::Integer = 0) where {DT, ST <: AbstractFactorSpace{DT},
-            XT <: AbstractMatrix{DT}, SMT <: AbstractMatrix{DT}, VT <: AbstractMatrix{DT}}
+    function LowRankDistribution(space::ST, X::AbstractMatrix{DT}, S::AbstractMatrix{DT},
+            V::AbstractMatrix{DT}; nfixed::Integer = 0) where {
+            DT, ST <: AbstractFactorSpace{DT}}
         nx, nv = size(space)
         r = size(S, 1)
         _check_rank(r, nx, nv)
@@ -74,7 +76,8 @@ mutable struct LowRankDistribution{
                                     "$(size(V)) in a space of $nx × $nv nodes"))
         0 ≤ nfixed ≤ r || throw(ArgumentError(
             "the number of fixed modes $nfixed is not in 0:$r for the rank $r"))
-        new{DT, ST, XT, SMT, VT}(space, X, S, V, nfixed)
+        new{DT, ST}(space, convert(Matrix{DT}, X), convert(Matrix{DT}, S),
+            convert(Matrix{DT}, V), nfixed)
     end
 end
 

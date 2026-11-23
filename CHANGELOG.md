@@ -326,9 +326,13 @@ their own, except for what they removed and narrowed, which is listed in full be
   the state of the dynamical low-rank methods: the factor space, the factors `X`, `S` and `V`, and
   the number `nfixed` of leading columns of `V` that span fixed velocity modes. It is a mutable
   `DistributionFunction`, so a step can replace the factors by factors of another rank.
-  `LowRankDistribution(space, X, S, V; nfixed)` wraps given factors on any factor space and checks
-  their sizes, the rank and `nfixed`. `LowRankDistribution(dist::GridDistribution, r; fixed)`
-  factorises the node values of a grid distribution at the rank `r` by a weighted truncated SVD:
+  The factors are `Matrix{DT}` values, with `DT` the element type of the space, so a step can
+  assign the `Matrix` results of a QR, a substep or a truncation; an assignment of another matrix
+  type, such as a view or a `Diagonal`, converts it. `LowRankDistribution(space, X, S, V; nfixed)`
+  takes factors on any factor space, stores a `Matrix{DT}` factor without a copy, converts any
+  other `AbstractMatrix{DT}` to a new `Matrix{DT}`, and checks the sizes, the rank and `nfixed`.
+  `LowRankDistribution(dist::GridDistribution, r; fixed)` factorises the node values of a grid
+  distribution at the rank `r` by a weighted truncated SVD:
   the modes of `fixed`, such as `[1 v v²]`, are the first columns of `V`, so the density, the
   momentum and the energy of `velocity_moments` are kept; the next columns are the leading right
   singular vectors of the part of `f` outside them; a basis below the rank is completed by a
@@ -353,6 +357,88 @@ their own, except for what they removed and narrowed, which is listed in full be
   Each field also takes a frozen potential `ϕ` as its last argument. The workspace is built from
   an `Arakawa` bracket with the velocity nodes, a `GridFactorSpace`, or a `LowRankDistribution` on
   one, each with the Green's matrix. The five names are documented but not exported.
+- **`BoundedVelocityClosure`** is a bounded closure of the velocity grid of the grid 1D1V
+  Vlasov–Poisson model, with zero inflow. The unknowns are the nodes `j = 2 … nv-1`; `f` and the
+  Hamiltonian are read as zero on and beyond the end nodes, and the field is
+  `ḟ = χ ∘ [Ph, χ ∘ f]` with `Ph = χ ∘ (ϕ ⊗ 1 + 1 ⊗ v²/2)` and the density summed over the
+  unknowns, zero at the end nodes. The discrete energy is kept by the field, because Arakawa's
+  form is totally antisymmetric on grid functions that vanish at the end nodes, so the implicit
+  midpoint rule keeps it to the Newton solve. The mass is not kept: its rate is the flux through
+  the end nodes. `GeometricIntegrator(model, tspan, tstep[, method]; closure)` of the grid model
+  takes the closure as a keyword: with `BoundedVelocityClosure()` the vector field is the new
+  `_grid_1d1v_bounded_rhs!`, which reads no stored value of `f` in the end columns and allocates
+  nothing, and the initial state has zero end columns, without a change to `model.distribution`.
+  `LowRankFields1D1V(…; closure)` takes the same keyword on its three constructors, and on a
+  bounded workspace `_kfield!`, `_lfield!`, `_sfield!` and `_potential!` give the fields and the
+  potential of the bounded field, without the `nx × nv` array. The runs of
+  `test/verification/bounded_closure.jl`, in the `verification` group, check the energy, the
+  mass balance against the boundary flux, and the agreement with the periodic run where `f`
+  vanishes, to round-off, on the two outermost nodes at each end, `j ∈ {1, 2, nv-1, nv}`; with `f`
+  zero on the end nodes alone the two closures give different fields. The abstract type
+  `VelocityClosure` is documented but not exported; the `closure` keyword of the grid model and of
+  the three `LowRankFields1D1V` constructors takes `PeriodicVelocityClosure()` or
+  `BoundedVelocityClosure()`, and throws a `TypeError` for any other value, a further subtype of
+  `VelocityClosure` included.
+- **`PeriodicVelocityClosure`** is the periodic closure of the velocity grid, which the grid model
+  and the low-rank fields have used so far. It is the default of the `closure` keyword, so a call
+  without the keyword builds the same problem and the same fields as before.
+- **`BUG`** is the fixed-rank basis-update & Galerkin integrator of Ceruti & Lubich 2022
+  (doi 10.1007/s10543-021-00873-0), a reference method of dynamical low rank: the K- and
+  L-steps from the old bases, the new bases from their results, and the S-step on the new bases.
+- **`AugmentedBUG`** is the augmented basis-update & Galerkin integrator of Ceruti, Kusch & Lubich
+  2022 (doi 10.1007/s10543-021-00907-7): the S-step runs on the bases of `[K(τ) X₀]` and
+  `[L(τ) V₀]`, and the SVD of its result truncates the step. `AugmentedBUG()` truncates to the
+  rank of the step's input, `AugmentedBUG(tol; rmin = 1, rmax)` to the least rank whose discarded
+  singular values have a norm of at most `tol`, clamped to `rmin:rmax`. The truncated `S` is the
+  diagonal of the leading singular values. The constructor throws an `ArgumentError` unless `tol`
+  is a finite real `≥ 0` and `rmin` and `rmax` are integers with `1 ≤ rmin ≤ rmax`, and a step
+  throws one for a state whose rank lies outside `rmin:rmax`.
+- **`MidpointBUG`** is the midpoint basis-update & Galerkin integrator, "Midpoint BUG (4r)" of
+  Ceruti, Einkemmer, Kusch & Lubich 2024 (doi 10.1007/s10543-024-01032-x), truncated to the rank
+  of its input: an augmented step of `τ/2` without truncation, bases augmented by the field at its
+  result, a Galerkin step of `τ` on them, and the truncation.
+- **`lowrank_step!`** takes one step `lowrank_step!(Y, method, field, t, τ)` of `BUG`,
+  `AugmentedBUG` or `MidpointBUG` in place on a `LowRankDistribution` on a `GridFactorSpace`, with
+  the workspace `LowRankFields1D1V` of the fields, and returns `Y`. Each substep is one step of the
+  classical RK4 tableau, and no field or step forms the `nx × nv` array. The step converts `τ` to
+  the element type of `Y`, throws an `ArgumentError` for a non-finite `τ`, counts the fixed modes
+  in the rank and sets `nfixed = 0`. A step whose S-step or Galerkin step leaves a non-finite
+  value does not throw: it leaves the untruncated factors in `Y`, and `all(isfinite, Y.S)` is the
+  status that a caller tests.
+- **`LowRankIntegrator`** holds a run of a method with a `lowrank_step!` that keeps the rank, or
+  of `AugmentedBUG(tol; rmin, rmax)`, whose rank stays within `rmax`, from a
+  `LowRankDistribution` over a span with a step, and `run!(int, h5file)` writes the times, the
+  ranks and the factors `X`, `S` and `V` of every state into an HDF5 file, zero beyond each rank.
+  The datasets `X`, `S` and `V` have the initial rank `R` as their width, or
+  `min(rmax, nx, nv)` for `AugmentedBUG(tol; rmin, rmax)`. A step that grows the rank beyond the
+  `R` stored columns stops the run: `run!` sets the file attribute `status` to
+  `"failed at step <s>: rank <r> beyond the <R> stored columns"`, closes the file and throws an
+  `ArgumentError`.
+  A step that leaves a non-finite `S` stops the run without an error and sets the file attribute
+  `status` to `"failed at step <s>"`; a complete run sets `"ok"`. For `BUG`, `AugmentedBUG` and
+  `MidpointBUG`, `run!` throws an `ArgumentError` before it opens the file when the step is zero
+  or not finite in the element type of `Y`, as a `Float64` step `1e-50` is on a `Float32` state,
+  because the run would not advance in time.
+- **`ProjectorSplitting`** is the projector-splitting integrator of dynamical low rank (Lubich and
+  Oseledets 2014), a reference method. `ProjectorSplitting(:lie)` is the first-order K–S–L
+  composition with the backward S-substep; `ProjectorSplitting(:strang)` is the second-order
+  composition of Einkemmer and Lubich 2018 (Algorithm 1), whose L-substeps run at a frozen
+  potential, with the midpoint potential predicted by a half step. Any other composition throws
+  an `ArgumentError`. Each substep is one RK4 step, and `K` and `L` are orthonormalised by a QR in
+  the weighted products of the factor space.
+- **`lowrank_step!`**`(Y, method, field, t, τ)` advances a `LowRankDistribution` by one step of a
+  `ProjectorSplitting` in place, with the fields `LowRankFields1D1V` of the grid, or any field with
+  methods of the internal K-, S- and L-right-hand sides, as `field`. It forms no `nx × nv` array
+  and sets `nfixed = 0`. `τ` is a signed step, converted to the element type of the state; a step
+  that is not finite throws an `ArgumentError` before it writes the state. At full rank the Lie
+  step agrees with the full-order RK4 step, and the Strang step with the full-order step of the
+  same frozen-potential composition, to `1e-10` relative over 20 steps in `Float64`; the Lie step
+  from `A(t)` is exact on a path `A` of rank at most `r` whose derivative RK4 integrates exactly,
+  where `A(t + τ) V₀` has the rank of `A(t + τ)`, `V₀` the velocity factor at `t` (for rank
+  exactly `r`: `V(t + τ)ᵀ V₀` nonsingular); the fitted orders are within 0.2 of 1 and 2; and at
+  rank 16 on 64 × 256 nodes the Landau damping rate is within 2 % and the two-stream growth rate
+  within 5 % of the roots of the dispersion relation, which
+  `test/verification/projector_splitting_rates.jl` checks.
 
 ### Scripts
 
@@ -580,6 +666,9 @@ their own, except for what they removed and narrowed, which is listed in full be
 - **The dynamical low-rank methods have a section of their own**, "Dynamical low rank", with the
   manual page `manual/lowrank.md`, which describes `LowRankDistribution`, its factorisation and
   `GridFactorSpace`, and the library page `library/lowrank.md` of their docstrings.
+- **The low-rank pages describe the projector splitting**: a section of `manual/lowrank.md` on
+  `ProjectorSplitting` and `lowrank_step!`, with an example of ten Strang steps, and a block of
+  their docstrings on `library/lowrank.md`.
 
 ### Internal
 

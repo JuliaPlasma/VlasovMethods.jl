@@ -6,6 +6,7 @@ using HDF5: h5read
 using LinearAlgebra: dot, issymmetric, norm
 using PoissonSolvers: FFTWBasis, FiniteDifferenceBasis, PeriodicBasisSpline, Potential,
                       PoissonSolverFFT, PoissonSolverMatrixFree, solve
+using Random: Xoshiro
 using Test
 using VlasovMethods
 
@@ -100,6 +101,110 @@ function seeded_problem(T; nx = 16, nv = 64)
     dist = maxwellian_grid(T, nx, nv, 7.5, 0.5)
     model = VlasovPoisson(dist, Potential(FFTWBasis((zero(T), T(4π)), nx)))
     return model, GeometricIntegrator(model, (zero(T), one(T)), T(0.1)).equation
+end
+
+# The bounded velocity closure, written out on the test's side. The unknowns are the nodes
+# `j = 2 … nv-1`; `f` and the Hamiltonian are read as zero on and beyond the end nodes, and the
+# field is `ḟ = χ ∘ [Ph, χ ∘ f]` with `Ph = χ ∘ (ϕ ⊗ 1 + 1 ⊗ v²/2)`, `ϕ = G ρ` and
+# `ρ = hv Σ_{j=2}^{nv-1} f`. The oracle is the field of the cyclic average `T̄` of Arakawa's form,
+# built column by column from a transcription of the stencil of its own.
+
+# The tolerance `1e-12` in `Float64` is 4504 eps(Float64); the same budget in units of eps(T),
+# rounded down to a power of 2, gives `4096 eps(Float32)` in `Float32`.
+tolerance(::Type{Float64}) = 1e-12
+tolerance(::Type{Float32}) = 4096 * eps(Float32)
+
+rel(a, b) = norm(a .- b) / norm(b)
+
+# standard-normal draws in Float64, rounded to T
+draw(rng, T, dims...) = T.(randn(rng, dims...))
+
+# `a` with its columns 1 and nv set to zero, by assignment, so that a NaN there does not survive
+function cut(a::AbstractMatrix)
+    b = copy(a)
+    b[:, [1, end]] .= 0
+    return b
+end
+
+# a subtype of `VelocityClosure` that is neither closure, which `GeometricIntegrator` refuses
+struct OtherClosure <: VM.VelocityClosure end
+
+# the model and the problem of the bounded closure on [0, 4π) × [-6, 6]
+function bounded_problem(T, nx, nv)
+    xd = (zero(T), T(4π))
+    dist = GridDistribution(zeros(T, nx, nv), xd, (T(-6), T(6)))
+    model = VlasovPoisson(dist, Potential(FFTWBasis(xd, nx)))
+    int = GeometricIntegrator(model, (zero(T), one(T)), T(0.1);
+        closure = BoundedVelocityClosure())
+    return model, int.equation
+end
+
+# the vector field of the problem `prob` applied to the matrix `f`, as a matrix
+function applied(prob, f)
+    a = prob.parameters.arakawa
+    ḟ = similar(vec(f))
+    @test prob.equation.v(ḟ, zero(eltype(f)), vec(copy(f)), prob.parameters) === ḟ
+    return reshape(ḟ, a.nx, a.nv)
+end
+
+# [a, b] on the periodic grid, from GeometricBrackets, which gives hx hv [c, û]
+function bracket(p, a, b)
+    A = p.arakawa
+    return reshape(poisson_apply(A, vec(b), vec(a)) ./ (A.hx * A.hv), A.nx, A.nv)
+end
+
+bounded_potential(p, f) = p.G * (p.arakawa.hv .* vec(sum(cut(f); dims = 2)))
+cut_h(p, f) = cut(bounded_potential(p, f) .+ p.kinetic')
+uncut_h(p, f) = bounded_potential(p, f) .+ p.kinetic'
+bounded_field(p, f) = cut(bracket(p, cut_h(p, f), cut(f)))
+# the boundary flux −hx hv Σ_i Σ_{j ∈ {1, nv}} [Ph, χ ∘ f]_ij
+function boundary_flux(p, f)
+    B = bracket(p, cut_h(p, f), cut(f))
+    return -p.arakawa.hx * p.arakawa.hv * (sum(B[:, 1]) + sum(B[:, end]))
+end
+# ⟨a, b⟩ over the unknowns
+ip(p, a, b) = p.arakawa.hx * p.arakawa.hv * sum((a .* b)[:, 2:(end - 1)])
+
+# Arakawa's stencil [F, H] at (i, j), on index readers F and H
+function arakawa_at(F, H, i, j, hx, hv)
+    J1 = (F(i + 1, j) - F(i - 1, j)) * (H(i, j + 1) - H(i, j - 1)) -
+         (F(i, j + 1) - F(i, j - 1)) * (H(i + 1, j) - H(i - 1, j))
+    J2 = F(i + 1, j) * (H(i + 1, j + 1) - H(i + 1, j - 1)) -
+         F(i - 1, j) * (H(i - 1, j + 1) - H(i - 1, j - 1)) -
+         F(i, j + 1) * (H(i + 1, j + 1) - H(i - 1, j + 1)) +
+         F(i, j - 1) * (H(i + 1, j - 1) - H(i - 1, j - 1))
+    J3 = F(i + 1, j + 1) * (H(i, j + 1) - H(i + 1, j)) -
+         F(i - 1, j - 1) * (H(i - 1, j) - H(i, j - 1)) -
+         F(i - 1, j + 1) * (H(i, j + 1) - H(i - 1, j)) +
+         F(i + 1, j - 1) * (H(i + 1, j) - H(i, j - 1))
+    return (J1 + J2 + J3) / (12hx * hv)
+end
+# a reader that wraps in x and returns zero outside the unknowns
+reader(a) = (i, j) -> (2 ≤ j ≤ size(a, 2) - 1) ? a[mod1(i, size(a, 1)), j] : zero(eltype(a))
+function stencil_bracket(p, a, b)
+    A = p.arakawa
+    out = zeros(promote_type(eltype(a), eltype(b)), A.nx, A.nv)
+    for i in 1:(A.nx), j in 2:(A.nv - 1)
+
+        out[i, j] = arakawa_at(reader(a), reader(b), i, j, A.hx, A.hv)
+    end
+    return out
+end
+T3(p, a, b, c) = ip(p, a, stencil_bracket(p, b, c))
+Tbar(p, a, b, c) = (T3(p, a, b, c) + T3(p, b, c, a) + T3(p, c, a, b)) / 3
+
+# the field of T̄: ⟨ψ, ḟ⟩ = T̄(ψ, Ph, f) for the unit vectors ψ of the unknowns
+function tbar_field(p, f)
+    A = p.arakawa
+    Ph = cut_h(p, f)
+    out = zeros(eltype(f), A.nx, A.nv)
+    for i in 1:(A.nx), j in 2:(A.nv - 1)
+
+        e = zeros(eltype(f), A.nx, A.nv)
+        e[i, j] = 1
+        out[i, j] = Tbar(p, e, Ph, f) / (A.hx * A.hv)
+    end
+    return out
 end
 
 @testset "Grid 1D1V Vlasov–Poisson" begin
@@ -412,5 +517,178 @@ end
         @test z[:, 1] == f₀
         @test z[:, end] != z[:, 1]
         @test model.distribution.values == reshape(z[:, end], nx, nv)
+    end
+
+    @testset "the closure keyword, $T" for T in (Float32, Float64)
+        # the seeded problem, applied to a state whose end columns are standard normal, where
+        # the two closures differ
+        nx, nv = 16, 64
+        dist = maxwellian_grid(T, nx, nv, 7.5, 0.5)
+        model = VlasovPoisson(dist, Potential(FFTWBasis((zero(T), T(4π)), nx)))
+        tspan, dt = (zero(T), one(T)), T(0.1)
+        default = GeometricIntegrator(model, tspan, dt).equation
+        periodic = GeometricIntegrator(model, tspan, dt;
+            closure = PeriodicVelocityClosure()).equation
+        bounded = GeometricIntegrator(model, tspan, dt;
+            closure = BoundedVelocityClosure()).equation
+
+        f = copy(dist.values)
+        f[:, [1, nv]] .= draw(Xoshiro(11), T, nx, 2)
+        ḟ = applied(default, f)
+        @test eltype(ḟ) === T
+        @test ḟ == applied(periodic, f)
+        @test default.equation.v === periodic.equation.v === VM._grid_1d1v_rhs!
+        @test keys(bounded.parameters) == keys(default.parameters)
+
+        ref = bounded_field(bounded.parameters, f)
+        ḟb = applied(bounded, f)
+        @test eltype(ḟb) === T
+        @test maximum(abs, ḟb .- ref) ≤ 8nv * eps(T) * maximum(abs, ref)
+        @test maximum(abs, ḟ .- ref) > 8nv * eps(T) * maximum(abs, ref)
+
+        @test_throws r"^TypeError: in keyword argument closure, expected VlasovMethods\.VelocityClosure, got a value of type Symbol$" GeometricIntegrator(
+            model, tspan, dt; closure = :bounded)
+        @test_throws r"^TypeError: in GeometricIntegrator, in keyword closure, expected Union\{.*\}, got a value of type .*OtherClosure$" GeometricIntegrator(
+            model, tspan, dt; closure = OtherClosure())
+    end
+
+    @testset "the bounded field is the T̄ field, $T" for T in (Float32, Float64)
+        # random `f`, its end columns drawn too, reaches the end nodes, where the closure
+        # differs from the periodic one
+        for (nx, nv) in ((8, 12), (16, 24)), seed in 1:3
+
+            _, prob = bounded_problem(T, nx, nv)
+            p = prob.parameters
+            f = draw(Xoshiro(seed), T, nx, nv)
+            ḟ = applied(prob, f)
+            @test eltype(ḟ) === T
+            @test rel(ḟ, tbar_field(p, f)) ≤ tolerance(T)
+            @test all(==(0), ḟ[:, 1]) && all(==(0), ḟ[:, nv])
+        end
+    end
+
+    @testset "the end columns are not read, $T" for T in (Float32, Float64)
+        nx, nv = 16, 24
+        _, prob = bounded_problem(T, nx, nv)
+        f = draw(Xoshiro(4), T, nx, nv)
+        f[:, [1, nv]] .= 0
+        normal = copy(f)
+        normal[:, [1, nv]] .= draw(Xoshiro(5), T, nx, 2)
+        nan, inf = copy(f), copy(f)
+        nan[3, 1] = nan[6, nv] = T(NaN)
+        inf[3, 1] = inf[6, nv] = T(Inf)
+
+        ḟ = applied(prob, f)
+        @test all(isfinite, ḟ)
+        for g in (normal, nan, inf)
+            ḟg = applied(prob, g)
+            @test ḟg == ḟ
+            @test all(isfinite, ḟg)
+        end
+    end
+
+    @testset "energy, reflection and mass flux, $T" for T in (Float32, Float64)
+        nx, nv = 16, 32
+        _, prob = bounded_problem(T, nx, nv)
+        p = prob.parameters
+        tol = tolerance(T)
+        reflect(a) = a[:, end:-1:1]
+        @test collect(p.v) ≈ -reverse(collect(p.v)) atol = 4 * eps(T) * 6
+        for seed in 1:5
+            f = cut(draw(Xoshiro(seed), T, nx, nv))
+            ḟ = applied(prob, f)
+            Ph = cut_h(p, f)
+            scale(u) = sqrt(ip(p, u, u) * ip(p, ḟ, ḟ))
+
+            @test abs(ip(p, Ph, ḟ)) / scale(Ph) ≤ tol
+            @test rel(applied(prob, reflect(f)), -reflect(ḟ)) ≤ tol
+            # the mass rate is the boundary flux, and need not vanish
+            one_ = one.(f)
+            @test abs(ip(p, one_, ḟ) - boundary_flux(p, f)) / scale(one_) ≤ tol
+
+            # the control: the uncut `h` in the bracket does not keep the energy
+            ḟu = cut(bracket(p, uncut_h(p, f), f))
+            @test abs(ip(p, Ph, ḟu)) / sqrt(ip(p, Ph, Ph) * ip(p, ḟu, ḟu)) ≥ 1e-3
+        end
+    end
+
+    @testset "the edges of the bounded right-hand side, $T" for T in (Float32, Float64)
+        nx, nv = 16, 24
+        _, prob = bounded_problem(T, nx, nv)
+        params = prob.parameters
+        rhs! = prob.equation.v
+        q = vec(draw(Xoshiro(6), T, nx, nv))
+        sentinel = T(12345)
+
+        # a state or a derivative of another length: the message of the periodic closure, and
+        # the output untouched
+        msg(nf, nḟ) = "_grid_1d1v_rhs! on a 16 × 24 grid takes a state f and a derivative ḟ " *
+                      "of nx * nv values each; got $nf and $nḟ"
+        ḟ = fill(sentinel, nx * nv)
+        @test_throws DimensionMismatch(msg(nx * nv + 1, nx * nv)) rhs!(
+            ḟ, zero(T), [q; one(T)], params)
+        @test all(==(sentinel), ḟ)
+        long = fill(sentinel, nx * nv + 1)
+        @test_throws DimensionMismatch(msg(nx * nv, nx * nv + 1)) rhs!(
+            long, zero(T), q, params)
+        @test all(==(sentinel), long)
+        # a derivative that is the state: the message of the periodic closure's bracket, and the
+        # state untouched
+        qa = copy(q)
+        @test_throws ArgumentError("Pc shares memory with û or c, which the stencil reads " *
+                                   "while it writes Pc") rhs!(qa, zero(T), qa, params)
+        @test qa == q
+
+        # a non-finite value of an unknown propagates
+        for bad in (T(NaN), T(Inf))
+            fb = reshape(copy(q), nx, nv)
+            fb[3, 5] = bad
+            @test any(!isfinite, applied(prob, fb))
+        end
+
+        # nv = 3: the one unknown row has no velocity neighbour among the unknowns
+        _, prob3 = bounded_problem(T, 5, 3)
+        @test all(==(0), applied(prob3, draw(Xoshiro(7), T, 5, 3)))
+
+        # a Dual state takes the buffers of its own cache
+        qd = dual12(q)
+        ḟd = similar(qd)
+        @test rhs!(ḟd, zero(T), qd, params) === ḟd
+        ḟq = vec(applied(prob, reshape(q, nx, nv)))
+        @test maximum(abs, ForwardDiff.value.(ḟd) .- ḟq) ≤ 8nv * eps(T) * maximum(abs, ḟq)
+
+        # the allocations of the state's own element type, on the seeded 16 × 64 fixture;
+        # skipped where a run forces `--check-bounds=yes`, and under coverage instrumentation
+        model64, _ = seeded_problem(T)
+        prob64 = GeometricIntegrator(model64, (zero(T), one(T)), T(0.1);
+            closure = BoundedVelocityClosure()).equation
+        q64 = Vector(prob64.ics.q)
+        if Base.JLOptions().check_bounds != 1 && Base.JLOptions().code_coverage == 0
+            @test rhs_allocations(prob64.equation.v, similar(q64), zero(T), q64,
+                prob64.parameters) == 0
+        end
+        # the control: the barrier sees the allocations of the allocating periodic method
+        base = (; prob64.parameters.arakawa, prob64.parameters.v, prob64.parameters.G)
+        @test rhs_allocations(VM._grid_1d1v_rhs!, similar(q64), zero(T), q64, base) > 0
+    end
+
+    @testset "the initial state of a bounded run, $T" for T in (Float32, Float64)
+        nx, nv = 16, 64
+        model, _ = seeded_problem(T)
+        @test all(!=(0), model.distribution.values[:, [1, nv]])
+        before = copy(model.distribution.values)
+
+        dt = T(0.1)
+        int = GeometricIntegrator(model, (zero(T), 3dt), dt, GeometricIntegrators.RK4();
+            closure = BoundedVelocityClosure())
+        q₀ = reshape(Vector(int.equation.ics.q), nx, nv)
+        @test all(==(0), q₀[:, [1, nv]])
+        @test q₀[:, 2:(nv - 1)] == before[:, 2:(nv - 1)]
+        @test model.distribution.values == before
+
+        h5file = joinpath(mktempdir(), "grid_vlasov_poisson_bounded.hdf5")
+        @test run!(int, h5file) === model.distribution
+        @test all(==(0), model.distribution.values[:, [1, nv]])
+        @test model.distribution.values[:, 2:(nv - 1)] != before[:, 2:(nv - 1)]
     end
 end

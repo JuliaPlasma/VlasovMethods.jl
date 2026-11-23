@@ -18,8 +18,10 @@ throws:
   - `ArgumentError` unless the potential's `x`-nodes are `dist.x`, and unless `dist` has at least
     three nodes in each direction.
 
-The grid scheme is **periodic in `v`**: it is valid only while `f` vanishes to `eps(T)·maximum(f)`
-at both ends of the velocity range.
+With the default [`PeriodicVelocityClosure`](@ref), the grid scheme is **periodic in `v`**: it is
+valid only while `f` vanishes to `eps(T)·maximum(f)` at both ends of the velocity range. The
+keyword `closure = BoundedVelocityClosure()` of `GeometricIntegrator` bounds the velocity range
+instead (see [`BoundedVelocityClosure`](@ref)).
 """
 struct VlasovPoisson{XD, VD, DT <: DistributionFunction{<:Any, XD, VD}, PT <: Potential,
     WT <: AbstractArray} <: VlasovModel

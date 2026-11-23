@@ -67,8 +67,10 @@ maximum(abs, f.values - dist.values) / maximum(abs, dist.values)
 ```
 
 A step of a method replaces the factors of the mutable `LowRankDistribution`, also by factors
-of another rank. `LowRankDistribution(space, X, S, V; nfixed)` wraps given factors on any factor
-space, and checks their sizes but not their orthonormality.
+of another rank. The factors are `Matrix{DT}` values, with `DT` the element type of the space.
+`LowRankDistribution(space, X, S, V; nfixed)` takes factors on any factor space, stores a
+`Matrix{DT}` factor without a copy and converts any other `AbstractMatrix{DT}`, such as a view
+or a `Diagonal`, to a new `Matrix{DT}`. It checks their sizes but not their orthonormality.
 
 ## The factored fields
 
@@ -85,3 +87,85 @@ K-, L- and S-fields and the potential on the factors, without forming ``f``. The
 ``r \times r`` matrices of shifted columns, and a field costs ``O((n_x + n_v) r^2)`` beyond the
 product with the Green's matrix. Each field also takes a given, frozen potential ``\phi``. The
 workspace and the functions are documented, but not exported.
+
+## The closure of the fields
+
+The workspace takes the closure of the velocity grid as the keyword `closure` of each of its
+constructors, as the grid model does. The default `PeriodicVelocityClosure()` gives the fields
+above. With `BoundedVelocityClosure()`, the fields are those of the bounded field
+``F_b(f) = \chi \circ [P h, \chi \circ f]`` of the grid model, from the section
+[Bounded velocity closure](@ref). The cut Hamiltonian
+``P h = \phi \otimes \chi + 1 \otimes (\chi \circ v^2/2)`` has rank 2 too, so the fields keep
+their factored form: the velocity sums run over the unknowns ``j = 2, \dots, n_v - 1``, the term
+of ``\phi`` is weighted by ``\chi`` at the velocity neighbour, the kinetic energy is cut to the
+unknowns, and the density is ``\rho = h_v K (V^\mathsf{T} \chi)``. Rows ``1`` and ``n_v`` of `V`
+and `L` are read as zero, and rows ``1`` and ``n_v`` of ``\dot{L}`` are zero. No field forms
+``f``. With `X` and `V` orthonormal and the end rows of `V` zero, the DLR field keeps the energy
+when ``\chi`` and ``\chi \circ v^2`` lie in the span of `V`.
+
+## The BUG integrators
+
+The basis-update & Galerkin (BUG) integrators are the reference methods of dynamical low rank.
+Each step evolves the factors through the K-, L- and S-fields, and none forms ``f``:
+
+  - [`BUG`](@ref) is the fixed-rank integrator of Ceruti & Lubich 2022
+    ([doi:10.1007/s10543-021-00873-0](https://doi.org/10.1007/s10543-021-00873-0)): the K- and
+    L-steps from the old bases give the new bases, and the S-step runs on them.
+  - [`AugmentedBUG`](@ref) is the rank-adaptive integrator of Ceruti, Kusch & Lubich 2022
+    ([doi:10.1007/s10543-021-00907-7](https://doi.org/10.1007/s10543-021-00907-7)): the S-step
+    runs on the new bases augmented by the old ones, and the SVD of its result truncates the step,
+    to the rank of the input or by a tolerance on the discarded singular values.
+  - [`MidpointBUG`](@ref) is the second-order "Midpoint BUG (4r)" of Ceruti, Einkemmer, Kusch &
+    Lubich 2024 ([doi:10.1007/s10543-024-01032-x](https://doi.org/10.1007/s10543-024-01032-x)),
+    truncated to the rank of its input.
+
+[`lowrank_step!`](@ref)`(Y, method, field, t, τ)` takes one step in place on a
+[`LowRankDistribution`](@ref), with the workspace of the fields; each substep is one step of the
+classical RK4 tableau. A step counts the fixed modes in the rank and sets `nfixed = 0`, because
+no BUG integrator keeps the fixed modes in the span of `V`. A step whose S-step or Galerkin step
+leaves a non-finite value does not throw; `all(isfinite, Y.S)` is its status. At the full rank
+``r = n_x`` with ``n_x \le n_v \le 2 n_x``, every projection of the augmented and the midpoint
+BUG is the identity, and a step is the RK4 step of the full-order model:
+
+```@example lowrank
+using PoissonSolvers: FFTWBasis, Potential
+
+model = VlasovPoisson(dist, Potential(FFTWBasis((0.0, 4π), nx)))
+Y = LowRankDistribution(dist, nx)
+field = VlasovMethods.LowRankFields1D1V(Y, model.work)
+lowrank_step!(Y, AugmentedBUG(), field, 0.0, 0.05)
+(rank = size(Y.S, 1), nfixed = Y.nfixed, status = all(isfinite, Y.S))
+```
+
+[`LowRankIntegrator`](@ref)`(Y, method, field, tspan, tstep)` holds a run of a method whose
+`lowrank_step!` keeps the rank, or of `AugmentedBUG(tol; rmin, rmax)`, whose rank stays within
+`rmax`. [`run!`](@ref) writes the times, the ranks and the factors of every state into an HDF5
+file, with the file attribute `status`, and it stops with an error, after it sets `status`, at a
+step that grows the rank beyond the columns that it stores.
+
+## The projector splitting
+
+[`ProjectorSplitting`](@ref) is the projector-splitting integrator of Lubich and Oseledets, a
+reference method: it splits the tangent projector of the low-rank manifold into a K-substep with
+`V` fixed, a backward S-substep, and an L-substep with `X` fixed, and orthonormalises `K` and `L`
+by a QR in the weighted products of the factor space. `ProjectorSplitting(:lie)` is the
+first-order composition; `ProjectorSplitting(:strang)` is the second-order composition of
+Einkemmer and Lubich, which runs its L-substeps at a frozen potential and predicts the midpoint
+potential by a half step. Each substep is one RK4 step. [`lowrank_step!`](@ref) advances a
+`LowRankDistribution` by one step in place, with the fields of the grid as the right-hand side,
+and sets `nfixed = 0`, because the splitting does not keep fixed velocity modes:
+
+```@example lowrank
+w = VlasovMethods.LowRankFields1D1V(d.space, model.work)
+Y = LowRankDistribution(dist, 5)
+method = ProjectorSplitting(:strang)
+for n in 0:9
+    lowrank_step!(Y, method, w, 0.05n, 0.05)
+end
+(rank = size(Y.S, 1), nfixed = Y.nfixed,
+ orthonormality = maximum(abs, VlasovMethods.inner_x(Y.space, Y.X, Y.X) - one(Y.S)))
+```
+
+The step takes any field with methods of the internal functions `_lowrank_kfield!`,
+`_lowrank_sfield!` and `_lowrank_lfield!`, and for `:strang` also `_lowrank_potential`, which the
+docstring of [`lowrank_step!`](@ref) lists.
