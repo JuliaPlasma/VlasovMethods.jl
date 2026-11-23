@@ -371,6 +371,17 @@ function VlasovMethods.lowrank_step!(Y, method::DoublingMethod, field, t, τ)
     return Y
 end
 
+# a method of the test file whose step grows the rank by one
+struct GrowingMethod end
+
+function VlasovMethods.lowrank_step!(Y, ::GrowingMethod, field, t, τ)
+    T, r = eltype(Y.S), size(Y.S, 1)
+    Y.X = hcat(Y.X, zeros(T, size(Y.X, 1)))
+    Y.V = hcat(Y.V, zeros(T, size(Y.V, 1)))
+    Y.S = [Y.S zeros(T, r); zeros(T, 1, r) one(T)]
+    return Y
+end
+
 for T in (Float64, Float32)
     @testset "the run driver, $T" begin
         dir = mktempdir()
@@ -461,7 +472,7 @@ for T in (Float64, Float32)
             end
         end
 
-        # any method with a lowrank_step!, and a run that fails at its third step
+        # a method of the test file that keeps the rank, and a run that fails at its third step
         file = joinpath(dir, "failing.h5")
         Y = copy_state(fx.Y)
         S₀ = copy(Y.S)
@@ -474,6 +485,20 @@ for T in (Float64, Float32)
             @test S[:, :, 2] == 2S₀ && S[:, :, 3] == 4S₀
             @test rank == [3, 3, 3, 0, 0, 0]
             @test iszero(S[:, :, 4:6])
+        end
+
+        # a step that grows the rank beyond the stored columns throws, and sets the status
+        file = joinpath(dir, "growing.h5")
+        Y = copy_state(fx.Y)
+        S₀ = copy(Y.S)
+        @test_throws r"^ArgumentError: step 1 of the run changes the rank to 4, beyond the 3 columns that run! stores" run!(
+            LowRankIntegrator(Y, GrowingMethod(), fx.w, (0, 0.2), 0.1), file)
+        h5open(file, "r") do h5
+            @test attrs(h5)["status"] ==
+                  "failed at step 1: rank 4 beyond the 3 stored columns"
+            @test read(h5["rank"]) == [3, 0, 0]
+            @test read(h5["S"])[:, :, 1] == S₀
+            @test iszero(read(h5["S"])[:, :, 2:3])
         end
 
         # a span of one time holds the initial state alone

@@ -217,9 +217,11 @@ end
     LowRankIntegrator(Y, method, field, tspan, tstep)
 
 The run of a dynamical low-rank `method` from the [`LowRankDistribution`](@ref) `Y` over the
-span `tspan = (t₀, t₁)` with the step `tstep`, for any method with a [`lowrank_step!`](@ref) on
-the workspace `field`. The fields `Y`, `method`, `field`, `tspan` and `tstep` hold them, the times
-promoted to one type. [`run!`](@ref) advances `Y`.
+span `tspan = (t₀, t₁)` with the step `tstep`, for a method with a [`lowrank_step!`](@ref) on
+the workspace `field` that keeps the rank, or for `AugmentedBUG(tol; rmin, rmax)`, whose rank
+stays within `rmax`; [`run!`](@ref) refuses a step that grows the rank beyond. The fields `Y`,
+`method`, `field`, `tspan` and `tstep` hold them, the times promoted to one type. [`run!`](@ref)
+advances `Y`.
 
 Throws an `ArgumentError` for a step that is not finite and positive, and for a span that is not
 finite or has `t₁ < t₀`.
@@ -265,7 +267,9 @@ for `AugmentedBUG(tol; rmin, rmax)`, `min(rmax, nx, nv)`.
 
 A step that leaves `all(isfinite, Y.S)` false stops the run without an error: nothing is written
 for it, its `rank` and factors stay zero, and the file attribute `status` is
-`"failed at step <s>"`. A run that completes sets `status` to `"ok"`.
+`"failed at step <s>"`. A step that leaves a rank `r > R` stops the run the same way, with
+`status` set to `"failed at step <s>: rank <r> beyond the <R> stored columns"`, and then throws
+an `ArgumentError`. A run that completes sets `status` to `"ok"`.
 """
 function run!(int::LowRankIntegrator, h5file)
     (; Y, method, field, tstep) = int
@@ -297,16 +301,25 @@ function run!(int::LowRankIntegrator, h5file)
         end
 
         store!(1)
-        status = "ok"
+        status, err = "ok", nothing
         for s in 1:(nt - 1)
             lowrank_step!(Y, method, field, times[s], tstep)
             if !all(isfinite, Y.S)
                 status = "failed at step $s"
                 break
             end
+            r = size(Y.S, 1)
+            if r > R
+                status = "failed at step $s: rank $r beyond the $R stored columns"
+                err = ArgumentError("step $s of the run changes the rank to $r, beyond the \
+                    $R columns that run! stores; run! takes a method that keeps the rank, or \
+                    AugmentedBUG(tol; rmin, rmax)")
+                break
+            end
             store!(s + 1)
         end
         attrs(h5)["status"] = status
+        isnothing(err) || throw(err)
     end
 
     return Y

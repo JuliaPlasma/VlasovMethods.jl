@@ -376,9 +376,15 @@ their own, except for what they removed and narrowed, which is listed in full be
   in the rank and sets `nfixed = 0`. A step whose S-step or Galerkin step leaves a non-finite
   value does not throw: it leaves the untruncated factors in `Y`, and `all(isfinite, Y.S)` is the
   status that a caller tests.
-- **`LowRankIntegrator`** holds a run of any method with a `lowrank_step!` from a
+- **`LowRankIntegrator`** holds a run of a method with a `lowrank_step!` that keeps the rank, or
+  of `AugmentedBUG(tol; rmin, rmax)`, whose rank stays within `rmax`, from a
   `LowRankDistribution` over a span with a step, and `run!(int, h5file)` writes the times, the
   ranks and the factors `X`, `S` and `V` of every state into an HDF5 file, zero beyond each rank.
+  The datasets `X`, `S` and `V` have the initial rank `R` as their width, or
+  `min(rmax, nx, nv)` for `AugmentedBUG(tol; rmin, rmax)`. A step that grows the rank beyond the
+  `R` stored columns stops the run: `run!` sets the file attribute `status` to
+  `"failed at step <s>: rank <r> beyond the <R> stored columns"`, closes the file and throws an
+  `ArgumentError`.
   A step that leaves a non-finite `S` stops the run without an error and sets the file attribute
   `status` to `"failed at step <s>"`; a complete run sets `"ok"`. For `BUG`, `AugmentedBUG` and
   `MidpointBUG`, `run!` throws an `ArgumentError` before it opens the file when the step is zero

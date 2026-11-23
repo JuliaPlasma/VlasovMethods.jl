@@ -120,6 +120,8 @@ lowrank_step!(Y, AugmentedBUG(), field, 0.0, 0.05)
 (rank = size(Y.S, 1), nfixed = Y.nfixed, status = all(isfinite, Y.S))
 ```
 
-[`LowRankIntegrator`](@ref)`(Y, method, field, tspan, tstep)` holds a run of any method with a
-`lowrank_step!`, and [`run!`](@ref) writes the times, the ranks and the factors of every state
-into an HDF5 file, with the file attribute `status`.
+[`LowRankIntegrator`](@ref)`(Y, method, field, tspan, tstep)` holds a run of a method whose
+`lowrank_step!` keeps the rank, or of `AugmentedBUG(tol; rmin, rmax)`, whose rank stays within
+`rmax`. [`run!`](@ref) writes the times, the ranks and the factors of every state into an HDF5
+file, with the file attribute `status`, and it stops with an error, after it sets `status`, at a
+step that grows the rank beyond the columns that it stores.
