@@ -105,8 +105,8 @@ Each step evolves the factors through the K-, L- and S-fields, and none forms ``
 [`lowrank_step!`](@ref)`(Y, method, field, t, τ)` takes one step in place on a
 [`LowRankDistribution`](@ref), with the workspace of the fields; each substep is one step of the
 classical RK4 tableau. A step counts the fixed modes in the rank and sets `nfixed = 0`, because
-no BUG integrator keeps the fixed modes in the span of `V`. A step whose S-step leaves a
-non-finite value does not throw; `all(isfinite, Y.S)` is its status. At the full rank
+no BUG integrator keeps the fixed modes in the span of `V`. A step whose S-step or Galerkin step
+leaves a non-finite value does not throw; `all(isfinite, Y.S)` is its status. At the full rank
 ``r = n_x`` with ``n_x \le n_v \le 2 n_x``, every projection of the augmented and the midpoint
 BUG is the identity, and a step is the RK4 step of the full-order model:
 

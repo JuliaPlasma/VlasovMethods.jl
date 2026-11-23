@@ -182,9 +182,9 @@ fields are autonomous, so `t` is accepted and not read. Each K-, L-, S- and Gale
 one step of the classical RK4 tableau over its interval.
 
 `τ` is converted to `T` before its first use; a non-finite `τ` throws an `ArgumentError` before
-any write, and `τ = 0` keeps `X S Vᵀ` to round-off. The step replaces the factors `X`, `S` and `V` of `Y`,
-counts every column of `V` in the rank, the fixed modes of `Y` included, and sets `nfixed = 0`,
-because no reference method keeps the fixed modes in the span of `V`.
+any write, and `τ = 0` keeps `X S Vᵀ` to round-off. The step replaces the factors `X`, `S` and
+`V` of `Y`, counts every column of `V` in the rank, the fixed modes of `Y` included, and sets
+`nfixed = 0`, because no reference method keeps the fixed modes in the span of `V`.
 
 The entries of `Y` are not checked. An S-step or a Galerkin step that leaves a non-finite value
 does not throw: the step skips the truncation and leaves the untruncated factors in `Y`, so the
