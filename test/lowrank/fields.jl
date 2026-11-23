@@ -578,9 +578,11 @@ end
     bounded = BoundedVelocityClosure()
     periodic = PeriodicVelocityClosure()
 
-    # factors whose end rows of V are not zero, where the two closures differ
-    X, S, V = d.X, d.S, d.V
-    @test all(!=(0), V[[1, nv], 1])
+    # factors whose end rows of V are O(1), where the two closures differ by O(1): the end rows
+    # of the fitted V are at round-off, as f is at ±6, and the fields need no orthonormal V
+    X, S, V = d.X, d.S, copy(d.V)
+    V[1, :] .= T.(1:r) ./ r
+    V[nv, :] .= -T.(r:-1:1) ./ (2r)
     fields(w) = (kfield(X * S, V, w), lfield(X, V * S', w), sfield(X, S, V, w),
         potential(X, S, V, w))
 
@@ -596,7 +598,8 @@ end
     @test p1.closure === p2.closure === p3.closure === periodic
     @test fields(p1) == fields(p2) == fields(p3) ==
           fields(LowRankFields1D1V(a, G, dist.v; closure = periodic))
-    @test all(fields(p1) .!= fields(w1))
+    # each of the four fields differs between the closures far beyond round-off
+    @test all(norm.(fields(p1) .- fields(w1)) .> 1000 * eps(T) .* norm.(fields(p1)))
 
     # the guard's own message, which names the constructor
     tmsg = r"^TypeError: in LowRankFields1D1V, in keyword closure, expected VlasovMethods\.VelocityClosure, got a value of type Symbol$"
