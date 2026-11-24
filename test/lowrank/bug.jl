@@ -11,7 +11,7 @@ include("../helpers/rate_fits.jl")
 
 # Every fixture lies on x ∈ [0, 4π), v ∈ [-10, 10], with `G` the Green's matrix of the model's FFT
 # backend. On 64 velocity nodes f at v = ±10 stays at round-off of its largest value over each run;
-# on the 16 and 24 nodes of the edge, rank-guard and driver fixtures it does not
+# on the 16, 24 and 32 nodes of the edge, rank-guard and driver fixtures it does not
 # (KNOWN_ISSUES.md K110). The expected values come from the dense transcription of each paper's
 # algorithm in `test/helpers/dense_bug.jl`, from the package's full-order RK4 integrator, or from
 # the published orders of the three methods.
