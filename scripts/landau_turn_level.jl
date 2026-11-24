@@ -34,7 +34,7 @@
 #   julia --startup-file=no --project=. scripts/landau_turn_level.jl [outdir] [group ...]
 #
 # with groups base, closure, vmax, nv, nx, tau, linear (default: all of them). All groups take
-# 90 s on one thread of a laptop at load average 124: `closure` 40 s, `linear` 11 s, `vmax`
+# 100 s on one thread of a laptop at load average 124: `closure` 40 s, `linear` 20 s, `vmax`
 # 10 s, the rest under 10 s each, plus about 10 s of compilation per process. It
 # writes, into `outdir` (default `<tempdir>/landau_turn_level`), one CSV per run
 # (`t,log10E1,log10edge`) and appends to `summary.tsv`, one line per run, and prints the same lines.
@@ -222,7 +222,7 @@ function main(args)
         g == "tau" && foreach(tau -> case!(io, outdir, g; tau), (0.025, 0.1))
         if g == "linear"
             for c in ((nv = 128, vmax = 6.0), (nv = 128, vmax = 6.0, closure = :bounded),
-                (nv = 256, vmax = 10.0))
+                (nv = 256, vmax = 10.0), (nv = 256, vmax = 10.0, closure = :bounded))
                 s0 = time()
                 t, y, reλ, ρ, dω = linear_case(; c...)
                 tt, lt, rate, landau = analyse(t, y)

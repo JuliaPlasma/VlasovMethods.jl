@@ -803,7 +803,10 @@ has left the file, or that lived only on a merged branch, stays taken.
   64 × 256 of [−10, 10], so RK4 needs τ ≤ 2.83/ρ = 0.0093 and 0.0027 there. The periodic ρ grows
   with vmax too: on 64 × 255 of [−12, 12], RK4 at τ = 0.05 gives a non-finite E₁ from t = 24.7 and
   runs at τ = 0.025. The tests of the bounded closure step with the implicit midpoint, which is
-  unconditionally stable, so no test meets the limit; a low-rank step with RK4 substeps on bounded
-  fields meets it. `scripts/landau_turn_level.jl` (group `linear`) prints ρ for each grid.
+  unconditionally stable, except one that takes three RK4 steps of τ = 0.1 on 16 × 64 nodes and
+  checks only the end columns and that the state changes
+  (`test/gridbased/vlasov_poisson_1d1v.jl:682`), so no test meets the limit; a low-rank step with
+  RK4 substeps on bounded fields meets it. `scripts/landau_turn_level.jl` (group `linear`) prints
+  ρ for each grid.
 - **kind:** found late
 - **found:** 2026-11-24
