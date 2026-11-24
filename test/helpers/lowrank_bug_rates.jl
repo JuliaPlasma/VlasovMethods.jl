@@ -1,24 +1,21 @@
-# The dispersion rates of the three BUG integrators at the rank 16, against the roots of the
-# linear dispersion relation at k = 0.5 in chapter 38 of the RCM book: the linear Landau root
-# ±1.415661889 − 0.1533594669 i, so the damping rate of log|E₁| is −0.1533594669, and the
-# two-stream growth rate 0.2592499317. The rates are fitted as VlasovReductionBenchmark fits them
-# (`test/helpers/rate_fits.jl`).
+# The runs of the dispersion-rate tests of the three BUG integrators at the rank 16, against the
+# roots of the linear dispersion relation at k = 0.5 in chapter 38 of the RCM book: the linear
+# Landau root ±1.415661889 − 0.1533594669 i, so the damping rate of log|E₁| is −0.1533594669, and
+# the two-stream growth rate 0.2592499317. The rates are fitted as VlasovReductionBenchmark fits
+# them (`rate_fits.jl`). Three test files share these runs, so that CI spreads them over its
+# workers: `test/verification/lowrank_bug_landau_rates.jl` and the two-stream files
+# `lowrank_bug_two_stream_rates.jl` (Float64) and `lowrank_bug_two_stream_rates_float32.jl`.
 #
 # The grid is 64 × 256 nodes of x ∈ [0, 4π), v ∈ [−10, 10]. On it the full-order model itself is
 # off by 1.26 % (Landau) and 3.28 % (two-stream). f at v = ±10 reaches 1e-9 to 1e-7 of its largest
 # value over the runs, not round-off: the velocity resolution of this grid spreads f in v.
-#
-# The Landau rates run in Float64 only: in Float32 the maxima fit of the damped log|E₁| is not
-# monotone in τ and does not track Float64. The growing two-stream mode stays far above
-# round-off, and its rates run in both precisions. The fixed-rank BUG has no Landau check: its
-# Landau rate at the rank 16 is not monotone in τ either.
 
 using PoissonSolvers: FFTWBasis, Potential
 using Test
 using VlasovMethods
 using VlasovMethods: LowRankFields1D1V
 
-include("../helpers/rate_fits.jl")
+include("rate_fits.jl")
 
 const LANDAU_RATE = -0.1533594669
 const TWO_STREAM_RATE = 0.2592499317
@@ -55,16 +52,8 @@ function log_e1(T, method, profile, α, tend; τ = 0.05, r = 16)
     return t, y
 end
 
-@testset "linear Landau, $(nameof(typeof(method)))" for method in (AugmentedBUG(), MidpointBUG())
-    t, y = log_e1(Float64, method, maxwellian, 0.01, 40.0)
-    γ = landau_rate_fit(t, y, (0.0, 40.0)).γ
-    @test γ < 0
-    @test abs(γ - LANDAU_RATE) / abs(LANDAU_RATE) ≤ 0.02
-end
-
-@testset "two-stream instability, $(nameof(typeof(method))), $T" for T in (Float64, Float32),
-    method in (BUG(), AugmentedBUG(), MidpointBUG())
-
+# the two-stream growth rate of `method` in the precision T, within 5 % of the root
+function two_stream_rate_test(T, method)
     t, y = log_e1(T, method, two_stream, 1e-3, 25.0)
     rate = growth_rate_fit(t, y, (5.0, 25.0))
     @test abs(rate - TWO_STREAM_RATE) / TWO_STREAM_RATE ≤ 0.05
