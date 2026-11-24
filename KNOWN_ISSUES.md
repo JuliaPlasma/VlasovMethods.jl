@@ -851,15 +851,18 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** defect
 - **found:** PR #150, from its review
 
-### K124 · The required job "Julia 1 - ubuntu-latest" runs the whole suite with the `verification` group in one job, close to its timeout of 120 minutes, so a slow runner fails it.
+### K124 · The CI job "Julia 1 - ubuntu-latest - default - verification" takes about 70 minutes on a normal runner, so a runner about 1.6 times slower or more takes it past its timeout of 120 minutes.
 
-- **location:** `test/ci-groups.toml:6`
-- **evidence:** `split = false` runs every group in one job per matrix entry, and
-  `once = ["quality", "verification"]` adds `verification` to Ubuntu × Julia 1 alone. In CI run
-  45263801182 (westus3) the job passed in 77 minutes, with "Low-Rank BUG Rates" at 4059 s and
-  "Projector Splitting Rates" at 1366 s. In CI run 45283090271 (eastus2), on a head that changed
-  only `CHANGELOG.md`, the files ran about 2.4 times slower ("Projector Splitting Rates" 3466 s,
-  "Landau Solver" 1259 s against 547 s), and the job was cancelled at 2 h 0 min with "Low-Rank BUG
-  Rates" not yet finished.
+- **location:** `test/runtests.jl:60`
+- **evidence:** `split = true` gives the `verification` group a job of its own, but the group
+  alone holds about 104 minutes of test time on two workers. In CI run 45340940249 (westus, a
+  head without "Projector Splitting Rates") the job took 56 minutes: 14 minutes of setup and
+  precompilation, then 42 minutes of tests, with "Low-Rank BUG Landau Rates" at 1725 s,
+  "Low-Rank BUG Two-Stream Rates" at 1173 s, "Low-Rank BUG Two-Stream Rates, Float32" at 1179 s,
+  "Bounded Velocity Closure Runs" at 318 s, "Reduced March at T = 1000" at 285 s and "Reduced
+  Equations at T = 100" at 176 s. "Projector Splitting Rates" took 1366 s in CI run 45263801182
+  (westus3), which puts the job at about 66 to 79 minutes. In CI run 45283090271 (eastus2) the
+  test files ran about 2.4 times slower ("Projector Splitting Rates" 3466 s, "Landau Solver" 1259 s
+  against 547 s); at that speed the tests of the group alone take about 124 minutes.
 - **kind:** defect
 - **found:** PR #147, from its CI
