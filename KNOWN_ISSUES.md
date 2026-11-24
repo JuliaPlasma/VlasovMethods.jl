@@ -857,7 +857,8 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **evidence:** `split = true` gives the `verification` group a job of its own, but the group
   alone holds about 104 minutes of test time on two workers. In CI run 45340940249 (westus, a
   head without "Projector Splitting Rates") the job took 56 minutes: 14 minutes of setup and
-  precompilation, then 42 minutes of tests, with "Low-Rank BUG Landau Rates" at 1725 s,
+  precompilation with an empty cache ("No cache found", the first run of the new job; a restored
+  cache shortens it), then 42 minutes of tests, with "Low-Rank BUG Landau Rates" at 1725 s,
   "Low-Rank BUG Two-Stream Rates" at 1173 s, "Low-Rank BUG Two-Stream Rates, Float32" at 1179 s,
   "Bounded Velocity Closure Runs" at 318 s, "Reduced March at T = 1000" at 285 s and "Reduced
   Equations at T = 100" at 176 s. "Projector Splitting Rates" took 1366 s in CI run 45263801182
