@@ -792,3 +792,18 @@ has left the file, or that lived only on a merged branch, stays taken.
   length of the grid exists.
 - **kind:** found late
 - **found:** 2026-11-24
+
+### K126 · Explicit RK4 on the bounded velocity closure is unstable at τ = 0.05 on the grids of the tests, because the cut of h at the end nodes raises the spectral radius of the right-hand side about tenfold.
+
+- **location:** `src/gridbased/vlasov_poisson_1d1v.jl`
+- **evidence:** linear Landau damping (k = 0.5, α = 0.01) with `closure = BoundedVelocityClosure()`
+  and GeometricIntegrators' `RK4()` at τ = 0.05 on 64 × 128 nodes of [0, 4π) × [−6, 6]: E₁ is not
+  finite from t = 0.55. The spectral radius ρ of the linearised right-hand side over all x-modes
+  is 303.4 (periodic closure: 28.3) on 64 × 128 of [−6, 6], and 1048.6 (periodic: 48.5) on
+  64 × 256 of [−10, 10], so RK4 needs τ ≤ 2.83/ρ = 0.0093 and 0.0027 there. The periodic ρ grows
+  with vmax too: on 64 × 255 of [−12, 12], RK4 at τ = 0.05 gives a non-finite E₁ from t = 24.7 and
+  runs at τ = 0.025. The tests of the bounded closure step with the implicit midpoint, which is
+  unconditionally stable, so no test meets the limit; a low-rank step with RK4 substeps on bounded
+  fields meets it. `scripts/landau_turn_level.jl` (group `linear`) prints ρ for each grid.
+- **kind:** found late
+- **found:** 2026-11-24
