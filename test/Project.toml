@@ -42,11 +42,11 @@ Aqua = "0.8.18"
 ExplicitImports = "1.15"
 # Test-only: `src/` does not call it. It supplies the `Dual` numbers that check 3's gradient
 # assertions and the inference probe use. `1` is the floor that GeometricMachineLearning 0.6 and
-# later set on ForwardDiff; the multi-modal autoencoder tests load the 0.9 line.
+# later set on ForwardDiff; the multi-modal autoencoder tests load the 0.10 line.
 ForwardDiff = "1"
 # Test-only: `src/` does not call it. 0.6.6 is the first GeometricSolutions with the HDF5
 # extension that defines the `EnsembleSolution` methods of `h5save` and `h5load`.
-GeometricSolutions = "0.6.6"
+GeometricSolutions = "0.6.6, 0.7"
 # 0.10.0 is the first JET whose own `[compat]` admits Julia 1.12, but its captured-variable check
 # calls `widenconst` on a `LimitedAccuracy` type and errors on the `Picard_iterate_over_particles!`
 # probe; 0.10.1 is the first JET that applies `ignorelimited` there.

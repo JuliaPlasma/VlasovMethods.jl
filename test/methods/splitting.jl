@@ -1,5 +1,6 @@
 using GeometricEquations: ntime
 using GeometricIntegrators: GeometricIntegrators
+using GeometricSolutions: GeometricSolutions
 using HDF5: h5read
 using StaticArrays
 using Test
@@ -21,12 +22,13 @@ include("../helpers/external_fields.jl")
 
     # `T_g/32` is exact, and `10 * T_g` is half an ulp or less off `320Δt`. The span ends one ulp
     # below that, so the last step of `320Δt` ends past `t₁`: the equation's `ntime` counts it,
-    # 320 steps, and the solution's grid `t₀:Δt:t₁` drops it, 319 steps on 320 points, one state
-    # per point. `run!` writes one slice per point of the grid, not `ntime + 1` (K93).
+    # 320 steps. The solution's grid takes it from GeometricSolutions 0.7.1, 321 points, and drops
+    # it up to 0.7.0, whose grid is `t₀:Δt:t₁`, 319 steps on 320 points. `run!` writes one slice
+    # per point of the solution's grid on both (K93, K127).
     @test ntime(method.equation) == 320
+    @test length(zero(T):(T_g / 32):prevfloat(10 * T_g)) == 320
     sol = GeometricIntegrators.integrate(method.integrator)
-    @test length(sol.t) == 320
-    @test ntime(method.equation) == length(sol.t)
+    @test length(sol.t) == (pkgversion(GeometricSolutions) ≥ v"0.7.1" ? 321 : 320)
 
     h5file = joinpath(mktempdir(), "splitting.hdf5")
     @test run!(method, h5file) === model.distribution

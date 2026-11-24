@@ -51,7 +51,8 @@ The pages of these models show the loop.
 ## The output of `run!`
 
 `run!(method, h5file)` creates the file `h5file`, or overwrites it. It writes one state per time
-of the range `t₀:Δt:t₁`, the initial state included.
+of the solution that `GeometricIntegrators.integrate` returns for the same problem, the initial
+state included.
 
   - A `SplittingMethod` writes the dataset `z` of the size `(nd, npart, ntime)`. `z[:, :, s]` is
     the state `dist.particles.z` at the time slice `s`: the positions in the first rows and the
@@ -63,8 +64,8 @@ The run holds one state in memory at a time, so the length of a run is limited b
 the memory. After the last step, `run!` copies the final state into the distribution of the model
 and returns that distribution.
 
-A time span that is not a multiple of the step ends at the last time of the range `t₀:Δt:t₁`,
-before `t₁`.
+A time span that is not a multiple of the step ends at the last time of that solution. That time
+lies before `t₁`, or a few ulps past `t₁` where the last step ends there.
 
 ## Ensembles
 

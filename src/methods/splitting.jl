@@ -54,8 +54,9 @@ Advance the splitting method `method` over its time span, write every state into
 distribution.
 
 The file holds the dataset `z` of the size `(nd, npart, ntime)`: `z[:, :, s]` is the state of
-the particles at the `s`-th time of `t₀:Δt:t₁`, the initial state included. The file is created,
-or overwritten, and closed on return, also when a step throws.
+the particles at the `s`-th time of the solution that `GeometricIntegrators.integrate` returns for
+the same problem, the initial state included. The file is created, or overwritten, and closed on
+return, also when a step throws.
 """
 function run!(method::SplittingMethod, h5file)
     # initial conditions
@@ -65,16 +66,16 @@ function run!(method::SplittingMethod, h5file)
     nd = size(z₀, 1)
     np = size(z₀, 2)
 
-    # The time grid of a `Solution` of the same problem on GeometricSolutions 0.6, the range
-    # `t₀:Δt:t₁`; from 0.7.1 a `Solution` has `ntime(equation) + 1` times instead (K127). Its length
-    # is the number of states a run holds, the initial one included. It can be one point shorter
-    # than `ntime(equation) + 1` where `ntime` counts a partial last step that the range drops:
-    # GeometricEquations before 0.21.8 counts every partial last step, and 0.21.8 and later one
-    # that ends a few ulps past `t₁`.
+    # The time grid of a `Solution` of the same problem, built by the constructor that
+    # `GeometricSolutions` builds it with, so a run holds one state per time of
+    # `GeometricIntegrators.integrate`, the initial one included. `times[n]` is the time after `n`
+    # steps. GeometricSolutions up to 0.7.0 builds the range `t₀:Δt:t₁`, and 0.7.1 and later
+    # `ntime(equation) + 1` times, so the two differ by one time on a span whose last step ends a
+    # few ulps past `t₁`.
     prob = method.equation
     t₀ = GeometricEquations.initialtime(prob)
     t₁ = GeometricEquations.finaltime(prob)
-    times = t₀:GeometricEquations.timestep(prob):t₁
+    times = GeometricIntegrators.TimeSeries(t₀, t₁, GeometricEquations.timestep(prob))
 
     # create HDF5 file and copy initial conditions. A chunk dimension of zero is invalid, and a
     # zero-particle run has one: the dataset itself may be empty, its chunk may not.
@@ -90,7 +91,7 @@ function run!(method::SplittingMethod, h5file)
         method.integrator, GeometricEquations.initialstate(prob))
     try
         for n in 1:(length(times) - 1)
-            GeometricIntegrators.reset!(solstep, times[n + 1])
+            GeometricIntegrators.reset!(solstep, times[n])
             GeometricIntegrators.integrate!(solstep, method.integrator)
             copy_to_hdf5(h5z, solstep.q, n)
         end
