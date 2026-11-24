@@ -107,10 +107,10 @@ their own, except for what they removed and narrowed, which is listed in full be
   0.21.8 on a span whose last step ends a few ulps past `t₁`. A run to `0.05` with the step `8e-4`
   threw a `BoundsError` before its last step on 0.21.5 to 0.21.7; on every version up to 0.21.9, so
   did a run to `prevfloat(prevfloat(62 * 8e-4))`, where `ntime` is 62 and the range has 62 points
-  and ends at `0.0488`. The datasets now hold one slice per point of the range, and the loop takes
-  the steps that `GeometricIntegrators.integrate` takes, as `run!(::SplittingMethod, h5file)` does.
-  `run!` writes its last slice at `last(t₀:Δt:t₁)`, the last whole step at or below `t₁`, so a span
-  that does not end on a step in floating point ends short of `t₁` — for `t₁ = 0.05` and
+  and ends at `0.0488`. The datasets now hold one slice per time of the solution that
+  `GeometricIntegrators.integrate` returns, and the loop takes the steps that it takes, as
+  `run!(::SplittingMethod, h5file)` does (K127). A span that ends well short of a whole step ends
+  short of `t₁` — for `t₁ = 0.05` and
   `Δt = 8e-4` the last time written is `0.0496` (62 steps), as for
   `GeometricIntegrators.integrate`. A span that is a whole number of steps gives the same file as
   before.
@@ -131,7 +131,7 @@ their own, except for what they removed and narrowed, which is listed in full be
   63, and the model kept the state of the 61st step. Both methods now take their times from
   `GeometricIntegrators.TimeSeries(t₀, t₁, Δt)`, the constructor of the solution's grid, so the
   last state is at `t₀ + ntime(equation) * Δt` from GeometricSolutions 0.7.1 and at
-  `last(t₀:Δt:t₁)` up to 0.7.0. This replaces the range of the K93 entry above. A span that is a
+  `last(t₀:Δt:t₁)` up to 0.7.0. A span that is a
   whole number of steps gives the same file as before. `test/methods/splitting.jl` and
   `test/methods/geometric_integrator.jl` compare the file with the solution of `integrate` and
   check the length of the grid of the GeometricSolutions release that resolves.
@@ -172,8 +172,9 @@ their own, except for what they removed and narrowed, which is listed in full be
   GeometricMachineLearning 0.10.** `[compat]` reads `ReducedComplexityModeling = "0.6"`,
   `ReducedBasisMethods = "0.5"`, `AbstractNeuralNetworks = "0.10"`, `GeometricOptimizers = "0.10"`
   and `GeometricMachineLearning = "0.10"`, where it read `"0.5"`, `"0.4"`, `"0.9.3"`, `"0.9.2"`
-  and `"0.9"`. These releases are on KernelAbstractions 0.10, so an environment that holds
-  KernelAbstractions 0.9, or one of the five packages on its former line, does not resolve this
+  and `"0.9"`. The `ProgressMeter` floor rises from `"1.3.3"` to `"1.5"`, the floor that
+  GeometricMachineLearning 0.10 sets. These releases are on KernelAbstractions 0.10, so an
+  environment that holds KernelAbstractions 0.9, or one of the five packages on its former line, does not resolve this
   release. ReducedComplexityModeling depends on AbstractNeuralNetworks, and its 0.5 line requires
   AbstractNeuralNetworks 0.9, so the move applies to every caller and not only to the callers of
   the extensions: the `ParameterSpace` that `ReducedBasis` takes and the generics `h5save` and

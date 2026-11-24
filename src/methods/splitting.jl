@@ -55,8 +55,8 @@ distribution.
 
 The file holds the dataset `z` of the size `(nd, npart, ntime)`: `z[:, :, s]` is the state of
 the particles at the `s`-th time of the solution that `GeometricIntegrators.integrate` returns for
-the same problem, the initial state included. The file is created,
-or overwritten, and closed on return, also when a step throws.
+the same problem, the initial state included. The file is created, or overwritten, and closed on
+return, also when a step throws.
 """
 function run!(method::SplittingMethod, h5file)
     # initial conditions

@@ -27,9 +27,8 @@ the final state into the distribution of the model, and return that distribution
 
 The file holds the dataset `z` of the size `(n, ntime)`, one column per state, and the dataset
 `t` of the `ntime` times of the solution that `GeometricIntegrators.integrate` returns for the same
-problem, the initial time included. The file is created, or
-overwritten, and closed on return, also when a step throws. A progress bar is shown for a run of
-more than five seconds.
+problem, the initial time included. The file is created, or overwritten, and closed on return, also
+when a step throws. A progress bar is shown for a run of more than five seconds.
 """
 function run!(int::GeometricIntegrator, h5file)
     # initial conditions
