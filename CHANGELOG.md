@@ -699,7 +699,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   metriplectic and collision-tensor test files out of `core`. `Pkg.test()` runs every group.
   `.github/workflows/CI.yml`, `codecov.yml` and the git hooks in `.githooks/` follow the
   Harness template, which checks the group files.
-- **The test files run in parallel worker processes, and CI runs one job per matrix entry.**
+- **The test files run in parallel worker processes, and CI runs one job per test group and
+  matrix entry.**
   `test/runtests.jl` hands its 45 files to ParallelTestRunner, which runs each in a worker process
   of its own, in place of the `@safetestset` blocks of SafeTestsets; `test/Project.toml` lists
   `ParallelTestRunner = "2.10"` and no longer SafeTestsets. The groups are `core`, `quality`,
