@@ -124,8 +124,10 @@ Each step evolves the factors through the K-, L- and S-fields, and none forms ``
 classical RK4 tableau. A step counts the fixed modes in the rank and sets `nfixed = 0`, because
 no BUG integrator keeps the fixed modes in the span of `V`. A step whose S-step or Galerkin step
 leaves a non-finite value does not throw; `all(isfinite, Y.S)` is its status. At the full rank
-``r = n_x`` with ``n_x \le n_v \le 2 n_x``, every projection of the augmented and the midpoint
-BUG is the identity, and a step is the RK4 step of the full-order model:
+``r = n_x`` with ``n_x \le n_v \le 2 n_x``, every projection of `AugmentedBUG()` and
+`MidpointBUG()` is the identity, and a step is the RK4 step of the full-order model;
+`AugmentedBUG(tol; rmin, rmax)` truncates at full rank too, so its step differs from it by up
+to `tol` in the weighted Frobenius norm:
 
 ```@example lowrank
 using PoissonSolvers: FFTWBasis, Potential

@@ -441,24 +441,40 @@ their own, except for what they removed and narrowed, which is listed in full be
   `AugmentedBUG` or `MidpointBUG` in place on a `LowRankDistribution` on a `GridFactorSpace`, with
   the workspace `LowRankFields1D1V` of the fields, and returns `Y`. Each substep is one step of the
   classical RK4 tableau, and no field or step forms the `nx × nv` array. The step converts `τ` to
-  the element type of `Y`, throws an `ArgumentError` for a non-finite `τ`, counts the fixed modes
-  in the rank and sets `nfixed = 0`. A step whose S-step or Galerkin step leaves a non-finite
-  value does not throw: it leaves the untruncated factors in `Y`, and `all(isfinite, Y.S)` is the
-  status that a caller tests.
+  the element type `T` of `Y` and throws an `ArgumentError` before any write for a `τ` that is not
+  finite in `T`, with one message for the BUG methods and `ProjectorSplitting`,
+  `the step τ is not finite in the element type T of the state; got τ = <τ>`, in which `τ` is
+  printed as it was given: the finite `τ = 1e300` on a `Float32` state reads `got τ = 1.0e300`
+  (K111, K116). The step counts the fixed modes in the rank and sets `nfixed = 0`. A step whose
+  S-step or Galerkin step leaves a non-finite value does not throw, and `all(isfinite, Y.S)` is
+  the status that a caller tests. `BUG()` keeps its factors of rank `r`, non-finite as they come.
+  `AugmentedBUG` and `MidpointBUG` skip the truncation and install the first `r` columns of the
+  augmented bases and an `r × r` core of `NaN`, with `r` the rank of the input, so the state stays
+  a valid `LowRankDistribution` also on a grid with `nx ≠ nv` (K120).
 - **`LowRankIntegrator`** holds a run of a method with a `lowrank_step!` that keeps the rank, or
   of `AugmentedBUG(tol; rmin, rmax)`, whose rank stays within `rmax`, from a
   `LowRankDistribution` over a span with a step, and `run!(int, h5file)` writes the times, the
   ranks and the factors `X`, `S` and `V` of every state into an HDF5 file, zero beyond each rank.
+  The constructor throws an `ArgumentError` for a step that is not finite and positive, for a
+  span that is not finite or has `t₁ < t₀`, for a span of `typemax(Int)` steps or more, such as
+  `(0.0, 1e300)` with the step `1e-300` (K125), and for a span whose grid `t₀:tstep:t₁` does not
+  increase strictly in the element type of `Y`, in which every step reads its time: on a
+  `Float32` state, the span `(16777216.0, 16777218.0)` with the step `1.0` repeats its first time
+  (K121).
   The datasets `X`, `S` and `V` have the initial rank `R` as their width, or
   `min(rmax, nx, nv)` for `AugmentedBUG(tol; rmin, rmax)`. A step that grows the rank beyond the
   `R` stored columns stops the run: `run!` sets the file attribute `status` to
   `"failed at step <s>: rank <r> beyond the <R> stored columns"`, closes the file and throws an
   `ArgumentError`.
   A step that leaves a non-finite `S` stops the run without an error and sets the file attribute
-  `status` to `"failed at step <s>"`; a complete run sets `"ok"`. For `BUG`, `AugmentedBUG` and
-  `MidpointBUG`, `run!` throws an `ArgumentError` before it opens the file when the step is zero
-  or not finite in the element type of `Y`, as a `Float64` step `1e-50` is on a `Float32` state,
-  because the run would not advance in time.
+  `status` to `"failed at step <s>"`; a complete run sets `"ok"`. A step that throws sets
+  `status` to `"failed at step <s>: <E>"`, with `E` the name of the exception type, and the
+  exception propagates from `run!` (K123). `run!` throws an `ArgumentError` before it opens the
+  file when the step is zero or not finite in the element type of `Y`, as a `Float64` step
+  `1e-50` is on a `Float32` state, because the run would not advance in time, and this holds for
+  every method (K123). It throws the same error, before it opens the file, for an element type of
+  the times or of `Y` that HDF5 does not store, such as `Int128`, `Float16` or `BigFloat`, so an
+  existing file keeps its bytes (K122).
 - **`ProjectorSplitting`** is the projector-splitting integrator of dynamical low rank (Lubich and
   Oseledets 2014), a reference method. `ProjectorSplitting(:lie)` is the first-order K–S–L
   composition with the backward S-substep; `ProjectorSplitting(:strang)` is the second-order
@@ -470,9 +486,10 @@ their own, except for what they removed and narrowed, which is listed in full be
   `ProjectorSplitting` in place, with the fields `LowRankFields1D1V` of the grid, or any field with
   methods of the internal K-, S- and L-right-hand sides, as `field`. It forms no `nx × nv` array
   and sets `nfixed = 0`. `τ` is a signed step, converted to the element type of the state; a step
-  that is not finite throws an `ArgumentError` before it writes the state. At full rank the Lie
-  step agrees with the full-order RK4 step, and the Strang step with the full-order step of the
-  same frozen-potential composition, to `1e-10` relative over 20 steps in `Float64`; the Lie step
+  that is not finite there throws the `ArgumentError` of the BUG methods before it writes the
+  state (K111, K116). At full rank the Lie step agrees with the full-order RK4 step, and the
+  Strang step with the full-order step of the same frozen-potential composition, to `1e-10`
+  relative over 20 steps in `Float64`; the Lie step
   from `A(t)` is exact for the field `F(Y, t) = Ȧ(t)`, which does not depend on the state, on a
   path `A` of rank at most `r` whose derivative RK4 integrates exactly, where `A(t + τ) V₀` has
   the rank of `A(t + τ)`, `V₀` the velocity factor at `t` (for rank exactly `r`:
@@ -707,13 +724,23 @@ their own, except for what they removed and narrowed, which is listed in full be
   200 KiB that Documenter allows.
 - **The dynamical low-rank methods have a section of their own**, "Dynamical low rank", with the
   manual page `manual/lowrank.md`, which describes `LowRankDistribution`, its factorisation and
-  `GridFactorSpace`, and the library page `library/lowrank.md` of their docstrings.
+  `GridFactorSpace`, and the library page `library/lowrank.md` of their docstrings. The page
+  says what a BUG step is at full rank: the RK4 step of the full-order model for `AugmentedBUG()`
+  and `MidpointBUG()`, and not for `AugmentedBUG(tol; rmin, rmax)`, whose truncation applies at
+  full rank too, so its step differs from the RK4 step by up to `tol` (K119).
 - **The low-rank pages describe the projector splitting**: a section of `manual/lowrank.md` on
   `ProjectorSplitting` and `lowrank_step!`, with an example of ten Strang steps, and a block of
   their docstrings on `library/lowrank.md`.
 
 ### Internal
 
+- **The low-rank steps share their helpers and one docstring of their contract.**
+  `src/lowrank/integrator.jl` holds the docstring of the generic `lowrank_step!`, which states the
+  contract of every method; the RK4 substep and the τ guard that the BUG methods and
+  `ProjectorSplitting` share; and `LowRankIntegrator` and `run!`. The docstring of each method
+  holds its algorithm and its fields, and the library page shows the generic docstring in a
+  section of its own. `test/verification/projector_splitting_rates.jl` takes its rate fits from
+  `test/helpers/rate_fits.jl`.
 - **`kernel` is inlined into `compute_L!`, and skips the power `|u|^{γ+2}` at the default
   `γ = -3`.** On the 8 × 8 cubic basis of `test/models/landau.jl` (M = 121, Q = 1600), one
   `compute_L!` takes 44 ms where it took 54 ms on `1897780` (minimum of 20 calls, two cold runs

@@ -18,7 +18,14 @@ Modules = [VlasovMethods]
 Pages = ["lowrank/fields.jl"]
 ```
 
-## The BUG integrators and the run driver
+## The step and the run driver
+
+```@autodocs
+Modules = [VlasovMethods]
+Pages = ["lowrank/integrator.jl"]
+```
+
+## The BUG integrators
 
 ```@autodocs
 Modules = [VlasovMethods]

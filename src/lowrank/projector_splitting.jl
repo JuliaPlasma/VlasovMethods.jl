@@ -40,40 +40,22 @@ struct ProjectorSplitting{C}
     end
 end
 
-# One step of the classical RK4 tableau of ẏ = rhs(y, s) over [t, t + τ], with
-# `rhs!(ẏ, y, s)` writing ẏ and returning it. The substep solver of the projector splitting.
-function _substep(::ProjectorSplitting, rhs!, y, t, τ)
-    k1 = rhs!(similar(y), y, t)
-    k2 = rhs!(similar(y), y .+ (τ / 2) .* k1, t + τ / 2)
-    k3 = rhs!(similar(y), y .+ (τ / 2) .* k2, t + τ / 2)
-    k4 = rhs!(similar(y), y .+ τ .* k3, t + τ)
-    return y .+ (τ / 6) .* (k1 .+ 2 .* k2 .+ 2 .* k3 .+ k4)
+# The substeps of the projector splitting, each one RK4 step over [t, t + τ]; the backward
+# S-substep integrates Ṡ = −hx hv Xᵀ F(X S Vᵀ, s) V.
+function _backward_sstep(X, S, V, field, t, τ)
+    _rk4((Ṡ, S, s) -> (_lowrank_sfield!(Ṡ, X, S, V, field, s); Ṡ .= .-Ṡ), S, t, τ)
 end
 
-# the backward S-substep: Ṡ = −hx hv Xᵀ F(X S Vᵀ, s) V
-function _backward_sstep(method, X, S, V, field, t, τ)
-    _substep(
-        method, (Ṡ, S, s) -> (_lowrank_sfield!(Ṡ, X, S, V, field, s); Ṡ .= .-Ṡ), S, t, τ)
+function _kstep(K, V, field, t, τ)
+    _rk4((K̇, K, s) -> _lowrank_kfield!(K̇, K, V, field, s), K, t, τ)
 end
 
-function _kstep(method, K, V, field, t, τ)
-    _substep(method, (K̇, K, s) -> _lowrank_kfield!(K̇, K, V, field, s), K, t, τ)
+function _lstep(X, L, field, t, τ)
+    _rk4((L̇, L, s) -> _lowrank_lfield!(L̇, X, L, field, s), L, t, τ)
 end
 
-function _lstep(method, X, L, field, t, τ)
-    _substep(method, (L̇, L, s) -> _lowrank_lfield!(L̇, X, L, field, s), L, t, τ)
-end
-
-function _lstep(method, X, L, field, t, τ, ϕ)
-    _substep(method, (L̇, L, s) -> _lowrank_lfield!(L̇, X, L, field, s, ϕ), L, t, τ)
-end
-
-# τ in the element type T of the state, refused where it is not finite in T
-function _step_length(τ, ::Type{T}) where {T}
-    τT = T(τ)
-    isfinite(τT) ||
-        throw(ArgumentError("the step τ of a projector splitting is finite; got $τT"))
-    return τT
+function _lstep(X, L, field, t, τ, ϕ)
+    _rk4((L̇, L, s) -> _lowrank_lfield!(L̇, X, L, field, s, ϕ), L, t, τ)
 end
 
 @doc raw"""
@@ -107,10 +89,9 @@ The step needs no inverse of `S`, so a rank-deficient `S`, the zero state includ
 forms no ``n_x \times n_v`` array, writes only `Y`, assigns new factors to it, and sets
 `Y.nfixed = 0`: the splitting does not keep fixed velocity modes in the leading columns of `V`.
 
-`τ` is a signed step, converted to the element type `T` of `Y` before its first use, as is `t`;
-`τ = 0` leaves `X S Vᵀ` unchanged up to round-off, while the factors can change. Throws an
-`ArgumentError` before any write when `τ` is not finite in `T`. The entries of `Y` are not
-checked: a non-finite entry propagates.
+`τ` is a signed step; `τ = 0` leaves `X S Vᵀ` unchanged up to round-off, while the factors can
+change. A non-finite entry of `Y` propagates. The contract of every step, the conversion of `t`
+and `τ` and the refusal of a non-finite `τ`, is that of the generic [`lowrank_step!`](@ref).
 
 A field of another kind joins the step through the methods `_lowrank_kfield!(K̇, K, V, field, t)`,
 `_lowrank_sfield!(Ṡ, X, S, V, field, t)` (with the plus sign, ``h_x h_v X^\mathsf{T} F V``) and
@@ -121,12 +102,12 @@ A field of another kind joins the step through the methods `_lowrank_kfield!(K̇
 function lowrank_step!(
         Y::LowRankDistribution, method::ProjectorSplitting{:lie}, field, t, τ)
     T = eltype(Y)
-    τ = _step_length(τ, T)
+    τ = _finite_step(τ, T)
     t = T(t)
-    K = _kstep(method, Y.X * Y.S, Y.V, field, t, τ)
+    K = _kstep(Y.X * Y.S, Y.V, field, t, τ)
     X, S₁ = orthonormalize_x(Y.space, K)
-    S₂ = _backward_sstep(method, X, S₁, Y.V, field, t, τ)
-    L = _lstep(method, X, Y.V * S₂', field, t, τ)
+    S₂ = _backward_sstep(X, S₁, Y.V, field, t, τ)
+    L = _lstep(X, Y.V * S₂', field, t, τ)
     V, R = orthonormalize_v(Y.space, L)
     Y.X, Y.S, Y.V, Y.nfixed = X, permutedims(R), V, 0
     return Y
@@ -135,22 +116,22 @@ end
 function lowrank_step!(
         Y::LowRankDistribution, method::ProjectorSplitting{:strang}, field, t, τ)
     T = eltype(Y)
-    τ = _step_length(τ, T)
+    τ = _finite_step(τ, T)
     t = T(t)
     τ½ = τ / 2
     t½ = t + τ½
     V₀ = Y.V
-    K₁ = _kstep(method, Y.X * Y.S, V₀, field, t, τ½)
+    K₁ = _kstep(Y.X * Y.S, V₀, field, t, τ½)
     X₁, S₁ = orthonormalize_x(Y.space, K₁)
-    S₂ = _backward_sstep(method, X₁, S₁, V₀, field, t, τ½)
+    S₂ = _backward_sstep(X₁, S₁, V₀, field, t, τ½)
     L₀ = V₀ * S₂'
     ϕ₀ = _lowrank_potential(X₁, S₂, V₀, field, t)
-    L½ = _lstep(method, X₁, L₀, field, t, τ½, ϕ₀)
+    L½ = _lstep(X₁, L₀, field, t, τ½, ϕ₀)
     ϕ½ = _lowrank_potential(X₁, L½, field, t½)
-    L₁ = _lstep(method, X₁, L₀, field, t, τ, ϕ½)
+    L₁ = _lstep(X₁, L₀, field, t, τ, ϕ½)
     V₁, R = orthonormalize_v(Y.space, L₁)
-    S₃ = _backward_sstep(method, X₁, permutedims(R), V₁, field, t½, τ½)
-    K₂ = _kstep(method, X₁ * S₃, V₁, field, t½, τ½)
+    S₃ = _backward_sstep(X₁, permutedims(R), V₁, field, t½, τ½)
+    K₂ = _kstep(X₁ * S₃, V₁, field, t½, τ½)
     X₂, S₄ = orthonormalize_x(Y.space, K₂)
     Y.X, Y.S, Y.V, Y.nfixed = X₂, S₄, V₁, 0
     return Y
