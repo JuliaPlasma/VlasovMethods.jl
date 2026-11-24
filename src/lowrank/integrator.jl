@@ -86,14 +86,13 @@ end
 
 # the element type T, refused before the file opens where HDF5 has no datatype for it
 function _check_hdf5_type(::Type{T}) where {T}
-    storable = try
+    try
         HDF5.datatype(T)
-        true
-    catch
-        false
+    catch e
+        e isa InterruptException && rethrow()
+        throw(ArgumentError(
+            "run! writes the times and the state to HDF5, which has no datatype for $T"))
     end
-    storable || throw(ArgumentError(
-        "run! writes the times and the state to HDF5, which has no datatype for $T"))
     return nothing
 end
 

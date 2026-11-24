@@ -1,5 +1,5 @@
 using GeometricIntegrators: GeometricIntegrators
-using HDF5: attrs, h5open
+using HDF5: HDF5, attrs, h5open
 using LinearAlgebra: I, diag, isdiag, norm, svdvals
 using PoissonSolvers: FFTWBasis, Potential
 using Test
@@ -431,6 +431,11 @@ end
 # an exception type of the test file, whose `typeof` prints with the name of its module
 struct ProbeError <: Exception end
 
+# a type of the test file whose HDF5 datatype is interrupted
+struct InterruptingType end
+
+HDF5.datatype(::Type{InterruptingType}) = throw(InterruptException())
+
 for T in (Float64, Float32)
     @testset "the run driver, $T" begin
         dir = mktempdir()
@@ -534,6 +539,7 @@ for T in (Float64, Float32)
         Yhalf = LowRankDistribution(half, Float16.(fx.Y.X), Float16.(fx.Y.S), Float16.(fx.Y.V))
         for (Y, method, tspan, tstep, name) in (
             (copy_state(fx.Y), BUG(), (Int128(0), Int128(2)), Int128(1), "Int128"),
+            (copy_state(fx.Y), BUG(), (big"0.0", big"0.2"), big"0.1", "BigFloat"),
             (Yhalf, DoublingMethod(Ref(0)), (0, 0.2), 0.1, "Float16"))
             before = factors(Y)
             err = try
@@ -547,6 +553,12 @@ for T in (Float64, Float32)
             @test read(file) == bytes
             @test factors(Y) == before
         end
+
+        # an interrupt while HDF5 looks up the datatype leaves the check as an interrupt, not as
+        # the ArgumentError; `@test_throws` with a pattern rethrows an interrupt, so only the
+        # type form tests it
+        # ast-grep-ignore: test-throws-bare-type
+        @test_throws InterruptException VlasovMethods._check_hdf5_type(InterruptingType)
 
         # a method of the test file that keeps the rank, and a run that fails at its third step
         file = joinpath(dir, "failing.h5")

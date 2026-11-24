@@ -696,10 +696,10 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 - **location:** `test/lowrank/bug.jl:242`
 - **evidence:** the fixtures of "a rank outside the bounds, $T" (`:168`), "the edges of the step,
-  $T" (`:242`, `:311`, `:333`, `:362`, `:371`, `:384`) and "the run driver, $T" (`:437`). After
+  $T" (`:242`, `:311`, `:333`, `:362`, `:371`, `:384`) and "the run driver, $T" (`:442`). After
   5 steps of `τ = 0.05` from the rank-3 factorisation `LowRankDistribution(dist, 3)` of
   `(1 + 0.3 cos(x/2)) M(v)` on `16 × 24` nodes of `[0, 4π) × [−10, 10]` with the model's Green's
-  matrix (the fixture of `:242` and `:437`), f at `±10` is `8.1e-14` (`BUG()`), `7.9e-14`
+  matrix (the fixture of `:242` and `:442`), f at `±10` is `8.1e-14` (`BUG()`), `7.9e-14`
   (`AugmentedBUG()`) and `4.2e-12` (`MidpointBUG()`) of its largest value in Float64, and
   `8.3e-9`, `4.4e-6` and `1.2e-6` in Float32; at `t = 0` it is `2.1e-22`. The plan's velocity-domain rule asks for round-off, and
   its spec names `1e-14`; the fixtures of the numerical bounds run on 64 velocity nodes for this
@@ -765,3 +765,15 @@ has left the file, or that lived only on a merged branch, stays taken.
   term in the unweighted calls.
 - **kind:** defect
 - **found:** 2026-11-23
+
+### K124 · `LowRankIntegrator` throws an `InexactError` from Base's range constructor, not its own `ArgumentError`, for a span whose grid `t₀:tstep:t₁` has more times than an `Int` holds.
+
+- **location:** `src/lowrank/integrator.jl:66`
+- **evidence:** on Julia 1.13.4, `LowRankIntegrator(Y, BUG(), field, (0.0, 1e300), 1e-300)`
+  throws `InexactError: Int64(Inf)` from `t₀:Δt:t₁` in the guard of the repeated time, where the
+  other guards of the constructor throw an `ArgumentError` that starts with
+  "LowRankIntegrator takes ". `run!` built the same range before the file opened
+  (`src/lowrank/bug.jl:277` at `ff1ad74`), so no file is written in either case. No guard on the
+  length of the grid exists.
+- **kind:** found late
+- **found:** 2026-11-24
