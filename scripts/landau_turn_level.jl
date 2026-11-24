@@ -1,15 +1,18 @@
 # What sets the level at which ln E₁ of the grid Landau run stops decaying and grows.
 #
-# Linear Landau damping, k = 0.5, f₀ = (1 + 0.01 cos(x/2)) M(v) on [0, 4π) × [−vmax, vmax], with the
-# full-order model `VlasovPoisson(GridDistribution, Potential(FFTWBasis))` (Arakawa bracket) and
-# GeometricIntegrators' RK4, in Float64. Each run records log10 E₁ at every step and log10 of the
-# largest mode-1 amplitude |f̂₁| on the nodes next to the end nodes (j = 2 and nᵥ − 1). From
-# the local maxima ("peaks") of log10 E₁ it reports:
+# Linear Landau damping, k = 0.5, f₀ = (1 + α cos(x/2)) M(v) on [0, 4π) × [−vmax, vmax] with
+# α = 0.01, with the full-order model `VlasovPoisson(GridDistribution, Potential(FFTWBasis))`
+# (Arakawa bracket) and GeometricIntegrators' RK4, in Float64. Each run records log10 E₁ at every
+# step and log10 of the largest mode-1 amplitude |f̂₁| on the nodes next to the end nodes (j = 2
+# and nᵥ − 1). From the local maxima ("peaks") of log10 E₁ it reports:
 #
 #   - turn: the lowest peak after t = 5, provided a later peak lies 0.3 decades or more above it;
-#     otherwise "none" up to the end time;
+#     otherwise NaN up to the end time;
 #   - rate: the least-squares slope of ln E₁ through the peaks in (t_turn, t_turn + 15];
 #   - landau: the same slope through the peaks in [8, 30], the Landau rate (≈ −0.1534).
+#
+# A run whose E₁ stops being finite reports the first such time as `t_nonfinite` and NaN in the
+# other result columns; every other run reports `t_nonfinite` as NaN.
 #
 # The group `linear` builds the linearised right-hand side about the Maxwellian, restricted to the
 # x-mode k (a real 2nᵥ × 2nᵥ matrix; the field is quadratic in f, so a central difference gives its
@@ -50,11 +53,11 @@ const K = 0.5
 const L = 4π
 const ALPHA = 0.01
 
-function landau_model(nx, nv, vmax)
+function landau_model(nx, nv, vmax, alpha = ALPHA)
     basis = PS.FFTWBasis((0.0, L), nx)
     x = basis.xgrid[1:nx]
     v = range(-vmax, vmax; length = nv)
-    values = (1 .+ ALPHA .* cos.(K .* x)) .* exp.(-v' .^ 2 ./ 2) ./ sqrt(2π)
+    values = (1 .+ alpha .* cos.(K .* x)) .* exp.(-v' .^ 2 ./ 2) ./ sqrt(2π)
     dist = GridDistribution(values, (0.0, L), (-vmax, vmax))
     return VlasovPoisson(dist, PS.Potential(basis)), x
 end
@@ -63,9 +66,9 @@ end
 mode1(f, x) = vec((2 / length(x)) .* (transpose(cis.(-K .* x)) * f))
 E1(f̂, hv) = abs(hv * sum(f̂)) / K
 
-function run_case(; nx = 64, nv = 128, vmax = 6.0, closure = :periodic, tau = 0.05,
-        tend = 100.0)
-    model, x = landau_model(nx, nv, vmax)
+function run_case(; nx = 64, nv = 128, vmax = 6.0, alpha = ALPHA, closure = :periodic,
+        tau = 0.05, tend = 100.0)
+    model, x = landau_model(nx, nv, vmax, alpha)
     vc = closure === :bounded ? BoundedVelocityClosure() : PeriodicVelocityClosure()
     int = VlasovMethods.GeometricIntegrator(model, (0.0, tend), tau, RK4(); closure = vc)
     prob = int.equation
@@ -108,38 +111,34 @@ function analyse(t, y)
 end
 at(v, s) = s === nothing ? NaN : v[s]
 
-const HEADER = "group\tnx\tnv\tvmax\thv\tclosure\ttau\tt_turn\tlog10E1_turn\tlog10edge_turn\t" *
-               "rate_after\tlandau_rate\tseconds"
+const HEADER = "group\tnx\tnv\tvmax\thv\talpha\tclosure\ttau\tt_nonfinite\tt_turn\t" *
+               "log10E1_turn\tlog10edge_turn\trate_after\tlandau_rate\tseconds"
 const LINEAR_HEADER = "nx\tnv\tvmax\thv\tclosure\tt_turn\tlog10E1_turn\tmax_abs_re_lambda\t" *
                       "rho\trk4_tau_limit\tdomega_over_khv_sqrt3\trate_after\tlandau_rate\tseconds"
 
 function case!(io, outdir, group; kw...)
     c = merge(
-        (nx = 64, nv = 128, vmax = 6.0, closure = :periodic, tau = 0.05, tend = 100.0),
+        (nx = 64, nv = 128, vmax = 6.0, alpha = ALPHA, closure = :periodic, tau = 0.05,
+            tend = 100.0),
         kw)
     s0 = time()
     t, y, edge, hv = run_case(; c...)
     secs = time() - s0
-    # a run whose E₁ stops being finite is recorded as unstable, with the first such time
+    # a run whose E₁ stops being finite gets the first such time and no turn, and no CSV
     bad = findfirst(!isfinite, y)
-    if bad !== nothing
-        line = @sprintf("%s\t%d\t%d\t%g\t%.5f\t%s\t%g\tunstable: E1 not finite from t = %.2f",
-            group, c.nx, c.nv, c.vmax, hv, c.closure, c.tau, t[bad])
-        println(io, line)
-        println(line)
-        return nothing
-    end
-    s, rate, landau = analyse(t, y)
+    s, rate, landau = bad === nothing ? analyse(t, y) : (nothing, NaN, NaN)
     tt, lt, et = at(t, s), at(y, s), at(edge, s)
-    name = @sprintf("%s_nx%d_nv%d_vmax%g_%s_tau%g", group, c.nx, c.nv, c.vmax, c.closure,
-        c.tau)
-    open(joinpath(outdir, name * ".csv"), "w") do f
-        println(f, "t,log10E1,log10edge")
-        foreach(s -> @printf(f, "%.4f,%.10g,%.10g\n", t[s], y[s], edge[s]), eachindex(t))
+    if bad === nothing
+        name = @sprintf("%s_nx%d_nv%d_vmax%g_alpha%g_%s_tau%g", group, c.nx, c.nv, c.vmax,
+            c.alpha, c.closure, c.tau)
+        open(joinpath(outdir, name * ".csv"), "w") do f
+            println(f, "t,log10E1,log10edge")
+            foreach(s -> @printf(f, "%.4f,%.10g,%.10g\n", t[s], y[s], edge[s]), eachindex(t))
+        end
     end
-    line = @sprintf("%s\t%d\t%d\t%g\t%.5f\t%s\t%g\t%.2f\t%.3f\t%.3f\t%.4f\t%.4f\t%.1f",
-        group,
-        c.nx, c.nv, c.vmax, hv, c.closure, c.tau, tt, lt, et, rate, landau, secs)
+    line = @sprintf("%s\t%d\t%d\t%g\t%.5f\t%g\t%s\t%g\t%.2f\t%.2f\t%.3f\t%.3f\t%.4f\t%.4f\t%.1f",
+        group, c.nx, c.nv, c.vmax, hv, c.alpha, c.closure, c.tau, at(t, bad), tt, lt, et,
+        rate, landau, secs)
     println(io, line)
     println(line)
     flush(io)
@@ -201,21 +200,21 @@ function main(args)
     println(io, "# ", readchomp(`uptime`))
     println(io, HEADER)
     println(HEADER)
-    lio = open(joinpath(outdir, "linear.tsv"), "a")
-    println(lio, "# ", readchomp(`uptime`))
     hv6 = 12 / 127
     for g in groups
         g == "base" && case!(io, outdir, g)
         # The bounded closure's end nodes see a jump of h from vmax²/2 to 0, whose x-advection
-        # makes the spectral radius ρ 5-22 times the periodic one (group `linear`): RK4 needs
-        # τ ≤ 2.83/ρ, 0.0093 at nᵥ = 128 on [−6, 6] and 0.0027 at nᵥ = 256 on [−10, 10]. The
-        # runs at τ = 0.05 and on the 16 × 64 grid of the RK4 test of the bounded closure at
-        # τ = 0.1 (limit 0.064) are past the limit (recorded as unstable).
+        # makes the spectral radius ρ larger than the periodic one by a factor that grows with nᵥ
+        # (group `linear`: 5.2, 10.7 and 21.6 at nᵥ = 64, 128 and 256). RK4 needs τ ≤ 2.83/ρ,
+        # 0.0093 at nᵥ = 128 on [−6, 6] and 0.0027 at nᵥ = 256 on [−10, 10]. The bounded run at
+        # τ = 0.05 on 64 × 128 and the RK4 test of the bounded closure, from its own state
+        # (α = 0.5) on its 16 × 64 grid of [−7.5, 7.5] at τ = 0.1 (limit 0.064), are past the
+        # limit; their E₁ stops being finite.
         if g == "closure"
             case!(io, outdir, g; closure = :bounded)
             case!(
-                io, outdir, g; nx = 16, nv = 64, vmax = 7.5, closure = :bounded, tau = 0.1,
-                tend = 20.0)
+                io, outdir, g; nx = 16, nv = 64, vmax = 7.5, alpha = 0.5, closure = :bounded,
+                tau = 0.1, tend = 20.0)
             case!(io, outdir, g; closure = :bounded, tau = 0.005)
             case!(io, outdir, g; nv = 256, vmax = 10.0, closure = :bounded, tau = 0.0025)
             case!(io, outdir, g; nv = 256, vmax = 10.0)
@@ -234,6 +233,8 @@ function main(args)
         g == "nx" && foreach(nx -> case!(io, outdir, g; nx), (32, 128))
         g == "tau" && foreach(tau -> case!(io, outdir, g; tau), (0.025, 0.1))
         if g == "linear"
+            lio = open(joinpath(outdir, "linear.tsv"), "a")
+            println(lio, "# ", readchomp(`uptime`))
             println(lio, LINEAR_HEADER)
             println(LINEAR_HEADER)
             for c in ((nx = 64, nv = 128, vmax = 6.0, closure = :periodic),
@@ -251,10 +252,10 @@ function main(args)
                 println(lio, line)
                 println(line)
             end
+            close(lio)
         end
     end
     close(io)
-    close(lio)
 end
 
 const GROUPS = ["base", "closure", "vmax", "nv", "nx", "tau", "linear"]

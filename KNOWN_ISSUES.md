@@ -783,7 +783,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** defect
 - **found:** PR #147, from its CI
 
-### K126 · Explicit RK4 on the bounded velocity closure is unstable at τ = 0.05 on the grids of the Landau runs, because the cut of h at the end nodes raises the spectral radius of the right-hand side 5–22 times; the stable τ depends on nₓ, hᵥ and vmax.
+### K126 · Explicit RK4 on the bounded velocity closure is unstable at τ = 0.05 on the grids of the Landau runs, because the cut of h at the end nodes raises the spectral radius of the right-hand side by a factor that grows with nᵥ (5.2, 10.7 and 21.6 at nᵥ = 64, 128 and 256); the stable τ depends on nₓ, hᵥ and vmax.
 
 - **location:** `src/gridbased/vlasov_poisson_1d1v.jl`
 - **evidence:** linear Landau damping (k = 0.5, α = 0.01) with `closure = BoundedVelocityClosure()`
@@ -796,10 +796,12 @@ has left the file, or that lived only on a merged branch, stays taken.
   of the bounded closure step with the implicit midpoint, which is unconditionally stable, except
   one that takes three RK4 steps of τ = 0.1 on 16 × 64 nodes of [−7.5, 7.5]
   (`test/gridbased/vlasov_poisson_1d1v.jl:682`). That τ is past the limit 0.064: a longer run
-  gives a non-finite E₁ from t = 2.7, step 27, and the test passes only because it is short. A
-  low-rank step with RK4 substeps on bounded fields is expected to meet the same limit; no run
-  measures it. `scripts/landau_turn_level.jl` prints ρ and the limit for each grid (group
-  `linear`) and runs both unstable cases (group `closure`).
+  from the test's own state (α = 0.5, `vlasov_poisson_1d1v.jl:101`) gives a non-finite state
+  from t = 2.0, step 20, in Float64 and from step 19 in Float32, and the test passes only because
+  it is short. A low-rank step with RK4 substeps on bounded fields is expected to meet the same
+  limit; no run measures it. `scripts/landau_turn_level.jl` prints ρ and the limit for each grid
+  (group `linear`) and runs both unstable cases in Float64, the second from the test's state
+  (group `closure`).
 - **kind:** found late
 - **found:** 2026-11-24
 
