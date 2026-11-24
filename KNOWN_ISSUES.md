@@ -797,8 +797,11 @@ has left the file, or that lived only on a merged branch, stays taken.
   one that takes three RK4 steps of τ = 0.1 on 16 × 64 nodes of [−7.5, 7.5]
   (`test/gridbased/vlasov_poisson_1d1v.jl:682`). That τ is past the limit 0.064: a longer run
   from the test's own state (α = 0.5, `vlasov_poisson_1d1v.jl:101`) gives a non-finite state
-  from t = 2.0, step 20, in Float64, and the test passes only because it is short. A low-rank step with RK4 substeps on bounded fields is expected to meet the same
-  limit; no run measures it. `scripts/landau_turn_level.jl` prints ρ and the limit for each grid
+  from t = 2.0, step 20, in Float64. The test does not see this: its assertions after the run
+  (`:691-692`) check that the end columns are zero and that the interior has changed, not that
+  the state is finite, and a non-finite interior also differs from the initial one. A low-rank
+  step with RK4 substeps on bounded fields is expected to meet the same limit; no run measures
+  it. `scripts/landau_turn_level.jl` prints ρ and the limit for each grid
   (group `linear`) and runs both unstable cases in Float64, the second from the test's state
   (group `closure`).
 - **kind:** found late
