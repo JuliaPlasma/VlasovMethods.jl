@@ -134,6 +134,7 @@ const NEW_EXPORTS = Symbol[
     :LowRankIntegrator,
     :MidpointBUG,
     :PeriodicVelocityClosure,
+    :ProjectorSplitting,
     :build_grid_parity_factors,
     :build_spline_parity_factors,
     :dual_parity_modes,

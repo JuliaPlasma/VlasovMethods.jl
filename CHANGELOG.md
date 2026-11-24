@@ -431,6 +431,28 @@ their own, except for what they removed and narrowed, which is listed in full be
   `MidpointBUG`, `run!` throws an `ArgumentError` before it opens the file when the step is zero
   or not finite in the element type of `Y`, as a `Float64` step `1e-50` is on a `Float32` state,
   because the run would not advance in time.
+- **`ProjectorSplitting`** is the projector-splitting integrator of dynamical low rank (Lubich and
+  Oseledets 2014), a reference method. `ProjectorSplitting(:lie)` is the first-order K–S–L
+  composition with the backward S-substep; `ProjectorSplitting(:strang)` is the second-order
+  composition of Einkemmer and Lubich 2018 (Algorithm 1), whose L-substeps run at a frozen
+  potential, with the midpoint potential predicted by a half step. Any other composition throws
+  an `ArgumentError`. Each substep is one RK4 step, and `K` and `L` are orthonormalised by a QR in
+  the weighted products of the factor space.
+- **`lowrank_step!`**`(Y, method, field, t, τ)` advances a `LowRankDistribution` by one step of a
+  `ProjectorSplitting` in place, with the fields `LowRankFields1D1V` of the grid, or any field with
+  methods of the internal K-, S- and L-right-hand sides, as `field`. It forms no `nx × nv` array
+  and sets `nfixed = 0`. `τ` is a signed step, converted to the element type of the state; a step
+  that is not finite throws an `ArgumentError` before it writes the state. At full rank the Lie
+  step agrees with the full-order RK4 step, and the Strang step with the full-order step of the
+  same frozen-potential composition, to `1e-10` relative over 20 steps in `Float64`; the Lie step
+  from `A(t)` is exact for the field `F(Y, t) = Ȧ(t)`, which does not depend on the state, on a
+  path `A` of rank at most `r` whose derivative RK4 integrates exactly, where `A(t + τ) V₀` has
+  the rank of `A(t + τ)`, `V₀` the velocity factor at `t` (for rank exactly `r`:
+  `V(t + τ)ᵀ V₀` nonsingular); for a field that depends on the state, the substeps evaluate it
+  off the path, and exactness is not claimed; the fitted orders are within 0.2 of 1 and 2; and at
+  rank 16 on 64 × 256 nodes the Landau damping rate is within 2 % and the two-stream growth rate
+  within 5 % of the roots of the dispersion relation, which
+  `test/verification/projector_splitting_rates.jl` checks.
 
 ### Scripts
 
@@ -658,6 +680,9 @@ their own, except for what they removed and narrowed, which is listed in full be
 - **The dynamical low-rank methods have a section of their own**, "Dynamical low rank", with the
   manual page `manual/lowrank.md`, which describes `LowRankDistribution`, its factorisation and
   `GridFactorSpace`, and the library page `library/lowrank.md` of their docstrings.
+- **The low-rank pages describe the projector splitting**: a section of `manual/lowrank.md` on
+  `ProjectorSplitting` and `lowrank_step!`, with an example of ten Strang steps, and a block of
+  their docstrings on `library/lowrank.md`.
 
 ### Internal
 

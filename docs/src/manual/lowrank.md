@@ -142,3 +142,30 @@ lowrank_step!(Y, AugmentedBUG(), field, 0.0, 0.05)
 `rmax`. [`run!`](@ref) writes the times, the ranks and the factors of every state into an HDF5
 file, with the file attribute `status`, and it stops with an error, after it sets `status`, at a
 step that grows the rank beyond the columns that it stores.
+
+## The projector splitting
+
+[`ProjectorSplitting`](@ref) is the projector-splitting integrator of Lubich and Oseledets, a
+reference method: it splits the tangent projector of the low-rank manifold into a K-substep with
+`V` fixed, a backward S-substep, and an L-substep with `X` fixed, and orthonormalises `K` and `L`
+by a QR in the weighted products of the factor space. `ProjectorSplitting(:lie)` is the
+first-order composition; `ProjectorSplitting(:strang)` is the second-order composition of
+Einkemmer and Lubich, which runs its L-substeps at a frozen potential and predicts the midpoint
+potential by a half step. Each substep is one RK4 step. [`lowrank_step!`](@ref) advances a
+`LowRankDistribution` by one step in place, with the fields of the grid as the right-hand side,
+and sets `nfixed = 0`, because the splitting does not keep fixed velocity modes:
+
+```@example lowrank
+w = VlasovMethods.LowRankFields1D1V(d.space, model.work)
+Y = LowRankDistribution(dist, 5)
+method = ProjectorSplitting(:strang)
+for n in 0:9
+    lowrank_step!(Y, method, w, 0.05n, 0.05)
+end
+(rank = size(Y.S, 1), nfixed = Y.nfixed,
+ orthonormality = maximum(abs, VlasovMethods.inner_x(Y.space, Y.X, Y.X) - one(Y.S)))
+```
+
+The step takes any field with methods of the internal functions `_lowrank_kfield!`,
+`_lowrank_sfield!` and `_lowrank_lfield!`, and for `:strang` also `_lowrank_potential`, which the
+docstring of [`lowrank_step!`](@ref) lists.

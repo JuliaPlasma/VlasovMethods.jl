@@ -24,3 +24,10 @@ Pages = ["lowrank/fields.jl"]
 Modules = [VlasovMethods]
 Pages = ["lowrank/bug.jl"]
 ```
+
+## The projector splitting
+
+```@autodocs
+Modules = [VlasovMethods]
+Pages = ["lowrank/projector_splitting.jl"]
+```

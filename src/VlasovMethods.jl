@@ -97,12 +97,14 @@ include("lowrank/grid_space.jl")
 include("lowrank/distribution.jl")
 include("lowrank/fields.jl")
 include("lowrank/bug.jl")
+include("lowrank/projector_splitting.jl")
 
 export ParticleDistribution
 export SplineDistribution
 export GridDistribution, velocity_moments
 export LowRankDistribution, GridFactorSpace
 export BUG, AugmentedBUG, MidpointBUG, lowrank_step!, LowRankIntegrator
+export ProjectorSplitting
 export check_conservation_basis, project_function, project_Maxwellian
 
 # plotting
