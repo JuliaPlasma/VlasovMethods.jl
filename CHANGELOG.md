@@ -121,6 +121,20 @@ their own, except for what they removed and narrowed, which is listed in full be
 - **`size(rt, i)` and `axes(rt, i)` of a `ReducedCollisionTensor` give `1` and `Base.OneTo(1)`
   for `i > 3` (K30)**, from the `AbstractArray` fallbacks. The methods of the type indexed past
   its three dimensions and threw a `BoundsError`.
+- **`run!(::SplittingMethod, h5file)` and `run!(::GeometricIntegrator, h5file)` write one state
+  per time of the solution that `GeometricIntegrators.integrate` returns, on every
+  GeometricSolutions release (K127).** Both stepped over the range `t₀:Δt:t₁`, which is the time
+  grid of a solution up to GeometricSolutions 0.7.0. From 0.7.1 the grid has `ntime(equation) + 1`
+  times, so on a span whose last step ends a few ulps past `t₁` a run took one step fewer than
+  `integrate` and wrote one state fewer, with no error: for the span
+  `(0.0, prevfloat(prevfloat(62 * 8e-4)))` and the step `8e-4`, 62 states where `integrate` gives
+  63, and the model kept the state of the 61st step. Both methods now take their times from
+  `GeometricIntegrators.TimeSeries(t₀, t₁, Δt)`, the constructor of the solution's grid, so the
+  last state is at `t₀ + ntime(equation) * Δt` from GeometricSolutions 0.7.1 and at
+  `last(t₀:Δt:t₁)` up to 0.7.0. This replaces the range of the K93 entry above. A span that is a
+  whole number of steps gives the same file as before. `test/methods/splitting.jl` and
+  `test/methods/geometric_integrator.jl` compare the file with the solution of `integrate` and
+  check the length of the grid of the GeometricSolutions release that resolves.
 
 ### Breaking Changes
 
@@ -153,6 +167,22 @@ their own, except for what they removed and narrowed, which is listed in full be
 - **`Landau` has a new second type parameter `G`, the type of the kernel exponent `γ`.** The type
   is `Landau{D, G, XD, VD, DT, ET, CT}`, so `XD`, `VD` and the parameters after them move one place
   to the right; code that writes `Landau{…}` with positional parameters changes with it.
+- **The package needs ReducedComplexityModeling 0.6 and ReducedBasisMethods 0.5, and its
+  extensions need AbstractNeuralNetworks 0.10, GeometricOptimizers 0.10 and
+  GeometricMachineLearning 0.10.** `[compat]` reads `ReducedComplexityModeling = "0.6"`,
+  `ReducedBasisMethods = "0.5"`, `AbstractNeuralNetworks = "0.10"`, `GeometricOptimizers = "0.10"`
+  and `GeometricMachineLearning = "0.10"`, where it read `"0.5"`, `"0.4"`, `"0.9.3"`, `"0.9.2"`
+  and `"0.9"`. These releases are on KernelAbstractions 0.10, so an environment that holds
+  KernelAbstractions 0.9, or one of the five packages on its former line, does not resolve this
+  release. ReducedComplexityModeling depends on AbstractNeuralNetworks, and its 0.5 line requires
+  AbstractNeuralNetworks 0.9, so the move applies to every caller and not only to the callers of
+  the extensions: the `ParameterSpace` that `ReducedBasis` takes and the generics `h5save` and
+  `h5load` come from ReducedComplexityModeling 0.6. The calls of the package and of the
+  extensions `MultiModalAutoEncoderExt` and `VlasovMethodsHNNExt` do not change, and no code in
+  `src/` or `ext/` changes for these releases. A caller's own code meets their changes: the name
+  `GPU` is no longer exported by AbstractNeuralNetworks and GeometricMachineLearning, `CPU()` is
+  the PoCL backend of KernelAbstractions 0.10 and takes no keyword, and the internal
+  `WeightTiedAutoencoderLayer` of GeometricMachineLearning is `LeftInverseAutoencoderLayer`.
 
 ### New Features
 
@@ -736,6 +766,20 @@ their own, except for what they removed and narrowed, which is listed in full be
   `test/helpers/lowrank_bug_rates.jl`, so that CI spreads them over the workers of the job that
   runs `verification`. Together they take about 68 minutes on a CI runner. On a slow runner the
   `verification` job can still run past its timeout of 120 minutes (K124).
+- **GeometricBrackets 0.4, ParticleMethods 0.2 and PoissonSolvers 0.7 are admitted, and
+  GeometricSolutions 0.7 in the tests.** `[compat]` reads `GeometricBrackets = "0.3.2, 0.4"`,
+  `ParticleMethods = "0.1.2, 0.2"` and `PoissonSolvers = "0.6.2, 0.7"`, and `test/Project.toml`
+  `GeometricSolutions = "0.6.6, 0.7"`; the floors stay. No code changes for them: GeometricBrackets
+  0.4 types the field `names` of `Trajectory`, which the package does not use; ParticleMethods 0.2
+  gives a `ParticleList` a species table of one species of charge and mass one unless it is built
+  with one, and reserves the variable names `species` and `speciesindex`, which the package does
+  not use; PoissonSolvers 0.7 checks the lengths of `solve!` and changes the last bits of a
+  matrix-free solve. `SimpleSplines` stays at `"0.4"`: GeometricBrackets 0.4.0 and PoissonSolvers
+  0.7.0 admit SimpleSplines 0.4 and no later release, so no environment can test 0.5 yet. The test
+  groups `core`, `quality`, `collisions` and `slow` pass with GeometricBrackets 0.4.0,
+  ParticleMethods 0.2.0, PoissonSolvers 0.7.0, ReducedComplexityModeling 0.6.1, ReducedBasisMethods
+  0.5.0, GeometricSolutions 0.7.3, AbstractNeuralNetworks 0.10.0, GeometricOptimizers 0.10.1 and
+  GeometricMachineLearning 0.10.0.
 
 ## [0.4.1] — 2026-11-04
 

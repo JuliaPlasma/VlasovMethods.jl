@@ -1,5 +1,6 @@
 using GeometricIntegrators: GeometricIntegrators
 using GeometricEquations: ntime
+using GeometricSolutions: GeometricSolutions
 using HDF5: h5read
 using Random
 using SimpleSplines: BSplineBasis, UniformMesh, Free, SplineQuadrature, nbasis, (..)
@@ -112,29 +113,29 @@ end
 end
 
 # The span ends two ulps below `62 * 8e-4`, so the last of 62 steps of `8e-4` ends past `t₁`: the
-# equation's `ntime` counts it, 62 steps, and the range `t₀:8e-4:t₁` drops it, 61 steps on 62
-# points, the last at `0.0488`. `run!` writes one slice per point of the range, not `ntime + 1`
-# (K93).
+# equation's `ntime` counts it, 62 steps. The solution's grid takes it from GeometricSolutions
+# 0.7.1, 63 points, and drops it up to 0.7.0, whose grid is the range `t₀:8e-4:t₁`, 61 steps on 62
+# points, the last at `0.0488`. `run!` writes one slice per point of the solution's grid on both
+# (K93, K127).
 @testset "run! of a GeometricIntegrator over a span that is not a whole number of steps" begin
     tspan = (0.0, prevfloat(prevfloat(62 * 8e-4)))
     tstep = 8e-4
-    times = tspan[1]:tstep:tspan[2]
 
     model = lenard_bernstein(LenardBernstein)
     method = VlasovMethods.GeometricIntegrator(model, tspan, tstep)
-    @test ntime(method.equation) == length(times) == 62
+    @test ntime(method.equation) == length(tspan[1]:tstep:tspan[2]) == 62
     h5file = joinpath(mktempdir(), "geometric_integrator.hdf5")
     @test run!(method, h5file) === model.dist
     z = h5read(h5file, "z")
     t = h5read(h5file, "t")
 
-    @test size(z, 2) == length(t) == length(times)
-    @test t == collect(times)
-    @test z[:, end] == model.dist.particles.v[1, :]
-    # the slices are the states of `integrate` on the same problem, which steps over `times`
+    # the slices are the states of `integrate` on the same problem, at the times of its solution
     sol = GeometricIntegrators.integrate(
         VlasovMethods.GeometricIntegrator(
         lenard_bernstein(LenardBernstein), tspan, tstep).integrator)
-    @test ntime(sol) + 1 == length(times)
+    @test ntime(sol) + 1 == (pkgversion(GeometricSolutions) ≥ v"0.7.1" ? 63 : 62)
+    @test size(z, 2) == length(t) == ntime(sol) + 1
+    @test t == [sol.t[n] for n in 0:ntime(sol)]
+    @test z[:, end] == model.dist.particles.v[1, :]
     @test all(z[:, n + 1] == sol.q[n] for n in 0:ntime(sol))
 end

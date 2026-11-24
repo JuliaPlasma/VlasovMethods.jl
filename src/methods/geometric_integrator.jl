@@ -26,7 +26,8 @@ Advance the method `int` over its time span, write every state into the HDF5 fil
 the final state into the distribution of the model, and return that distribution.
 
 The file holds the dataset `z` of the size `(n, ntime)`, one column per state, and the dataset
-`t` of the `ntime` times of `t₀:Δt:t₁`, the initial time included. The file is created, or
+`t` of the `ntime` times of the solution that `GeometricIntegrators.integrate` returns for the same
+problem, the initial time included. The file is created, or
 overwritten, and closed on return, also when a step throws. A progress bar is shown for a run of
 more than five seconds.
 """
@@ -39,11 +40,10 @@ function run!(int::GeometricIntegrator, h5file)
     # the length of the state
     np = size(z₀, 1)
 
-    # The time grid of a `Solution` of the same problem on GeometricSolutions 0.6, as in
-    # `run!(::SplittingMethod, h5file)` (K127): one point per state, the initial one included,
-    # which can be one point fewer than `ntime(prob) + 1` where `ntime` counts a partial last step
-    # that the range drops.
-    times = t₀:GeometricEquations.timestep(prob):GeometricEquations.finaltime(prob)
+    # The time grid of a `Solution` of the same problem, as in `run!(::SplittingMethod, h5file)`:
+    # one time per state, the initial one included, and `times[n]` the time after `n` steps.
+    times = GeometricIntegrators.TimeSeries(
+        t₀, GeometricEquations.finaltime(prob), GeometricEquations.timestep(prob))
 
     # create HDF5 file and copy initial conditions
     h5 = h5open(h5file, "w")
@@ -62,10 +62,10 @@ function run!(int::GeometricIntegrator, h5file)
     # loop over time steps showing progress bar
     try
         @showprogress 5 for n in 1:(length(times) - 1)
-            GeometricIntegrators.reset!(solstep, times[n + 1])
+            GeometricIntegrators.reset!(solstep, times[n])
             GeometricIntegrators.integrate!(solstep, int.integrator)
             h5z[:, n + 1] = solstep.q
-            h5t[n + 1] = times[n + 1]
+            h5t[n + 1] = times[n]
         end
     finally
         # close HDF5 file
