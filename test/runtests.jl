@@ -61,7 +61,9 @@ const TESTS = [
         "Reduced March at T = 1000" => "verification/time_marching.jl",
         "Reduced Equations at T = 100" => "verification/reduced_equations.jl",
         "Bounded Velocity Closure Runs" => "verification/bounded_closure.jl",
-        "Low-Rank BUG Rates" => "verification/lowrank_bug_rates.jl",
+        "Low-Rank BUG Landau Rates" => "verification/lowrank_bug_landau_rates.jl",
+        "Low-Rank BUG Two-Stream Rates" => "verification/lowrank_bug_two_stream_rates.jl",
+        "Low-Rank BUG Two-Stream Rates, Float32" => "verification/lowrank_bug_two_stream_rates_float32.jl",
         "Projector Splitting Rates" => "verification/projector_splitting_rates.jl"
     ]
 ]
