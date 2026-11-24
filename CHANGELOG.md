@@ -101,14 +101,17 @@ their own, except for what they removed and narrowed, which is listed in full be
   density, a cell count of zero threw a `BoundsError`, and an infinite or `NaN` domain end threw
   Base's `ArgumentError` of `range` or an `InexactError` from the cell index.
 - **`run!(::GeometricIntegrator, h5file)` steps over the solution's own time grid (K93).** It sized
-  its datasets by `ntime(equation) + 1` and indexed the range `t₀:Δt:t₁` up to that count, but
-  before GeometricEquations 0.21.8 `ntime` rounded the step count up, and the range was one point
-  shorter wherever the span is not a whole number of steps in floating point: a run to `0.05` with
-  the step `8e-4` threw a `BoundsError` before its last step. The datasets now hold one slice per
-  point of the range, and the loop takes the steps that `GeometricIntegrators.integrate` takes, as
-  `run!(::SplittingMethod, h5file)` does. `run!` writes its last slice at `last(t₀:Δt:t₁)`, the last
-  whole step at or below `t₁`, so a span that is not a whole number of steps ends short of `t₁` —
-  for `t₁ = 0.05` and `Δt = 8e-4` the last time written is `0.0496` (62 steps), as for
+  its datasets by `ntime(equation) + 1` and indexed the range `t₀:Δt:t₁` up to that count. The range
+  is one point shorter than that wherever `ntime` counts a partial last step: on GeometricEquations
+  0.21.5 to 0.21.7 on any span that is not a whole number of steps in floating point, and from
+  0.21.8 on a span whose last step ends a few ulps past `t₁`. A run to `0.05` with the step `8e-4`
+  threw a `BoundsError` before its last step on 0.21.5 to 0.21.7; on every version up to 0.21.9, so
+  did a run to `prevfloat(prevfloat(62 * 8e-4))`, where `ntime` is 62 and the range has 62 points
+  and ends at `0.0488`. The datasets now hold one slice per point of the range, and the loop takes
+  the steps that `GeometricIntegrators.integrate` takes, as `run!(::SplittingMethod, h5file)` does.
+  `run!` writes its last slice at `last(t₀:Δt:t₁)`, the last whole step at or below `t₁`, so a span
+  that does not end on a step in floating point ends short of `t₁` — for `t₁ = 0.05` and
+  `Δt = 8e-4` the last time written is `0.0496` (62 steps), as for
   `GeometricIntegrators.integrate`. A span that is a whole number of steps gives the same file as
   before.
 - **`initialize!(ParticleDistribution(1, 1, n), Bump())` draws the bump (K68).** Its `draw!`
@@ -118,15 +121,6 @@ their own, except for what they removed and narrowed, which is listed in full be
 - **`size(rt, i)` and `axes(rt, i)` of a `ReducedCollisionTensor` give `1` and `Base.OneTo(1)`
   for `i > 3` (K30)**, from the `AbstractArray` fallbacks. The methods of the type indexed past
   its three dimensions and threw a `BoundsError`.
-- **The floor of GeometricEquations is 0.21.8**, whose `ntime(equation)` drops a partial last
-  step: for `t₁ = 0.05` and `Δt = 8e-4` it counts 62 steps, as the solution's time grid
-  `t₀:Δt:t₁` does, where 0.21.5 to 0.21.7 rounded `(t₁ - t₀) / Δt` up to 63. `ntime(equation) + 1`
-  is then the number of states that `GeometricIntegrators.integrate` and `run!` write, except on
-  some spans whose last step ends a few ulps past `t₁`: there `ntime` counts that step and the
-  grid can drop it, so `ntime(equation) + 1` can be one more than the number of states. `run!`
-  takes its step count from the grid in either case. The tests of
-  `run!(::SplittingMethod, h5file)` and `run!(::GeometricIntegrator, h5file)` assert the agreement
-  on their spans, so they fail on 0.21.5 to 0.21.7.
 
 ### Breaking Changes
 
