@@ -710,8 +710,8 @@ has left the file, or that lived only on a merged branch, stays taken.
 ### K112 · The element-type assertions on the factors of a `LowRankDistribution` after a step cannot fail, so a promotion inside `lowrank_step!` is not seen there.
 
 - **location:** `test/lowrank/projector_splitting.jl:115`
-- **evidence:** `@test eltype(Y.X) === eltype(Y.S) === eltype(Y.V) === T` at lines 115, 161 and
-  428. The exactness testset at line 226 asserts no element type, and an assertion on `Y` there
+- **evidence:** `@test eltype(Y.X) === eltype(Y.S) === eltype(Y.V) === T` at lines 115 and 161,
+  and the same assertion on `Ya` against `Float32` at line 428. The exactness testset at line 226 asserts no element type, and an assertion on `Y` there
   could not fail either. `LowRankDistribution` is a mutable struct whose factor fields have the
   concrete types of its parameters, so the assignment `Y.X, Y.S, Y.V, Y.nfixed = …` in the step
   converts a `Float64` matrix to the field's type. A `Float32` state fails on a promoted `τ` only
@@ -766,32 +766,22 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** defect
 - **found:** 2026-11-23
 
-### K124 · The required job "Julia 1 - ubuntu-latest" runs the whole suite with the `verification` group in one job, close to its timeout of 120 minutes, so a slow runner fails it.
+### K124 · The CI job "Julia 1 - ubuntu-latest - default - verification" takes about 70 minutes on a normal runner, so a runner about 1.6 times slower or more takes it past its timeout of 120 minutes.
 
-- **location:** `test/ci-groups.toml:6`
-- **evidence:** `split = false` runs every group in one job per matrix entry, and
-  `once = ["quality", "verification"]` adds `verification` to Ubuntu × Julia 1 alone. In CI run
-  45263801182 (westus3) the job passed in 77 minutes, with "Low-Rank BUG Rates" at 4059 s and
-  "Projector Splitting Rates" at 1366 s. In CI run 45283090271 (eastus2), on a head that changed
-  only `CHANGELOG.md`, the files ran about 2.4 times slower ("Projector Splitting Rates" 3466 s,
-  "Landau Solver" 1259 s against 547 s), and the job was cancelled at 2 h 0 min with "Low-Rank BUG
-  Rates" not yet finished. In CI run 45303262165, on a head that shares the helpers of the
-  low-rank steps, the job was cancelled at 2 h 0 min the same way ("Projector Splitting Rates"
-  3467 s, "Landau Solver" 1256 s, "Low-Rank BUG Rates" not reached).
+- **location:** `test/runtests.jl:60`
+- **evidence:** `split = true` gives the `verification` group a job of its own, but the group
+  alone holds about 104 minutes of test time on two workers. In CI run 45340940249 (westus, a
+  head without "Projector Splitting Rates") the job took 56 minutes: 14 minutes of setup and
+  precompilation with an empty cache ("No cache found", the first run of the new job; a restored
+  cache shortens it), then 42 minutes of tests, with "Low-Rank BUG Landau Rates" at 1725 s,
+  "Low-Rank BUG Two-Stream Rates" at 1173 s, "Low-Rank BUG Two-Stream Rates, Float32" at 1179 s,
+  "Bounded Velocity Closure Runs" at 318 s, "Reduced March at T = 1000" at 285 s and "Reduced
+  Equations at T = 100" at 176 s. "Projector Splitting Rates" took 1366 s in CI run 45263801182
+  (westus3), which puts the job at about 66 to 79 minutes. In CI run 45283090271 (eastus2) the
+  test files ran about 2.4 times slower ("Projector Splitting Rates" 3466 s, "Landau Solver" 1259 s
+  against 547 s); at that speed the tests of the group alone take about 124 minutes.
 - **kind:** defect
 - **found:** PR #147, from its CI
-
-### K125 · `LowRankIntegrator` throws an `InexactError` from Base's range constructor, not its own `ArgumentError`, for a span whose grid `t₀:tstep:t₁` has more times than an `Int` holds.
-
-- **location:** `src/lowrank/integrator.jl:66`
-- **evidence:** on Julia 1.13.4, `LowRankIntegrator(Y, BUG(), field, (0.0, 1e300), 1e-300)`
-  throws `InexactError: Int64(Inf)` from `t₀:Δt:t₁` in the guard of the repeated time, where the
-  other guards of the constructor throw an `ArgumentError` that starts with
-  "LowRankIntegrator takes ". `run!` built the same range before the file opened
-  (`src/lowrank/bug.jl:277` at `ff1ad74`), so no file is written in either case. No guard on the
-  length of the grid exists.
-- **kind:** found late
-- **found:** 2026-11-24
 
 ### K126 · Explicit RK4 on the bounded velocity closure is unstable at τ = 0.05 on the grids of the Landau runs, because the cut of h at the end nodes raises the spectral radius of the right-hand side 5–22 times; the stable τ depends on nₓ, hᵥ and vmax.
 
@@ -812,3 +802,23 @@ has left the file, or that lived only on a merged branch, stays taken.
   `linear`) and runs both unstable cases (group `closure`).
 - **kind:** found late
 - **found:** 2026-11-24
+
+### K127 · `run!(::SplittingMethod, h5file)` and `run!(::GeometricIntegrator, h5file)` step over the range `t₀:Δt:t₁`, which is the time grid of a `Solution` on GeometricSolutions 0.6 but not from 0.7.1, so on 0.7.1 and later a span whose last step ends a few ulps past `t₁` gives a file with one state fewer than `GeometricIntegrators.integrate` returns, and no error.
+
+- **location:** `src/methods/splitting.jl:77`
+- **evidence:** GeometricSolutions 0.6.8 builds a float `TimeSeries(tbegin, tend, Δt)` as
+  `TimeSeries(tbegin:Δt:tend, Δt)` (`src/timeseries.jl:12-13`), and so does 0.7.0. From 0.7.1
+  the float method takes `n = ntimesteps(tbegin, tend, Δt)` and builds
+  `range(tbegin; step = Δt, length = n + 1)` (0.7.3: `src/timeseries.jl:31-34`), and
+  `src/geometric_solution.jl:77` builds the solution's grid with it. On the span of the splitting
+  test, `(0, prevfloat(10 * T_g))` with `Δt = T_g / 32`, `ntime` is 320 and the range has 320
+  points, so the 0.7.1 grid has 321; on the span of the `GeometricIntegrator` test,
+  `(0.0, prevfloat(prevfloat(62 * 8e-4)))` with `Δt = 8e-4`, 63 against 62. The same holds at
+  `src/methods/geometric_integrator.jl:46`. Nothing resolves 0.7 today: `test/Project.toml` has
+  `GeometricSolutions = "0.6.6"`, and `ReducedComplexityModeling = "0.5"` holds it at 0.6, while
+  GeometricIntegrators 0.19.1 and ReducedComplexityModeling 0.6.1 admit `"0.6.6, 0.7"`. The tests
+  of both methods assert on exactly these spans that the solution has as many times as the range
+  (`test/methods/splitting.jl:28-29`, `test/methods/geometric_integrator.jl:138`), so they fail
+  when 0.7.1 or later resolves.
+- **kind:** defect
+- **found:** PR #152, from its review

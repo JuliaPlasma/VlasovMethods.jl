@@ -514,10 +514,10 @@ for T in (Float64, Float32)
 
         # a step that is zero or not finite in T is refused before the file is written: 1e-50
         # and 1e300 are finite and positive in Float64, and 0 and Inf in Float32, for every
-        # method
+        # method; the times of each span are distinct in Float32, so the constructor takes them
         if T === Float32
             for method in (BUG(), ProjectorSplitting(:lie)),
-                (tspan, tstep) in (((0, 5e-50), 1e-50), ((0, 1e301), 1e300))
+                (tspan, tstep) in (((0, 0), 1e-50), ((0, 1e300), 1e300))
 
                 file = joinpath(dir, "step.h5")
                 Y = copy_state(fx.Y)
@@ -622,12 +622,18 @@ for T in (Float64, Float32)
             @test attrs(h5)["status"] == "ok"
         end
 
-        # the guards of the constructor; the last span gives the grid t₀:tstep:t₁ that repeats
-        # its first time, 16777216f0 twice for Float32, which `allunique` of the range misses
+        # the guards of the constructor; the span (0, 1e300) with the step 1e-300 has more steps
+        # than an Int holds, and the last two spans give the grid t₀:tstep:t₁ that repeats its
+        # first time in T, 16777216f0 twice for Float32, which `allunique` of the range misses:
+        # in T itself, and in the wider type W, whose grid increases strictly
         tbig = T(2)^precision(T)
+        W = widen(T)
         @test collect(tbig:one(T):(tbig + 2)) == [tbig, tbig, tbig + 2]
+        @test allunique(W(tbig):one(W):(W(tbig) + 2))
+        @test T.(W(tbig):one(W):(W(tbig) + 2)) == [tbig, tbig, tbig + 2]
         for (tspan, tstep) in (((0, 1), 0), ((0, 1), -0.1), ((0, 1), NaN), ((0, 1), Inf),
-            ((1, 0), 0.1), ((0, Inf), 0.1), ((-Inf, 0), 0.1), ((tbig, tbig + 2), one(T)))
+            ((1, 0), 0.1), ((0, Inf), 0.1), ((-Inf, 0), 0.1), ((0, 1e300), 1e-300),
+            ((tbig, tbig + 2), one(T)), ((W(tbig), W(tbig) + 2), one(W)))
             err = try
                 LowRankIntegrator(copy_state(fx.Y), BUG(), fx.w, tspan, tstep)
             catch e
@@ -636,5 +642,15 @@ for T in (Float64, Float32)
             @test err isa ArgumentError
             @test occursin(r"^LowRankIntegrator takes ", err.msg)
         end
+        @test_throws r"^ArgumentError: LowRankIntegrator takes a span of fewer than typemax\(Int\) steps" LowRankIntegrator(
+            copy_state(fx.Y), BUG(), fx.w, (0, 1e300), 1e-300)
+        @test_throws r"^ArgumentError: LowRankIntegrator takes a span whose times t₀:tstep:t₁ increase strictly in the element type" LowRankIntegrator(
+            copy_state(fx.Y), BUG(), fx.w, (W(tbig), W(tbig) + 2), one(W))
+
+        # a step at the spacing of T below 2^precision(T) gives distinct times in T, and is taken
+        int = LowRankIntegrator(
+            copy_state(fx.Y), BUG(), fx.w, (W(tbig) - 4, W(tbig)), one(W))
+        @test int.tspan == (W(tbig) - 4, W(tbig))
+        @test allunique(T.((W(tbig) - 4):one(W):W(tbig)))
     end
 end

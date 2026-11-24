@@ -101,14 +101,17 @@ their own, except for what they removed and narrowed, which is listed in full be
   density, a cell count of zero threw a `BoundsError`, and an infinite or `NaN` domain end threw
   Base's `ArgumentError` of `range` or an `InexactError` from the cell index.
 - **`run!(::GeometricIntegrator, h5file)` steps over the solution's own time grid (K93).** It sized
-  its datasets by `ntime(equation) + 1` and indexed the range `t₀:Δt:t₁` up to that count, but
-  before GeometricEquations 0.21.8 `ntime` rounded the step count up, and the range was one point
-  shorter wherever the span is not a whole number of steps in floating point: a run to `0.05` with
-  the step `8e-4` threw a `BoundsError` before its last step. The datasets now hold one slice per
-  point of the range, and the loop takes the steps that `GeometricIntegrators.integrate` takes, as
-  `run!(::SplittingMethod, h5file)` does. `run!` writes its last slice at `last(t₀:Δt:t₁)`, the last
-  whole step at or below `t₁`, so a span that is not a whole number of steps ends short of `t₁` —
-  for `t₁ = 0.05` and `Δt = 8e-4` the last time written is `0.0496` (62 steps), as for
+  its datasets by `ntime(equation) + 1` and indexed the range `t₀:Δt:t₁` up to that count. The range
+  is one point shorter than that wherever `ntime` counts a partial last step: on GeometricEquations
+  0.21.5 to 0.21.7 on any span that is not a whole number of steps in floating point, and from
+  0.21.8 on a span whose last step ends a few ulps past `t₁`. A run to `0.05` with the step `8e-4`
+  threw a `BoundsError` before its last step on 0.21.5 to 0.21.7; on every version up to 0.21.9, so
+  did a run to `prevfloat(prevfloat(62 * 8e-4))`, where `ntime` is 62 and the range has 62 points
+  and ends at `0.0488`. The datasets now hold one slice per point of the range, and the loop takes
+  the steps that `GeometricIntegrators.integrate` takes, as `run!(::SplittingMethod, h5file)` does.
+  `run!` writes its last slice at `last(t₀:Δt:t₁)`, the last whole step at or below `t₁`, so a span
+  that does not end on a step in floating point ends short of `t₁` — for `t₁ = 0.05` and
+  `Δt = 8e-4` the last time written is `0.0496` (62 steps), as for
   `GeometricIntegrators.integrate`. A span that is a whole number of steps gives the same file as
   before.
 - **`initialize!(ParticleDistribution(1, 1, n), Bump())` draws the bump (K68).** Its `draw!`
@@ -118,46 +121,6 @@ their own, except for what they removed and narrowed, which is listed in full be
 - **`size(rt, i)` and `axes(rt, i)` of a `ReducedCollisionTensor` give `1` and `Base.OneTo(1)`
   for `i > 3` (K30)**, from the `AbstractArray` fallbacks. The methods of the type indexed past
   its three dimensions and threw a `BoundsError`.
-- **The floor of GeometricEquations is 0.21.8**, whose `ntime(equation)` drops a partial last
-  step: for `t₁ = 0.05` and `Δt = 8e-4` it counts 62 steps, as the solution's time grid
-  `t₀:Δt:t₁` does, where 0.21.5 to 0.21.7 rounded `(t₁ - t₀) / Δt` up to 63. `ntime(equation) + 1`
-  is then the number of states that `GeometricIntegrators.integrate` and `run!` write, except on
-  some spans whose last step ends a few ulps past `t₁`: there `ntime` counts that step and the
-  grid can drop it, so `ntime(equation) + 1` can be one more than the number of states. `run!`
-  takes its step count from the grid in either case. The tests of
-  `run!(::SplittingMethod, h5file)` and `run!(::GeometricIntegrator, h5file)` assert the agreement
-  on their spans, so they fail on 0.21.5 to 0.21.7.
-- **The step τ that `lowrank_step!` refuses is printed as it was given (K111, K116).** Both the
-  BUG methods and `ProjectorSplitting` convert `τ` to the element type `T` of the state and refuse
-  a `τ` that is not finite in `T`, now with one message for both families,
-  `the step τ is not finite in the element type T of the state; got τ = <τ>`. Before, each
-  family had a message of its own that printed the converted `τ`, so the finite `τ = 1e300` on a
-  `Float32` state read `got Inf`; it now reads `got τ = 1.0e300`.
-- **The manual's sentence on full rank names `AugmentedBUG()` and `MidpointBUG()` (K119).** It said
-  that at full rank a step of the augmented BUG is the RK4 step of the full-order model, which
-  `AugmentedBUG(tol; rmin, rmax)` does not satisfy: its truncation applies at full rank too, so
-  its step differs from the RK4 step by up to `tol`. The page now says so.
-- **A step of the augmented or the midpoint BUG that leaves a non-finite core keeps the rank of
-  its input (K120).** It installed the untruncated factors of the augmented bases, of up to `2r`
-  or `4r` columns, and on a grid with `nx ≠ nv` a rectangular core, which
-  `LowRankDistribution` refuses. It now installs the first `r` columns of the augmented bases and
-  an `r × r` core of `NaN`, so the state stays valid and `all(isfinite, Y.S)` still reports the
-  failure. `BUG()` keeps its factors of rank `r`, as before.
-- **`LowRankIntegrator` refuses a span whose times repeat (K121).** On a grid `t₀:tstep:t₁` near
-  the end of the precision of its type, such as `16777216f0:1f0:16777218f0`, `run!` passed the
-  first time to two steps and wrote it twice. The constructor now throws an `ArgumentError` for a
-  grid that does not increase strictly.
-- **`run!` of a low-rank method keeps an existing file when HDF5 cannot store the times or the
-  state (K122).** It opened, and so truncated, the file before HDF5 refused the element type, so
-  a run with `Int128` times destroyed the file and wrote nothing. It now throws an
-  `ArgumentError` before it opens the file when HDF5 has no datatype for the element type of the
-  times or of the state, such as `Int128`, `Float16` or `BigFloat`.
-- **`run!` of a low-rank method records a step that throws (K123).** A step that threw left the
-  file without a `status` attribute. `run!` now sets `status` to
-  `"failed at step <s>: <E>"`, with `E` the name of the exception type, and rethrows. It also
-  checks that `tstep` is positive and finite in the element type of the state for every method,
-  where it checked this for the BUG methods only.
-
 ### Breaking Changes
 
 - **`LB_rhs`, `CLB_rhs` and `RCLB_rhs` are deleted.** Nothing in the package called these
@@ -443,24 +406,40 @@ their own, except for what they removed and narrowed, which is listed in full be
   `AugmentedBUG` or `MidpointBUG` in place on a `LowRankDistribution` on a `GridFactorSpace`, with
   the workspace `LowRankFields1D1V` of the fields, and returns `Y`. Each substep is one step of the
   classical RK4 tableau, and no field or step forms the `nx × nv` array. The step converts `τ` to
-  the element type of `Y`, throws an `ArgumentError` for a non-finite `τ`, counts the fixed modes
-  in the rank and sets `nfixed = 0`. A step whose S-step or Galerkin step leaves a non-finite
-  value does not throw: it keeps the rank of its input, the augmented and the midpoint BUG with
-  a core of `NaN`, and `all(isfinite, Y.S)` is the status that a caller tests.
+  the element type `T` of `Y` and throws an `ArgumentError` before any write for a `τ` that is not
+  finite in `T`, with one message for the BUG methods and `ProjectorSplitting`,
+  `the step τ is not finite in the element type T of the state; got τ = <τ>`, in which `τ` is
+  printed as it was given: the finite `τ = 1e300` on a `Float32` state reads `got τ = 1.0e300`
+  (K111, K116). The step counts the fixed modes in the rank and sets `nfixed = 0`. A step whose
+  S-step or Galerkin step leaves a non-finite value does not throw, and `all(isfinite, Y.S)` is
+  the status that a caller tests. `BUG()` keeps its factors of rank `r`, non-finite as they come.
+  `AugmentedBUG` and `MidpointBUG` skip the truncation and install the first `r` columns of the
+  augmented bases and an `r × r` core of `NaN`, with `r` the rank of the input, so the state stays
+  a valid `LowRankDistribution` also on a grid with `nx ≠ nv` (K120).
 - **`LowRankIntegrator`** holds a run of a method with a `lowrank_step!` that keeps the rank, or
   of `AugmentedBUG(tol; rmin, rmax)`, whose rank stays within `rmax`, from a
   `LowRankDistribution` over a span with a step, and `run!(int, h5file)` writes the times, the
   ranks and the factors `X`, `S` and `V` of every state into an HDF5 file, zero beyond each rank.
+  The constructor throws an `ArgumentError` for a step that is not finite and positive, for a
+  span that is not finite or has `t₁ < t₀`, for a span of `typemax(Int)` steps or more, such as
+  `(0.0, 1e300)` with the step `1e-300` (K125), and for a span whose grid `t₀:tstep:t₁` does not
+  increase strictly in the element type of `Y`, in which every step reads its time: on a
+  `Float32` state, the span `(16777216.0, 16777218.0)` with the step `1.0` repeats its first time
+  (K121).
   The datasets `X`, `S` and `V` have the initial rank `R` as their width, or
   `min(rmax, nx, nv)` for `AugmentedBUG(tol; rmin, rmax)`. A step that grows the rank beyond the
   `R` stored columns stops the run: `run!` sets the file attribute `status` to
   `"failed at step <s>: rank <r> beyond the <R> stored columns"`, closes the file and throws an
   `ArgumentError`.
   A step that leaves a non-finite `S` stops the run without an error and sets the file attribute
-  `status` to `"failed at step <s>"`; a complete run sets `"ok"`. `run!` throws an
-  `ArgumentError` before it opens the file when the step is zero or not finite in the element
-  type of `Y`, as a `Float64` step `1e-50` is on a `Float32` state, because the run would not
-  advance in time.
+  `status` to `"failed at step <s>"`; a complete run sets `"ok"`. A step that throws sets
+  `status` to `"failed at step <s>: <E>"`, with `E` the name of the exception type, and the
+  exception propagates from `run!` (K123). `run!` throws an `ArgumentError` before it opens the
+  file when the step is zero or not finite in the element type of `Y`, as a `Float64` step
+  `1e-50` is on a `Float32` state, because the run would not advance in time, and this holds for
+  every method (K123). It throws the same error, before it opens the file, for an element type of
+  the times or of `Y` that HDF5 does not store, such as `Int128`, `Float16` or `BigFloat`, so an
+  existing file keeps its bytes (K122).
 - **`ProjectorSplitting`** is the projector-splitting integrator of dynamical low rank (Lubich and
   Oseledets 2014), a reference method. `ProjectorSplitting(:lie)` is the first-order K–S–L
   composition with the backward S-substep; `ProjectorSplitting(:strang)` is the second-order
@@ -472,9 +451,10 @@ their own, except for what they removed and narrowed, which is listed in full be
   `ProjectorSplitting` in place, with the fields `LowRankFields1D1V` of the grid, or any field with
   methods of the internal K-, S- and L-right-hand sides, as `field`. It forms no `nx × nv` array
   and sets `nfixed = 0`. `τ` is a signed step, converted to the element type of the state; a step
-  that is not finite throws an `ArgumentError` before it writes the state. At full rank the Lie
-  step agrees with the full-order RK4 step, and the Strang step with the full-order step of the
-  same frozen-potential composition, to `1e-10` relative over 20 steps in `Float64`; the Lie step
+  that is not finite there throws the `ArgumentError` of the BUG methods before it writes the
+  state (K111, K116). At full rank the Lie step agrees with the full-order RK4 step, and the
+  Strang step with the full-order step of the same frozen-potential composition, to `1e-10`
+  relative over 20 steps in `Float64`; the Lie step
   from `A(t)` is exact for the field `F(Y, t) = Ȧ(t)`, which does not depend on the state, on a
   path `A` of rank at most `r` whose derivative RK4 integrates exactly, where `A(t + τ) V₀` has
   the rank of `A(t + τ)`, `V₀` the velocity factor at `t` (for rank exactly `r`:
@@ -715,7 +695,10 @@ their own, except for what they removed and narrowed, which is listed in full be
   200 KiB that Documenter allows.
 - **The dynamical low-rank methods have a section of their own**, "Dynamical low rank", with the
   manual page `manual/lowrank.md`, which describes `LowRankDistribution`, its factorisation and
-  `GridFactorSpace`, and the library page `library/lowrank.md` of their docstrings.
+  `GridFactorSpace`, and the library page `library/lowrank.md` of their docstrings. The page
+  says what a BUG step is at full rank: the RK4 step of the full-order model for `AugmentedBUG()`
+  and `MidpointBUG()`, and not for `AugmentedBUG(tol; rmin, rmax)`, whose truncation applies at
+  full rank too, so its step differs from the RK4 step by up to `tol` (K119).
 - **The low-rank pages describe the projector splitting**: a section of `manual/lowrank.md` on
   `ProjectorSplitting` and `lowrank_step!`, with an example of ten Strang steps, and a block of
   their docstrings on `library/lowrank.md`.
@@ -725,11 +708,10 @@ their own, except for what they removed and narrowed, which is listed in full be
 - **The low-rank steps share their helpers and one docstring of their contract.**
   `src/lowrank/integrator.jl` holds the docstring of the generic `lowrank_step!`, which states the
   contract of every method; the RK4 substep and the τ guard that the BUG methods and
-  `ProjectorSplitting` share; and `LowRankIntegrator` and `run!`, which move there from
-  `src/lowrank/bug.jl`. The docstring of each method keeps its algorithm and its fields, and the
-  library page shows the generic docstring in a section of its own. A step of each method gives
-  the same factors as before, bit for bit. `test/verification/projector_splitting_rates.jl` takes
-  its rate fits from `test/helpers/rate_fits.jl`.
+  `ProjectorSplitting` share; and `LowRankIntegrator` and `run!`. The docstring of each method
+  holds its algorithm and its fields, and the library page shows the generic docstring in a
+  section of its own. `test/verification/projector_splitting_rates.jl` takes its rate fits from
+  `test/helpers/rate_fits.jl`.
 - **`kernel` is inlined into `compute_L!`, and skips the power `|u|^{γ+2}` at the default
   `γ = -3`.** On the 8 × 8 cubic basis of `test/models/landau.jl` (M = 121, Q = 1600), one
   `compute_L!` takes 44 ms where it took 54 ms on `1897780` (minimum of 20 calls, two cold runs
@@ -768,17 +750,24 @@ their own, except for what they removed and narrowed, which is listed in full be
   metriplectic and collision-tensor test files out of `core`. `Pkg.test()` runs every group.
   `.github/workflows/CI.yml`, `codecov.yml` and the git hooks in `.githooks/` follow the
   Harness template, which checks the group files.
-- **The test files run in parallel worker processes, and CI runs one job per matrix entry.**
-  `test/runtests.jl` hands its 45 files to ParallelTestRunner, which runs each in a worker process
+- **The test files run in parallel worker processes, and CI runs one job per test group and
+  matrix entry.**
+  `test/runtests.jl` hands its 54 files to ParallelTestRunner, which runs each in a worker process
   of its own, in place of the `@safetestset` blocks of SafeTestsets; `test/Project.toml` lists
   `ParallelTestRunner = "2.10"` and no longer SafeTestsets. The groups are `core`, `quality`,
   `slow`, `collisions` and `verification`, and `Pkg.test()` runs all of them. `quality` takes the
   Aqua, JET and ExplicitImports checks and the two plotting tests out of `core`; `verification`
-  takes the two files under `test/verification/` out of `slow`. `test/ci-groups.toml` sets
-  `split = false`, so each CI matrix entry runs every group in one job, not one job per group,
-  and `once = ["quality", "verification"]`, so a pull request and a push run
-  those two groups on Ubuntu with Julia 1 only. An argument that starts with `--`, such as
-  `--jobs=4`, goes to the runner, and an unknown group name stops the run.
+  holds the seven files under `test/verification/`. `test/ci-groups.toml` sets `split = true`, so
+  each matrix entry of the test jobs runs one job per group, with the required checks ending in
+  ` - <group>`, while the advisory `pre` and `nightly` jobs run the whole suite in one job. It
+  also sets `once = ["quality", "verification"]`, so a pull request and a push run those two
+  groups on Ubuntu with Julia 1 only. An argument that starts with `--`, such as `--jobs=4`, goes
+  to the runner, and an unknown group name stops the run.
+- **The dispersion-rate tests of the BUG integrators are three files** of the `verification`
+  group, the Landau rates and the two-stream rates in Float64 and in Float32, with their runs in
+  `test/helpers/lowrank_bug_rates.jl`, so that CI spreads them over the workers of the job that
+  runs `verification`. Together they take about 68 minutes on a CI runner. On a slow runner the
+  `verification` job can still run past its timeout of 120 minutes (K124).
 
 ## [0.4.1] — 2026-11-04
 

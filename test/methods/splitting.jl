@@ -8,7 +8,8 @@ using VlasovMethods
 include("../helpers/external_fields.jl")
 
 @testset "run!(::SplittingMethod, h5file), $T" for T in (Float64, Float32)
-    # The gyro benchmark's grid: ten periods at a step of `T_g/32`, 320 steps in exact arithmetic.
+    # The gyro benchmark's grid: ten periods at a step of `T_g/32`, 320 steps in exact arithmetic,
+    # ending one ulp below `10 * T_g`.
     m, B₀ = T(3), T(1.7)
     q = T(2)
     T_g = 2 * T(π) * m / (abs(q) * B₀)
@@ -16,16 +17,16 @@ include("../helpers/external_fields.jl")
     v₀ = SVector{3, T}(0.7, 0.4, 0.25)
     field = UniformField(zero(SVector{3, T}), SVector{3, T}(0, 0, B₀))
     model = VlasovWithExternalFields(one_particle(T, x₀, v₀), field; charge = q, mass = m)
-    method = SplittingMethod(model, (zero(T), 10 * T_g), T_g / 32)
+    method = SplittingMethod(model, (zero(T), prevfloat(10 * T_g)), T_g / 32)
 
-    # `T_g/32` is exact, and the span is 320 whole steps in exact arithmetic. The rounded span
-    # `10 * T_g` is half an ulp or less off `320Δt`, and `320Δt` rounds to it. The equation's
-    # `ntime` and the solution's grid `t₀:Δt:t₁` agree on 320 steps, 321 points, one state per
-    # point.
+    # `T_g/32` is exact, and `10 * T_g` is half an ulp or less off `320Δt`. The span ends one ulp
+    # below that, so the last step of `320Δt` ends past `t₁`: the equation's `ntime` counts it,
+    # 320 steps, and the solution's grid `t₀:Δt:t₁` drops it, 319 steps on 320 points, one state
+    # per point. `run!` writes one slice per point of the grid, not `ntime + 1` (K93).
     @test ntime(method.equation) == 320
     sol = GeometricIntegrators.integrate(method.integrator)
-    @test length(sol.t) == 321
-    @test ntime(method.equation) + 1 == length(sol.t)
+    @test length(sol.t) == 320
+    @test ntime(method.equation) == length(sol.t)
 
     h5file = joinpath(mktempdir(), "splitting.hdf5")
     @test run!(method, h5file) === model.distribution
