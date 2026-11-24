@@ -39,9 +39,10 @@ function run!(int::GeometricIntegrator, h5file)
     # the length of the state
     np = size(z₀, 1)
 
-    # The time grid of a `Solution` of the same problem, as in `run!(::SplittingMethod, h5file)`:
-    # one point per state, the initial one included, which can be one point fewer than
-    # `ntime(prob) + 1` where `ntime` counts a partial last step that the range drops.
+    # The time grid of a `Solution` of the same problem on GeometricSolutions 0.6, as in
+    # `run!(::SplittingMethod, h5file)` (K127): one point per state, the initial one included,
+    # which can be one point fewer than `ntime(prob) + 1` where `ntime` counts a partial last step
+    # that the range drops.
     times = t₀:GeometricEquations.timestep(prob):GeometricEquations.finaltime(prob)
 
     # create HDF5 file and copy initial conditions
@@ -74,7 +75,8 @@ function run!(int::GeometricIntegrator, h5file)
     return _write_back!(int.model, solstep.q)
 end
 
-# The particle models step the first row of `dist.particles.v`; a grid model keeps the whole state in `distribution.values` and has its own method, in
+# The particle models step the first row of `dist.particles.v`; a grid model keeps the whole
+# state in `distribution.values` and has its own method, in
 # `src/gridbased/vlasov_poisson_1d1v.jl`. Both return the distribution.
 function _write_back!(model, q)
     model.dist.particles.v[1, :] .= q

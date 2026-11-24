@@ -133,7 +133,8 @@ end
     @test z[:, end] == model.dist.particles.v[1, :]
     # the slices are the states of `integrate` on the same problem, which steps over `times`
     sol = GeometricIntegrators.integrate(
-        VlasovMethods.GeometricIntegrator(lenard_bernstein(LenardBernstein), tspan, tstep).integrator)
+        VlasovMethods.GeometricIntegrator(
+        lenard_bernstein(LenardBernstein), tspan, tstep).integrator)
     @test ntime(sol) + 1 == length(times)
     @test all(z[:, n + 1] == sol.q[n] for n in 0:ntime(sol))
 end

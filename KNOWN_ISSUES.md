@@ -867,3 +867,23 @@ has left the file, or that lived only on a merged branch, stays taken.
   against 547 s); at that speed the tests of the group alone take about 124 minutes.
 - **kind:** defect
 - **found:** PR #147, from its CI
+
+### K127 · `run!(::SplittingMethod, h5file)` and `run!(::GeometricIntegrator, h5file)` step over the range `t₀:Δt:t₁`, which is the time grid of a `Solution` on GeometricSolutions 0.6 but not from 0.7.1, so on 0.7.1 and later a span whose last step ends a few ulps past `t₁` gives a file with one state fewer than `GeometricIntegrators.integrate` returns, and no error.
+
+- **location:** `src/methods/splitting.jl:77`
+- **evidence:** GeometricSolutions 0.6.8 builds a float `TimeSeries(tbegin, tend, Δt)` as
+  `TimeSeries(tbegin:Δt:tend, Δt)` (`src/timeseries.jl:12-13`), and so does 0.7.0. From 0.7.1
+  the float method takes `n = ntimesteps(tbegin, tend, Δt)` and builds
+  `range(tbegin; step = Δt, length = n + 1)` (0.7.3: `src/timeseries.jl:31-34`), and
+  `src/geometric_solution.jl:77` builds the solution's grid with it. On the span of the splitting
+  test, `(0, prevfloat(10 * T_g))` with `Δt = T_g / 32`, `ntime` is 320 and the range has 320
+  points, so the 0.7.1 grid has 321; on the span of the `GeometricIntegrator` test,
+  `(0.0, prevfloat(prevfloat(62 * 8e-4)))` with `Δt = 8e-4`, 63 against 62. The same holds at
+  `src/methods/geometric_integrator.jl:46`. Nothing resolves 0.7 today: `test/Project.toml` has
+  `GeometricSolutions = "0.6.6"`, and `ReducedComplexityModeling = "0.5"` holds it at 0.6, while
+  GeometricIntegrators 0.19.1 and ReducedComplexityModeling 0.6.1 admit `"0.6.6, 0.7"`. The tests
+  of both methods assert on exactly these spans that the solution has as many times as the range
+  (`test/methods/splitting.jl:28-29`, `test/methods/geometric_integrator.jl:138`), so they fail
+  when 0.7.1 or later resolves.
+- **kind:** defect
+- **found:** PR #152, from its review
