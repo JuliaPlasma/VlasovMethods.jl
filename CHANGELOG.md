@@ -724,17 +724,24 @@ their own, except for what they removed and narrowed, which is listed in full be
   metriplectic and collision-tensor test files out of `core`. `Pkg.test()` runs every group.
   `.github/workflows/CI.yml`, `codecov.yml` and the git hooks in `.githooks/` follow the
   Harness template, which checks the group files.
-- **The test files run in parallel worker processes, and CI runs one job per matrix entry.**
-  `test/runtests.jl` hands its 45 files to ParallelTestRunner, which runs each in a worker process
+- **The test files run in parallel worker processes, and CI runs one job per test group and
+  matrix entry.**
+  `test/runtests.jl` hands its 54 files to ParallelTestRunner, which runs each in a worker process
   of its own, in place of the `@safetestset` blocks of SafeTestsets; `test/Project.toml` lists
   `ParallelTestRunner = "2.10"` and no longer SafeTestsets. The groups are `core`, `quality`,
   `slow`, `collisions` and `verification`, and `Pkg.test()` runs all of them. `quality` takes the
   Aqua, JET and ExplicitImports checks and the two plotting tests out of `core`; `verification`
-  takes the two files under `test/verification/` out of `slow`. `test/ci-groups.toml` sets
-  `split = false`, so each CI matrix entry runs every group in one job, not one job per group,
-  and `once = ["quality", "verification"]`, so a pull request and a push run
-  those two groups on Ubuntu with Julia 1 only. An argument that starts with `--`, such as
-  `--jobs=4`, goes to the runner, and an unknown group name stops the run.
+  holds the seven files under `test/verification/`. `test/ci-groups.toml` sets `split = true`, so
+  each matrix entry of the test jobs runs one job per group, with the required checks ending in
+  ` - <group>`, while the advisory `pre` and `nightly` jobs run the whole suite in one job. It
+  also sets `once = ["quality", "verification"]`, so a pull request and a push run those two
+  groups on Ubuntu with Julia 1 only. An argument that starts with `--`, such as `--jobs=4`, goes
+  to the runner, and an unknown group name stops the run.
+- **The dispersion-rate tests of the BUG integrators are three files** of the `verification`
+  group, the Landau rates and the two-stream rates in Float64 and in Float32, with their runs in
+  `test/helpers/lowrank_bug_rates.jl`, so that CI spreads them over the workers of the job that
+  runs `verification`. Together they take about 68 minutes on a CI runner. On a slow runner the
+  `verification` job can still run past its timeout of 120 minutes (K124).
 
 ## [0.4.1] — 2026-11-04
 
