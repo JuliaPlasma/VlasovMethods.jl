@@ -1,5 +1,5 @@
 using GeometricIntegrators: GeometricIntegrators
-using HDF5: attrs, h5open
+using HDF5: HDF5, attrs, h5open
 using LinearAlgebra: I, diag, isdiag, norm, svdvals
 using PoissonSolvers: FFTWBasis, Potential
 using Test
@@ -11,7 +11,7 @@ include("../helpers/rate_fits.jl")
 
 # Every fixture lies on x ∈ [0, 4π), v ∈ [-10, 10], with `G` the Green's matrix of the model's FFT
 # backend. On 64 velocity nodes f at v = ±10 stays at round-off of its largest value over each run;
-# on the 16 and 24 nodes of the edge, rank-guard and driver fixtures it does not
+# on the 16, 24 and 32 nodes of the edge, rank-guard and driver fixtures it does not
 # (KNOWN_ISSUES.md K110). The expected values come from the dense transcription of each paper's
 # algorithm in `test/helpers/dense_bug.jl`, from the package's full-order RK4 integrator, or from
 # the published orders of the three methods.
@@ -243,7 +243,7 @@ for T in (Float64, Float32)
         methods = (BUG(), AugmentedBUG(), MidpointBUG())
 
         # a non-finite step is refused before any write
-        phrase = r"^the step τ of a BUG integrator is finite; got (NaN|Inf|-Inf)(32)?$"
+        phrase = r"^the step τ is not finite in the element type (Float64|Float32) of the state; got τ = (NaN|Inf|-Inf)(32)?$"
         for method in methods, τ in (NaN, Inf, -Inf, T(NaN), T(Inf), T(-Inf))
 
             Y = copy_state(fx.Y)
@@ -258,9 +258,23 @@ for T in (Float64, Float32)
             @test factors(Y) == before
         end
         if T === Float32
-            # a finite Float64 step that overflows in Float32 names the converted value
-            @test_throws r"^ArgumentError: the step τ of a BUG integrator is finite; got Inf$" lowrank_step!(
-                copy_state(fx.Y), BUG(), fx.w, zero(T), 1e300)
+            # a finite Float64 step that overflows in Float32 is refused, and the message names
+            # the step as it was given
+            for method in methods, (τ, given) in ((1e300, "1.0e300"), (1.0e39, "1.0e39"))
+
+                Y = copy_state(fx.Y)
+                before = factors(Y)
+                err = try
+                    lowrank_step!(Y, method, fx.w, zero(T), τ)
+                catch e
+                    e
+                end
+                @test err isa ArgumentError
+                @test err.msg ==
+                      "the step τ is not finite in the element type Float32 of " *
+                      "the state; got τ = $given"
+                @test factors(Y) == before
+            end
         end
 
         # τ of another float type is converted to T before its first use
@@ -310,18 +324,37 @@ for T in (Float64, Float32)
             @test orthonormality(Y) ≤ 50 * eps(T)
         end
 
-        # a non-finite state is not checked: the step leaves the untruncated factors, and the
-        # status all(isfinite, Y.S) is false
-        r, (nx, nv) = 3, size(fx.Y)
-        cores = (BUG() => (r, r), AugmentedBUG() => (min(2r, nx), min(2r, nv)),
-            MidpointBUG() => (min(4r, nx), min(4r, nv)))
-        for (method, core) in cores, value in (T(NaN), T(Inf))
+        # a non-finite state is not checked: BUG() keeps its rank-r factors, non-finite as they
+        # come, and the augmented methods install the first r columns of the augmented bases and
+        # an r × r core of NaN; the status all(isfinite, Y.S) is false, and the factors make a
+        # state. Rank 3 on 16 × 24 nodes, and rank 16 on 32 × 16 and 16 × 32 nodes, where the
+        # augmented bases have more columns in one direction than in the other.
+        augmented = (AugmentedBUG(), AugmentedBUG(1e-6; rmax = 16), MidpointBUG())
+        for start in (fx, fixture(T, 32, 16; r = 16), fixture(T, 16, 32; r = 16))
+            r, (nx, nv) = size(start.Y.S, 1), size(start.Y)
+            for method in (BUG(), augmented...), value in (T(NaN), T(Inf))
 
-            Y = copy_state(fx.Y)
-            Y.S[1, 1] = value
-            @test lowrank_step!(Y, method, fx.w, zero(T), T(0.05)) === Y
-            @test size(Y.S) == core
-            @test !all(isfinite, Y.S)
+                Y = copy_state(start.Y)
+                Y.S[1, 1] = value
+                @test lowrank_step!(Y, method, start.w, zero(T), T(0.05)) === Y
+                @test size(Y.S) == (r, r)
+                @test size(Y.X) == (nx, r) && size(Y.V) == (nv, r)
+                @test eltype(Y.X) == eltype(Y.S) == eltype(Y.V) == T
+                @test !all(isfinite, Y.S)
+                method isa BUG || @test all(isnan, Y.S)
+                @test LowRankDistribution(Y.space, Y.X, Y.S, Y.V) isa LowRankDistribution{T}
+            end
+        end
+
+        # the truncation of a non-finite core on finite bases, which the steps above do not
+        # reach (their bases are NaN as well): the first r columns of the bases, a core of NaN
+        X̂, V̂ = T.(cos.((1:16) .* (1:6)' ./ 7)), T.(sin.((1:24) .* (1:6)' ./ 5))
+        Ŝ = Matrix{T}(I, 6, 6)
+        Ŝ[2, 3] = T(Inf)
+        for method in augmented
+            X₁, S₁, V₁ = VlasovMethods._truncate(method, X̂, Ŝ, V̂, 3)
+            @test X₁ == X̂[:, 1:3] && V₁ == V̂[:, 1:3]
+            @test size(S₁) == (3, 3) && eltype(S₁) == T && all(isnan, S₁)
         end
 
         # nx > nv: at r = nv the augmented x basis has more columns than the v basis, and one
@@ -381,6 +414,27 @@ function VlasovMethods.lowrank_step!(Y, ::GrowingMethod, field, t, τ)
     Y.S = [Y.S zeros(T, r); zeros(T, 1, r) one(T)]
     return Y
 end
+
+# a method of the test file whose step doubles S, and throws `exception` at its second call
+struct ThrowingMethod{E <: Exception}
+    calls::Base.RefValue{Int}
+    exception::E
+end
+
+function VlasovMethods.lowrank_step!(Y, method::ThrowingMethod, field, t, τ)
+    method.calls[] += 1
+    method.calls[] == 2 && throw(method.exception)
+    Y.S .*= 2
+    return Y
+end
+
+# an exception type of the test file, whose `typeof` prints with the name of its module
+struct ProbeError <: Exception end
+
+# a type of the test file whose HDF5 datatype is interrupted
+struct InterruptingType end
+
+HDF5.datatype(::Type{InterruptingType}) = throw(InterruptException())
 
 for T in (Float64, Float32)
     @testset "the run driver, $T" begin
@@ -459,18 +513,52 @@ for T in (Float64, Float32)
         @test !isfile(file)
 
         # a step that is zero or not finite in T is refused before the file is written: 1e-50
-        # and 1e300 are finite and positive in Float64, and 0 and Inf in Float32
+        # and 1e300 are finite and positive in Float64, and 0 and Inf in Float32, for every
+        # method
         if T === Float32
-            for (tspan, tstep) in (((0, 5e-50), 1e-50), ((0, 1e301), 1e300))
+            for method in (BUG(), ProjectorSplitting(:lie)),
+                (tspan, tstep) in (((0, 5e-50), 1e-50), ((0, 1e301), 1e300))
+
                 file = joinpath(dir, "step.h5")
                 Y = copy_state(fx.Y)
                 before = factors(Y)
                 @test_throws r"^ArgumentError: the step [^ ]+ is zero or not finite in the element type Float32 of the state$" run!(
-                    LowRankIntegrator(Y, BUG(), fx.w, tspan, tstep), file)
+                    LowRankIntegrator(Y, method, fx.w, tspan, tstep), file)
                 @test factors(Y) == before
                 @test !isfile(file)
             end
         end
+
+        # an element type of the times or of the state that HDF5 does not store is refused
+        # before the file is opened, so an existing file keeps its bytes
+        file = joinpath(dir, "kept.h5")
+        h5open(h5 -> (h5["kept"] = collect(1:4)), file, "w")
+        bytes = read(file)
+        xd, vd = (Float16(0), Float16(4π)), (Float16(-10), Float16(10))
+        half = GridFactorSpace(GridDistribution(zeros(Float16, nx, nv), xd, vd))
+        Yhalf = LowRankDistribution(half, Float16.(fx.Y.X), Float16.(fx.Y.S), Float16.(fx.Y.V))
+        for (Y, method, tspan, tstep, name) in (
+            (copy_state(fx.Y), BUG(), (Int128(0), Int128(2)), Int128(1), "Int128"),
+            (copy_state(fx.Y), BUG(), (big"0.0", big"0.2"), big"0.1", "BigFloat"),
+            (Yhalf, DoublingMethod(Ref(0)), (0, 0.2), 0.1, "Float16"))
+            before = factors(Y)
+            err = try
+                run!(LowRankIntegrator(Y, method, fx.w, tspan, tstep), file)
+            catch e
+                e
+            end
+            @test err isa ArgumentError
+            @test err.msg ==
+                  "run! writes the times and the state to HDF5, which has no datatype for $name"
+            @test read(file) == bytes
+            @test factors(Y) == before
+        end
+
+        # an interrupt while HDF5 looks up the datatype leaves the check as an interrupt, not as
+        # the ArgumentError; `@test_throws` with a pattern rethrows an interrupt, so only the
+        # type form tests it
+        # ast-grep-ignore: test-throws-bare-type
+        @test_throws InterruptException VlasovMethods._check_hdf5_type(InterruptingType)
 
         # a method of the test file that keeps the rank, and a run that fails at its third step
         file = joinpath(dir, "failing.h5")
@@ -485,6 +573,27 @@ for T in (Float64, Float32)
             @test S[:, :, 2] == 2S₀ && S[:, :, 3] == 4S₀
             @test rank == [3, 3, 3, 0, 0, 0]
             @test iszero(S[:, :, 4:6])
+        end
+
+        # a step that throws sets the status with the name of the exception type, and the
+        # exception leaves run!; the states before it are written
+        for (exception, name) in ((ErrorException("probe"), "ErrorException"),
+            (ProbeError(), "ProbeError"))
+            file = joinpath(dir, "throwing.h5")
+            Y = copy_state(fx.Y)
+            S₀ = copy(Y.S)
+            @test_throws exception run!(
+                LowRankIntegrator(
+                    Y, ThrowingMethod(Ref(0), exception), fx.w, (0, 0.5), 0.1),
+                file)
+            h5open(file, "r") do h5
+                @test attrs(h5)["status"] == "failed at step 2: $name"
+                S, rank = read(h5["S"]), read(h5["rank"])
+                @test eltype(S) == T
+                @test S[:, :, 1] == S₀ && S[:, :, 2] == 2S₀
+                @test rank == [3, 3, 0, 0, 0, 0]
+                @test iszero(S[:, :, 3:6])
+            end
         end
 
         # a step that grows the rank beyond the stored columns throws, and sets the status
@@ -513,9 +622,12 @@ for T in (Float64, Float32)
             @test attrs(h5)["status"] == "ok"
         end
 
-        # the guards of the constructor
+        # the guards of the constructor; the last span gives the grid t₀:tstep:t₁ that repeats
+        # its first time, 16777216f0 twice for Float32, which `allunique` of the range misses
+        tbig = T(2)^precision(T)
+        @test collect(tbig:one(T):(tbig + 2)) == [tbig, tbig, tbig + 2]
         for (tspan, tstep) in (((0, 1), 0), ((0, 1), -0.1), ((0, 1), NaN), ((0, 1), Inf),
-            ((1, 0), 0.1), ((0, Inf), 0.1), ((-Inf, 0), 0.1))
+            ((1, 0), 0.1), ((0, Inf), 0.1), ((-Inf, 0), 0.1), ((tbig, tbig + 2), one(T)))
             err = try
                 LowRankIntegrator(copy_state(fx.Y), BUG(), fx.w, tspan, tstep)
             catch e

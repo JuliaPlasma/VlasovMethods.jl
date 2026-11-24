@@ -127,6 +127,36 @@ their own, except for what they removed and narrowed, which is listed in full be
   takes its step count from the grid in either case. The tests of
   `run!(::SplittingMethod, h5file)` and `run!(::GeometricIntegrator, h5file)` assert the agreement
   on their spans, so they fail on 0.21.5 to 0.21.7.
+- **The step τ that `lowrank_step!` refuses is printed as it was given (K111, K116).** Both the
+  BUG methods and `ProjectorSplitting` convert `τ` to the element type `T` of the state and refuse
+  a `τ` that is not finite in `T`, now with one message for both families,
+  `the step τ is not finite in the element type T of the state; got τ = <τ>`. Before, each
+  family had a message of its own that printed the converted `τ`, so the finite `τ = 1e300` on a
+  `Float32` state read `got Inf`; it now reads `got τ = 1.0e300`.
+- **The manual's sentence on full rank names `AugmentedBUG()` and `MidpointBUG()` (K119).** It said
+  that at full rank a step of the augmented BUG is the RK4 step of the full-order model, which
+  `AugmentedBUG(tol; rmin, rmax)` does not satisfy: its truncation applies at full rank too, so
+  its step differs from the RK4 step by up to `tol`. The page now says so.
+- **A step of the augmented or the midpoint BUG that leaves a non-finite core keeps the rank of
+  its input (K120).** It installed the untruncated factors of the augmented bases, of up to `2r`
+  or `4r` columns, and on a grid with `nx ≠ nv` a rectangular core, which
+  `LowRankDistribution` refuses. It now installs the first `r` columns of the augmented bases and
+  an `r × r` core of `NaN`, so the state stays valid and `all(isfinite, Y.S)` still reports the
+  failure. `BUG()` keeps its factors of rank `r`, as before.
+- **`LowRankIntegrator` refuses a span whose times repeat (K121).** On a grid `t₀:tstep:t₁` near
+  the end of the precision of its type, such as `16777216f0:1f0:16777218f0`, `run!` passed the
+  first time to two steps and wrote it twice. The constructor now throws an `ArgumentError` for a
+  grid that does not increase strictly.
+- **`run!` of a low-rank method keeps an existing file when HDF5 cannot store the times or the
+  state (K122).** It opened, and so truncated, the file before HDF5 refused the element type, so
+  a run with `Int128` times destroyed the file and wrote nothing. It now throws an
+  `ArgumentError` before it opens the file when HDF5 has no datatype for the element type of the
+  times or of the state, such as `Int128`, `Float16` or `BigFloat`.
+- **`run!` of a low-rank method records a step that throws (K123).** A step that threw left the
+  file without a `status` attribute. `run!` now sets `status` to
+  `"failed at step <s>: <E>"`, with `E` the name of the exception type, and rethrows. It also
+  checks that `tstep` is positive and finite in the element type of the state for every method,
+  where it checked this for the BUG methods only.
 
 ### Breaking Changes
 
@@ -415,8 +445,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   classical RK4 tableau, and no field or step forms the `nx × nv` array. The step converts `τ` to
   the element type of `Y`, throws an `ArgumentError` for a non-finite `τ`, counts the fixed modes
   in the rank and sets `nfixed = 0`. A step whose S-step or Galerkin step leaves a non-finite
-  value does not throw: it leaves the untruncated factors in `Y`, and `all(isfinite, Y.S)` is the
-  status that a caller tests.
+  value does not throw: it keeps the rank of its input, the augmented and the midpoint BUG with
+  a core of `NaN`, and `all(isfinite, Y.S)` is the status that a caller tests.
 - **`LowRankIntegrator`** holds a run of a method with a `lowrank_step!` that keeps the rank, or
   of `AugmentedBUG(tol; rmin, rmax)`, whose rank stays within `rmax`, from a
   `LowRankDistribution` over a span with a step, and `run!(int, h5file)` writes the times, the
@@ -427,10 +457,32 @@ their own, except for what they removed and narrowed, which is listed in full be
   `"failed at step <s>: rank <r> beyond the <R> stored columns"`, closes the file and throws an
   `ArgumentError`.
   A step that leaves a non-finite `S` stops the run without an error and sets the file attribute
-  `status` to `"failed at step <s>"`; a complete run sets `"ok"`. For `BUG`, `AugmentedBUG` and
-  `MidpointBUG`, `run!` throws an `ArgumentError` before it opens the file when the step is zero
-  or not finite in the element type of `Y`, as a `Float64` step `1e-50` is on a `Float32` state,
-  because the run would not advance in time.
+  `status` to `"failed at step <s>"`; a complete run sets `"ok"`. `run!` throws an
+  `ArgumentError` before it opens the file when the step is zero or not finite in the element
+  type of `Y`, as a `Float64` step `1e-50` is on a `Float32` state, because the run would not
+  advance in time.
+- **`ProjectorSplitting`** is the projector-splitting integrator of dynamical low rank (Lubich and
+  Oseledets 2014), a reference method. `ProjectorSplitting(:lie)` is the first-order K–S–L
+  composition with the backward S-substep; `ProjectorSplitting(:strang)` is the second-order
+  composition of Einkemmer and Lubich 2018 (Algorithm 1), whose L-substeps run at a frozen
+  potential, with the midpoint potential predicted by a half step. Any other composition throws
+  an `ArgumentError`. Each substep is one RK4 step, and `K` and `L` are orthonormalised by a QR in
+  the weighted products of the factor space.
+- **`lowrank_step!`**`(Y, method, field, t, τ)` advances a `LowRankDistribution` by one step of a
+  `ProjectorSplitting` in place, with the fields `LowRankFields1D1V` of the grid, or any field with
+  methods of the internal K-, S- and L-right-hand sides, as `field`. It forms no `nx × nv` array
+  and sets `nfixed = 0`. `τ` is a signed step, converted to the element type of the state; a step
+  that is not finite throws an `ArgumentError` before it writes the state. At full rank the Lie
+  step agrees with the full-order RK4 step, and the Strang step with the full-order step of the
+  same frozen-potential composition, to `1e-10` relative over 20 steps in `Float64`; the Lie step
+  from `A(t)` is exact for the field `F(Y, t) = Ȧ(t)`, which does not depend on the state, on a
+  path `A` of rank at most `r` whose derivative RK4 integrates exactly, where `A(t + τ) V₀` has
+  the rank of `A(t + τ)`, `V₀` the velocity factor at `t` (for rank exactly `r`:
+  `V(t + τ)ᵀ V₀` nonsingular); for a field that depends on the state, the substeps evaluate it
+  off the path, and exactness is not claimed; the fitted orders are within 0.2 of 1 and 2; and at
+  rank 16 on 64 × 256 nodes the Landau damping rate is within 2 % and the two-stream growth rate
+  within 5 % of the roots of the dispersion relation, which
+  `test/verification/projector_splitting_rates.jl` checks.
 
 ### Scripts
 
@@ -664,9 +716,20 @@ their own, except for what they removed and narrowed, which is listed in full be
 - **The dynamical low-rank methods have a section of their own**, "Dynamical low rank", with the
   manual page `manual/lowrank.md`, which describes `LowRankDistribution`, its factorisation and
   `GridFactorSpace`, and the library page `library/lowrank.md` of their docstrings.
+- **The low-rank pages describe the projector splitting**: a section of `manual/lowrank.md` on
+  `ProjectorSplitting` and `lowrank_step!`, with an example of ten Strang steps, and a block of
+  their docstrings on `library/lowrank.md`.
 
 ### Internal
 
+- **The low-rank steps share their helpers and one docstring of their contract.**
+  `src/lowrank/integrator.jl` holds the docstring of the generic `lowrank_step!`, which states the
+  contract of every method; the RK4 substep and the τ guard that the BUG methods and
+  `ProjectorSplitting` share; and `LowRankIntegrator` and `run!`, which move there from
+  `src/lowrank/bug.jl`. The docstring of each method keeps its algorithm and its fields, and the
+  library page shows the generic docstring in a section of its own. A step of each method gives
+  the same factors as before, bit for bit. `test/verification/projector_splitting_rates.jl` takes
+  its rate fits from `test/helpers/rate_fits.jl`.
 - **`kernel` is inlined into `compute_L!`, and skips the power `|u|^{γ+2}` at the default
   `γ = -3`.** On the 8 × 8 cubic basis of `test/models/landau.jl` (M = 121, Q = 1600), one
   `compute_L!` takes 44 ms where it took 54 ms on `1897780` (minimum of 20 calls, two cold runs
