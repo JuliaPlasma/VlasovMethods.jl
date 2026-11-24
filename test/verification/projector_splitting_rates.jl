@@ -4,6 +4,8 @@ using Test
 using VlasovMethods
 using VlasovMethods: LowRankFields1D1V, _potential!
 
+include("../helpers/rate_fits.jl")
+
 # The Landau damping rate and the two-stream growth rate of the projector splitting at r = 16 on
 # 64 × 256 nodes of [0, 4π) × [−10, 10], against the roots of the dispersion relation at k = 0.5:
 # 1.415662 − 0.153359 i (Landau) and the growth rate 0.25925 (two-stream). The fits are those of
@@ -73,11 +75,6 @@ function run(P, Y, method, τ, n)
     return T.(0:n) .* τ, y
 end
 
-function slope(t, y)
-    tm, ym = sum(t) / length(t), sum(y) / length(y)
-    return sum((t .- tm) .* (y .- ym)) / sum(abs2, t .- tm)
-end
-
 @testset "Landau and two-stream rates of the projector splitting ($T, $c)" for T in (Float64, Float32),
     c in (:lie, :strang)
 
@@ -89,16 +86,13 @@ end
     tend = T == Float64 ? 40 : 30
     t, y = run(P, state(P, 0.01, maxwellian, 16), method, τ, round(Int, tend / 0.05))
     @test eltype(y) === T
-    n = length(y)
-    peaks = [s for s in 2:(n - 1) if y[s - 1] < y[s] ≥ y[s + 1]]
-    γ = slope(t[peaks], y[peaks])
+    γ = landau_rate_fit(t, y, (0, tend)).γ
     @test γ < 0
     @test abs(γ / -LANDAU - 1) ≤ 0.02
 
     # the two-stream instability: f₀ = (1 + 10⁻³ cos(x/2)) v² M(v), every step on [5, 25]
     t, y = run(P, state(P, 1e-3, v -> v^2 * maxwellian(v), 16), method, τ, 500)
-    window = 5 .≤ t .≤ 25
-    γ = slope(t[window], y[window])
+    γ = growth_rate_fit(t, y, (5, 25))
     @test γ > 0
     @test abs(γ / TWO_STREAM - 1) ≤ 0.05
 end

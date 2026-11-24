@@ -385,7 +385,7 @@ end
     nx, nv = 16, 32
     P = cached_problem(T, nx, nv)
     f0 = landau_f0(P, 0.5)
-    pattern = r"^the step τ of a projector splitting is finite; got (NaN|Inf|-Inf)(32)?$"
+    pattern = r"^the step τ is not finite in the element type (Float64|Float32) of the state; got τ = (NaN|Inf|-Inf)(32)?$"
     for c in COMPOSITIONS
         method = ProjectorSplitting(c)
 
@@ -396,6 +396,21 @@ end
             err = thrown(() -> lowrank_step!(Y, method, P.w, zero(T), τ))
             @test err isa ArgumentError && occursin(pattern, err.msg)
             @test Y.X == X && Y.S == S && Y.V == V
+        end
+
+        # a finite Float64 step that overflows in Float32 is refused, and the message names the
+        # step as it was given
+        if T == Float32
+            for (τ, given) in ((1e300, "1.0e300"), (1.0e39, "1.0e39"))
+                Y = state(P, f0, nx)
+                X, S, V = copy(Y.X), copy(Y.S), copy(Y.V)
+                err = thrown(() -> lowrank_step!(Y, method, P.w, zero(T), τ))
+                @test err isa ArgumentError
+                @test err.msg ==
+                      "the step τ is not finite in the element type Float32 of " *
+                      "the state; got τ = $given"
+                @test Y.X == X && Y.S == S && Y.V == V
+            end
         end
 
         # a zero step
