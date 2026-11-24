@@ -8,6 +8,7 @@ const TESTS = [
         "Low-Rank Distribution" => "lowrank/distribution.jl",
         "Low-Rank Fields" => "lowrank/fields.jl",
         "Low-Rank BUG" => "lowrank/bug.jl",
+        "Projector Splitting" => "lowrank/projector_splitting.jl",
         "Particle Distribution" => "distributions/particle_distribution.jl",
         "Projections" => "projections/projections.jl",
         "Reduced Tensors" => "gridbased/reduced_tensors.jl",
@@ -62,7 +63,8 @@ const TESTS = [
         "Bounded Velocity Closure Runs" => "verification/bounded_closure.jl",
         "Low-Rank BUG Landau Rates" => "verification/lowrank_bug_landau_rates.jl",
         "Low-Rank BUG Two-Stream Rates" => "verification/lowrank_bug_two_stream_rates.jl",
-        "Low-Rank BUG Two-Stream Rates, Float32" => "verification/lowrank_bug_two_stream_rates_float32.jl"
+        "Low-Rank BUG Two-Stream Rates, Float32" => "verification/lowrank_bug_two_stream_rates_float32.jl",
+        "Projector Splitting Rates" => "verification/projector_splitting_rates.jl"
     ]
 ]
 
