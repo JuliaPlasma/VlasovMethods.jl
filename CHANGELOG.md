@@ -109,11 +109,11 @@ their own, except for what they removed and narrowed, which is listed in full be
   did a run to `prevfloat(prevfloat(62 * 8e-4))`, where `ntime` is 62 and the range has 62 points
   and ends at `0.0488`. The datasets now hold one slice per time of the solution that
   `GeometricIntegrators.integrate` returns, and the loop takes the steps that it takes, as
-  `run!(::SplittingMethod, h5file)` does (K127). A span that ends well short of a whole step ends
-  short of `t₁` — for `t₁ = 0.05` and
-  `Δt = 8e-4` the last time written is `0.0496` (62 steps), as for
-  `GeometricIntegrators.integrate`. A span that is a whole number of steps gives the same file as
-  before.
+  `run!(::SplittingMethod, h5file)` does (K127). A partial last step counts as a step only where
+  it ends within `8 * eps(T) * max(abs(t₀), abs(t₁))` past `t₁`; otherwise the grid ends at the last
+  whole step at or below `t₁`: for `t₁ = 0.05` and `Δt = 8e-4` the last time written is `0.0496`
+  (62 steps), as for `GeometricIntegrators.integrate`. A span that is a whole number of steps gives
+  the same file as before.
 - **`initialize!(ParticleDistribution(1, 1, n), Bump())` draws the bump (K68).** Its `draw!`
   bound `ParticleDistribution{1, 1}`, whose first parameter is the element type, so no
   distribution matched and the call threw a `MethodError`. A new testset checks the weights
@@ -131,8 +131,11 @@ their own, except for what they removed and narrowed, which is listed in full be
   63, and the model kept the state of the 61st step. Both methods now take their times from
   `GeometricIntegrators.TimeSeries(t₀, t₁, Δt)`, the constructor of the solution's grid, so the
   last state is at `t₀ + ntime(equation) * Δt` from GeometricSolutions 0.7.1 and at
-  `last(t₀:Δt:t₁)` up to 0.7.0. A span that is a
-  whole number of steps gives the same file as before. `test/methods/splitting.jl` and
+  `last(t₀:Δt:t₁)` up to 0.7.0. A span that is a whole number of steps gives the same file as
+  before. No released version of the package reaches the defect: every 0.4.x requires
+  ReducedComplexityModeling 0.5, which bounds GeometricSolutions to 0.6, and GeometricSolutions 0.7
+  resolves only through the ReducedComplexityModeling 0.6 that this release requires, so the fix
+  keeps that bump from shortening the run. `test/methods/splitting.jl` and
   `test/methods/geometric_integrator.jl` compare the file with the solution of `integrate` and
   check the length of the grid of the GeometricSolutions release that resolves.
 
@@ -174,15 +177,15 @@ their own, except for what they removed and narrowed, which is listed in full be
   and `GeometricMachineLearning = "0.10"`, where it read `"0.5"`, `"0.4"`, `"0.9.3"`, `"0.9.2"`
   and `"0.9"`. The `ProgressMeter` floor rises from `"1.3.3"` to `"1.5"`, the floor that
   GeometricMachineLearning 0.10 sets. These releases are on KernelAbstractions 0.10, so an
-  environment that holds KernelAbstractions 0.9, or one of the five packages on its former line, does not resolve this
-  release. ReducedComplexityModeling depends on AbstractNeuralNetworks, and its 0.5 line requires
-  AbstractNeuralNetworks 0.9, so the move applies to every caller and not only to the callers of
-  the extensions: the `ParameterSpace` that `ReducedBasis` takes and the generics `h5save` and
-  `h5load` come from ReducedComplexityModeling 0.6. The calls of the package and of the
-  extensions `MultiModalAutoEncoderExt` and `VlasovMethodsHNNExt` do not change, and no code in
-  `src/` or `ext/` changes for these releases. A caller's own code meets their changes: the name
-  `GPU` is no longer exported by AbstractNeuralNetworks and GeometricMachineLearning, `CPU()` is
-  the PoCL backend of KernelAbstractions 0.10 and takes no keyword, and the internal
+  environment that holds KernelAbstractions 0.9, or one of the five packages on its former line,
+  does not resolve this release. ReducedComplexityModeling depends on AbstractNeuralNetworks, and
+  its 0.5 line requires AbstractNeuralNetworks 0.9, so the move applies to every caller and not
+  only to the callers of the extensions: the `ParameterSpace` that `ReducedBasis` takes and the
+  generics `h5save` and `h5load` come from ReducedComplexityModeling 0.6. The calls of the package
+  and of the extensions `MultiModalAutoEncoderExt` and `VlasovMethodsHNNExt` do not change, and no
+  code in `src/` or `ext/` changes for these releases. A caller's own code meets their changes:
+  the name `GPU` is no longer exported by AbstractNeuralNetworks and GeometricMachineLearning,
+  `CPU()` is the PoCL backend of KernelAbstractions 0.10 and takes no keyword, and the internal
   `WeightTiedAutoencoderLayer` of GeometricMachineLearning is `LeftInverseAutoencoderLayer`.
 
 ### New Features
