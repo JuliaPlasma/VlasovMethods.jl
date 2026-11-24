@@ -702,11 +702,10 @@ their own, except for what they removed and narrowed, which is listed in full be
 - **The low-rank steps share their helpers and one docstring of their contract.**
   `src/lowrank/integrator.jl` holds the docstring of the generic `lowrank_step!`, which states the
   contract of every method; the RK4 substep and the τ guard that the BUG methods and
-  `ProjectorSplitting` share; and `LowRankIntegrator` and `run!`, which move there from
-  `src/lowrank/bug.jl`. The docstring of each method keeps its algorithm and its fields, and the
-  library page shows the generic docstring in a section of its own. A step of each method gives
-  the same factors as before, bit for bit. `test/verification/projector_splitting_rates.jl` takes
-  its rate fits from `test/helpers/rate_fits.jl`.
+  `ProjectorSplitting` share; and `LowRankIntegrator` and `run!`. The docstring of each method
+  holds its algorithm and its fields, and the library page shows the generic docstring in a
+  section of its own. `test/verification/projector_splitting_rates.jl` takes its rate fits from
+  `test/helpers/rate_fits.jl`.
 - **`kernel` is inlined into `compute_L!`, and skips the power `|u|^{γ+2}` at the default
   `γ = -3`.** On the 8 × 8 cubic basis of `test/models/landau.jl` (M = 121, Q = 1600), one
   `compute_L!` takes 44 ms where it took 54 ms on `1897780` (minimum of 20 calls, two cold runs
