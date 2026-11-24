@@ -3,7 +3,7 @@
 # Linear Landau damping, k = 0.5, f₀ = (1 + 0.01 cos(x/2)) M(v) on [0, 4π) × [−vmax, vmax], with the
 # full-order model `VlasovPoisson(GridDistribution, Potential(FFTWBasis))` (Arakawa bracket) and
 # GeometricIntegrators' RK4, in Float64. Each run records log10 E₁ at every step and log10 of the
-# largest mode-1 amplitude |f̂₁| on the outermost unknown velocity nodes (j = 2 and nᵥ − 1). From
+# largest mode-1 amplitude |f̂₁| on the nodes next to the end nodes (j = 2 and nᵥ − 1). From
 # the local maxima ("peaks") of log10 E₁ it reports:
 #
 #   - turn: the lowest peak after t = 5, provided a later peak lies 0.3 decades or more above it;
@@ -26,18 +26,19 @@
 # √3 · 2π/(k hᵥ)), and the filament moves outward in v at k hᵥ v sin ξ / 3: the perturbation is
 # stretched in v by 3/(2 + cos ξ), up to 3. The stretching carries the perturbation of the bulk
 # to ±vmax, and E₁ turns where the field that the edge of the grid returns overtakes the Landau
-# decay. The turn moves later and lower with vmax at fixed hᵥ, and it comes with either velocity
-# closure; nₓ and τ do not move it.
+# decay. The turn moves later and lower with vmax at fixed hᵥ and as hᵥ falls at fixed vmax, and
+# it comes with either velocity closure; nₓ and τ do not move it.
 #
 # Run from the repository root:
 #
-#   julia --startup-file=no --project=. scripts/landau_turn_level.jl [outdir] [group ...]
+#   julia --startup-file=no --project=scripts scripts/landau_turn_level.jl [outdir] [group ...]
 #
 # with groups base, closure, vmax, nv, nx, tau, linear (default: all of them). All groups take
 # 100 s on one thread of a laptop at load average 124: `closure` 40 s, `linear` 20 s, `vmax`
 # 10 s, the rest under 10 s each, plus about 10 s of compilation per process. It
 # writes, into `outdir` (default `<tempdir>/landau_turn_level`), one CSV per run
-# (`t,log10E1,log10edge`) and appends to `summary.tsv`, one line per run, and prints the same lines.
+# (`t,log10E1,log10edge`), appends one line per run to `summary.tsv` (group `linear`: to
+# `linear.tsv`, with its own columns), and prints the same lines.
 using LinearAlgebra
 using Printf
 using GeometricIntegrators
@@ -92,21 +93,25 @@ function slope(t, y)
         sum((t .- tm) .* (y .- sum(y) / length(y))) / sum(abs2, t .- tm))
 end
 
-# turn time, turn level (log10 E₁), ln-rate after the turn, Landau ln-rate; NaN where undefined
+# the index of the turn (`nothing` if none), ln-rate after the turn, Landau ln-rate; NaN where
+# undefined
 function analyse(t, y)
     p = filter(s -> t[s] > 5, peaks(y))
-    landau = slope(t[filter(s -> 8 ≤ t[s] ≤ 30, p)], log(10) .*
-                                                     y[filter(s -> 8 ≤ t[s] ≤ 30, p)])
+    early = filter(s -> 8 ≤ t[s] ≤ 30, p)
+    landau = slope(t[early], log(10) .* y[early])
     i = argmin(y[p])
     turned = any(y[p[(i + 1):end]] .≥ y[p[i]] + 0.3)
-    turned || return (NaN, NaN, NaN, landau)
+    turned || return (nothing, NaN, landau)
     after = filter(s -> t[p[i]] < t[s] ≤ t[p[i]] + 15, p)
     rate = length(after) ≥ 3 ? slope(t[after], log(10) .* y[after]) : NaN
-    return (t[p[i]], y[p[i]], rate, landau)
+    return (p[i], rate, landau)
 end
+at(v, s) = s === nothing ? NaN : v[s]
 
 const HEADER = "group\tnx\tnv\tvmax\thv\tclosure\ttau\tt_turn\tlog10E1_turn\tlog10edge_turn\t" *
                "rate_after\tlandau_rate\tseconds"
+const LINEAR_HEADER = "nx\tnv\tvmax\thv\tclosure\tt_turn\tlog10E1_turn\tmax_abs_re_lambda\t" *
+                      "rho\trk4_tau_limit\tdomega_over_khv_sqrt3\trate_after\tlandau_rate\tseconds"
 
 function case!(io, outdir, group; kw...)
     c = merge(
@@ -124,8 +129,8 @@ function case!(io, outdir, group; kw...)
         println(line)
         return nothing
     end
-    tt, lt, rate, landau = analyse(t, y)
-    et = isnan(tt) ? NaN : edge[findfirst(==(tt), t)]
+    s, rate, landau = analyse(t, y)
+    tt, lt, et = at(t, s), at(y, s), at(edge, s)
     name = @sprintf("%s_nx%d_nv%d_vmax%g_%s_tau%g", group, c.nx, c.nv, c.vmax, c.closure,
         c.tau)
     open(joinpath(outdir, name * ".csv"), "w") do f
@@ -196,13 +201,21 @@ function main(args)
     println(io, "# ", readchomp(`uptime`))
     println(io, HEADER)
     println(HEADER)
+    lio = open(joinpath(outdir, "linear.tsv"), "a")
+    println(lio, "# ", readchomp(`uptime`))
     hv6 = 12 / 127
     for g in groups
         g == "base" && case!(io, outdir, g)
         # The bounded closure's end nodes see a jump of h from vmax²/2 to 0, whose x-advection
-        # makes the spectral radius ρ 11-22 times the periodic one (group `linear`): RK4 needs
-        # τ ≤ 2.83/ρ, 0.0093 at nᵥ = 128 on [−6, 6] and 0.0027 at nᵥ = 256 on [−10, 10].
+        # makes the spectral radius ρ 5-22 times the periodic one (group `linear`): RK4 needs
+        # τ ≤ 2.83/ρ, 0.0093 at nᵥ = 128 on [−6, 6] and 0.0027 at nᵥ = 256 on [−10, 10]. The
+        # runs at τ = 0.05 and on the 16 × 64 grid of the RK4 test of the bounded closure at
+        # τ = 0.1 (limit 0.064) are past the limit (recorded as unstable).
         if g == "closure"
+            case!(io, outdir, g; closure = :bounded)
+            case!(
+                io, outdir, g; nx = 16, nv = 64, vmax = 7.5, closure = :bounded, tau = 0.1,
+                tend = 20.0)
             case!(io, outdir, g; closure = :bounded, tau = 0.005)
             case!(io, outdir, g; nv = 256, vmax = 10.0, closure = :bounded, tau = 0.0025)
             case!(io, outdir, g; nv = 256, vmax = 10.0)
@@ -221,20 +234,27 @@ function main(args)
         g == "nx" && foreach(nx -> case!(io, outdir, g; nx), (32, 128))
         g == "tau" && foreach(tau -> case!(io, outdir, g; tau), (0.025, 0.1))
         if g == "linear"
-            for c in ((nv = 128, vmax = 6.0), (nv = 128, vmax = 6.0, closure = :bounded),
-                (nv = 256, vmax = 10.0), (nv = 256, vmax = 10.0, closure = :bounded))
+            println(lio, LINEAR_HEADER)
+            println(LINEAR_HEADER)
+            for c in ((nx = 64, nv = 128, vmax = 6.0, closure = :periodic),
+                (nx = 64, nv = 128, vmax = 6.0, closure = :bounded),
+                (nx = 64, nv = 256, vmax = 10.0, closure = :periodic),
+                (nx = 64, nv = 256, vmax = 10.0, closure = :bounded),
+                (nx = 16, nv = 64, vmax = 7.5, closure = :periodic, tend = 20.0),
+                (nx = 16, nv = 64, vmax = 7.5, closure = :bounded, tend = 20.0))
                 s0 = time()
                 t, y, reλ, ρ, dω = linear_case(; c...)
-                tt, lt, rate, landau = analyse(t, y)
-                line = @sprintf("linear\t64\t%d\t%g\t%.5f\t%s\texact\t%.2f\t%.3f\tmax|Reλ|=%.1e,ρ=%.1f,dω/(khv/√3)=%.3f\t%.4f\t%.4f\t%.1f",
-                    c.nv, c.vmax, 2c.vmax / (c.nv - 1), get(c, :closure, :periodic), tt, lt,
-                    reλ, ρ, dω, rate, landau, time() - s0)
-                println(io, line)
+                s, rate, landau = analyse(t, y)
+                line = @sprintf("%d\t%d\t%g\t%.5f\t%s\t%.2f\t%.3f\t%.1e\t%.2f\t%.4f\t%.3f\t%.4f\t%.4f\t%.1f",
+                    c.nx, c.nv, c.vmax, 2c.vmax / (c.nv - 1), c.closure, at(t, s), at(y, s),
+                    reλ, ρ, 2.83 / ρ, dω, rate, landau, time() - s0)
+                println(lio, line)
                 println(line)
             end
         end
     end
     close(io)
+    close(lio)
 end
 
 const GROUPS = ["base", "closure", "vmax", "nv", "nx", "tau", "linear"]

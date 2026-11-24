@@ -490,8 +490,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   not an instability but the edge of the velocity grid:** every eigenvalue of the linearised
   operator is imaginary to round-off, the exact linear evolution turns where RK4 does, and the
   v-averaging of Arakawa's streaming stretches the perturbation outward in v until it reaches
-  ±vmax, so the turn moves later and lower with vmax at fixed hᵥ, comes with either velocity
-  closure, and does not move with nₓ or τ.
+  ±vmax, so the turn moves later and lower with vmax at fixed hᵥ and as hᵥ falls at fixed vmax,
+  comes with either velocity closure, and does not move with nₓ or τ.
 - **`scripts/geometric_integrators_scaling.jl` measures the RK4 step of GeometricIntegrators on
   the state of the grid 1D1V Vlasov–Poisson model** against a hand-written RK4 loop with the same
   tableau, at the grids 64 × 128, 256 × 512 and 1024 × 1024 of the Landau problem, with the step
