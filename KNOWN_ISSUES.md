@@ -710,8 +710,8 @@ has left the file, or that lived only on a merged branch, stays taken.
 ### K112 · The element-type assertions on the factors of a `LowRankDistribution` after a step cannot fail, so a promotion inside `lowrank_step!` is not seen there.
 
 - **location:** `test/lowrank/projector_splitting.jl:115`
-- **evidence:** `@test eltype(Y.X) === eltype(Y.S) === eltype(Y.V) === T` at lines 115, 161 and
-  428. The exactness testset at line 226 asserts no element type, and an assertion on `Y` there
+- **evidence:** `@test eltype(Y.X) === eltype(Y.S) === eltype(Y.V) === T` at lines 115 and 161,
+  and the same assertion on `Ya` against `Float32` at line 428. The exactness testset at line 226 asserts no element type, and an assertion on `Y` there
   could not fail either. `LowRankDistribution` is a mutable struct whose factor fields have the
   concrete types of its parameters, so the assignment `Y.X, Y.S, Y.V, Y.nfixed = …` in the step
   converts a `Float64` matrix to the field's type. A `Float32` state fails on a promoted `τ` only
@@ -782,18 +782,6 @@ has left the file, or that lived only on a merged branch, stays taken.
   against 547 s); at that speed the tests of the group alone take about 124 minutes.
 - **kind:** defect
 - **found:** PR #147, from its CI
-
-### K125 · `LowRankIntegrator` throws an `InexactError` from Base's range constructor, not its own `ArgumentError`, for a span whose grid `t₀:tstep:t₁` has more times than an `Int` holds.
-
-- **location:** `src/lowrank/integrator.jl:66`
-- **evidence:** on Julia 1.13.4, `LowRankIntegrator(Y, BUG(), field, (0.0, 1e300), 1e-300)`
-  throws `InexactError: Int64(Inf)` from `t₀:Δt:t₁` in the guard of the repeated time, where the
-  other guards of the constructor throw an `ArgumentError` that starts with
-  "LowRankIntegrator takes ". `run!` built the same range before the file opened
-  (`src/lowrank/bug.jl:277` at `ff1ad74`), so no file is written in either case. No guard on the
-  length of the grid exists.
-- **kind:** found late
-- **found:** 2026-11-24
 
 ### K127 · `run!(::SplittingMethod, h5file)` and `run!(::GeometricIntegrator, h5file)` step over the range `t₀:Δt:t₁`, which is the time grid of a `Solution` on GeometricSolutions 0.6 but not from 0.7.1, so on 0.7.1 and later a span whose last step ends a few ulps past `t₁` gives a file with one state fewer than `GeometricIntegrators.integrate` returns, and no error.
 

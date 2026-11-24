@@ -46,8 +46,9 @@ stays within `rmax`; [`run!`](@ref) refuses a step that grows the rank beyond. T
 advances `Y`.
 
 Throws an `ArgumentError` for a step that is not finite and positive, for a span that is not
-finite or has `t₁ < t₀`, and for a span whose grid `t₀:tstep:t₁` does not increase strictly, as
-the `Float32` grid `16777216f0:1f0:16777218f0`, which repeats its first time.
+finite or has `t₁ < t₀`, for a span of `typemax(Int)` steps or more, and for a span whose grid
+`t₀:tstep:t₁` does not increase strictly in the element type of `Y`, in which every step reads
+its time: on a `Float32` state, the grid `16777216.0:1.0:16777218.0` repeats its first time.
 """
 struct LowRankIntegrator{YT <: LowRankDistribution, MT, FT, TT <: Real} <: VlasovMethod
     Y::YT
@@ -63,9 +64,18 @@ struct LowRankIntegrator{YT <: LowRankDistribution, MT, FT, TT <: Real} <: Vlaso
             "LowRankIntegrator takes a finite and positive step; got $tstep"))
         isfinite(t₀) && isfinite(t₁) && t₀ ≤ t₁ || throw(ArgumentError(
             "LowRankIntegrator takes a finite span (t₀, t₁) with t₀ ≤ t₁; got $tspan"))
-        issorted(t₀:Δt:t₁; lt = <=) || throw(ArgumentError(
-            "LowRankIntegrator takes a span whose times t₀:tstep:t₁ increase strictly; got " *
-            "a repeated time for $tspan and the step $tstep"))
+        (float(t₁) - float(t₀)) / float(Δt) < typemax(Int) || throw(ArgumentError(
+            "LowRankIntegrator takes a span of fewer than typemax(Int) steps; got $tspan and " *
+            "the step $tstep"))
+        # every step reads its time in the element type T of Y; a step above twice the spacing
+        # of T and of the times at the largest |t| keeps the grid strictly increasing in T
+        T, m = eltype(Y), max(abs(t₀), abs(t₁))
+        Δt > 2 * (eps(T(m)) + eps(float(m))) ||
+            issorted((T(t) for t in t₀:Δt:t₁); lt = <=) ||
+            throw(ArgumentError(
+                "LowRankIntegrator takes a span whose times t₀:tstep:t₁ increase strictly in " *
+                "the element type $T of the state; got a repeated time for $tspan and the step " *
+                "$tstep"))
         new{YT, MT, FT, typeof(Δt)}(Y, method, field, (t₀, t₁), Δt)
     end
 end
