@@ -806,3 +806,34 @@ has left the file, or that lived only on a merged branch, stays taken.
   (group `closure`).
 - **kind:** found late
 - **found:** 2026-11-24
+
+### K128 · The `f⁺` solve of `ParitySplitting` cannot meet its residual test on a state whose even part is zero or small against its odd part, so `run!` throws on the first step.
+
+- **location:** `src/gridbased/parity.jl:213`
+- **evidence:** the solve stops at `‖F‖₂ ≤ tol ‖F0 + f⁺‖₂`, a bound that scales with the even part
+  of the state alone, while the residual `y - f⁺ - τ P(f⁻, h)` also holds the odd part `f⁻`.
+  In Float32 on 16 × 32 nodes of [0, 4π) × [−7.5, 7.5], with `τ = 0.1` and the default `tol` and
+  `max_iterations`: from `(1 + 0.2 cos(x/2)) e^{-v²/2} v`, whose even part is zero, so the bound is
+  0, `run!` throws `MAXITERS, with ‖F‖ = 2.204519e-9 after 10 iterations`; from
+  `(1 + 0.2 cos(x/2)) e^{-v²/2} (v + 1e-6)` it throws with `‖F‖ = 4.6566284e-10`. The bound is the
+  one that the spec of the method decides; a bound with a term in `‖f⁻‖` or in `τ ‖P(f⁻, h)‖`
+  would reach these states. No test runs an odd-dominated state.
+- **kind:** found late
+- **found:** 2026-11-25; the clause "The parity Strang step", whose step 2 decides the bound
+
+### K129 · The `f⁺` solve of `ParitySplitting` stalls above its residual bound on a state scaled by 10² or more, and in Float32 on 64 × 128 nodes at τ = 0.2; the cause is not located.
+
+- **location:** `src/gridbased/parity.jl:210`
+- **evidence:** 40 steps of `τ = 0.05` from `s (1 + 0.2 cos(x/2)) e^{-v²/2}/√(2π)` on 16 × 32 nodes of
+  [0, 4π) × [−7.5, 7.5] with the default `tol` and `max_iterations` keep the energy to `3.4e-7`
+  (Float32) and `1.0e-15` (Float64) at `s = 10`, and throw `MAXITERS` at `s = 10²`, with
+  `‖F‖ = 1.49e-4` (Float32) and `5.82e-13` (Float64) after 10 iterations; at `s = 10⁴` in Float64,
+  `max_iterations = 100` still ends at `‖F‖ = 6.07e-4`. From `(1 + 0.2 cos(x/2)) e^{-v²/2}/√(2π)`
+  on 64 × 128 nodes of the same domain, a Float32 run at `τ = 0.2` throws at step 10 with
+  `‖F‖ = 1.73e-4`, and `max_iterations = 20` or `50` (`‖F‖ = 1.75e-4` and `1.53e-4`) or
+  `tol = 16 eps(Float32)` (`1.72e-4`) do not change that. The tolerance, the forcing and the
+  `GMRES` defaults are the ones that the spec of the method decides; whether the round-off of the
+  residual or the convergence of `GMRES` sets this floor is not measured. The tests run 16 × 32
+  and 16 × 33 at unit scale.
+- **kind:** not verified
+- **found:** 2026-11-25; the clause "The parity Strang step", whose step 2 decides the solve

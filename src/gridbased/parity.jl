@@ -94,6 +94,9 @@ The constructor throws
   - an `ArgumentError` when `tstep` is not finite and positive in `T`, when `tspan` is not two
     finite times in `T` or runs backward, when `tol` is negative or `NaN`, and when
     `max_iterations` is negative or above `typemax(Int32)`.
+
+The time grid `GeometricIntegrators.TimeSeries(t₀, t₁, τ)` throws an `InexactError` when its
+number of steps does not fit an `Int`, as for `tspan = (0, 1)` and `tstep = floatmin(T)`.
 """
 struct ParitySplitting{T, MT <: VlasovPoisson, AT <: Arakawa{T}} <: VlasovMethod
     model::MT
