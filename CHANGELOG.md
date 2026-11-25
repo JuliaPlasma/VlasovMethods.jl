@@ -15,6 +15,18 @@ makes it worth keeping. The 69 commits from `v0.2.1` to this file's first commit
 their own, except for what they removed and narrowed, which is listed in full below against
 `v0.2.1`: four exports leave `names(VlasovMethods)` and eight `[compat]` entries lost versions.
 
+## [Unreleased] — targeting 0.5.1
+
+### Internal
+
+- **`[compat]` admits SimpleSplines 0.5 (compat only).** The bound is `SimpleSplines = "0.4, 0.5"`.
+  SimpleSplines 0.5 throws an `ArgumentError` for a mesh that 0.4 built silently and wrong: a
+  domain whose length overflows, or breakpoints that are not finite and strictly increasing. It
+  also fixes the derivatives of a periodic basis at the seam for `ForwardDiff.Dual` arguments,
+  and the double count just below the right end in periodic `evaluate`. No API of this package
+  changes. SimpleSplines 0.5 resolves with GeometricBrackets 0.4.1 and PoissonSolvers 0.7.1,
+  which the existing bounds admit.
+
 ## [0.5.0] — 2026-11-24
 
 ### Bug Fixes
