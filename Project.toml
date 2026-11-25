@@ -87,7 +87,7 @@ ReducedComplexityModeling = "0.6"
 SimpleSolvers = "0.14.2"
 # 0.4 is the first SimpleSplines with the caller-buffer `evaluate!` and an evaluation that returns
 # the precision of the point.
-SimpleSplines = "0.4"
+SimpleSplines = "0.4, 0.5"
 Sobol = "1.5"
 SparseArrays = "1"
 SpecialFunctions = "2"
