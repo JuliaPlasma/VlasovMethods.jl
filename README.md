@@ -27,11 +27,7 @@ none, so a documentation- or workflow-only commit is not slowed down by it:
 - **`fatou lint`**, when `fatou` is installed — **advisory only**, and deliberately so: its
   `unused-import` rule does not follow `include`, so it flags the load-bearing imports of every
   module file.
-- **`using <Package>`**, which catches a syntax error or a broken `include` — **blocks**. Note that
-  this package does not currently load under Julia 1.13: `RungeKutta` 0.5 pulls in
-  `GenericLinearAlgebra`, whose `eigencopy_oftype` method for `UpperHessenberg` overwrites the one
-  Julia 1.13 added. Until the dependency is bumped, this check will block a commit that stages a
-  `.jl` file.
+- **`using <Package>`**, which catches a syntax error or a broken `include` — **blocks**.
 
 **`pre-push`** runs the full test suite with `--check-bounds=auto`, but **only when pushing to
 `main` or `master`**; a topic branch is left to CI. It prints nothing for **10–30 minutes**, which

@@ -40,6 +40,10 @@ import GeometricEquations
 # `Picard`, `solve`), and every use here is qualified as `SimpleSolvers.…`.
 import SimpleSolvers
 
+# `import` and not `using`: `GeometricSolvers` exports generic names (`Newton`, `solve`), and
+# every use here is qualified as `GeometricSolvers.…`.
+import GeometricSolvers
+
 using GeometricBrackets: Arakawa, poisson_apply
 
 # `import A.B` binds only `B`, so the bare module name needs an import of its own for the call
