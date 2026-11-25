@@ -44,8 +44,8 @@ VlasovMethodsMakieExt = "CairoMakie"
 [compat]
 # AbstractNeuralNetworks and GeometricOptimizers, the two packages of the HNN extension, on their
 # 0.10 line, the first on KernelAbstractions 0.10, which the trainer is tested against; each takes
-# `julia = "1.12"`. ReducedComplexityModeling 0.6 and
-# GeometricMachineLearning 0.10 require AbstractNeuralNetworks 0.10 too.
+# `julia = "1.12"`. ReducedComplexityModeling 0.6 and GeometricMachineLearning 0.10 require
+# AbstractNeuralNetworks 0.10 too.
 AbstractNeuralNetworks = "0.10"
 CairoMakie = "0.15"
 # 0.9.1 is the first ElectromagneticFields on GeometricBase 0.15, which `GeometricIntegrators`
