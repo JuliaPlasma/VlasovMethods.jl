@@ -97,6 +97,7 @@ include("distributions/maxwellian.jl")
 include("distributions/particle_distribution.jl")
 include("distributions/spline_distribution.jl")
 include("distributions/grid_distribution.jl")
+include("distributions/tensor_spline_distribution.jl")
 include("lowrank/grid_space.jl")
 include("lowrank/distribution.jl")
 include("lowrank/fields.jl")
@@ -107,6 +108,7 @@ include("lowrank/projector_splitting.jl")
 export ParticleDistribution
 export SplineDistribution
 export GridDistribution, velocity_moments
+export TensorSplineDistribution
 export LowRankDistribution, GridFactorSpace
 export BUG, AugmentedBUG, MidpointBUG, lowrank_step!, LowRankIntegrator
 export ProjectorSplitting
@@ -219,6 +221,13 @@ include("gridbased/collisions.jl")
 include("gridbased/vlasov_poisson_1d1v.jl")
 
 export PeriodicVelocityClosure, BoundedVelocityClosure
+
+# The spline 1D1V Vlasov–Poisson model on a `TensorSplineDistribution` and its implicit midpoint
+# step name `VlasovPoisson` and `VlasovMethod` in their signatures, so they are included after
+# the models and the methods.
+include("splinebased/vlasov_poisson_1d1v.jl")
+
+export GalerkinMidpoint
 
 # The particle-based reduction: the snapshots of a sweep, the reduced bases of the particle and
 # of the field snapshot matrix they hold, and the reduced electric field over the full-order
