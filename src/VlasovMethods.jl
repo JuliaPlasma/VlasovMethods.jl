@@ -220,6 +220,11 @@ include("gridbased/vlasov_poisson_1d1v.jl")
 
 export PeriodicVelocityClosure, BoundedVelocityClosure
 
+# The parity Strang splitting steps the grid 1D1V model with its bracket term and Green's matrix.
+include("gridbased/parity.jl")
+
+export ParitySplitting, parity_split, parity_merge
+
 # The particle-based reduction: the snapshots of a sweep, the reduced bases of the particle and
 # of the field snapshot matrix they hold, and the reduced electric field over the full-order
 # field of `src/electric_field.jl`.
