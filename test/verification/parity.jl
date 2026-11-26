@@ -72,7 +72,7 @@ end
     @test maxdrift(m) ≤ 100 * eps(T)
 end
 
-# The Float64 RK4 solution of the base's right-hand side `_grid_1d1v_rhs!` at τ = 10⁻³, at t = 2.
+# The Float64 RK4 solution of the model's right-hand side `_grid_1d1v_rhs!` at τ = 10⁻³, at t = 2.
 # Its own error, of order 10⁻¹², is far below the smallest error that it measures, of order 10⁻⁴.
 const REFERENCE = let model = grid_model(Float64)
     int = GeometricIntegrator(model, (0.0, 2.0), 1e-3, RK4())
@@ -93,7 +93,7 @@ end
 end
 
 # The test's own parity splitting with the explicit f⁺ step f⁺ + τ P(f⁻, h(F0 + f⁺)), on the
-# base's bracket term and Green's matrix: its energy drifts, so the energy testset can fail.
+# model's bracket term and Green's matrix: its energy drifts, so the energy testset can fail.
 @testset "control: an explicit f⁺ step drifts, $T" for T in (Float32, Float64)
     model = grid_model(T)
     dist = model.distribution

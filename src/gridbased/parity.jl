@@ -10,7 +10,7 @@ f^- = \tfrac{1}{2} (f - R f) , \qquad f^+ = \tfrac{1}{2} (f + R f) - 1 \otimes f
 
 On a velocity grid symmetric about 0, ``R`` maps ``v`` to ``-v``, so ``f^-`` is odd and, for an
 even `f0`, ``f^+`` is even. For a floating-point `f`, both parts have its element type.
-[`parity_merge`](@ref) inverts the split. A `f0` whose length is not `size(f, 2)` throws a
+[`parity_merge`](@ref) inverts the split. An `f0` whose length is not `size(f, 2)` throws a
 `DimensionMismatch`.
 """
 function parity_split(f::AbstractMatrix, f0::AbstractVector)
@@ -29,7 +29,7 @@ end
     parity_merge(f0::AbstractVector, fp::AbstractMatrix, fm::AbstractMatrix)
 
 The grid values `1 ⊗ f0 + fp + fm` of the background `f0` and the parity parts `fp` and `fm` of
-[`parity_split`](@ref), which this inverts. Parts of two sizes, or a `f0` whose length is not
+[`parity_split`](@ref), which this inverts. Parts of two sizes, or an `f0` whose length is not
 `size(fp, 2)`, throw a `DimensionMismatch`.
 """
 function parity_merge(f0::AbstractVector, fp::AbstractMatrix, fm::AbstractMatrix)

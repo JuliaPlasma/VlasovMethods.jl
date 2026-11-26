@@ -30,7 +30,7 @@ function grid_model(T, nv = 32; vd = (-T(7.5), T(7.5)),
     return VlasovPoisson(dist, Potential(FFTWBasis(xd, 16)))
 end
 
-# the bracket term of the base on the grid of `dist`
+# the grid model's bracket term on the grid of `dist`
 function bracket(dist)
     nx, nv = size(dist.values)
     hx, hv = step(dist.x), step(dist.v)
