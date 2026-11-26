@@ -25,6 +25,7 @@ const TESTS = [
         "Moments" => "gridbased/moments.jl",
         "Vlasov–Poisson Advection" => "models/vlasov_poisson.jl",
         "Grid 1D1V Vlasov–Poisson" => "gridbased/vlasov_poisson_1d1v.jl",
+        "Parity Splitting" => "gridbased/parity.jl",
         "Snapshots" => "particles/snapshots.jl",
         "Electric Field" => "electric_field.jl",
         "Reduced Electric Field" => "particles/electric_field.jl",
@@ -65,7 +66,8 @@ const TESTS = [
         "Low-Rank BUG Landau Rates" => "verification/lowrank_bug_landau_rates.jl",
         "Low-Rank BUG Two-Stream Rates" => "verification/lowrank_bug_two_stream_rates.jl",
         "Low-Rank BUG Two-Stream Rates, Float32" => "verification/lowrank_bug_two_stream_rates_float32.jl",
-        "Projector Splitting Rates" => "verification/projector_splitting_rates.jl"
+        "Projector Splitting Rates" => "verification/projector_splitting_rates.jl",
+        "Parity Splitting Runs" => "verification/parity.jl"
     ]
 ]
 
