@@ -54,11 +54,11 @@ their own, except for what they removed and narrowed, which is listed in full be
   function `f(x, v)`. `evaluate(dist, x, v)` evaluates it at real numbers or at one-element
   vectors, and `dist(x, v)` or `dist([x], [v])` at those of its element type.
   `VlasovPoisson(dist, potential)` on it, with a `PoissonSolverSpline` potential on its x-basis,
-  is the spline Galerkin model of 1D1V Vlasov–Poisson whose field is the cyclic average of the Galerkin form
-  `T(a, b, c) = ∫∫ a {b, c} dx dv`: on clamped velocity splines `T` keeps boundary terms in `v`,
-  and the average is totally antisymmetric, so the field keeps the quadratic energy. The mass is
-  not kept where `f` reaches the ends of the velocity domain: its rate is the boundary flux
-  `(1/3) ∫ φ' (f(x, V) − f(x, −V)) dx`.
+  is the spline Galerkin model of 1D1V Vlasov–Poisson whose field is the cyclic average of the
+  Galerkin form `T(a, b, c) = ∫∫ a {b, c} dx dv`: on clamped velocity splines `T` keeps boundary
+  terms in `v`, and the average is totally antisymmetric, so the field keeps the quadratic energy.
+  The mass is not kept where `f` reaches the ends of the velocity domain: its rate is the boundary
+  flux `(1/3) ∫ φ' (f(x, V) − f(x, −V)) dx`.
 - **`GalerkinMidpoint`** is the implicit midpoint rule of the spline Galerkin model, with a
   Newton–GMRES solve on GeometricSolvers to `‖F‖₂ ≤ tol ‖A‖₂`, `tol = 4eps(T)` by default. It keeps
   the energy to the solve. The four files `test/verification/spline_galerkin_*.jl`, in a test
