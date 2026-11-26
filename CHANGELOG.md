@@ -40,7 +40,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   `‖F‖₂ ≤ tol ‖f0 + f⁺‖₂` with `tol = 4eps(T)` by default; a solve that does not converge throws
   an `ErrorException`. `ParitySplitting(model, tspan, tstep; background, tol, max_iterations)`
   refuses a velocity grid that is not symmetric, a background that is not even or depends on
-  `x`, and non-finite input. `run!(method, h5file)` writes the HDF5 layout of
+  `x`, non-finite input, a step that is not positive, a time span that runs backward, a negative
+  tolerance and a negative iteration limit. `run!(method, h5file)` writes the HDF5 layout of
   `run!(::GeometricIntegrator, h5file)` on the same time grid.
 - **`parity_split`** splits grid values `f` into the even part `f⁺` about a background `f0` and
   the odd part `f⁻`, by the reflection `v ↦ -v` of the velocity nodes.

@@ -838,7 +838,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** not verified
 - **found:** 2026-11-25; the clause "The parity Strang step", whose step 2 decides the solve
 
-### K130 · The default background of `ParitySplitting` overflows in its sum over x when finite initial values near `floatmax(T)` share a column, so the constructor throws an `ArgumentError` that calls the finite values not finite.
+### K135 · The default background of `ParitySplitting` overflows in its sum over x when finite initial values near `floatmax(T)` share a column, so the constructor throws an `ArgumentError` that calls the finite values not finite.
 
 - **location:** `src/gridbased/parity.jl:161`
 - **evidence:** `_parity_background(values, nothing)` halves each value before it adds the
@@ -852,3 +852,16 @@ has left the file, or that lived only on a merged branch, stays taken.
   Hamiltonian `h` and the bracket term `P(f, h)` that `run!` evaluates are not finite.
 - **kind:** found late
 - **found:** 2026-11-26
+
+### K136 · No test of `ParitySplitting` passes a background with negative values, so a mutant of the evenness bound that drops the absolute value survives.
+
+- **location:** `src/gridbased/parity.jl:147`
+- **evidence:** the constructor tests the evenness of `f0` against `10 eps(T) maximum(abs, f0)`.
+  The mutant `maximum(abs, f0)` → `maximum(f0)` passes all 260 tests of
+  `test/gridbased/parity.jl`. On 16 × 32 nodes of [0, 4π) × [−7.5, 7.5], from
+  `(1 + 0.2 cos(x/2)) e^{-v²/2}/√(2π)`, the background `-e^{-v²/2}/√(2π)` constructs and is stored
+  as given, in Float32 and Float64; the mutant's bound on it is `-2.9e-19` (Float32) and
+  `-5.4e-28` (Float64), so the mutant refuses this even background. A test that constructs with
+  `background = -M` catches the mutant.
+- **kind:** missing test
+- **found:** PR #160
