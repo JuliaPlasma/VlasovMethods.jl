@@ -18,7 +18,8 @@ the solution of ``-\phi'' = \rho - \bar\rho`` with ``\int \phi \, dx = 0``, for
 ``L``, on a uniform or a nonuniform x-mesh. The averaged form is totally antisymmetric, so the
 field keeps the quadratic energy [`_spline_energy`](@ref). The mass [`_spline_mass`](@ref) is not
 kept: its rate is the boundary flux ``\frac{1}{3} \int \phi'(x) (f(x, V) - f(x, -V)) \, dx`` on
-the velocity domain ``[-V, V]``, which vanishes where ``f`` does. [`GalerkinMidpoint`](@ref) steps the model.
+the velocity domain ``[-V, V]``, which vanishes where ``f`` does. [`GalerkinMidpoint`](@ref)
+steps the model.
 
 The model's `work` is the matrix of the weights of the tensor quadrature of the two bases. The
 constructor throws an `ArgumentError` unless `potential.solver` is a `PoissonSolverSpline`, and
