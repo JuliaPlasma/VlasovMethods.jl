@@ -224,10 +224,18 @@ end
     end
     for tspan in ((0, NaN), (Inf, 1), (0, 1, 2))
         e = thrown(() -> ParitySplitting(model, tspan, 0.1))
-        @test e isa ArgumentError && occursin("tspan", e.msg)
+        @test e isa ArgumentError && occursin("tspan is not two finite times", e.msg)
     end
-    # a span that does not point forward is refused by the time grid of `run!`
-    @test thrown(() -> ParitySplitting(model, (1, 0), 0.1)) isa ArgumentError
+    # a span that runs backward is refused by a check of the constructor, which does not rely on
+    # the time grid of `run!`; a span of equal endpoints is accepted
+    e = thrown(() -> ParitySplitting(model, (1, 0), 0.1))
+    @test e isa ArgumentError && occursin("tspan does not point forward", e.msg)
+    @test ParitySplitting(model, (1, 1), 0.1).tspan === (T(1), T(1))
+    # a zero background is even, at the edge of the evenness bound
+    @test ParitySplitting(model, (0, 1), 0.1; background = zeros(T, 32)).background ==
+          zeros(T, 32)
+    # a step count that does not fit an `Int` throws at construction, in the time grid of `run!`
+    @test thrown(() -> ParitySplitting(model, (0, 1), floatmin(T))) isa InexactError
     for tol in (-eps(T), NaN)
         e = thrown(() -> ParitySplitting(model, (0, 1), 0.1; tol))
         @test e isa ArgumentError && occursin("tol", e.msg)

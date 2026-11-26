@@ -126,7 +126,10 @@ function ParitySplitting(model::VlasovPoisson{1, 1, <:GridDistribution}, tspan::
     length(tspan) == 2 && all(t -> isfinite(T(t)), tspan) || throw(ArgumentError(
         "the time span tspan is not two finite times in the element type $T; got $tspan"))
     t₀, t₁ = T(tspan[1]), T(tspan[2])
-    # the time grid of `run!`, which refuses a span that does not point forward
+    t₁ ≥ t₀ || throw(ArgumentError(
+        "the time span tspan does not point forward; got tspan = $tspan"))
+    # the time grid of `run!`, built here so that a step count that does not fit an `Int`
+    # throws at construction
     GeometricIntegrators.TimeSeries(t₀, t₁, τ)
     tol ≥ 0 || throw(ArgumentError("the tolerance tol is negative or NaN; got tol = $tol"))
     0 ≤ max_iterations ≤ typemax(Int32) || throw(ArgumentError(
@@ -141,7 +144,8 @@ function ParitySplitting(model::VlasovPoisson{1, 1, <:GridDistribution}, tspan::
     f0 = _parity_background(values, background)
     all(isfinite, values) && all(isfinite, f0) || throw(ArgumentError(
         "the initial values and the background of the parity splitting must be finite"))
-    all(j -> abs(f0[j] - f0[nv + 1 - j]) ≤ 10 * eps(T) * maximum(abs, f0), 1:nv) ||
+    f0bound = 10 * eps(T) * maximum(abs, f0)
+    all(j -> abs(f0[j] - f0[nv + 1 - j]) ≤ f0bound, 1:nv) ||
         throw(ArgumentError("the background f0 of the parity splitting is not even in v"))
     f0 = f0 ./ 2 .+ reverse(f0) ./ 2
 
