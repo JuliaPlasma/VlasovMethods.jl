@@ -768,7 +768,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K124 · The CI job "Julia 1 - ubuntu-latest - default - verification" takes about 70 minutes on a normal runner, so a runner about 1.6 times slower or more takes it past its timeout of 120 minutes.
 
-- **location:** `test/runtests.jl:62`
+- **location:** `test/runtests.jl:63`
 - **evidence:** `split = true` gives the `verification` group a job of its own, but the group
   alone holds about 104 minutes of test time on two workers. In CI run 45340940249 (westus, a
   head without "Projector Splitting Rates") the job took 56 minutes: 14 minutes of setup and
@@ -807,6 +807,37 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** found late
 - **found:** 2026-11-24
 
+### K128 · The `f⁺` solve of `ParitySplitting` cannot meet its residual test on a state whose even part is zero or small against its odd part, so `run!` throws on the first step.
+
+- **location:** `src/gridbased/parity.jl:224`
+- **evidence:** the solve stops at `‖F‖₂ ≤ tol ‖F0 + f⁺‖₂`, a bound that scales with the even part
+  of the state alone, while the residual `y - f⁺ - τ P(f⁻, h)` also holds the odd part `f⁻`.
+  In Float32 on 16 × 32 nodes of [0, 4π) × [−7.5, 7.5], with `τ = 0.1` and the default `tol` and
+  `max_iterations`: from `(1 + 0.2 cos(x/2)) e^{-v²/2} v`, whose even part is zero, so the bound is
+  0, `run!` throws `MAXITERS, with ‖F‖ = 2.204519e-9 after 10 iterations`; from
+  `(1 + 0.2 cos(x/2)) e^{-v²/2} (v + 1e-6)` it throws with `‖F‖ = 4.6566284e-10`. The bound is the
+  one that the spec of the method decides; a bound with a term in `‖f⁻‖` or in `τ ‖P(f⁻, h)‖`
+  would reach these states. No test runs an odd-dominated state.
+- **kind:** found late
+- **found:** 2026-11-25; the clause "The parity Strang step", whose step 2 decides the bound
+
+### K129 · The `f⁺` solve of `ParitySplitting` stalls above its residual bound on a state scaled by 10² or more, and in Float32 on 64 × 128 nodes at τ = 0.2; the cause is not located.
+
+- **location:** `src/gridbased/parity.jl:221`
+- **evidence:** 40 steps of `τ = 0.05` from `s (1 + 0.2 cos(x/2)) e^{-v²/2}/√(2π)` on 16 × 32 nodes of
+  [0, 4π) × [−7.5, 7.5] with the default `tol` and `max_iterations` keep the energy to `3.4e-7`
+  (Float32) and `1.0e-15` (Float64) at `s = 10`, and throw `MAXITERS` at `s = 10²`, with
+  `‖F‖ = 1.49e-4` (Float32) and `5.82e-13` (Float64) after 10 iterations; at `s = 10⁴` in Float64,
+  `max_iterations = 100` still ends at `‖F‖ = 6.07e-4`. From `(1 + 0.2 cos(x/2)) e^{-v²/2}/√(2π)`
+  on 64 × 128 nodes of the same domain, a Float32 run at `τ = 0.2` throws at step 10 with
+  `‖F‖ = 1.73e-4`, and `max_iterations = 20` or `50` (`‖F‖ = 1.75e-4` and `1.53e-4`) or
+  `tol = 16 eps(Float32)` (`1.72e-4`) do not change that. The tolerance, the forcing and the
+  `GMRES` defaults are the ones that the spec of the method decides; whether the round-off of the
+  residual or the convergence of `GMRES` sets this floor is not measured. The tests run 16 × 32
+  and 16 × 33 at the scales 1 and 10⁻⁴.
+- **kind:** not verified
+- **found:** 2026-11-25; the clause "The parity Strang step", whose step 2 decides the solve
+
 ### K130 · The `GalerkinMidpoint` constructor accepts a time span that no time grid can hold, and `run!` then raises an `InexactError` from `TimeSeries` instead of an `ArgumentError` of a guard.
 
 - **location:** `src/splinebased/vlasov_poisson_1d1v.jl:264`
@@ -835,9 +866,10 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 - **location:** `src/distributions/tensor_spline_distribution.jl:92`
 - **evidence:** on 16 × 100 Float32 splines with random coefficients,
-  `typeof(evaluate(dist, 1.3, -7.1))` is `Float64`, and `Float32` for `1.3f0, -7.1f0`. The spec
-  of the distribution decides no result type for arguments of another precision, and no test
-  passes arguments of a wider precision than the distribution's.
+  `typeof(evaluate(dist, 1.3, -7.1))` is `Float64`, and `Float32` for `1.3f0, -7.1f0`; a
+  `BigFloat` coordinate, `evaluate(dist, big(1.0), 1)`, gives a `BigFloat` in both precisions.
+  The spec of the distribution decides no result type for arguments of another precision, and no
+  test passes arguments of a wider precision than the distribution's.
 - **kind:** found late
 - **found:** 2026-11-26
 
@@ -857,7 +889,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K134 · The macOS CI jobs of the test group `galerkin` take about 120 minutes, the timeout of the job, so the job "Julia 1 - macOS-latest - default - galerkin" is red on the weekly run, a tag and a run by hand.
 
-- **location:** `test/runtests.jl:71`
+- **location:** `test/runtests.jl:73`
 - **evidence:** in the full-matrix CI run 45789228548 (`workflow_dispatch`), "Julia 1 -
   macOS-latest - default - galerkin" was cancelled at its timeout of 120 minutes, and "Julia min -
   macOS-latest - default - galerkin" passed in 119 min 51 s; the Windows jobs of the group took
@@ -869,3 +901,56 @@ has left the file, or that lived only on a merged branch, stays taken.
   group is not split, the runs are not shortened, and the timeout does not change.
 - **kind:** defect
 - **found:** 2026-11-26, the full-matrix run of the spline Galerkin model's branch
+
+### K135 · The default background of `ParitySplitting` overflows in its sum over x when the even part of finite initial values sums past `floatmax(T)` in a column, so the constructor throws an `ArgumentError` that calls the finite values not finite.
+
+- **location:** `src/gridbased/parity.jl:161`
+- **evidence:** `_parity_background(values, nothing)` halves each value before it adds the
+  mirrored value, but adds the `nx` rows before it divides by `nx`. On 16 × 32 and 16 × 33 nodes
+  of [0, 4π) × [−7.5, 7.5], from `(1 + 0.2 cos(x/2)) e^{-v²/2}/√(2π)` with rows 1 and 2 of the
+  columns 3 and `nv − 2` set to `floatmax(T)`, every value and the x-mean `sum(values ./ 16;
+  dims = 1)` are finite, and `ParitySplitting(model, (0, 1), 0.1)` throws `ArgumentError: the
+  initial values and the background of the parity splitting must be finite`, in Float32 and
+  Float64. A division before the sum, `vec(sum(values ./ (2nx) .+ values[:, end:-1:1] ./ (2nx);
+  dims = 1))`, gives a finite background, and the method constructs with it; on these values the
+  Hamiltonian `h` and the bracket term `P(f, h)` that `run!` evaluates are not finite.
+- **kind:** found late
+- **found:** 2026-11-26
+
+### K136 · No test of `ParitySplitting` passes a background with negative values, so a mutant of the evenness bound that drops the absolute value survives.
+
+- **location:** `src/gridbased/parity.jl:147`
+- **evidence:** the constructor tests the evenness of `f0` against `10 eps(T) maximum(abs, f0)`.
+  The mutant `maximum(abs, f0)` → `maximum(f0)` passes all 260 tests of
+  `test/gridbased/parity.jl`. On 16 × 32 nodes of [0, 4π) × [−7.5, 7.5], from
+  `(1 + 0.2 cos(x/2)) e^{-v²/2}/√(2π)`, the background `-e^{-v²/2}/√(2π)` constructs and is stored
+  as given, in Float32 and Float64; the mutant's bound on it is `-2.9e-19` (Float32) and
+  `-5.4e-28` (Float64), so the mutant refuses this even background. A test that constructs with
+  `background = -M` catches the mutant.
+- **kind:** missing test
+- **found:** PR #160
+
+### K138 · `evaluate` on a `TensorSplineDistribution` raises an `InexactError` from SimpleSplines at a non-finite coordinate, and returns 0 at a velocity outside the domain of its velocity basis.
+
+- **location:** `src/distributions/tensor_spline_distribution.jl:92`
+- **evidence:** on 16 periodic cubic x-splines of [0, 4π) and 100 clamped cubic v-splines of
+  [−25, 25], with the projection of `1 + v/3 + v²/5`, `evaluate(dist, NaN, 0)` and
+  `evaluate(dist, Inf, 0)` throw `InexactError`, in Float64 and Float32, and
+  `evaluate(dist, 1, 30)` returns `0.0` where the projected function is 191. The method passes the
+  point to SimpleSplines' `evaluate` without a check, and the docstring says only that it returns
+  `f(x, v)`; the spec of the distribution decides no behaviour outside the velocity domain and at
+  a non-finite point, and no test reaches either case.
+- **kind:** found late
+- **found:** PR #161
+
+### K139 · No test runs `GalerkinMidpoint` on a nonuniform x-mesh; the nonuniform testset checks the energy rate of the field by a central difference only.
+
+- **location:** `test/splinebased/vlasov_poisson_1d1v.jl:255`
+- **evidence:** the testset "nonuniform x-mesh" checks the potential, the energy and the rate
+  `H(A + εȦ) − H(A − εȦ)` on 16 cells of [0, 4π) of widths between 0.52 and 1.48 times the mean,
+  and calls no `run!`. A probe of 40 implicit midpoint steps of `τ = 0.05` from the Landau state
+  on that mesh, with the default `tol`, keeps the energy to `6.5e-16` (Float64) and `1.4e-7`
+  (Float32), so the step holds there; a step that breaks only on a nonuniform mesh passes the
+  suite.
+- **kind:** missing test
+- **found:** PR #161

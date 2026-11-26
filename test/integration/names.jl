@@ -134,6 +134,7 @@ const NEW_EXPORTS = Symbol[
     :LowRankDistribution,
     :LowRankIntegrator,
     :MidpointBUG,
+    :ParitySplitting,
     :PeriodicVelocityClosure,
     :ProjectorSplitting,
     :TensorSplineDistribution,
@@ -144,6 +145,8 @@ const NEW_EXPORTS = Symbol[
     :klimontovich_deposition,
     :kruskal_oberman_free_energy,
     :lowrank_step!,
+    :parity_merge,
+    :parity_split,
     :tie_continuum_frontends!
 ]
 

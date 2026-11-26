@@ -222,6 +222,11 @@ include("gridbased/vlasov_poisson_1d1v.jl")
 
 export PeriodicVelocityClosure, BoundedVelocityClosure
 
+# The parity Strang splitting steps the grid 1D1V model with its bracket term and Green's matrix.
+include("gridbased/parity.jl")
+
+export ParitySplitting, parity_split, parity_merge
+
 # The spline 1D1V Vlasov–Poisson model on a `TensorSplineDistribution` and its implicit midpoint
 # step name `VlasovPoisson` and `VlasovMethod` in their signatures, so they are included after
 # the models and the methods.
