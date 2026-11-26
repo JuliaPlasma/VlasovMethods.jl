@@ -343,8 +343,8 @@ function _midpoint_lstep(space, X, S, V, w, τ, tol, sub)
 end
 
 # τ and the solve tolerance in the element type T of Y, after the checks that run before any
-# solve: a field of the grid, τ finite and nonzero, tol in [eps(T), 1), finite factors, and the
-# periodic closure
+# solve: a field of type LowRankFields1D1V, τ finite and nonzero, tol in [eps(T), 1), finite
+# factors, and the periodic closure
 function _check_midpoint(Y, sub, w, τ)
     w isa LowRankFields1D1V || throw(ArgumentError(
         "ImplicitMidpointSubsteps takes a field of type LowRankFields1D1V; got a field of type " *

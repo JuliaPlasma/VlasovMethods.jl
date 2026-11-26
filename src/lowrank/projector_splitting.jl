@@ -71,7 +71,8 @@ function _lstep(X, L, field, t, τ, ϕ)
 end
 
 @doc raw"""
-    lowrank_step!(Y::LowRankDistribution, method::ProjectorSplitting, field, t, τ)
+    lowrank_step!(Y::LowRankDistribution, method::ProjectorSplitting{C, Nothing},
+                  field, t, τ)
 
 Advance the low-rank state `Y` by one step of length `τ` from the time `t`, in place, and return
 `Y`. `field` is the right-hand side, such as the [`LowRankFields1D1V`](@ref) of the state's grid.

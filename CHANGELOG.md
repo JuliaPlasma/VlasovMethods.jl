@@ -21,7 +21,7 @@ their own, except for what they removed and narrowed, which is listed in full be
 
 - **`[compat] julia` rises from 1.12 to 1.13, and GeometricSolvers is a new dependency.** The
   module loads GeometricSolvers with `import GeometricSolvers`, for the nonlinear and linear
-  solves, and does not call it yet. GeometricSolvers 0.1.0 requires Julia 1.13, so a caller on
+  solves of `ImplicitMidpointSubsteps`. GeometricSolvers 0.1.0 requires Julia 1.13, so a caller on
   Julia 1.12 can no longer install this release. GeometricSolvers is bounded by `"0.1"`. It is not
   registered yet, so `Project.toml` takes it from its repository at a fixed commit through
   `[sources]`; the entry is removed before this release, once GeometricSolvers is registered.
