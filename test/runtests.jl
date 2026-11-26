@@ -45,8 +45,7 @@ const TESTS = [
         "Bump-on-tail Runs" => "integration/bump_on_tail_runs.jl",
         "HNN" => "hnn.jl",
         "Multi-modal Vlasov Frontends" => "rom/multimodal_vlasov_frontends.jl",
-        "GeometricIntegrators Scaling" => "integration/geometric_integrators_scaling.jl",
-        "Spline Galerkin Energy and Rates" => "verification/spline_galerkin.jl"
+        "GeometricIntegrators Scaling" => "integration/geometric_integrators_scaling.jl"
     ],
     "collisions" => [
         "Landau Solver" => "integration/landau_solver.jl",
@@ -68,12 +67,19 @@ const TESTS = [
         "Low-Rank BUG Two-Stream Rates" => "verification/lowrank_bug_two_stream_rates.jl",
         "Low-Rank BUG Two-Stream Rates, Float32" => "verification/lowrank_bug_two_stream_rates_float32.jl",
         "Projector Splitting Rates" => "verification/projector_splitting_rates.jl"
+    ],
+    "galerkin" => [
+        "Spline Galerkin Energy" => "verification/spline_galerkin_energy.jl",
+        "Spline Galerkin Energy, Float32" => "verification/spline_galerkin_energy_float32.jl",
+        "Spline Galerkin Landau Rates" => "verification/spline_galerkin_landau_rates.jl",
+        "Spline Galerkin Two-Stream Rates" => "verification/spline_galerkin_two_stream_rates.jl"
     ]
 ]
 
 const SELECTED = filter(!startswith("--"), ARGS)
 const GROUPS = isempty(SELECTED) ?
-               ["core", "quality", "slow", "collisions", "verification"] : SELECTED
+               ["core", "quality", "slow", "collisions", "verification", "galerkin"] :
+               SELECTED
 const UNKNOWN = setdiff(SELECTED, first.(TESTS))
 isempty(UNKNOWN) ||
     error("no test group ", join(UNKNOWN, ", "), " in runtests.jl; its groups are ", join(first.(TESTS), ", "))

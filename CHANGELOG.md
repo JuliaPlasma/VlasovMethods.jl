@@ -41,10 +41,12 @@ their own, except for what they removed and narrowed, which is listed in full be
   `(1/3) ∫ φ' (f(x, V) − f(x, −V)) dx`.
 - **`GalerkinMidpoint`** is the implicit midpoint rule of the spline Galerkin model, with a
   Newton–GMRES solve on GeometricSolvers to `‖F‖₂ ≤ tol ‖A‖₂`, `tol = 4eps(T)` by default. It keeps
-  the energy to the solve. `test/verification/spline_galerkin.jl` asserts a relative energy drift
-  of at most `1e-12` in `Float64` and `1e-4` in `Float32` over 10⁴ steps of `τ = 0.05` from a
-  Landau state on 16 × 100 splines of `[0, 4π) × [−25, 25]`, and the Landau and two-stream rates
-  on 64 × 128 splines. `run!(method, h5file)` writes the states and the times as
+  the energy to the solve. The four files `test/verification/spline_galerkin_*.jl`, in a test
+  group `galerkin` of their own, assert a relative energy drift of at most `1e-12` in `Float64`
+  and `1e-4` in `Float32` over 10⁴ steps of `τ = 0.05` from a Landau state on 16 × 100 splines of
+  `[0, 4π) × [−25, 25]`, and the Landau and two-stream rates on 64 × 128 splines. The group runs
+  on Ubuntu × Julia 1 for a pull request and a push, and on every entry for the weekly, tag and
+  manual runs. `run!(method, h5file)` writes the states and the times as
   `run!(::GeometricIntegrator, h5file)` does, and a solve that does not converge raises an error
   that names its return code.
 
