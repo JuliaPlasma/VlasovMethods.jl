@@ -70,14 +70,16 @@ end
 
 energy_gradient(t, A) = t.Mx * spline_hhat(t, A) * t.Mv
 
-# the plain field Mx⁻¹ [T(Φᵢⱼ, h, f)] Mv⁻¹ with h = φ(f) + v²/2 at the nodes
-function plain_field(t, A)
-    φ̂ = spline_phi(t, A)
+# Mx⁻¹ [T(Φᵢⱼ, h, A)] Mv⁻¹ for h = φ̂ + v²/2, or h = φ̂ alone where `kinetic` is false
+function plain_bracket(t, φ̂, kinetic, A)
     hx = (t.X1' * φ̂) .+ zero(t.vq)'
-    hv = zero(t.X0' * φ̂) .+ t.vq'
+    hv = zero(t.X0' * φ̂) .+ (kinetic ? t.vq' : zero(t.vq)')
     _, fx, fv = grid_values(t, A)
     return minv(t, t.X0 * (t.W .* (hx .* fv .- hv .* fx)) * t.V0')
 end
+
+# the plain field Mx⁻¹ [T(Φᵢⱼ, h, f)] Mv⁻¹ with h = φ(f) + v²/2 at the nodes
+plain_field(t, A) = plain_bracket(t, spline_phi(t, A), true, A)
 
 # the L² projection of f(x, v), by the tables
 spline_project(t, f) = minv(t, t.X0 * (t.W .* f.(t.xq, t.vq')) * t.V0')

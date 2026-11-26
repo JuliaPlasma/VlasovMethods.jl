@@ -107,20 +107,11 @@ function _averaged_form(
             _galerkin_form(dist, c, a, b)) / 3
 end
 
-# ∫ Cⱼ dv and ∫ Bᵢ dx, by the quadratures
-function _velocity_integrals(dist)
-    basis_values(dist.vquadrature, 0) *
-    quadrature_weights(dist.vquadrature)
-end
-function _position_integrals(dist)
-    basis_values(dist.xquadrature, 0) *
-    quadrature_weights(dist.xquadrature)
-end
-
-# the load vector Mx ρ̂ of the density ρ̂ = A ι_v, and the coefficients φ̂ of the potential
+# the load vector Mx ρ̂ of the density ρ̂ = A ι_v, (ι_v)ⱼ = ∫ Cⱼ dv, and the coefficients φ̂ of
+# the potential
 function _spline_load(model, A)
-    mass_matrix(model.distribution.xquadrature) *
-    (A * _velocity_integrals(model.distribution))
+    dist = model.distribution
+    mass_matrix(dist.xquadrature) * (A * basis_integrals(dist.vquadrature))
 end
 function _spline_potential(model, A)
     PoissonSolvers.solve(model.potential.solver, _spline_load(model, A))
@@ -200,7 +191,7 @@ function _spline_energy(model::VlasovPoisson{1, 1, <:TensorSplineDistribution{T}
               (quadrature_weights(qv) .* quadrature_nodes(qv) .^ 2 ./ 2)
     load = _spline_load(model, A)
     φ̂ = PoissonSolvers.solve(model.potential.solver, load)
-    return dot(_position_integrals(dist), A * kinetic) + dot(φ̂, load) / 2
+    return dot(basis_integrals(dist.xquadrature), A * kinetic) + dot(φ̂, load) / 2
 end
 
 @doc raw"""
@@ -213,7 +204,7 @@ function _spline_mass(model::VlasovPoisson{1, 1, <:TensorSplineDistribution{T}},
         A::AbstractMatrix{T}) where {T}
     dist = model.distribution
     _check_coefficients(dist, A)
-    return dot(_position_integrals(dist), A * _velocity_integrals(dist))
+    return dot(basis_integrals(dist.xquadrature), A * basis_integrals(dist.vquadrature))
 end
 
 @doc raw"""

@@ -45,7 +45,8 @@ const TESTS = [
         "Bump-on-tail Runs" => "integration/bump_on_tail_runs.jl",
         "HNN" => "hnn.jl",
         "Multi-modal Vlasov Frontends" => "rom/multimodal_vlasov_frontends.jl",
-        "GeometricIntegrators Scaling" => "integration/geometric_integrators_scaling.jl"
+        "GeometricIntegrators Scaling" => "integration/geometric_integrators_scaling.jl",
+        "Spline Galerkin Energy and Rates" => "verification/spline_galerkin.jl"
     ],
     "collisions" => [
         "Landau Solver" => "integration/landau_solver.jl",
@@ -66,8 +67,7 @@ const TESTS = [
         "Low-Rank BUG Landau Rates" => "verification/lowrank_bug_landau_rates.jl",
         "Low-Rank BUG Two-Stream Rates" => "verification/lowrank_bug_two_stream_rates.jl",
         "Low-Rank BUG Two-Stream Rates, Float32" => "verification/lowrank_bug_two_stream_rates_float32.jl",
-        "Projector Splitting Rates" => "verification/projector_splitting_rates.jl",
-        "Spline Galerkin Energy and Rates" => "verification/spline_galerkin.jl"
+        "Projector Splitting Rates" => "verification/projector_splitting_rates.jl"
     ]
 ]
 

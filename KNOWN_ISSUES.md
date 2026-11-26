@@ -768,7 +768,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K124 · The CI job "Julia 1 - ubuntu-latest - default - verification" takes about 70 minutes on a normal runner, so a runner about 1.6 times slower or more takes it past its timeout of 120 minutes.
 
-- **location:** `test/runtests.jl:60`
+- **location:** `test/runtests.jl:63`
 - **evidence:** `split = true` gives the `verification` group a job of its own, but the group
   alone holds about 104 minutes of test time on two workers. In CI run 45340940249 (westus, a
   head without "Projector Splitting Rates") the job took 56 minutes: 14 minutes of setup and
@@ -806,3 +806,51 @@ has left the file, or that lived only on a merged branch, stays taken.
   (group `closure`).
 - **kind:** found late
 - **found:** 2026-11-24
+
+### K130 · The `GalerkinMidpoint` constructor accepts a time span that no time grid can hold, and `run!` then raises an `InexactError` from `TimeSeries` instead of an `ArgumentError` of a guard.
+
+- **location:** `src/splinebased/vlasov_poisson_1d1v.jl:254`
+- **evidence:** the constructor checks `tstep`, not `tspan`. With the Landau state on 16 × 100
+  splines, `GalerkinMidpoint(model, (0.0, Inf), 0.05)`, `(0.0, NaN)` and `(NaN, 1.0)` construct,
+  and `run!` raises `InexactError: Int64(Inf)` or `Int64(NaN)` from
+  `GeometricIntegrators.TimeSeries`, in Float64 and Float32; a Float32 span `(0, 1e39)` gives
+  `Int64(Inf)`, and `tstep = nextfloat(0)` gives `Int64(Inf)` in Float32 and `Int64(7.1e44)` in
+  Float64. A reversed span raises the `ArgumentError` of `TimeSeries` at `run!`. No file is
+  created in these cases. The spec of the method decides the checks of `tstep`, `tol` and
+  `max_iterations`, and none of `tspan`.
+- **kind:** found late
+- **found:** 2026-11-26
+
+### K131 · `GalerkinMidpoint` accepts `tol = Inf`, and `run!` then returns with the state unmoved and no error.
+
+- **location:** `src/splinebased/vlasov_poisson_1d1v.jl:265`
+- **evidence:** the guard refuses a negative and a `NaN` tolerance, as the spec of the method
+  decides, so `tol = Inf` passes; the target `tol ‖A‖₂` is `Inf`, the start of every solve meets
+  it, and one step of `τ = 0.05` from the Landau state returns `A` unchanged without an error. A
+  Float32 `tol = 1e39` converts to `Inf` in the same way.
+- **kind:** found late
+- **found:** 2026-11-26
+
+### K132 · `evaluate` on a Float32 `TensorSplineDistribution` with Float64 arguments returns a Float64.
+
+- **location:** `src/distributions/tensor_spline_distribution.jl:92`
+- **evidence:** on 16 × 100 Float32 splines with random coefficients,
+  `typeof(evaluate(dist, 1.3, -7.1))` is `Float64`, and `Float32` for `1.3f0, -7.1f0`. The spec
+  of the distribution decides no result type for arguments of another precision, and no test
+  passes such arguments.
+- **kind:** found late
+- **found:** 2026-11-26
+
+### K133 · The element-type assertions of the run, step and stopping testsets of the spline Galerkin model cannot fail, and the step testset asserts none.
+
+- **location:** `test/splinebased/vlasov_poisson_1d1v.jl:392`
+- **evidence:** `run!(::GalerkinMidpoint, h5file)` creates the datasets `z` and `t` with the
+  element type `T` of the distribution (`src/splinebased/vlasov_poisson_1d1v.jl:350-351`), and
+  writes the last state into the typed coefficient field of the distribution, so
+  `eltype(z) === T`, `eltype(times) === T` and `eltype(dist.coefficients) === T` hold whatever
+  type a step computes. A step that promoted would raise no error there: it would be rounded on
+  the write. The step testset asserts no element type; the field, residual and Jacobian-vector
+  testsets of the same file assert the element type of the computed matrices. The critic's probe
+  of `_midpoint_step` on a Float32 model gives `Float32`, so no step promotes on the branch.
+- **kind:** missing test
+- **found:** 2026-11-26

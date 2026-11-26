@@ -1,4 +1,5 @@
 using Test
+import HDF5
 using HDF5: h5open, h5read
 using Random: Xoshiro
 using SimpleSplines: BSplineBasis, PeriodicBSplineBasis, UniformMesh, Dirichlet, (..)
@@ -28,13 +29,8 @@ function run_states(method)
     return dist, h5read(file, "z"), h5read(file, "t")
 end
 
-# Mx⁻¹ [T(Φᵢⱼ, h, A)] Mv⁻¹ for h = φ̂ + v²/2, or h = φ̂ alone where `kinetic` is false
-function plain_bracket(t, φ̂, kinetic, A)
-    hx = (t.X1' * φ̂) .+ zero(t.vq)'
-    hv = zero(t.X0' * φ̂) .+ (kinetic ? t.vq' : zero(t.vq)')
-    _, fx, fv = grid_values(t, A)
-    return minv(t, t.X0 * (t.W .* (hx .* fv .- hv .* fx)) * t.V0')
-end
+# the number of HDF5 files that the process holds open
+open_hdf5_files() = HDF5.API.h5f_get_obj_count(HDF5.API.H5F_OBJ_ALL, HDF5.API.H5F_OBJ_FILE)
 
 # the test's own implicit midpoint step of the plain field, by Newton–GMRES; the largest relative
 # energy change over `nsteps` steps
@@ -316,6 +312,32 @@ end
     @test norm(reflect(A₂) .- A) ≤ 64eps(T) * norm(A)
 end
 
+@testset "stopping test ($T)" for T in (Float64, Float32)
+    τ = T(0.05)
+    model, _ = spline_model(T, landau_state(T))
+    A = copy(model.distribution.coefficients)
+    F(y) = VlasovMethods._midpoint_residual!(similar(y), model, A, τ, y)
+
+    # the solve stops at ‖F‖₂ ≤ tol ‖A‖₂: at half the residual of the start the target binds
+    # after the first Newton iteration, and a target looser by a factor of 2 accepts the start
+    tol = norm(F(vec(A))) / (2 * norm(A))
+    Y = run!(GalerkinMidpoint(model, (0, τ), τ; tol), tempname() * ".hdf5").coefficients
+    @test eltype(Y) === T
+    @test Y != A
+    @test norm(F(vec(Y))) ≤ tol * norm(A)
+
+    # with tol = 0 only the iteration count ends the solve, because the step test is off
+    model, _ = spline_model(T, landau_state(T))
+    err = try
+        run!(GalerkinMidpoint(model, (0, τ), τ; tol = 0, max_iterations = 8),
+            tempname() * ".hdf5")
+    catch e
+        e
+    end
+    @test err isa ErrorException
+    @test occursin("returned MAXITERS", err.msg) && occursin("after 8 iterations", err.msg)
+end
+
 @testset "zero state ($T)" for T in (Float64, Float32)
     model, _ = spline_model(T, (x, v) -> zero(x))
     @test iszero(model.distribution.coefficients)
@@ -327,19 +349,36 @@ end
 @testset "failure ($T)" for T in (Float64, Float32)
     model, _ = spline_model(T, landau_state(T))
     A = copy(model.distribution.coefficients)
+    method = GalerkinMidpoint(model, (0.0, 1.0), 0.05; max_iterations = 0)
     file = tempname() * ".hdf5"
+    # the garbage collector is held off, so that no finalizer closes a handle that run! leaves
+    # open; HDF5 refuses to truncate a file that is open
+    GC.gc()
+    before = open_hdf5_files()
+    GC.enable(false)
     err = try
-        run!(GalerkinMidpoint(model, (0.0, 1.0), 0.05; max_iterations = 0), file)
+        run!(method, file)
     catch e
         e
     end
+    after = open_hdf5_files()
+    initial = h5open(file, "r") do h5
+        read(h5["z"])[:, 1]
+    end
+    reopened = try
+        close(h5open(file, "w"))
+        true
+    catch
+        false
+    end
+    GC.enable(true)
     @test err isa ErrorException
     @test occursin("MAXITERS", err.msg)
     @test occursin("‖F‖", err.msg) && occursin("iterations", err.msg)
-    # the file is closed, and the distribution keeps its coefficients
-    @test h5open(file, "r") do h5
-        read(h5["z"])[:, 1] == vec(A)
-    end
+    # the file is closed and holds the initial state, and the distribution keeps its coefficients
+    @test after == before
+    @test reopened
+    @test initial == vec(A)
     @test model.distribution.coefficients == A
 end
 

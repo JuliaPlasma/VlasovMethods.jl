@@ -59,12 +59,7 @@ end
 function TensorSplineDistribution(xbasis::AbstractBSplineBasis, vbasis::AbstractBSplineBasis, f)
     T = eltype(xbasis)
     dist = TensorSplineDistribution(xbasis, vbasis, zeros(T, nbasis(xbasis), nbasis(vbasis)))
-    xq, vq = dist.xquadrature, dist.vquadrature
-    fw = quadrature_weights(xq) .*
-         T.(f.(quadrature_nodes(xq), permutedims(quadrature_nodes(vq)))) .*
-         permutedims(quadrature_weights(vq))
-    F = basis_values(xq, 0) * fw * transpose(basis_values(vq, 0))
-    dist.coefficients .= _tensor_mass_solve(xq, vq, F)
+    l2_projection!(dist.coefficients, TensorProductQuadrature(xbasis ⊗ vbasis), x -> f(x...))
     return dist
 end
 
@@ -82,18 +77,9 @@ function _check_tensor_bases(xbasis, vbasis, T)
     return nothing
 end
 
-# Mx⁻¹ R Mv⁻¹ by the mass operators of the two quadratures, column by column of R and then of
-# its transpose, so that each solve takes a contiguous column.
+# Mx⁻¹ R Mv⁻¹, by the Kronecker product of the mass operators of the two quadratures
 function _tensor_mass_solve(xq::SplineQuadrature, vq::SplineQuadrature, R::AbstractMatrix)
-    Y = Matrix(R)
-    for j in axes(Y, 2)
-        mass_solve!(view(Y, :, j), mass_operator(xq), view(Y, :, j))
-    end
-    Z = permutedims(Y)
-    for i in axes(Z, 2)
-        mass_solve!(view(Z, :, i), mass_operator(vq), view(Z, :, i))
-    end
-    return permutedims(Z)
+    KroneckerMass(mass_operator(xq), mass_operator(vq)) \ R
 end
 
 Base.eltype(::TensorSplineDistribution{DT}) where {DT} = DT
@@ -104,7 +90,5 @@ function Base.show(io::IO, dist::TensorSplineDistribution{DT}) where {DT}
 end
 
 function evaluate(dist::TensorSplineDistribution, x::Number, v::Number)
-    b = [evaluate(dist.xbasis, i, x) for i in 1:nbasis(dist.xbasis)]
-    c = [evaluate(dist.vbasis, j, v) for j in 1:nbasis(dist.vbasis)]
-    return dot(b, dist.coefficients, c)
+    evaluate(dist.xbasis ⊗ dist.vbasis, dist.coefficients, (x, v))
 end
