@@ -21,10 +21,32 @@ their own, except for what they removed and narrowed, which is listed in full be
 
 - **`[compat] julia` rises from 1.12 to 1.13, and GeometricSolvers is a new dependency.** The
   module loads GeometricSolvers with `import GeometricSolvers`, for the nonlinear and linear
-  solves, and does not call it yet. GeometricSolvers 0.1.0 requires Julia 1.13, so a caller on
-  Julia 1.12 can no longer install this release. GeometricSolvers is bounded by `"0.1"`. It is not
-  registered yet, so `Project.toml` takes it from its repository at a fixed commit through
-  `[sources]`; the entry is removed before this release, once GeometricSolvers is registered.
+  solves; `ParitySplitting` calls it for its `f⁺` solve. GeometricSolvers 0.1.0 requires Julia
+  1.13, so a caller on Julia 1.12 can no longer install this release. GeometricSolvers is bounded
+  by `"0.1"`. It is not registered yet, so `Project.toml` takes it from its repository at a fixed
+  commit through `[sources]`; the entry is removed before this release, once GeometricSolvers is
+  registered.
+
+### New Features
+
+- **`ParitySplitting`** is the parity Strang splitting of the grid 1D1V Vlasov–Poisson model, at
+  full rank on the grid. On a velocity grid symmetric about 0 it writes the state as
+  `f = 1 ⊗ f0 + f⁺ + f⁻`, with an even background `f0` over `v`, and takes a step as a half step
+  of the odd part `f⁻`, an implicit midpoint step of the even part `f⁺` with `f⁻` frozen, and a
+  second half step of `f⁻`. The discrete energy depends on `f⁺` alone and the `f⁺` step is
+  skew-gradient for it, so the splitting keeps the energy to the tolerance of the `f⁺` solve; it
+  is of second order and keeps the mass. The `f⁺` solve is GeometricSolvers' `Newton` with the
+  matrix-free `GMRES` and a Jacobian–vector product, to the residual test
+  `‖F‖₂ ≤ tol ‖1 ⊗ f0 + f⁺‖₂` with `tol = 4eps(T)` by default; a solve that does not converge
+  throws an `ErrorException`. `ParitySplitting(model, tspan, tstep; background, tol,
+  max_iterations)` refuses a velocity grid that is not symmetric, a background that is not even,
+  depends on `x`, or is not a vector of `nv` values, non-finite input, a step that is not finite
+  and positive, a time span that is not finite or runs backward, a negative or `NaN` tolerance,
+  and an iteration limit outside `0:typemax(Int32)`. `run!(method, h5file)` writes the HDF5
+  layout of `run!(::GeometricIntegrator, h5file)` on the same time grid.
+- **`parity_split`** splits grid values `f` into the even part `f⁺` about a background `f0` and
+  the odd part `f⁻`, by the reflection `v ↦ -v` of the velocity nodes.
+- **`parity_merge`** returns `1 ⊗ f0 + f⁺ + f⁻`, and inverts `parity_split`.
 
 ### Scripts
 

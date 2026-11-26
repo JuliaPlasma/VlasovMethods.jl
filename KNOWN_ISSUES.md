@@ -806,3 +806,62 @@ has left the file, or that lived only on a merged branch, stays taken.
   (group `closure`).
 - **kind:** found late
 - **found:** 2026-11-24
+
+### K128 · The `f⁺` solve of `ParitySplitting` cannot meet its residual test on a state whose even part is zero or small against its odd part, so `run!` throws on the first step.
+
+- **location:** `src/gridbased/parity.jl:224`
+- **evidence:** the solve stops at `‖F‖₂ ≤ tol ‖F0 + f⁺‖₂`, a bound that scales with the even part
+  of the state alone, while the residual `y - f⁺ - τ P(f⁻, h)` also holds the odd part `f⁻`.
+  In Float32 on 16 × 32 nodes of [0, 4π) × [−7.5, 7.5], with `τ = 0.1` and the default `tol` and
+  `max_iterations`: from `(1 + 0.2 cos(x/2)) e^{-v²/2} v`, whose even part is zero, so the bound is
+  0, `run!` throws `MAXITERS, with ‖F‖ = 2.204519e-9 after 10 iterations`; from
+  `(1 + 0.2 cos(x/2)) e^{-v²/2} (v + 1e-6)` it throws with `‖F‖ = 4.6566284e-10`. The bound is the
+  one that the spec of the method decides; a bound with a term in `‖f⁻‖` or in `τ ‖P(f⁻, h)‖`
+  would reach these states. No test runs an odd-dominated state.
+- **kind:** found late
+- **found:** 2026-11-25; the clause "The parity Strang step", whose step 2 decides the bound
+
+### K129 · The `f⁺` solve of `ParitySplitting` stalls above its residual bound on a state scaled by 10² or more, and in Float32 on 64 × 128 nodes at τ = 0.2; the cause is not located.
+
+- **location:** `src/gridbased/parity.jl:221`
+- **evidence:** 40 steps of `τ = 0.05` from `s (1 + 0.2 cos(x/2)) e^{-v²/2}/√(2π)` on 16 × 32 nodes of
+  [0, 4π) × [−7.5, 7.5] with the default `tol` and `max_iterations` keep the energy to `3.4e-7`
+  (Float32) and `1.0e-15` (Float64) at `s = 10`, and throw `MAXITERS` at `s = 10²`, with
+  `‖F‖ = 1.49e-4` (Float32) and `5.82e-13` (Float64) after 10 iterations; at `s = 10⁴` in Float64,
+  `max_iterations = 100` still ends at `‖F‖ = 6.07e-4`. From `(1 + 0.2 cos(x/2)) e^{-v²/2}/√(2π)`
+  on 64 × 128 nodes of the same domain, a Float32 run at `τ = 0.2` throws at step 10 with
+  `‖F‖ = 1.73e-4`, and `max_iterations = 20` or `50` (`‖F‖ = 1.75e-4` and `1.53e-4`) or
+  `tol = 16 eps(Float32)` (`1.72e-4`) do not change that. The tolerance, the forcing and the
+  `GMRES` defaults are the ones that the spec of the method decides; whether the round-off of the
+  residual or the convergence of `GMRES` sets this floor is not measured. The tests run 16 × 32
+  and 16 × 33 at the scales 1 and 10⁻⁴.
+- **kind:** not verified
+- **found:** 2026-11-25; the clause "The parity Strang step", whose step 2 decides the solve
+
+### K135 · The default background of `ParitySplitting` overflows in its sum over x when the even part of finite initial values sums past `floatmax(T)` in a column, so the constructor throws an `ArgumentError` that calls the finite values not finite.
+
+- **location:** `src/gridbased/parity.jl:161`
+- **evidence:** `_parity_background(values, nothing)` halves each value before it adds the
+  mirrored value, but adds the `nx` rows before it divides by `nx`. On 16 × 32 and 16 × 33 nodes
+  of [0, 4π) × [−7.5, 7.5], from `(1 + 0.2 cos(x/2)) e^{-v²/2}/√(2π)` with rows 1 and 2 of the
+  columns 3 and `nv − 2` set to `floatmax(T)`, every value and the x-mean `sum(values ./ 16;
+  dims = 1)` are finite, and `ParitySplitting(model, (0, 1), 0.1)` throws `ArgumentError: the
+  initial values and the background of the parity splitting must be finite`, in Float32 and
+  Float64. A division before the sum, `vec(sum(values ./ (2nx) .+ values[:, end:-1:1] ./ (2nx);
+  dims = 1))`, gives a finite background, and the method constructs with it; on these values the
+  Hamiltonian `h` and the bracket term `P(f, h)` that `run!` evaluates are not finite.
+- **kind:** found late
+- **found:** 2026-11-26
+
+### K136 · No test of `ParitySplitting` passes a background with negative values, so a mutant of the evenness bound that drops the absolute value survives.
+
+- **location:** `src/gridbased/parity.jl:147`
+- **evidence:** the constructor tests the evenness of `f0` against `10 eps(T) maximum(abs, f0)`.
+  The mutant `maximum(abs, f0)` → `maximum(f0)` passes all 260 tests of
+  `test/gridbased/parity.jl`. On 16 × 32 nodes of [0, 4π) × [−7.5, 7.5], from
+  `(1 + 0.2 cos(x/2)) e^{-v²/2}/√(2π)`, the background `-e^{-v²/2}/√(2π)` constructs and is stored
+  as given, in Float32 and Float64; the mutant's bound on it is `-2.9e-19` (Float32) and
+  `-5.4e-28` (Float64), so the mutant refuses this even background. A test that constructs with
+  `background = -M` catches the mutant.
+- **kind:** missing test
+- **found:** PR #160

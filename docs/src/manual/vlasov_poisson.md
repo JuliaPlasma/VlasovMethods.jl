@@ -223,6 +223,54 @@ distribution itself changes only when `run!` writes the states back. Where ``f``
 two outermost nodes at each end, ``j \in \{1, 2, n_v - 1, n_v\}``, the bounded and the periodic
 closure give the same field. The default is [`PeriodicVelocityClosure`](@ref).
 
+## Parity splitting
+
+On a velocity grid symmetric about 0, the reflection ``v \mapsto -v`` of the nodes,
+``(R f)_{ij} = f_{i, n_v + 1 - j}``, splits the state into a stationary even background
+``f_0(v)``, an even part ``f^+`` and an odd part ``f^-``,
+
+```math
+f = 1 \otimes f_0 + f^+ + f^- , \qquad f^- = \tfrac{1}{2} (f - R f) , \qquad
+f^+ = \tfrac{1}{2} (f + R f) - 1 \otimes f_0 ,
+```
+
+which [`parity_split`](@ref) computes and [`parity_merge`](@ref) inverts. The bracket term
+``P(f, h)`` of the grid model is graded by the reflection: ``P(\text{even}, \text{even})`` is
+odd and ``P(\text{odd}, \text{even})`` is even. The Hamiltonian
+``h = \phi \otimes 1 + 1 \otimes v^2 / 2`` is even, an odd part has no density and no kinetic
+energy, and with ``F_0 = 1 \otimes f_0`` the equations of the two parts are
+
+```math
+\dot{f}^+ = P(f^-, h(F_0 + f^+)) , \qquad \dot{f}^- = P(F_0 + f^+, h(F_0 + f^+)) .
+```
+
+The discrete energy ``H = h_x h_v \sum f v^2 / 2 + (h_x / 2) \rho^\mathsf{T} G \rho`` depends on
+``f^+`` alone. [`ParitySplitting`](@ref)`(model, tspan, tstep)` takes the Strang step of the
+two equations: a half step of ``f^-``, which is exact because its right-hand side does not depend
+on ``f^-``; the implicit midpoint step of ``f^+`` with ``f^-`` frozen, a linear system that is
+skew-gradient for ``H``; and a second half step of ``f^-``. The half steps leave ``H`` unchanged,
+and the midpoint step keeps it to the tolerance of its solve, so the energy is kept by the
+formulation, with no projection. The splitting is of second order and keeps the mass; it does not
+keep the ``L^2`` norm.
+
+The midpoint step is solved by GeometricSolvers' `Newton` with the matrix-free `GMRES`, to the
+residual test ``\|F\|_2 \le \mathrm{tol} \, \|F_0 + f^+\|_2``, `tol = 4eps(T)` by default. A
+relative test cannot be met there: while ``f^-`` is small, the initial residual is small too, and
+a fraction of it falls below the round-off of ``f^+``. The default background is the x-mean of
+the even part of the initial values. [`run!`](@ref)`(method, h5file)` writes the states and the
+times in the layout of the model's [`GeometricIntegrator`](@ref).
+
+```julia
+using PoissonSolvers: FFTWBasis, Potential
+using VlasovMethods
+
+dist = GridDistribution(zeros(16, 32), (0.0, 4π), (-7.5, 7.5))
+dist.values .= (1 .+ 0.2 .* cos.(dist.x ./ 2)) .* exp.(-dist.v' .^ 2 ./ 2) ./ sqrt(2π)
+model = VlasovPoisson(dist, Potential(FFTWBasis((0.0, 4π), 16)))
+method = ParitySplitting(model, (0.0, 10.0), 0.05)
+run!(method, "parity.h5")
+```
+
 ## Reduced tensors
 
 The bracket of the grid model is a tensor of three indices on the grid. A Galerkin reduction of
