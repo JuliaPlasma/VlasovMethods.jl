@@ -142,7 +142,7 @@ end
         for seed in 1:5
             rng = Xoshiro(seed)
             r = 4
-            K, X, L = (T.(randn(rng, nx, r)) for _ in 1:3)
+            K, X = (T.(randn(rng, nx, r)) for _ in 1:2)
             V, Lv = (T.(randn(rng, nv, r)) for _ in 1:2)
             S = T.(randn(rng, r, r))
             a₁, a₂ = T.(randn(rng, nx)), T.(randn(rng, nx))
