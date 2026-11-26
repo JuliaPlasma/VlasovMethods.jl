@@ -1,7 +1,8 @@
 # The allocation profile of one collision-model path.
 #
 #   julia --project=scripts scripts/profile.jl [--model clb|landau] [--npart 1000] [--nknot 41] \
-#       [--order 4] [--tstep 0.001] [--final-time 0.001] [--runs-dir dir] [--results-dir dir]
+#       [--order 4] [--tstep 0.001] [--final-time 0.001] [--seed 2] \
+#       [--runs-dir dir] [--results-dir dir]
 #
 # Run it in a fresh process; allocation profiling needs no `--track-allocation` or
 # `--code-coverage` instrumentation, and either would measure the instrumentation. Read the
@@ -10,8 +11,10 @@
 #
 #   clb      a `ConservativeLenardBernstein` run through `GeometricIntegrator`, one step at the
 #            defaults, so the profile is the whole collision step: the projection, the two
-#            coefficient solves and the time step. The trajectory goes to `--runs-dir` beside the
-#            dump.
+#            coefficient solves and the time step. `--seed` seeds the global random number
+#            generator before drawing the particles from `NormalDistribution` (default 2, the
+#            first seed from 1 at which the conservative runs stay positive). The trajectory goes
+#            to `--runs-dir` beside the dump.
 #   landau   one `Picard_iterate_Landau_nls!` step of the two-dimensional Landau operator, to the
 #            tolerance `ABSTOL`. The solver step is profiled on the cell-centred lattice of
 #            `test/integration/landau_solver.jl`, where the projection stays positive.
@@ -19,12 +22,13 @@
 include(joinpath(@__DIR__, "options.jl"))
 
 using Printf
+using Random
 
 using Profile
 using VlasovMethods
 
 const OPT = parse_arguments(ARGS; model = "clb", npart = 1000, nknot = 41, order = 4,
-    tstep = 1e-3, final_time = 1e-3)
+    tstep = 1e-3, final_time = 1e-3, seed = 2)
 const TSTEP = OPT.tstep
 const TSPAN = (0.0, OPT.final_time)
 const DOMAINV = (-10.0, 10.0)
@@ -44,6 +48,7 @@ One `ConservativeLenardBernstein` run over `tspan`, through the model's `Geometr
 with the trajectory written to `h5file`.
 """
 function step_clb(h5file, tspan = TSPAN)
+    Random.seed!(OPT.seed)
     dist = initialize!(ParticleDistribution(1, 1, OPT.npart), NormalDistribution())
     sdist = SplineDistribution(1, 1, OPT.nknot, OPT.order, DOMAINV, 0, :nothing)
     model = ConservativeLenardBernstein(dist, CollisionEntropy(sdist))
@@ -90,7 +95,7 @@ function profile_clb()
     return string(
         "`ConservativeLenardBernstein` through the model's `GeometricIntegrator`, ",
         "at --npart ", OPT.npart, ", --nknot ", OPT.nknot, ", --order ", OPT.order,
-        ", --tstep ", TSTEP, ", --final-time ", TSPAN[2], ": ",
+        ", --tstep ", TSTEP, ", --final-time ", TSPAN[2], ", --seed ", OPT.seed, ": ",
         round(Int, TSPAN[2] / TSTEP), " steps. The trajectory is `", basename(h5file),
         "`, beside the raw dump."),
     [h5file]

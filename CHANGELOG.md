@@ -50,6 +50,22 @@ their own, except for what they removed and narrowed, which is listed in full be
   `run!(::GeometricIntegrator, h5file)` does, and a solve that does not converge raises an error
   that names its return code.
 
+### Scripts
+
+- **`scripts/lenard_bernstein.jl` and `scripts/profile.jl` take `--seed`, by default `2`.** Both
+  scripts seed the global random number generator with `Random.seed!(OPT.seed)` before
+  `NormalDistribution` draws the particles — in `scripts/profile.jl`, inside `step_clb`, so both
+  the warm call and the profiled `--model clb` call draw the same sample. Without seeding,
+  `NormalDistribution` draws from the unseeded global generator (K104), so runs of
+  `scripts/lenard_bernstein.jl` under `--model clb` (the default) and `--model rclb` can draw a
+  sample whose `L²` spline projection undershoots below zero and throws a `DomainError` (K8). At
+  `npart = 1000`, `nknot = 41`, `order = 4` and velocity domain `(-10.0, 10.0)`, 12 of the seeds 1
+  to 20 (`2, 3, 5, 6, 10, 11, 12, 15, 16, 17, 18, 20`) complete all three models of
+  `scripts/lenard_bernstein.jl` (`lb`, `clb`, `rclb` to `t = 1.0`, `dt = 0.01`) and
+  `scripts/profile.jl --model clb` (`dt = 0.001`, `t = 0.001`); `2` is the first such seed from
+  1. `scripts/lenard_bernstein.jl` prints the seed in its status line, and `scripts/profile.jl`
+  writes `--seed` in its report.
+
 ## [0.5.1] — 2026-11-25
 
 ### Internal
