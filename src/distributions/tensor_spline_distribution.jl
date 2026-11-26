@@ -90,5 +90,6 @@ function Base.show(io::IO, dist::TensorSplineDistribution{DT}) where {DT}
 end
 
 function evaluate(dist::TensorSplineDistribution, x, v)
-    evaluate(dist.xbasis ⊗ dist.vbasis, dist.coefficients, (only(x), only(v)))
+    # one number type for the point, whose element type sets the buffers of the evaluation
+    evaluate(dist.xbasis ⊗ dist.vbasis, dist.coefficients, promote(only(x), only(v)))
 end

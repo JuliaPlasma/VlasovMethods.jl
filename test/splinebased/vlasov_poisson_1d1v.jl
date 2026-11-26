@@ -3,6 +3,7 @@ import HDF5
 using HDF5: h5open, h5read
 using Random: Xoshiro
 using SimpleSplines: BSplineBasis, PeriodicBSplineBasis, UniformMesh, Dirichlet, (..)
+using SimpleSplines: GeneralMesh
 using PoissonSolvers: FFTWBasis, Potential
 using VlasovMethods
 using VlasovMethods: _galerkin_form, _averaged_form, _spline_1d1v_rhs!, _spline_energy,
@@ -24,7 +25,7 @@ field(model, A) = _spline_1d1v_rhs!(similar(A), model, A)
 
 # `run!` into a new file, and the states and the times it writes
 function run_states(method)
-    file = tempname() * ".hdf5"
+    file = tempname(; suffix = ".hdf5")
     dist = run!(method, file)
     return dist, h5read(file, "z"), h5read(file, "t")
 end
@@ -251,6 +252,51 @@ end
           1024eps(T) * norm(field(landau, landau.distribution.coefficients))
 end
 
+@testset "nonuniform x-mesh ($T)" for T in (Float64, Float32)
+    # 16 cells of [0, 4π) of widths between 0.52 and 1.48 times the mean
+    L = T(4π)
+    bp = collect(range(zero(T), L; length = 17))
+    bp[2:16] .+= (L / 16) .* T(1.25) .* sin.(T(2π) .* (1:15) ./ 16)
+    xb = PeriodicBSplineBasis(GeneralMesh(bp), 3)
+    _, vb = spline_bases(T)
+    t = spline_tables(xb, vb)
+    K = t.X1 * (t.wx .* t.X1')
+    nonuniform(f) = VlasovPoisson(TensorSplineDistribution(xb, vb, f), Potential(xb))
+
+    # a homogeneous Maxwellian has no field and is stationary
+    landau = nonuniform(landau_state(T))
+    homogeneous = nonuniform((x, v) -> exp(-v^2 / 2) / sqrt(T(2π)))
+    H₀, A₀ = homogeneous.distribution.coefficients, landau.distribution.coefficients
+    φ̂ = VlasovMethods._spline_potential(homogeneous, H₀)
+    @test eltype(φ̂) === T
+    @test norm(φ̂) ≤ 1024eps(T) * norm(VlasovMethods._spline_potential(landau, A₀))
+    @test norm(field(homogeneous, H₀)) ≤ 1024eps(T) * norm(field(landau, A₀))
+
+    for f in (landau_state(T), pedestal_state(T))
+        model = nonuniform(f)
+        A = model.distribution.coefficients
+        # φ solves -φ'' = ρ - ρ̄ for the mean ρ̄ = ∫ρ dx / L, and ∫φ dx = 0
+        b = t.Mx * (A * t.iv)
+        b̃ = b .- (sum(b) / sum(t.ix)) .* t.ix
+        φ̂ = VlasovMethods._spline_potential(model, A)
+        @test norm(K * φ̂ - b̃) ≤ 64eps(T) * norm(b)
+        @test abs(dot(t.ix, φ̂)) ≤ 64eps(T) * sum(t.ix) * norm(φ̂, Inf)
+
+        # the energy is the kinetic energy and ½ ∫ (φ')² dx of the test's own potential
+        φx = t.X1' * solve(t.solver, b̃)
+        H = _spline_energy(model, A)
+        @test H isa T
+        @test abs(H - (dot(t.ix, A * t.kv) + sum(t.wx .* φx .^ 2) / 2)) ≤ 64eps(T) * abs(H)
+
+        # the energy is quadratic in A, so its central difference along the field is its rate,
+        # which vanishes
+        Ȧ = field(model, A)
+        ε = norm(A) / norm(Ȧ)
+        H⁺, H⁻ = _spline_energy(model, A .+ ε .* Ȧ), _spline_energy(model, A .- ε .* Ȧ)
+        @test abs(H⁺ - H⁻) ≤ 64eps(T) * (abs(H⁺) + abs(H⁻))
+    end
+end
+
 @testset "residual and its derivative ($T)" for T in (Float64, Float32)
     model, _ = spline_model(T, pedestal_state(T))
     A = model.distribution.coefficients
@@ -302,13 +348,13 @@ end
     # one step and one step of the reflected state return to the start
     model, _ = spline_model(T, landau_state(T))
     A = copy(model.distribution.coefficients)
-    A₁ = run!(GalerkinMidpoint(model, (0, τ), τ), tempname() * ".hdf5").coefficients
+    A₁ = run!(GalerkinMidpoint(model, (0, τ), τ), tempname(; suffix = ".hdf5")).coefficients
     @test A₁ != A
     back = VlasovPoisson(
         TensorSplineDistribution(model.distribution.xbasis,
             model.distribution.vbasis, reflect(A₁)),
         model.potential)
-    A₂ = run!(GalerkinMidpoint(back, (0, τ), τ), tempname() * ".hdf5").coefficients
+    A₂ = run!(GalerkinMidpoint(back, (0, τ), τ), tempname(; suffix = ".hdf5")).coefficients
     @test norm(reflect(A₂) .- A) ≤ 64eps(T) * norm(A)
 end
 
@@ -321,7 +367,7 @@ end
     # the solve stops at ‖F‖₂ ≤ tol ‖A‖₂: at half the residual of the start the target binds
     # after the first Newton iteration, and a target looser by a factor of 2 accepts the start
     tol = norm(F(vec(A))) / (2 * norm(A))
-    Y = run!(GalerkinMidpoint(model, (0, τ), τ; tol), tempname() * ".hdf5").coefficients
+    Y = run!(GalerkinMidpoint(model, (0, τ), τ; tol), tempname(; suffix = ".hdf5")).coefficients
     @test eltype(Y) === T
     @test Y != A
     @test norm(F(vec(Y))) ≤ tol * norm(A)
@@ -330,7 +376,7 @@ end
     model, _ = spline_model(T, landau_state(T))
     err = try
         run!(GalerkinMidpoint(model, (0, τ), τ; tol = 0, max_iterations = 8),
-            tempname() * ".hdf5")
+            tempname(; suffix = ".hdf5"))
     catch e
         e
     end
@@ -350,7 +396,7 @@ end
     model, _ = spline_model(T, landau_state(T))
     A = copy(model.distribution.coefficients)
     method = GalerkinMidpoint(model, (0.0, 1.0), 0.05; max_iterations = 0)
-    file = tempname() * ".hdf5"
+    file = tempname(; suffix = ".hdf5")
     # the garbage collector is held off, so that no finalizer closes a handle that run! leaves
     # open; HDF5 refuses to truncate a file that is open
     GC.gc()

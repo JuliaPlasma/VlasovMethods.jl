@@ -100,7 +100,16 @@ end
         @test D(x, v) isa T
         @test isapprox(D(x, v), y; rtol = 8eps(T))
         @test isapprox(D([x], [v]), y; rtol = 8eps(T))
+        # a coordinate of another number type is promoted with the other
+        @test isapprox(evaluate(D, x, Float16(v)), evaluate(D, x, T(Float16(v)));
+            rtol = 8eps(T))
         # x and v swapped give another value
         @test abs(evaluate(D, v + T(25), x) - ref) > 1000eps(T) * sum(abs, A) / 100
+    end
+    # an integer coordinate beside a floating-point one
+    for (x, v) in ((0, T(0.5)), (T(1.3), -7), (2, 3))
+        y = evaluate(D, x, v)
+        @test y isa T
+        @test isapprox(y, evaluate(D, T(x), T(v)); rtol = 8eps(T))
     end
 end

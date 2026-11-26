@@ -5,7 +5,7 @@ CurrentModule = VlasovMethods
 # Distribution functions
 
 The distribution function ``f(x, v)`` of a species is the state of every model in the package.
-VlasovMethods stores it in one of three forms. Each form is a subtype of
+VlasovMethods stores it in one of five forms. Each form is a subtype of
 `DistributionFunction{DT, XD, VD}`, with the element type `DT`, the number `XD` of position
 dimensions and the number `VD` of velocity dimensions.
 
@@ -14,6 +14,8 @@ dimensions and the number `VD` of velocity dimensions.
 | [`ParticleDistribution`](@ref) | positions, velocities and weights of ``N`` particles | every particle model |
 | [`SplineDistribution`](@ref) | the coefficients of a spline in ``v`` | the collision operators, the entropy |
 | [`GridDistribution`](@ref) | the values at the nodes of a 1D1V phase-space grid | the grid Vlasov–Poisson model, the reduced tensors |
+| [`TensorSplineDistribution`](@ref) | the coefficients of a tensor product spline in ``x`` and ``v`` | the spline Vlasov–Poisson model |
+| [`LowRankDistribution`](@ref) | the factors ``X``, ``S`` and ``V`` of a 1D1V phase-space function of low rank | the low-rank methods |
 
 The collision operators use two of them at once: the particles carry the state, and a spline
 holds the projection of the particles, from which the operator computes ``f_s'/f_s`` or

@@ -809,7 +809,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K130 · The `GalerkinMidpoint` constructor accepts a time span that no time grid can hold, and `run!` then raises an `InexactError` from `TimeSeries` instead of an `ArgumentError` of a guard.
 
-- **location:** `src/splinebased/vlasov_poisson_1d1v.jl:255`
+- **location:** `src/splinebased/vlasov_poisson_1d1v.jl:264`
 - **evidence:** the constructor checks `tstep`, not `tspan`. With the Landau state on 16 × 100
   splines, `GalerkinMidpoint(model, (0.0, Inf), 0.05)`, `(0.0, NaN)` and `(NaN, 1.0)` construct,
   and `run!` raises `InexactError: Int64(Inf)` or `Int64(NaN)` from
@@ -823,7 +823,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K131 · `GalerkinMidpoint` accepts `tol = Inf`, and `run!` then returns with the state unmoved and no error.
 
-- **location:** `src/splinebased/vlasov_poisson_1d1v.jl:266`
+- **location:** `src/splinebased/vlasov_poisson_1d1v.jl:275`
 - **evidence:** the guard refuses a negative and a `NaN` tolerance, as the spec of the method
   decides, so `tol = Inf` passes; the target `tol ‖A‖₂` is `Inf`, the start of every solve meets
   it, and one step of `τ = 0.05` from the Landau state returns `A` unchanged without an error. A
@@ -837,15 +837,15 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **evidence:** on 16 × 100 Float32 splines with random coefficients,
   `typeof(evaluate(dist, 1.3, -7.1))` is `Float64`, and `Float32` for `1.3f0, -7.1f0`. The spec
   of the distribution decides no result type for arguments of another precision, and no test
-  passes such arguments.
+  passes arguments of a wider precision than the distribution's.
 - **kind:** found late
 - **found:** 2026-11-26
 
 ### K133 · The element-type assertions of the run, step and stopping testsets of the spline Galerkin model cannot fail, and the step testset asserts none.
 
-- **location:** `test/splinebased/vlasov_poisson_1d1v.jl:392`
+- **location:** `test/splinebased/vlasov_poisson_1d1v.jl:438`
 - **evidence:** `run!(::GalerkinMidpoint, h5file)` creates the datasets `z` and `t` with the
-  element type `T` of the distribution (`src/splinebased/vlasov_poisson_1d1v.jl:351-352`), and
+  element type `T` of the distribution (`src/splinebased/vlasov_poisson_1d1v.jl:360-361`), and
   writes the last state into the typed coefficient field of the distribution, so
   `eltype(z) === T`, `eltype(times) === T` and `eltype(dist.coefficients) === T` hold whatever
   type a step computes. A step that promoted would raise no error there: it would be rounded on

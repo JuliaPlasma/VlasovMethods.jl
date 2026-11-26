@@ -11,12 +11,14 @@ h = \phi(x) + \frac{v^2}{2} ,
 ```
 
 with ``\phi = \sum_k \hat\phi_k B_k(x)``, ``\hat\phi`` the solve of `potential.solver` for the
-load vector ``\mathbb{M}_x \hat\rho`` of the density ``\hat\rho = A \iota_v``,
-``(\iota_v)_j = \int C_j \, dv``: the mean-free solution of ``-\phi'' = \rho``,
-``\rho = \int f \, dv``. The averaged form is totally antisymmetric, so the field keeps the
-quadratic energy [`_spline_energy`](@ref). The mass [`_spline_mass`](@ref) is not kept: its rate is
-the boundary flux ``\frac{1}{3} \int \phi'(x) (f(x, V) - f(x, -V)) \, dx`` on the velocity domain
-``[-V, V]``, which vanishes where ``f`` does. [`GalerkinMidpoint`](@ref) steps the model.
+load vector ``\mathbb{M}_x \hat\rho - \bar\rho \, \iota_x`` of the density
+``\hat\rho = A \iota_v``, ``(\iota_v)_j = \int C_j \, dv``, ``(\iota_x)_k = \int B_k \, dx``:
+the solution of ``-\phi'' = \rho - \bar\rho`` with ``\int \phi \, dx = 0``, for
+``\rho = \int f \, dv`` and its mean ``\bar\rho = \int \rho \, dx / L`` on the x-domain of length
+``L``, on a uniform or a nonuniform x-mesh. The averaged form is totally antisymmetric, so the
+field keeps the quadratic energy [`_spline_energy`](@ref). The mass [`_spline_mass`](@ref) is not
+kept: its rate is the boundary flux ``\frac{1}{3} \int \phi'(x) (f(x, V) - f(x, -V)) \, dx`` on
+the velocity domain ``[-V, V]``, which vanishes where ``f`` does. [`GalerkinMidpoint`](@ref) steps the model.
 
 The model's `work` is the matrix of the weights of the tensor quadrature of the two bases. The
 constructor throws an `ArgumentError` unless `potential.solver` is a `PoissonSolverSpline`, and
@@ -107,14 +109,21 @@ function _averaged_form(
             _galerkin_form(dist, c, a, b)) / 3
 end
 
-# the load vector Mx ρ̂ of the density ρ̂ = A ι_v, (ι_v)ⱼ = ∫ Cⱼ dv, and the coefficients φ̂ of
-# the potential
+# the load vector b = Mx ρ̂ of the density ρ̂ = A ι_v, (ι_v)ⱼ = ∫ Cⱼ dv, and the coefficients φ̂
+# of the potential of A, or of the load b: the solution of -φ'' = ρ - ρ̄ for the mean
+# ρ̄ = ∫ρ dx / L, whose load b - ρ̄ ι_x, (ι_x)ₖ = ∫ Bₖ dx, sums to zero, taken with ∫φ dx = 0, so
+# that φ̂ is the gradient of the field energy ½ φ̂ᵀ b in b. On a uniform mesh ι_x is constant, and
+# both steps change the solver's mean-free solution by round-off only.
 function _spline_load(model, A)
     dist = model.distribution
     mass_matrix(dist.xquadrature) * (A * basis_integrals(dist.vquadrature))
 end
-function _spline_potential(model, A)
-    PoissonSolvers.solve(model.potential.solver, _spline_load(model, A))
+_spline_potential(model, A) = _load_potential(model, _spline_load(model, A))
+function _load_potential(model, b)
+    ι = basis_integrals(model.distribution.xquadrature)
+    L = sum(ι)
+    φ̂ = PoissonSolvers.solve(model.potential.solver, b .- (sum(b) / L) .* ι)
+    return φ̂ .- dot(ι, φ̂) / L
 end
 
 # h = φ + v²/2, or φ alone, at the nodes of the tensor quadrature, with its two derivatives:
@@ -190,7 +199,7 @@ function _spline_energy(model::VlasovPoisson{1, 1, <:TensorSplineDistribution{T}
     kinetic = basis_values(qv, 0) *
               (quadrature_weights(qv) .* quadrature_nodes(qv) .^ 2 ./ 2)
     load = _spline_load(model, A)
-    φ̂ = PoissonSolvers.solve(model.potential.solver, load)
+    φ̂ = _load_potential(model, load)
     return dot(basis_integrals(dist.xquadrature), A * kinetic) + dot(φ̂, load) / 2
 end
 

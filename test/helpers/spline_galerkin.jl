@@ -101,7 +101,7 @@ end
 
 # The long runs. `z` and the times of `nsteps` steps of `τ` of `GalerkinMidpoint` on `model`
 function galerkin_states(model, nsteps, τ; kwargs...)
-    file = tempname() * ".hdf5"
+    file = tempname(; suffix = ".hdf5")
     run!(GalerkinMidpoint(model, (0, nsteps * τ), τ; kwargs...), file)
     return h5read(file, "z"), h5read(file, "t")
 end
