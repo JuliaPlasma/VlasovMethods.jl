@@ -26,6 +26,34 @@ their own, except for what they removed and narrowed, which is listed in full be
   registered yet, so `Project.toml` takes it from its repository at a fixed commit through
   `[sources]`; the entry is removed before this release, once GeometricSolvers is registered.
 
+### New Features
+
+- **`ImplicitMidpointSubsteps`, implicit-midpoint substeps of `ProjectorSplitting`**, a reference
+  method for the energy. `ProjectorSplitting(composition; substeps = ImplicitMidpointSubsteps())`
+  makes each K-, S- and L-substep one implicit-midpoint step of the bracket at the Hamiltonian
+  gradient projected onto the factors that the substep keeps fixed, `P_V h`, `P_X P_V h` and
+  `P_X h`, so each substep keeps the discrete Hamiltonian and the L² norm up to the tolerance of
+  its solve. `:lie` is K(τ) S(τ) L(τ), and `:strang` the symmetric K(τ/2) S(τ/2) L(τ) S(τ/2)
+  K(τ/2) with self-consistent fields, in place of the frozen-potential Strang of the RK4
+  substeps. `projected = false` takes the plain gradient, which does not keep the energy: the
+  control. Each substep solves with GeometricSolvers' `Newton` and `GMRES` under
+  `EisenstatWalkerChoice2`, through the analytic product of the quadratic field, from the explicit
+  Euler predictor, with the residual test `max(tol ‖y₀‖₂, tol ‖R(y_pred)‖₂)`; `tol` is
+  `32 eps(T)` by default, and `max_iterations` 50. A solve that does not return `SUCCESS` throws
+  an `ErrorException` that names the substep, the return code and `‖R‖₂/‖y₀‖₂`, and leaves the
+  state as it was. A step refuses, with an `ArgumentError` and before any solve, a zero or
+  non-finite `τ`, a non-finite entry of `X`, `S` or `V`, a `tol` outside `[eps(T), 1)`, and a
+  field of the `BoundedVelocityClosure`. The fields are evaluated on the factors for a separable
+  gradient of rank 2, without the `nx × nv` array. Over 10⁴ steps of `τ = 0.05` on an 8 × 16 grid
+  at rank 4, the largest relative drift of the energy and of the L² norm stays below
+  `8 · (substeps per step) · (steps) · eps(T)`, in `Float64` at `tol = 1e-14` and in `Float32` at
+  the default `tol`; the plain-gradient control drifts by more than ten times that.
+- **`ProjectorSplitting` takes the keyword `substeps`**, stored in the field `substeps` whose type
+  is the new second type parameter, `ProjectorSplitting{C, B}`. Its default `nothing` keeps the RK4
+  substeps and their results; `ProjectorSplitting{:lie}` and `ProjectorSplitting{:strang}` still
+  match every `B`. Any other value than `nothing` or an `ImplicitMidpointSubsteps` throws an
+  `ArgumentError`.
+
 ### Scripts
 
 - **`scripts/lenard_bernstein.jl` and `scripts/profile.jl` take `--seed`, by default `2`.** Both

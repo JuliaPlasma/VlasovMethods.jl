@@ -171,3 +171,38 @@ end
 The step takes any field with methods of the internal functions `_lowrank_kfield!`,
 `_lowrank_sfield!` and `_lowrank_lfield!`, and for `:strang` also `_lowrank_potential`, which the
 docstring of [`lowrank_step!`](@ref) lists.
+
+## Implicit-midpoint substeps
+
+`ProjectorSplitting(composition; substeps = ImplicitMidpointSubsteps())` replaces each RK4
+substep with an implicit-midpoint step of a skew-gradient field. [`ImplicitMidpointSubsteps`](@ref)
+takes the bracket of each substep at the Hamiltonian gradient projected onto the factors that the
+substep keeps fixed: ``P_V h`` for the K-substep, ``P_X P_V h`` for the S-substep and ``P_X h``
+for the L-substep. The Hamiltonian ``H`` is quadratic and the field of each substep is the
+skew-gradient field of its own gradient, so each substep keeps ``H`` and the L² norm up to the
+tolerance of its solve, for any basis. This is a reference method for the energy, and not a
+formulation that keeps the energy by construction. `projected = false` takes the plain gradient
+``h`` in every substep, which does not keep ``H``: it is the control of the projected variant.
+
+`:lie` is the composition K(τ) S(τ) L(τ), and `:strang` the symmetric composition
+K(τ/2) S(τ/2) L(τ) S(τ/2) K(τ/2), each field self-consistent at its own state. Each substep solves
+its implicit-midpoint equation with the Newton method and GMRES of GeometricSolvers, through the
+analytic product of the quadratic field. A solve that does not converge throws, and the state
+stays as it was. The substeps take a field of the periodic velocity closure:
+
+```@example lowrank
+function hamiltonian(f)
+    ρ = step(dist.v) .* vec(sum(f; dims = 2))
+    return step(dist.x) * step(dist.v) * sum((v .^ 2 ./ 2)' .* f) +
+           step(dist.x) / 2 * (ρ' * model.work * ρ)
+end
+Y = LowRankDistribution(dist, 5)
+f₀ = Y.X * Y.S * Y.V'
+method = ProjectorSplitting(:strang; substeps = ImplicitMidpointSubsteps())
+for n in 0:9
+    lowrank_step!(Y, method, w, 0.05n, 0.05)
+end
+f = Y.X * Y.S * Y.V'
+(energy = abs(hamiltonian(f) - hamiltonian(f₀)) / abs(hamiltonian(f₀)),
+ l2 = abs(sum(abs2, f) - sum(abs2, f₀)) / sum(abs2, f₀))
+```
