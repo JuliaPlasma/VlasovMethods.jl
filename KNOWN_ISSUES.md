@@ -809,7 +809,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K130 · The `GalerkinMidpoint` constructor accepts a time span that no time grid can hold, and `run!` then raises an `InexactError` from `TimeSeries` instead of an `ArgumentError` of a guard.
 
-- **location:** `src/splinebased/vlasov_poisson_1d1v.jl:254`
+- **location:** `src/splinebased/vlasov_poisson_1d1v.jl:255`
 - **evidence:** the constructor checks `tstep`, not `tspan`. With the Landau state on 16 × 100
   splines, `GalerkinMidpoint(model, (0.0, Inf), 0.05)`, `(0.0, NaN)` and `(NaN, 1.0)` construct,
   and `run!` raises `InexactError: Int64(Inf)` or `Int64(NaN)` from
@@ -823,7 +823,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K131 · `GalerkinMidpoint` accepts `tol = Inf`, and `run!` then returns with the state unmoved and no error.
 
-- **location:** `src/splinebased/vlasov_poisson_1d1v.jl:265`
+- **location:** `src/splinebased/vlasov_poisson_1d1v.jl:266`
 - **evidence:** the guard refuses a negative and a `NaN` tolerance, as the spec of the method
   decides, so `tol = Inf` passes; the target `tol ‖A‖₂` is `Inf`, the start of every solve meets
   it, and one step of `τ = 0.05` from the Landau state returns `A` unchanged without an error. A
@@ -845,7 +845,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 - **location:** `test/splinebased/vlasov_poisson_1d1v.jl:392`
 - **evidence:** `run!(::GalerkinMidpoint, h5file)` creates the datasets `z` and `t` with the
-  element type `T` of the distribution (`src/splinebased/vlasov_poisson_1d1v.jl:350-351`), and
+  element type `T` of the distribution (`src/splinebased/vlasov_poisson_1d1v.jl:351-352`), and
   writes the last state into the typed coefficient field of the distribution, so
   `eltype(z) === T`, `eltype(times) === T` and `eltype(dist.coefficients) === T` hold whatever
   type a step computes. A step that promoted would raise no error there: it would be rounded on
