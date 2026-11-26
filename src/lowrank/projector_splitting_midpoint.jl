@@ -352,7 +352,8 @@ function _check_midpoint(Y, sub, w, τ)
     T = eltype(Y)
     τT = _finite_step(τ, T)
     iszero(τT) && throw(ArgumentError(
-        "ImplicitMidpointSubsteps takes a nonzero step τ; got τ = $τ"))
+        "ImplicitMidpointSubsteps takes a step τ that is nonzero in the element type $T of the " *
+        "state; got τ = $τ"))
     # the range refuses NaN and ±Inf too
     tol = sub.tol === nothing ? 32 * eps(T) : T(sub.tol)
     eps(T) ≤ tol < 1 || throw(ArgumentError(
@@ -390,9 +391,9 @@ The field is autonomous, so `t` is not read. `τ` is converted to the element ty
 and may be negative. `field` is a [`LowRankFields1D1V`](@ref). Before any solve, the step
 throws an `ArgumentError` for a `field` of another type, which the message names, the
 `ArgumentError` of the generic [`lowrank_step!`](@ref) for a `τ` that is not
-finite in `T`, and an `ArgumentError` for `τ = 0`, for a non-finite entry of `X`, `S` or `V`,
-which the message names, for a `tol` outside `[eps(T), 1)`, and for a `field` with the
-[`BoundedVelocityClosure`](@ref). A solve that does not
+finite in `T`, and an `ArgumentError` for a `τ` that is zero in `T`, for a non-finite entry of
+`X`, `S` or `V`, which the message names, for a `tol` outside `[eps(T), 1)`, and for a `field`
+with the [`BoundedVelocityClosure`](@ref). A solve that does not
 return `SUCCESS` throws an `ErrorException` whose message names the substep, `K`, `S` or `L`, the
 return code and ``\|R\|_2 / \|y_0\|_2``. Each throw leaves `Y` as it was. The step forms no
 ``n_x \times n_v`` array, and sets `Y.nfixed = 0`. A zero `S` stays zero.

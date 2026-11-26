@@ -315,14 +315,31 @@ end
     end
 end
 
+# At rank one, f = K ⊗ V and the projected gradients P_V h and P_X P_V h have the factor V, and
+# P_X h the factor X, of f, so each projected field vanishes and the step keeps f; the plain
+# gradient moves f. The state is random, because the rank-one truncation of `initial_state` does
+# not depend on x and is kept by both gradients.
 @testset "rank one" begin
-    for T in PRECISIONS
+    for T in PRECISIONS, c in (:lie, :strang)
+
         P = cached_problem(T)
-        Y = initial_state(P, 1)
-        dH, dC = drifts(P, Y, midpoint(T, :lie), 100, 0.05)
-        @test dH ≤ bound(T, :lie, 100)
-        @test dC ≤ bound(T, :lie, 100)
-        @test eltypes_are(Y, T)
+        rng = Xoshiro(11)
+        X, V = orth(T.(randn(rng, P.nx, 1)), P.hx), orth(T.(randn(rng, P.nv, 1)), P.hv)
+        n = 10
+        for projected in (true, false)
+            Y = LowRankDistribution(P.space, copy(X), fill(T(0.3), 1, 1), copy(V))
+            f₀ = dense(Y)
+            for s in 1:n
+                lowrank_step!(Y, midpoint(T, c; projected), P.w, (s - 1) * 0.05, 0.05)
+            end
+            if projected
+                @test rel(dense(Y), f₀) ≤ bound(T, c, n)
+            else
+                @test rel(dense(Y), f₀) ≥ 10 * bound(T, c, n)
+            end
+            @test eltypes_are(Y, T)
+            @test size(Y.S) == (1, 1)
+        end
     end
 end
 
@@ -471,10 +488,15 @@ end
             @test startswith(message(e), "the step τ is not finite in the element type $T")
             @test unchanged(Y, F)
         end
-        e = caught(() -> lowrank_step!(Y, method, P.w, 0.0, 0.0))
-        @test e isa ArgumentError
-        @test startswith(message(e), "ImplicitMidpointSubsteps takes a nonzero step τ; got τ = 0.0")
-        @test unchanged(Y, F)
+        # 1e-50 is zero in Float32 and not in Float64
+        for τ in (T === Float32 ? (0.0, 1e-50) : (0.0,))
+            e = caught(() -> lowrank_step!(Y, method, P.w, 0.0, τ))
+            @test e isa ArgumentError
+            @test message(e) ==
+                  "ImplicitMidpointSubsteps takes a step τ that is nonzero in the element type " *
+                  "$T of the state; got τ = $τ"
+            @test unchanged(Y, F)
+        end
         for name in (:X, :S, :V)
             Z = initial_state(P, 4)
             A = copy(getfield(Z, name))

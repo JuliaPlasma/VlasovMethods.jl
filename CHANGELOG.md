@@ -25,6 +25,14 @@ their own, except for what they removed and narrowed, which is listed in full be
   Julia 1.12 can no longer install this release. GeometricSolvers is bounded by `"0.1"`. It is not
   registered yet, so `Project.toml` takes it from its repository at a fixed commit through
   `[sources]`; the entry is removed before this release, once GeometricSolvers is registered.
+- **`ProjectorSplitting{C}` is no longer a concrete type.** `ProjectorSplitting` gains a second
+  type parameter and a field, the `substeps` of New Features below. So
+  `typeof(ProjectorSplitting(:lie))` is `ProjectorSplitting{:lie, Nothing}`, where it was
+  `ProjectorSplitting{:lie}`, and `isconcretetype(ProjectorSplitting{:lie})` is `false`. A method
+  or an `isa` on `ProjectorSplitting{:lie}` or `ProjectorSplitting{:strang}` still matches. Code
+  that compares the type with `===` or `==`, keys a collection on it, or dispatches on the exact
+  `Type{ProjectorSplitting{:lie}}` now needs `ProjectorSplitting{:lie, Nothing}`, or `<:` to
+  cover every `B`.
 
 ### New Features
 
@@ -41,9 +49,10 @@ their own, except for what they removed and narrowed, which is listed in full be
   Euler predictor, with the residual test `max(tol ‖y₀‖₂, tol ‖R(y_pred)‖₂)`; `tol` is
   `32 eps(T)` by default, and `max_iterations` 50. A solve that does not return `SUCCESS` throws
   an `ErrorException` that names the substep, the return code and `‖R‖₂/‖y₀‖₂`, and leaves the
-  state as it was. A step refuses, with an `ArgumentError` and before any solve, a zero or
-  non-finite `τ`, a non-finite entry of `X`, `S` or `V`, a `tol` outside `[eps(T), 1)`, a field
-  of another type than `LowRankFields1D1V`, and a field of the `BoundedVelocityClosure`. The
+  state as it was. A step refuses, with an `ArgumentError` and before any solve, a non-finite `τ`
+  and a `τ` that is zero in the element type of the state (`1e-50` in `Float32`), a non-finite
+  entry of `X`, `S` or `V`, a `tol` outside `[eps(T), 1)`, a field of another type than
+  `LowRankFields1D1V`, and a field of the `BoundedVelocityClosure`. The
   fields are evaluated on the factors for a separable gradient of rank 2, without the `nx × nv`
   array; each substep computes the terms of the factor that it keeps fixed once for its solve.
   Over 10⁴ steps of `τ = 0.05` on an 8 × 16 grid
