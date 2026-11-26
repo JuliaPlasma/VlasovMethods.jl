@@ -837,3 +837,18 @@ has left the file, or that lived only on a merged branch, stays taken.
   and 16 × 33 at the scales 1 and 10⁻⁴.
 - **kind:** not verified
 - **found:** 2026-11-25; the clause "The parity Strang step", whose step 2 decides the solve
+
+### K130 · The default background of `ParitySplitting` overflows in its sum over x when finite initial values near `floatmax(T)` share a column, so the constructor throws an `ArgumentError` that calls the finite values not finite.
+
+- **location:** `src/gridbased/parity.jl:157`
+- **evidence:** `_parity_background(values, nothing)` halves each value before it adds the
+  mirrored value, but adds the `nx` rows before it divides by `nx`. On 16 × 32 and 16 × 33 nodes
+  of [0, 4π) × [−7.5, 7.5], from `(1 + 0.2 cos(x/2)) e^{-v²/2}/√(2π)` with rows 1 and 2 of the
+  columns 3 and `nv − 2` set to `floatmax(T)`, every value and the x-mean `sum(values ./ 16;
+  dims = 1)` are finite, and `ParitySplitting(model, (0, 1), 0.1)` throws `ArgumentError: the
+  initial values and the background of the parity splitting must be finite`, in Float32 and
+  Float64. A division before the sum, `vec(sum(values ./ (2nx) .+ values[:, end:-1:1] ./ (2nx);
+  dims = 1))`, gives a finite background, and the method constructs with it; on these values the
+  Hamiltonian `h` and the bracket term `P(f, h)` that `run!` evaluates are not finite.
+- **kind:** found late
+- **found:** 2026-11-26

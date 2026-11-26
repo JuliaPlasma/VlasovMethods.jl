@@ -6,7 +6,7 @@
 # here and not in `src`. The f⁺ step solves its residual to `‖F‖₂ ≤ 4 eps(T) ‖f0 + f⁺‖₂`, so the
 # energy drifts by the solver's round-off, not by a power of the step: the bounds are `1e-12` in
 # Float64 and `1e-4` in Float32, against 2.9e-14 and 1.1e-6 measured on Julia 1.13.4 with
-# GeometricSolvers 0.1.0. The mass bound is `100 eps(T)`, against 3.9 eps and 2.9 eps measured.
+# GeometricSolvers 0.1.0. The mass bound is `100 eps(T)`, against at most 4 eps measured.
 
 using GeometricBrackets: Arakawa, poisson_apply
 # an explicit only-list, and not `using GeometricIntegrators`: both it and `VlasovMethods` export
