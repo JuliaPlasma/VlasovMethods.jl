@@ -256,8 +256,8 @@ end
 
 @testset "construction: a background and values at floatmax(T), $T" for T in (Float32, Float64)
     # the symmetrisation and the default background halve before they add, so neither overflows
-    # in that sum; the default still overflows in its sum over x when two rows of a column are
-    # near floatmax(T) (K135)
+    # in that sum; the default still overflows in its sum over x when the even part of a column
+    # sums past floatmax(T), as at floatmax(T) in two rows of a column and its mirror (K135)
     model = grid_model(T)
     nx, nv = size(model.distribution.values)
     b = fill(floatmax(T), nv)

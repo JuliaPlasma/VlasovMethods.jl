@@ -838,7 +838,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** not verified
 - **found:** 2026-11-25; the clause "The parity Strang step", whose step 2 decides the solve
 
-### K135 · The default background of `ParitySplitting` overflows in its sum over x when finite initial values near `floatmax(T)` share a column, so the constructor throws an `ArgumentError` that calls the finite values not finite.
+### K135 · The default background of `ParitySplitting` overflows in its sum over x when the even part of finite initial values sums past `floatmax(T)` in a column, so the constructor throws an `ArgumentError` that calls the finite values not finite.
 
 - **location:** `src/gridbased/parity.jl:161`
 - **evidence:** `_parity_background(values, nothing)` halves each value before it adds the
