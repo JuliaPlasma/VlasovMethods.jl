@@ -189,24 +189,6 @@ function _potential_of(X, S, V, w::LowRankFields1D1V{T}) where {T}
     _potential!(Vector{T}(undef, w.arakawa.nx), X, S, V, w)
 end
 
-@doc raw"""
-    _midpoint_kfield!(K̇, K, V, w, projected, c = _kcache(V, w, projected))
-    _midpoint_kproduct!(K̇w, K, W, V, w, projected, c = _kcache(V, w, projected))
-    _midpoint_sfield!(Ṡ, X, S, V, w, projected, c = _scache(X, V, w, projected))
-    _midpoint_sproduct!(Ṡw, X, S, W, V, w, projected, c = _scache(X, V, w, projected))
-    _midpoint_lfield!(L̇, X, L, w, projected, c = _lcache(X, w, projected))
-    _midpoint_lproduct!(L̇w, X, L, W, w, projected, c = _lcache(X, w, projected))
-
-The fields ``F`` of the K-, S- and L-substep of [`ImplicitMidpointSubsteps`](@ref), at the
-gradient ``Q h`` of the state of the substep, and their products ``dF(y) W``, written into the
-first argument, which is returned. ``Q`` is ``P_V``, ``P_X P_V`` and ``P_X`` for the K-, S- and
-L-substep with `projected = true`, and the identity with `projected = false`. The fields are
-those of [`_separable_kfield!`](@ref) and its S- and L-twins; the potential ``\phi = G \rho`` is
-that of `K Vᵀ`, `X S Vᵀ` or `X Lᵀ`, from [`_potential!`](@ref). ``F`` is quadratic in the state,
-so ``dF(y) W = B(W, Q h(y)) + B(y, Q h_\mathrm{lin}(W))`` is exact. `c` holds the grams and
-weights of the terms that the state of the substep does not change; a substep computes it once
-for all the evaluations of its solve.
-"""
 # The terms of a substep that its state does not change, computed once per substep: for the
 # K-substep the weights of V with Q 1 and Q k, for the S-substep those and the grams of X with
 # Q 1, and for the L-substep the weights of X with Q 1
@@ -231,6 +213,24 @@ function _potential_weights(X, L, w, projected)
     return _xweights(X, _project_x(X, _potential_of(X, L, w), w, projected), w.arakawa.A)
 end
 
+@doc raw"""
+    _midpoint_kfield!(K̇, K, V, w, projected, c = _kcache(V, w, projected))
+    _midpoint_kproduct!(K̇w, K, W, V, w, projected, c = _kcache(V, w, projected))
+    _midpoint_sfield!(Ṡ, X, S, V, w, projected, c = _scache(X, V, w, projected))
+    _midpoint_sproduct!(Ṡw, X, S, W, V, w, projected, c = _scache(X, V, w, projected))
+    _midpoint_lfield!(L̇, X, L, w, projected, c = _lcache(X, w, projected))
+    _midpoint_lproduct!(L̇w, X, L, W, w, projected, c = _lcache(X, w, projected))
+
+The fields ``F`` of the K-, S- and L-substep of [`ImplicitMidpointSubsteps`](@ref), at the
+gradient ``Q h`` of the state of the substep, and their products ``dF(y) W``, written into the
+first argument, which is returned. ``Q`` is ``P_V``, ``P_X P_V`` and ``P_X`` for the K-, S- and
+L-substep with `projected = true`, and the identity with `projected = false`. The fields are
+those of [`_separable_kfield!`](@ref) and its S- and L-twins; the potential ``\phi = G \rho`` is
+that of `K Vᵀ`, `X S Vᵀ` or `X Lᵀ`, from [`_potential!`](@ref). ``F`` is quadratic in the state,
+so ``dF(y) W = B(W, Q h(y)) + B(y, Q h_\mathrm{lin}(W))`` is exact. `c` holds the grams and
+weights of the terms that the state of the substep does not change; a substep computes it once
+for all the evaluations of its solve.
+"""
 function _midpoint_kfield!(K̇, K, V, w::LowRankFields1D1V{T}, projected,
         c = _kcache(V, w, projected)) where {T}
     a₂ = ones(T, w.arakawa.nx)
