@@ -229,7 +229,7 @@ from ``A`` is ``A \leftarrow Y``, the solution of
 F(Y) = Y - A - \tau \, \mathbb{M}_x^{-1} r(\bar{f}) \, \mathbb{M}_v^{-1} = 0 ,
 ```
 
-with ``\bar{f}`` the spline of ``(A + Y)/2`` and ``r`` the field of [`_spline_1d1v_rhs!`](@ref)
+with ``\bar{f}`` the spline of ``(A + Y)/2`` and ``r`` the matrix of [`_spline_1d1v_rhs!`](@ref)
 with ``h = \phi(\bar{f}) + v^2/2``. The field is the gradient of the quadratic energy
 [`_spline_energy`](@ref) under a totally antisymmetric form, so the step keeps the energy to the
 tolerance of the solve.
