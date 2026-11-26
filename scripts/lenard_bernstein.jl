@@ -3,10 +3,14 @@
 # condition and the distribution at both ends of the run drawn as figures.
 #
 #   julia --project=scripts scripts/lenard_bernstein.jl [--model lb|clb|rclb] [--npart 1000] \
-#       [--nknot 41] [--order 4] [--tstep 0.01] [--final-time 1.0] \
+#       [--nknot 41] [--order 4] [--tstep 0.01] [--final-time 1.0] [--seed 2] \
 #       [--runs-dir dir] [--results-dir dir]
 #
-# The HDF5 trajectory goes to `--runs-dir`, the figure to `--results-dir`.
+# The HDF5 trajectory goes to `--runs-dir`, the figure to `--results-dir`. `--seed` seeds the
+# global random number generator before drawing the particles from `NormalDistribution`. The
+# default seed is 2, the first seed from 1 at which all three models complete to `t = 1` (12 of
+# the seeds 1 to 20 complete all three; where the projection is not positive at a particle, `clb`
+# and `rclb` stop with a `DomainError`, K8).
 #
 # `--model` picks the collision operator: `lb` is `LenardBernstein`, `clb` the conservative
 # variant that solves its two coefficients from the particle momentum and energy, and `rclb` the
@@ -23,6 +27,7 @@
 include(joinpath(@__DIR__, "options.jl"))
 
 using Printf
+using Random
 
 using CairoMakie
 using HDF5
@@ -32,11 +37,12 @@ const MODELS = Dict("lb" => LenardBernstein, "clb" => ConservativeLenardBernstei
     "rclb" => RescaledConservativeLenardBernstein)
 
 const OPT = parse_arguments(ARGS; model = "clb", npart = 1000, nknot = 41, order = 4,
-    tstep = 1e-2, final_time = 1.0)
+    tstep = 1e-2, final_time = 1.0, seed = 2)
 const MODEL = choose(MODELS, "--model", OPT.model)
 const TSPAN = (0.0, OPT.final_time)
 const DOMAIN = (-10.0, 10.0)
 
+Random.seed!(OPT.seed)
 dist = initialize!(ParticleDistribution(1, 1, OPT.npart), NormalDistribution())
 sdist = SplineDistribution(1, 1, OPT.nknot, OPT.order, DOMAIN, 0, :nothing)
 model = MODEL(dist, CollisionEntropy(sdist))
@@ -52,8 +58,8 @@ prob.equation.v(v̇₀, TSPAN[1], v₀, prob.parameters)
 h5file = runs_path("lenard_bernstein_" * OPT.model * ".hdf5")
 run!(integrator, h5file)
 
-@printf("lenard_bernstein: model %s, %d particles, %d knots, order %d, dt = %g, t ∈ %s\n",
-    OPT.model, OPT.npart, OPT.nknot, OPT.order, OPT.tstep, TSPAN)
+@printf("lenard_bernstein: model %s, %d particles, %d knots, order %d, dt = %g, t ∈ %s, seed %d\n",
+    OPT.model, OPT.npart, OPT.nknot, OPT.order, OPT.tstep, TSPAN, OPT.seed)
 
 # `z` is `(npart, length(t))`: the velocity vector the ODE steps, one column per time in `t`.
 z = h5read(h5file, "z")
