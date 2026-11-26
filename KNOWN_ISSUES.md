@@ -809,7 +809,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K128 · The `f⁺` solve of `ParitySplitting` cannot meet its residual test on a state whose even part is zero or small against its odd part, so `run!` throws on the first step.
 
-- **location:** `src/gridbased/parity.jl:213`
+- **location:** `src/gridbased/parity.jl:220`
 - **evidence:** the solve stops at `‖F‖₂ ≤ tol ‖F0 + f⁺‖₂`, a bound that scales with the even part
   of the state alone, while the residual `y - f⁺ - τ P(f⁻, h)` also holds the odd part `f⁻`.
   In Float32 on 16 × 32 nodes of [0, 4π) × [−7.5, 7.5], with `τ = 0.1` and the default `tol` and
@@ -823,7 +823,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K129 · The `f⁺` solve of `ParitySplitting` stalls above its residual bound on a state scaled by 10² or more, and in Float32 on 64 × 128 nodes at τ = 0.2; the cause is not located.
 
-- **location:** `src/gridbased/parity.jl:210`
+- **location:** `src/gridbased/parity.jl:217`
 - **evidence:** 40 steps of `τ = 0.05` from `s (1 + 0.2 cos(x/2)) e^{-v²/2}/√(2π)` on 16 × 32 nodes of
   [0, 4π) × [−7.5, 7.5] with the default `tol` and `max_iterations` keep the energy to `3.4e-7`
   (Float32) and `1.0e-15` (Float64) at `s = 10`, and throw `MAXITERS` at `s = 10²`, with
@@ -834,6 +834,6 @@ has left the file, or that lived only on a merged branch, stays taken.
   `tol = 16 eps(Float32)` (`1.72e-4`) do not change that. The tolerance, the forcing and the
   `GMRES` defaults are the ones that the spec of the method decides; whether the round-off of the
   residual or the convergence of `GMRES` sets this floor is not measured. The tests run 16 × 32
-  and 16 × 33 at unit scale.
+  and 16 × 33 at the scales 1 and 10⁻⁴.
 - **kind:** not verified
 - **found:** 2026-11-25; the clause "The parity Strang step", whose step 2 decides the solve

@@ -19,8 +19,9 @@ function parity_split(f::AbstractMatrix, f0::AbstractVector)
         "parity_split takes a background of size(f, 2) = $(size(f, 2)) values; got $(length(f0))"))
     T = eltype(f)
     Rf = f[:, end:-1:1]
-    fm = (f .- Rf) ./ 2
-    fp = (f .+ Rf) ./ 2 .- T.(f0)'
+    # halved before the sum, so that the sum of two values up to floatmax(T) does not overflow
+    fm = f ./ 2 .- Rf ./ 2
+    fp = f ./ 2 .+ Rf ./ 2 .- T.(f0)'
     return fp, fm
 end
 
@@ -142,7 +143,7 @@ function ParitySplitting(model::VlasovPoisson{1, 1, <:GridDistribution}, tspan::
         "the initial values and the background of the parity splitting must be finite"))
     all(j -> abs(f0[j] - f0[nv + 1 - j]) ≤ 10 * eps(T) * maximum(abs, f0), 1:nv) ||
         throw(ArgumentError("the background f0 of the parity splitting is not even in v"))
-    f0 = (f0 .+ reverse(f0)) ./ 2
+    f0 = f0 ./ 2 .+ reverse(f0) ./ 2
 
     arakawa = Arakawa(nx, nv, step(dist.x), step(v))
     return ParitySplitting(model, (t₀, t₁), τ, f0, Matrix{T}(values), T(tol),
@@ -153,7 +154,7 @@ end
 # even part of `values` for `nothing`, the given vector, converted, otherwise.
 function _parity_background(values::AbstractMatrix{T}, ::Nothing) where {T}
     nx = size(values, 1)
-    return vec(sum((values .+ values[:, end:-1:1]) ./ 2; dims = 1)) ./ nx
+    return vec(sum(values ./ 2 .+ values[:, end:-1:1] ./ 2; dims = 1)) ./ nx
 end
 
 function _parity_background(values::AbstractMatrix{T}, f0::AbstractVector) where {T}
@@ -193,20 +194,26 @@ function _parity_fminus_step(m::ParitySplitting, kinetic, F0, fp, fm, τ)
     return fm .+ (τ / 2) .* _parity_bracket(m.arakawa, g, _parity_field(m, g) .+ kinetic)
 end
 
+# The residual F(y) = y - f⁺ - τ P(f⁻, h(F0 + (f⁺ + y)/2)) of the implicit midpoint step of f⁺
+# with f⁻ frozen, written into `r`.
+function _parity_fplus_residual!(r, y, m::ParitySplitting, kinetic, F0, fp, fm, τ)
+    g = F0 .+ (fp .+ y) ./ 2
+    r .= y .- fp .- τ .* _parity_bracket(m.arakawa, fm, _parity_field(m, g) .+ kinetic)
+    return r
+end
+
+# The derivative w ↦ w - τ/2 P(f⁻, G ρ(w) ⊗ 1) of the residual, which is affine in y, written
+# into `Jv`.
+function _parity_fplus_jvp!(Jv, w, m::ParitySplitting, fm, τ)
+    Jv .= w .- (τ / 2) .* _parity_bracket(m.arakawa, fm, _parity_field(m, w))
+    return Jv
+end
+
 # The implicit midpoint step of f⁺ with f⁻ frozen: the solution y of
-# F(y) = y - f⁺ - τ P(f⁻, h(F0 + (f⁺ + y)/2)) = 0, linear in y, whose derivative is
-# w ↦ w - τ/2 P(f⁻, G ρ(w) ⊗ 1).
+# `_parity_fplus_residual!` = 0.
 function _parity_fplus_step(m::ParitySplitting{T}, kinetic, F0, fp, fm, τ) where {T}
-    a = m.arakawa
-    function residual!(r, y, p)
-        g = F0 .+ (fp .+ y) ./ 2
-        r .= y .- fp .- τ .* _parity_bracket(a, fm, _parity_field(m, g) .+ kinetic)
-        return r
-    end
-    function jvp!(Jv, y, w, p)
-        Jv .= w .- (τ / 2) .* _parity_bracket(a, fm, _parity_field(m, w))
-        return Jv
-    end
+    residual!(r, y, p) = _parity_fplus_residual!(r, y, m, kinetic, F0, fp, fm, τ)
+    jvp!(Jv, y, w, p) = _parity_fplus_jvp!(Jv, w, m, fm, τ)
     method = GeometricSolvers.Newton(;
         linsolve = GeometricSolvers.GMRES(; forcing = GeometricSolvers.FixedForcing(1e-3)),
         jacobian = GeometricSolvers.JVPFunction(jvp!))
@@ -252,26 +259,26 @@ function run!(method::ParitySplitting{T}, h5file) where {T}
     F0 = repeat(background; inner = nx)
     fp, fm = parity_split(method.initial, background)
     fp, fm = vec(fp), vec(fm)
+    # the state of the parts `fp` and `fm`, as a vector of `nx * nv` values
+    state(fp, fm) = vec(parity_merge(background, reshape(fp, nx, nv), reshape(fm, nx, nv)))
 
     h5 = h5open(h5file, "w")
     try
         h5z = create_dataset(
             h5, "z", T, ((nx * nv, length(times)), (nx * nv, -1)), chunk = (nx * nv, 1))
         h5t = create_dataset(h5, "t", T, ((length(times),), (-1,)), chunk = (1,))
-        h5z[:, 1] = vec(parity_merge(background, reshape(fp, nx, nv), reshape(fm, nx, nv)))
+        h5z[:, 1] = state(fp, fm)
         h5t[1] = tspan[1]
 
         @showprogress 5 for n in 1:(length(times) - 1)
             fp, fm = _parity_step(method, kinetic, F0, fp, fm, tstep)
-            h5z[:, n + 1] = vec(parity_merge(background, reshape(fp, nx, nv),
-                reshape(fm, nx, nv)))
+            h5z[:, n + 1] = state(fp, fm)
             h5t[n + 1] = times[n]
         end
     finally
         close(h5)
     end
 
-    model.distribution.values .= parity_merge(background, reshape(fp, nx, nv),
-        reshape(fm, nx, nv))
+    model.distribution.values .= reshape(state(fp, fm), nx, nv)
     return model.distribution
 end

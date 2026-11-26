@@ -114,6 +114,41 @@ end
     @test_throws guard parity_merge(f0[1:31], fp, fm)
 end
 
+@testset "parity_split: values at floatmax(T), $T" for T in (Float32, Float64)
+    # (a ± b)/2 overflows for |a ± b| > floatmax(T); a/2 ± b/2 does not
+    rng = Xoshiro(4)
+    nv = 32
+    f = draw(rng, T, 16, nv)
+    g = draw(rng, T, nv)
+    f0 = (g .+ reverse(g)) ./ 2
+    # opposite signs at mirrored nodes reach f⁻, equal signs reach f⁺
+    f[1, 3], f[1, nv - 2] = floatmax(T), -floatmax(T)
+    f[2, 5], f[2, nv - 4] = floatmax(T), floatmax(T)
+    fp, fm = parity_split(f, f0)
+    @test eltype(fp) == eltype(fm) == T
+    @test all(isfinite, fp) && all(isfinite, fm)
+    merged = parity_merge(f0, fp, fm)
+    @test eltype(merged) == T
+    @test all(isfinite, merged)
+    @test maximum(abs, merged .- f) ≤ 4 * eps(T) * maximum(abs, f)
+    # the rows without a value at floatmax(T) to the bound of the round-trip testset
+    rows = 3:16
+    @test maximum(abs, merged[rows, :] .- f[rows, :]) ≤
+          4 * eps(T) * maximum(abs, f[rows, :])
+end
+
+@testset "parity_split: a background of another element type" begin
+    rng = Xoshiro(5)
+    f = draw(rng, Float32, 16, 32)
+    g = randn(rng, 32)
+    f0 = (g .+ reverse(g)) ./ 2
+    fp, fm = parity_split(f, f0)
+    @test eltype(fp) == eltype(fm) == Float32
+    merged = parity_merge(Float32.(f0), fp, fm)
+    @test eltype(merged) == Float32
+    @test isapprox(merged, f; rtol = 8 * eps(Float32))
+end
+
 @testset "grading: J(even, even) is odd, $T, nv = $nv" for T in (Float32, Float64),
     nv in (32, 33)
 
@@ -211,6 +246,26 @@ end
     @test ParitySplitting(model, (0, 1), 0.1; background = Float64.(M)) isa ParitySplitting
 end
 
+@testset "construction: a background and values at floatmax(T), $T" for T in (Float32, Float64)
+    # the symmetrisation and the default background halve before they add, so neither overflows
+    model = grid_model(T)
+    nx, nv = size(model.distribution.values)
+    b = fill(floatmax(T), nv)
+    f0 = ParitySplitting(model, (0, 1), 0.1; background = b).background
+    @test eltype(f0) == T
+    @test all(isfinite, f0)
+    @test isapprox(f0, b; rtol = 8 * eps(T))
+
+    # a column pair at floatmax(T) in one row, with the default background
+    model.distribution.values[1, 3] = floatmax(T)
+    model.distribution.values[1, nv - 2] = floatmax(T)
+    f0 = ParitySplitting(model, (0, 1), 0.1).background
+    @test eltype(f0) == T
+    @test all(isfinite, f0)
+    @test f0 == reverse(f0)
+    @test isapprox(f0[3], floatmax(T) / nx; rtol = 8 * eps(T))
+end
+
 @testset "construction: the default background of a state with an odd part, $T" for T in (Float32,
     Float64)
     shape = (x, v) -> (1 + T(0.2) * cos(x / 2)) * exp(-v^2 / 2) / sqrt(T(2π)) *
@@ -227,6 +282,27 @@ end
     @test maximum(abs, z .- zf0) ≤ 8 * eps(T) * maximum(abs, z)
     # the step changes the state, so the comparison is not the one of two initial states
     @test maximum(abs, z[:, 2] .- z[:, 1]) > 1000 * eps(T) * maximum(abs, z)
+end
+
+@testset "f⁺ solve: the JVP is the derivative of the residual, $T" for T in (Float32, Float64)
+    # The residual is affine in y, so F(y + w) - F(y) is its derivative applied to w, to round-off.
+    model = grid_model(T; shape = (x, v) -> (1 + T(0.2) * cos(x / 2)) *
+                                            exp(-(v - 1)^2 / 2) / sqrt(T(2π)))
+    nx, nv = size(model.distribution.values)
+    τ = T(0.1)
+    m = ParitySplitting(model, (0, 1), τ)
+    kinetic = repeat(collect(model.distribution.v) .^ 2 ./ 2; inner = nx)
+    F0 = repeat(m.background; inner = nx)
+    fp, fm = vec.(parity_split(m.initial, m.background))
+    fm = VlasovMethods._parity_fminus_step(m, kinetic, F0, fp, fm, τ)
+    rng = Xoshiro(6)
+    y, w = draw(rng, T, nx * nv), draw(rng, T, nx * nv)
+    F(y) = VlasovMethods._parity_fplus_residual!(similar(y), y, m, kinetic, F0, fp, fm, τ)
+    Jw = VlasovMethods._parity_fplus_jvp!(similar(w), w, m, fm, τ)
+    @test eltype(Jw) == eltype(F(y)) == T
+    # the P term of the derivative is not negligible against the bound
+    @test norm(Jw .- w) > 1000 * 16 * eps(T) * (norm(F(y .+ w)) + norm(F(y)))
+    @test norm(Jw .- (F(y .+ w) .- F(y))) ≤ 16 * eps(T) * (norm(F(y .+ w)) + norm(F(y)))
 end
 
 @testset "stationary: a homogeneous state, $T" for T in (Float32, Float64)
