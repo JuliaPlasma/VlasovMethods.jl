@@ -20,7 +20,8 @@ of its own projected gradient, so each implicit-midpoint substep keeps the quadr
 ``H = h_x h_v \sum (v^2/2) f + (h_x/2) \rho^\mathsf{T} G \rho`` and the L² norm
 ``h_x h_v \sum f^2`` up to the tolerance of its solve. `projected = false` takes the plain
 gradient ``h`` in every substep, which does not keep ``H``: the control of the projected
-gradient.
+gradient. At rank one the projected gradients share the factors of the state, so with
+`projected = true` the field of each substep vanishes and a rank-one state does not move.
 
 Each substep solves ``y_1 = y_0 + τ F((y_0 + y_1)/2)`` with `GeometricSolvers.Newton` and
 `GeometricSolvers.GMRES` under `EisenstatWalkerChoice2(T)`, through the analytic product
