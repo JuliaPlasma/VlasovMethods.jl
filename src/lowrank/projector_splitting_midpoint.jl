@@ -50,83 +50,89 @@ end
 # the offsets d = (dx, dv) of h and e = (ex, ev) of f in -1:1 per direction, Arakawa's stencil is
 # [h, f]_I = factor Σ_{d,e} A[d, e] h_{I+d} f_{I+e}. For a term a ⊗ b, the v part of a factor
 # enters through the 3 × 3 shifted grams M[ev, dv] = Σ_j V[j + ev, :] b[j + dv] V[j, :]ᵀ and the
-# x part through N[ex, dx] = Σ_i X[i + ex, :] a[i + dx] X[i, :]ᵀ, each r × r, and the weights A
-# are summed over r × r matrices, so no nx × nv array is formed. The helpers below add the term of
-# one a ⊗ b without the factor.
-
-# u[j] = y[j + s], periodic
-function _shift!(u, y, s)
-    n = length(y)
-    for j in 1:n
-        u[j] = y[_wrap(j + s, n)]
-    end
-    return u
-end
+# x part through N[ex, dx] = Σ_i X[i + ex, :] a[i + dx] X[i, :]ᵀ, each r × r. The weights A are
+# summed over these r × r matrices, so no nx × nv array is formed. The grams and weights of a
+# factor that a substep keeps fixed do not change during its solve, so each substep computes
+# them once. The helpers below add the term of one a ⊗ b without the factor.
 
 # G[s + 2, d + 2] = Σ_j Y[j + s, a] u[j + d] Y[j, c], for s and d in -1:1, periodic in j
 function _shifted_grams(Y, u)
-    T, r = eltype(Y), size(Y, 2)
-    ũ = similar(u)
-    G = [Matrix{T}(undef, r, r) for _ in 1:3, _ in 1:3]
-    for s in -1:1, d in -1:1
-
-        _shifted_gram!(G[s + 2, d + 2], Y, s, _shift!(ũ, u, d))
-    end
-    return G
+    ũ, r = similar(u), size(Y, 2)
+    return [_shifted_gram!(similar(Y, r, r), Y, s, circshift!(ũ, u, -d))
+            for s in -1:1, d in -1:1]
 end
 
-# K̇[i, c] += Σ_{ex,dx} a[i + dx] Σ_a K[i + ex, a] P[a, c],
-# with P = Σ_{ev,dv} A[dx, dv, ex, ev] M[ev, dv]
-function _kterm!(K̇, K, V, w, a, b)
-    A = w.arakawa.A
+# the weights P[ex + 2, dx + 2] = Σ_{ev,dv} A[dx, dv, ex, ev] M[ev, dv] of the v part of a ⊗ b,
+# with M the shifted grams of V and b
+function _vweights(V, b, A)
     M = _shifted_grams(V, b)
-    ã, P, Z = similar(a), similar(M[1]), zero(M[1])
+    P = [zero(M[1]) for _ in 1:3, _ in 1:3]
+    for ex in -1:1, dx in -1:1, ev in -1:1, dv in -1:1
+        P[ex + 2, dx + 2] .+= A[dx + 2, dv + 2, ex + 2, ev + 2] .* M[ev + 2, dv + 2]
+    end
+    return P
+end
+
+# the weights Q[ev + 2, dv + 2] = Σ_{ex,dx} A[dx, dv, ex, ev] N[ex, dx] of the x part of a ⊗ b,
+# with N the shifted grams of X and a
+function _xweights(X, a, A)
+    N = _shifted_grams(X, a)
+    Q = [zero(N[1]) for _ in 1:3, _ in 1:3]
+    for ev in -1:1, dv in -1:1, ex in -1:1, dx in -1:1
+        Q[ev + 2, dv + 2] .+= A[dx + 2, dv + 2, ex + 2, ev + 2] .* N[ex + 2, dx + 2]
+    end
+    return Q
+end
+
+# K̇[i, c] += Σ_{ex,dx} a[i + dx] Σ_a K[i + ex, a] P[ex, dx][a, c], P from `_vweights`
+function _kterm!(K̇, K, a, P)
+    ã, Z = similar(a), zero(P[1])
     for ex in -1:1, dx in -1:1
 
-        fill!(P, zero(eltype(P)))
-        for ev in -1:1, dv in -1:1
-
-            P .+= A[dx + 2, dv + 2, ex + 2, ev + 2] .* M[ev + 2, dv + 2]
-        end
-        _shifted_apply!(K̇, K, ex, _shift!(ã, a, dx), P, Z)
+        _shifted_apply!(K̇, K, ex, circshift!(ã, a, -dx), P[ex + 2, dx + 2], Z)
     end
     return K̇
 end
 
-# Ṡ += Σ_{ex,dx} N[ex, dx]ᵀ S P, with P as in `_kterm!`
-function _sterm!(Ṡ, X, S, V, w, a, b)
-    A = w.arakawa.A
-    N, M = _shifted_grams(X, a), _shifted_grams(V, b)
-    P, B = similar(S), similar(S)
+# Ṡ += Σ_{ex,dx} N[ex, dx]ᵀ S P[ex, dx], N the shifted grams of X and a, P from `_vweights`
+function _sterm!(Ṡ, S, N, P)
+    B = similar(S)
     for ex in -1:1, dx in -1:1
 
-        fill!(P, zero(eltype(P)))
-        for ev in -1:1, dv in -1:1
-
-            P .+= A[dx + 2, dv + 2, ex + 2, ev + 2] .* M[ev + 2, dv + 2]
-        end
-        mul!(B, S, P)
+        mul!(B, S, P[ex + 2, dx + 2])
         mul!(Ṡ, N[ex + 2, dx + 2]', B, true, true)
     end
     return Ṡ
 end
 
-# L̇[j, c] += Σ_{ev,dv} b[j + dv] Σ_a L[j + ev, a] Q[a, c],
-# with Q = Σ_{ex,dx} A[dx, dv, ex, ev] N[ex, dx]
-function _lterm!(L̇, X, L, w, a, b)
-    A = w.arakawa.A
-    N = _shifted_grams(X, a)
-    b̃, Q, Z = similar(b), similar(N[1]), zero(N[1])
+# L̇[j, c] += Σ_{ev,dv} b[j + dv] Σ_a L[j + ev, a] Q[ev, dv][a, c], Q from `_xweights`
+function _lterm!(L̇, L, b, Q)
+    b̃, Z = similar(b), zero(Q[1])
     for ev in -1:1, dv in -1:1
 
-        fill!(Q, zero(eltype(Q)))
-        for ex in -1:1, dx in -1:1
-
-            Q .+= A[dx + 2, dv + 2, ex + 2, ev + 2] .* N[ex + 2, dx + 2]
-        end
-        _shifted_apply!(L̇, L, ev, _shift!(b̃, b, dv), Q, Z)
+        _shifted_apply!(L̇, L, ev, circshift!(b̃, b, -dv), Q[ev + 2, dv + 2], Z)
     end
     return L̇
+end
+
+# The K-, S- and L-field of a sum of terms, each the arguments after the output of `_kterm!`,
+# `_sterm!` or `_lterm!`, with the factor of the field
+function _kfield_of!(K̇, w, terms...)
+    fill!(K̇, zero(eltype(K̇)))
+    foreach(term -> _kterm!(K̇, term...), terms)
+    return rmul!(K̇, w.arakawa.factor * w.arakawa.hv)
+end
+
+function _sfield_of!(Ṡ, w, terms...)
+    fill!(Ṡ, zero(eltype(Ṡ)))
+    foreach(term -> _sterm!(Ṡ, term...), terms)
+    return rmul!(Ṡ, -w.arakawa.factor * w.arakawa.hx * w.arakawa.hv)
+end
+
+function _lfield_of!(L̇, w, terms...)
+    fill!(L̇, zero(eltype(L̇)))
+    foreach(term -> _lterm!(L̇, term...), terms)
+    return rmul!(L̇, w.arakawa.factor * w.arakawa.hx)
 end
 
 @doc raw"""
@@ -153,24 +159,19 @@ vectors of length `nx`, `b₁` and `b₂` of length `nv`, `K` is `nx × r`, `X` 
 `w` and the entries are not checked.
 """
 function _separable_kfield!(K̇, K, V, w::LowRankFields1D1V, a₁, b₁, a₂, b₂)
-    fill!(K̇, zero(eltype(K̇)))
-    _kterm!(K̇, K, V, w, a₁, b₁)
-    _kterm!(K̇, K, V, w, a₂, b₂)
-    return rmul!(K̇, w.arakawa.factor * w.arakawa.hv)
+    A = w.arakawa.A
+    return _kfield_of!(K̇, w, (K, a₁, _vweights(V, b₁, A)), (K, a₂, _vweights(V, b₂, A)))
 end
 
 function _separable_sfield!(Ṡ, X, S, V, w::LowRankFields1D1V, a₁, b₁, a₂, b₂)
-    fill!(Ṡ, zero(eltype(Ṡ)))
-    _sterm!(Ṡ, X, S, V, w, a₁, b₁)
-    _sterm!(Ṡ, X, S, V, w, a₂, b₂)
-    return rmul!(Ṡ, -w.arakawa.factor * w.arakawa.hx * w.arakawa.hv)
+    A = w.arakawa.A
+    return _sfield_of!(Ṡ, w, (S, _shifted_grams(X, a₁), _vweights(V, b₁, A)),
+        (S, _shifted_grams(X, a₂), _vweights(V, b₂, A)))
 end
 
 function _separable_lfield!(L̇, X, L, w::LowRankFields1D1V, a₁, b₁, a₂, b₂)
-    fill!(L̇, zero(eltype(L̇)))
-    _lterm!(L̇, X, L, w, a₁, b₁)
-    _lterm!(L̇, X, L, w, a₂, b₂)
-    return rmul!(L̇, w.arakawa.factor * w.arakawa.hx)
+    A = w.arakawa.A
+    return _lfield_of!(L̇, w, (L, b₁, _xweights(X, a₁, A)), (L, b₂, _xweights(X, a₂, A)))
 end
 
 # The gradient h = ϕ ⊗ 1 + 1 ⊗ v²/2 of each substep in the separable form, projected or plain:
@@ -189,12 +190,12 @@ function _potential_of(X, S, V, w::LowRankFields1D1V{T}) where {T}
 end
 
 @doc raw"""
-    _midpoint_kfield!(K̇, K, V, w, projected)
-    _midpoint_kproduct!(K̇w, K, W, V, w, projected)
-    _midpoint_sfield!(Ṡ, X, S, V, w, projected)
-    _midpoint_sproduct!(Ṡw, X, S, W, V, w, projected)
-    _midpoint_lfield!(L̇, X, L, w, projected)
-    _midpoint_lproduct!(L̇w, X, L, W, w, projected)
+    _midpoint_kfield!(K̇, K, V, w, projected, c = _kcache(V, w, projected))
+    _midpoint_kproduct!(K̇w, K, W, V, w, projected, c = _kcache(V, w, projected))
+    _midpoint_sfield!(Ṡ, X, S, V, w, projected, c = _scache(X, V, w, projected))
+    _midpoint_sproduct!(Ṡw, X, S, W, V, w, projected, c = _scache(X, V, w, projected))
+    _midpoint_lfield!(L̇, X, L, w, projected, c = _lcache(X, w, projected))
+    _midpoint_lproduct!(L̇w, X, L, W, w, projected, c = _lcache(X, w, projected))
 
 The fields ``F`` of the K-, S- and L-substep of [`ImplicitMidpointSubsteps`](@ref), at the
 gradient ``Q h`` of the state of the substep, and their products ``dF(y) W``, written into the
@@ -202,63 +203,70 @@ first argument, which is returned. ``Q`` is ``P_V``, ``P_X P_V`` and ``P_X`` for
 L-substep with `projected = true`, and the identity with `projected = false`. The fields are
 those of [`_separable_kfield!`](@ref) and its S- and L-twins; the potential ``\phi = G \rho`` is
 that of `K Vᵀ`, `X S Vᵀ` or `X Lᵀ`, from [`_potential!`](@ref). ``F`` is quadratic in the state,
-so ``dF(y) W = B(W, Q h(y)) + B(y, Q h_\mathrm{lin}(W))`` is exact.
+so ``dF(y) W = B(W, Q h(y)) + B(y, Q h_\mathrm{lin}(W))`` is exact. `c` holds the grams and
+weights of the terms that the state of the substep does not change; a substep computes it once
+for all the evaluations of its solve.
 """
-function _midpoint_kfield!(K̇, K, V, w::LowRankFields1D1V{T}, projected) where {T}
-    b₁ = _project_v(V, ones(T, w.arakawa.nv), w, projected)
-    b₂ = _project_v(V, w.kinetic, w, projected)
-    ϕ = _potential_of(K, V, w)
-    return _separable_kfield!(K̇, K, V, w, ϕ, b₁, ones(T, w.arakawa.nx), b₂)
+# The terms of a substep that its state does not change, computed once per substep: for the
+# K-substep the weights of V with Q 1 and Q k, for the S-substep those and the grams of X with
+# Q 1, and for the L-substep the weights of X with Q 1
+function _kcache(V, w::LowRankFields1D1V{T}, projected) where {T}
+    A = w.arakawa.A
+    return (_vweights(V, _project_v(V, ones(T, w.arakawa.nv), w, projected), A),
+        _vweights(V, _project_v(V, w.kinetic, w, projected), A))
+end
+function _scache(X, V, w::LowRankFields1D1V{T}, projected) where {T}
+    return (_kcache(V, w, projected)...,
+        _shifted_grams(X, _project_x(X, ones(T, w.arakawa.nx), w, projected)))
+end
+function _lcache(X, w::LowRankFields1D1V{T}, projected) where {T}
+    return _xweights(X, _project_x(X, ones(T, w.arakawa.nx), w, projected), w.arakawa.A)
 end
 
-function _midpoint_kproduct!(K̇w, K, W, V, w::LowRankFields1D1V{T}, projected) where {T}
-    b₁ = _project_v(V, ones(T, w.arakawa.nv), w, projected)
-    b₂ = _project_v(V, w.kinetic, w, projected)
-    ϕ, ϕw = _potential_of(K, V, w), _potential_of(W, V, w)
-    fill!(K̇w, zero(T))
-    _kterm!(K̇w, W, V, w, ϕ, b₁)
-    _kterm!(K̇w, W, V, w, ones(T, w.arakawa.nx), b₂)
-    _kterm!(K̇w, K, V, w, ϕw, b₁)
-    return rmul!(K̇w, w.arakawa.factor * w.arakawa.hv)
+# the grams of X, and the weights of X, with the projected potential of X S Vᵀ or of X Lᵀ
+function _potential_grams(X, S, V, w, projected)
+    return _shifted_grams(X, _project_x(X, _potential_of(X, S, V, w), w, projected))
+end
+function _potential_weights(X, L, w, projected)
+    return _xweights(X, _project_x(X, _potential_of(X, L, w), w, projected), w.arakawa.A)
 end
 
-function _midpoint_sfield!(Ṡ, X, S, V, w::LowRankFields1D1V{T}, projected) where {T}
-    a₁ = _project_x(X, _potential_of(X, S, V, w), w, projected)
-    a₂ = _project_x(X, ones(T, w.arakawa.nx), w, projected)
-    b₁ = _project_v(V, ones(T, w.arakawa.nv), w, projected)
-    b₂ = _project_v(V, w.kinetic, w, projected)
-    return _separable_sfield!(Ṡ, X, S, V, w, a₁, b₁, a₂, b₂)
+function _midpoint_kfield!(K̇, K, V, w::LowRankFields1D1V{T}, projected,
+        c = _kcache(V, w, projected)) where {T}
+    a₂ = ones(T, w.arakawa.nx)
+    return _kfield_of!(K̇, w, (K, _potential_of(K, V, w), c[1]), (K, a₂, c[2]))
 end
 
-function _midpoint_sproduct!(Ṡw, X, S, W, V, w::LowRankFields1D1V{T}, projected) where {T}
-    a₁ = _project_x(X, _potential_of(X, S, V, w), w, projected)
-    a₂ = _project_x(X, ones(T, w.arakawa.nx), w, projected)
-    aw = _project_x(X, _potential_of(X, W, V, w), w, projected)
-    b₁ = _project_v(V, ones(T, w.arakawa.nv), w, projected)
-    b₂ = _project_v(V, w.kinetic, w, projected)
-    fill!(Ṡw, zero(T))
-    _sterm!(Ṡw, X, W, V, w, a₁, b₁)
-    _sterm!(Ṡw, X, W, V, w, a₂, b₂)
-    _sterm!(Ṡw, X, S, V, w, aw, b₁)
-    return rmul!(Ṡw, -w.arakawa.factor * w.arakawa.hx * w.arakawa.hv)
+function _midpoint_kproduct!(K̇w, K, W, V, w::LowRankFields1D1V{T}, projected,
+        c = _kcache(V, w, projected)) where {T}
+    ϕ, ϕw, a₂ = _potential_of(K, V, w), _potential_of(W, V, w), ones(T, w.arakawa.nx)
+    return _kfield_of!(K̇w, w, (W, ϕ, c[1]), (W, a₂, c[2]), (K, ϕw, c[1]))
 end
 
-function _midpoint_lfield!(L̇, X, L, w::LowRankFields1D1V{T}, projected) where {T}
-    a₁ = _project_x(X, _potential_of(X, L, w), w, projected)
-    a₂ = _project_x(X, ones(T, w.arakawa.nx), w, projected)
-    return _separable_lfield!(L̇, X, L, w, a₁, ones(T, w.arakawa.nv), a₂, w.kinetic)
+function _midpoint_sfield!(Ṡ, X, S, V, w::LowRankFields1D1V, projected,
+        c = _scache(X, V, w, projected))
+    return _sfield_of!(Ṡ, w, (S, _potential_grams(X, S, V, w, projected), c[1]),
+        (S, c[3], c[2]))
 end
 
-function _midpoint_lproduct!(L̇w, X, L, W, w::LowRankFields1D1V{T}, projected) where {T}
-    a₁ = _project_x(X, _potential_of(X, L, w), w, projected)
-    a₂ = _project_x(X, ones(T, w.arakawa.nx), w, projected)
-    aw = _project_x(X, _potential_of(X, W, w), w, projected)
+function _midpoint_sproduct!(Ṡw, X, S, W, V, w::LowRankFields1D1V, projected,
+        c = _scache(X, V, w, projected))
+    N, Nw = _potential_grams(X, S, V, w, projected), _potential_grams(X, W, V, w, projected)
+    return _sfield_of!(Ṡw, w, (W, N, c[1]), (W, c[3], c[2]), (S, Nw, c[1]))
+end
+
+function _midpoint_lfield!(L̇, X, L, w::LowRankFields1D1V{T}, projected,
+        c = _lcache(X, w, projected)) where {T}
     b₁ = ones(T, w.arakawa.nv)
-    fill!(L̇w, zero(T))
-    _lterm!(L̇w, X, W, w, a₁, b₁)
-    _lterm!(L̇w, X, W, w, a₂, w.kinetic)
-    _lterm!(L̇w, X, L, w, aw, b₁)
-    return rmul!(L̇w, w.arakawa.factor * w.arakawa.hx)
+    return _lfield_of!(L̇, w, (L, b₁, _potential_weights(X, L, w, projected)),
+        (L, w.kinetic, c))
+end
+
+function _midpoint_lproduct!(L̇w, X, L, W, w::LowRankFields1D1V{T}, projected,
+        c = _lcache(X, w, projected)) where {T}
+    Q, Qw = _potential_weights(X, L, w, projected), _potential_weights(X, W, w, projected)
+    b₁ = ones(T, w.arakawa.nv)
+    return _lfield_of!(L̇w, w, (W, b₁, Q), (W, w.kinetic, c), (L, b₁, Qw))
 end
 
 # The residual R(x) = x − x₀ − τ F((y₀ + y₁)/2) of the implicit-midpoint step from y₀, with x the
@@ -288,50 +296,57 @@ end
 # does not return SUCCESS throws, before the state of the step is written.
 function _midpoint_solve(F!, dF!, y₀::Matrix{T}, τ::T, tol::T, max_iterations,
         name) where {T}
-    sz = size(y₀)
-    x₀ = vec(copy(y₀))
     residual!, jvp! = _midpoint_residual(F!, dF!, y₀, τ)
-    GS = GeometricSolvers
-    method = GS.Newton(; linsolve = GS.GMRES(; forcing = GS.EisenstatWalkerChoice2(T)),
-        jacobian = GS.JVPFunction(jvp!))
+    method = GeometricSolvers.Newton(;
+        linsolve = GeometricSolvers.GMRES(;
+            forcing = GeometricSolvers.EisenstatWalkerChoice2(T)),
+        jacobian = GeometricSolvers.JVPFunction(jvp!))
     y₀norm = norm(y₀)
-    options = GS.Options(T; f_abstol = tol * y₀norm, f_reltol = tol, max_iterations)
-    predictor = x₀ .+ τ .* vec(F!(similar(y₀), y₀))
-    x, status = GS.solve(
-        GS.NonlinearProblem(residual!), predictor, method, nothing; options)
-    status.code === GS.SUCCESS || throw(ErrorException(
+    options = GeometricSolvers.Options(
+        T; f_abstol = tol * y₀norm, f_reltol = tol, max_iterations)
+    predictor = vec(y₀ .+ τ .* F!(similar(y₀), y₀))
+    x, status = GeometricSolvers.solve(
+        GeometricSolvers.NonlinearProblem(residual!), predictor, method, nothing; options)
+    status.code === GeometricSolvers.SUCCESS || throw(ErrorException(
         "the $name-substep solve of ImplicitMidpointSubsteps returned $(status.code), with " *
         "‖R‖₂/‖y₀‖₂ = $(status.fnorm / y₀norm)"))
-    return reshape(x, sz)
+    return reshape(x, size(y₀))
 end
 
 # the K-substep from K = X S, then X, S = orthonormalize_x(space, K)
 function _midpoint_kstep(space, K, V, w, τ, tol, sub)
-    F!(K̇, K) = _midpoint_kfield!(K̇, K, V, w, sub.projected)
-    dF!(K̇w, K, W) = _midpoint_kproduct!(K̇w, K, W, V, w, sub.projected)
+    c = _kcache(V, w, sub.projected)
+    F!(K̇, K) = _midpoint_kfield!(K̇, K, V, w, sub.projected, c)
+    dF!(K̇w, K, W) = _midpoint_kproduct!(K̇w, K, W, V, w, sub.projected, c)
     return orthonormalize_x(space, _midpoint_solve(
         F!, dF!, K, τ, tol, sub.max_iterations, "K"))
 end
 
 # the backward S-substep, whose field carries the minus sign, over +τ
 function _midpoint_sstep(X, S, V, w, τ, tol, sub)
-    F!(Ṡ, S) = _midpoint_sfield!(Ṡ, X, S, V, w, sub.projected)
-    dF!(Ṡw, S, W) = _midpoint_sproduct!(Ṡw, X, S, W, V, w, sub.projected)
+    c = _scache(X, V, w, sub.projected)
+    F!(Ṡ, S) = _midpoint_sfield!(Ṡ, X, S, V, w, sub.projected, c)
+    dF!(Ṡw, S, W) = _midpoint_sproduct!(Ṡw, X, S, W, V, w, sub.projected, c)
     return _midpoint_solve(F!, dF!, S, τ, tol, sub.max_iterations, "S")
 end
 
 # the L-substep from L = V Sᵀ, then V, R = orthonormalize_v(space, L) and S = Rᵀ
 function _midpoint_lstep(space, X, S, V, w, τ, tol, sub)
-    F!(L̇, L) = _midpoint_lfield!(L̇, X, L, w, sub.projected)
-    dF!(L̇w, L, W) = _midpoint_lproduct!(L̇w, X, L, W, w, sub.projected)
+    c = _lcache(X, w, sub.projected)
+    F!(L̇, L) = _midpoint_lfield!(L̇, X, L, w, sub.projected, c)
+    dF!(L̇w, L, W) = _midpoint_lproduct!(L̇w, X, L, W, w, sub.projected, c)
     L = _midpoint_solve(F!, dF!, V * S', τ, tol, sub.max_iterations, "L")
     V₁, R = orthonormalize_v(space, L)
     return permutedims(R), V₁
 end
 
 # τ and the solve tolerance in the element type T of Y, after the checks that run before any
-# solve: τ finite and nonzero, tol in [eps(T), 1), finite factors, and the periodic closure
+# solve: a field of the grid, τ finite and nonzero, tol in [eps(T), 1), finite factors, and the
+# periodic closure
 function _check_midpoint(Y, sub, w, τ)
+    w isa LowRankFields1D1V || throw(ArgumentError(
+        "ImplicitMidpointSubsteps takes a field of type LowRankFields1D1V; got a field of type " *
+        "$(typeof(w))"))
     T = eltype(Y)
     τT = _finite_step(τ, T)
     iszero(τT) && throw(ArgumentError(
@@ -355,7 +370,7 @@ end
 @doc raw"""
     lowrank_step!(Y::LowRankDistribution,
                   method::ProjectorSplitting{C, <:ImplicitMidpointSubsteps},
-                  field::LowRankFields1D1V, t, τ)
+                  field, t, τ)
 
 Advance the low-rank state `Y` by one step of length `τ` of the projector splitting with the
 [`ImplicitMidpointSubsteps`](@ref) `method.substeps`, in place, and return `Y`. Each substep is
@@ -370,17 +385,18 @@ one implicit-midpoint step of its self-consistent field at its own state; after 
     step of `τ` returns the state up to the tolerance of the solves.
 
 The field is autonomous, so `t` is not read. `τ` is converted to the element type `T` of `Y`
-and may be negative. Before any solve, the step throws the `ArgumentError` of the generic
-[`lowrank_step!`](@ref) for a `τ` that is not finite in `T`, and an `ArgumentError` for `τ = 0`,
-for a non-finite entry of `X`, `S` or `V`, which the message names, for a `tol` outside
-`[eps(T), 1)`, and for a `field` with the [`BoundedVelocityClosure`](@ref). A solve that does not
+and may be negative. `field` is a [`LowRankFields1D1V`](@ref). Before any solve, the step
+throws an `ArgumentError` for a `field` of another type, which the message names, the
+`ArgumentError` of the generic [`lowrank_step!`](@ref) for a `τ` that is not
+finite in `T`, and an `ArgumentError` for `τ = 0`, for a non-finite entry of `X`, `S` or `V`,
+which the message names, for a `tol` outside `[eps(T), 1)`, and for a `field` with the
+[`BoundedVelocityClosure`](@ref). A solve that does not
 return `SUCCESS` throws an `ErrorException` whose message names the substep, `K`, `S` or `L`, the
 return code and ``\|R\|_2 / \|y_0\|_2``. Each throw leaves `Y` as it was. The step forms no
 ``n_x \times n_v`` array, and sets `Y.nfixed = 0`. A zero `S` stays zero.
 """
 function lowrank_step!(Y::LowRankDistribution,
-        method::ProjectorSplitting{:lie, <:ImplicitMidpointSubsteps},
-        field::LowRankFields1D1V, t, τ)
+        method::ProjectorSplitting{:lie, <:ImplicitMidpointSubsteps}, field, t, τ)
     sub = method.substeps
     τ, tol = _check_midpoint(Y, sub, field, τ)
     X, S₁ = _midpoint_kstep(Y.space, Y.X * Y.S, Y.V, field, τ, tol, sub)
@@ -391,8 +407,7 @@ function lowrank_step!(Y::LowRankDistribution,
 end
 
 function lowrank_step!(Y::LowRankDistribution,
-        method::ProjectorSplitting{:strang, <:ImplicitMidpointSubsteps},
-        field::LowRankFields1D1V, t, τ)
+        method::ProjectorSplitting{:strang, <:ImplicitMidpointSubsteps}, field, t, τ)
     sub = method.substeps
     τ, tol = _check_midpoint(Y, sub, field, τ)
     τ½ = τ / 2

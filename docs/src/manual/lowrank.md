@@ -188,7 +188,8 @@ formulation that keeps the energy by construction. `projected = false` takes the
 K(τ/2) S(τ/2) L(τ) S(τ/2) K(τ/2), each field self-consistent at its own state. Each substep solves
 its implicit-midpoint equation with the Newton method and GMRES of GeometricSolvers, through the
 analytic product of the quadratic field. A solve that does not converge throws, and the state
-stays as it was. The substeps take a field of the periodic velocity closure:
+stays as it was. The substeps take a `LowRankFields1D1V` of the periodic velocity closure, and a
+step refuses a field of another kind:
 
 ```@example lowrank
 function hamiltonian(f)

@@ -42,9 +42,11 @@ their own, except for what they removed and narrowed, which is listed in full be
   `32 eps(T)` by default, and `max_iterations` 50. A solve that does not return `SUCCESS` throws
   an `ErrorException` that names the substep, the return code and `‖R‖₂/‖y₀‖₂`, and leaves the
   state as it was. A step refuses, with an `ArgumentError` and before any solve, a zero or
-  non-finite `τ`, a non-finite entry of `X`, `S` or `V`, a `tol` outside `[eps(T), 1)`, and a
-  field of the `BoundedVelocityClosure`. The fields are evaluated on the factors for a separable
-  gradient of rank 2, without the `nx × nv` array. Over 10⁴ steps of `τ = 0.05` on an 8 × 16 grid
+  non-finite `τ`, a non-finite entry of `X`, `S` or `V`, a `tol` outside `[eps(T), 1)`, a field
+  of another type than `LowRankFields1D1V`, and a field of the `BoundedVelocityClosure`. The
+  fields are evaluated on the factors for a separable gradient of rank 2, without the `nx × nv`
+  array; each substep computes the terms of the factor that it keeps fixed once for its solve.
+  Over 10⁴ steps of `τ = 0.05` on an 8 × 16 grid
   at rank 4, the largest relative drift of the energy and of the L² norm stays below
   `8 · (substeps per step) · (steps) · eps(T)`, in `Float64` at `tol = 1e-14` and in `Float32` at
   the default `tol`; the plain-gradient control drifts by more than ten times that.

@@ -281,6 +281,26 @@ end
     end
 end
 
+# Each substep of a step solves the midpoint equation of its own field, at the gradient that
+# `projected` selects: the K-substep gives K = X S, and the L-substep L = V Sᵀ
+@testset "each substep takes the gradient that projected selects" begin
+    for T in PRECISIONS, projected in (true, false)
+
+        P = cached_problem(T)
+        Y = initial_state(P, 4)
+        sub = ImplicitMidpointSubsteps(; projected, tol = testtol(T))
+        τ, tol = T(0.05), T(something(testtol(T), 32 * eps(T)))
+        maps = substep_maps(P, Y.X, Y.V, projected)
+        solve(name, y₀) = VM._midpoint_solve(maps[name]..., y₀, τ, tol, 50, string(name))
+        X, S = VM._midpoint_kstep(P.space, Y.X * Y.S, Y.V, P.w, τ, tol, sub)
+        @test isapprox(X * S, solve(:K, Y.X * Y.S); rtol = 8 * eps(T))
+        S = VM._midpoint_sstep(Y.X, Y.S, Y.V, P.w, τ, tol, sub)
+        @test isapprox(S, solve(:S, Y.S); rtol = 8 * eps(T))
+        S, V = VM._midpoint_lstep(P.space, Y.X, Y.S, Y.V, P.w, τ, tol, sub)
+        @test isapprox(V * S', solve(:L, Y.V * Y.S'); rtol = 8 * eps(T))
+    end
+end
+
 @testset "energy and L² over 10⁴ steps" begin
     for T in PRECISIONS, c in (:lie, :strang)
 
@@ -364,7 +384,10 @@ end
         err = map((:strang, :lie)) do c
             Y = initial_state(P, 4)
             f₀ = dense(Y)
+            Y.nfixed = 2
             lowrank_step!(Y, midpoint(T, c), P.w, 0.0, 0.1)
+            # the step keeps no fixed velocity modes
+            @test Y.nfixed == 0
             lowrank_step!(Y, midpoint(T, c), P.w, 0.1, -0.1)
             @test eltypes_are(Y, T)
             sqrt(l2(P, dense(Y) - f₀) / l2(P, f₀))
@@ -428,6 +451,11 @@ end
     end
 end
 
+# a field of another kind, which holds the grid field
+struct WrappedField{W}
+    w::W
+end
+
 @testset "inputs refused before a solve" begin
     @test_throws r"^ArgumentError: ImplicitMidpointSubsteps takes max_iterations ≥ 1; got 0$" ImplicitMidpointSubsteps(;
         max_iterations = 0)
@@ -476,6 +504,19 @@ end
         @test e isa ArgumentError
         @test startswith(message(e),
             "ImplicitMidpointSubsteps takes a field of the PeriodicVelocityClosure")
+        @test unchanged(Y, F)
+    end
+    # a field of another type than LowRankFields1D1V, which the RK4 substeps would take
+    for T in PRECISIONS, c in (:lie, :strang)
+
+        P = cached_problem(T)
+        Y = initial_state(P, 4)
+        F = factors(Y)
+        e = caught(() -> lowrank_step!(Y, midpoint(T, c), WrappedField(P.w), 0.0, 0.05))
+        @test e isa ArgumentError
+        @test startswith(message(e),
+            "ImplicitMidpointSubsteps takes a field of type LowRankFields1D1V; got a field of " *
+            "type $(WrappedField{typeof(P.w)})")
         @test unchanged(Y, F)
     end
     # tol = 1e-14 on a Float32 state, below eps(Float32)
