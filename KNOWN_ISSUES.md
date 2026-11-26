@@ -806,3 +806,21 @@ has left the file, or that lived only on a merged branch, stays taken.
   (group `closure`).
 - **kind:** found late
 - **found:** 2026-11-24
+
+### K137 · A step of `ProjectorSplitting` with a `LowRankFields1D1V{Float32}` field on a `Float64` state throws a `MethodError` from inside a substep, not an `ArgumentError` that names the element types.
+
+- **location:** `src/lowrank/projector_splitting_midpoint.jl:348`
+- **evidence:** a rank-2 `Float64` state on 8 × 16 nodes of `[0, 4π) × [−6, 6]` and the field
+  `LowRankFields1D1V` of the same grid in `Float32`, one step of `τ = 0.05` on Julia 1.13.4.
+  With `ImplicitMidpointSubsteps()`, `:lie` and `:strang` both throw
+  `MethodError: no method matching _potential!(::Vector{Float32}, ::Matrix{Float64}, ::Matrix{Float64}, ::LowRankFields1D1V{Float32, Matrix{Float32}, PeriodicVelocityClosure})`.
+  The RK4 substeps of the same `ProjectorSplitting(:lie)` and `ProjectorSplitting(:strang)`
+  behave the same way, with
+  `MethodError: no method matching _kfield!(::Matrix{Float64}, ::Matrix{Float64}, ::Matrix{Float64}, ::LowRankFields1D1V{Float32, Matrix{Float32}, PeriodicVelocityClosure})`
+  from `src/lowrank/projector_splitting.jl:8`. In all four cases `X`, `S` and `V` stay equal to
+  their values before the step, because each step writes the state only after its last substep.
+  `_check_midpoint` checks the type of the field but not its element type against that of the
+  state; a check `w isa LowRankFields1D1V{eltype(Y)}` there, and the same before the RK4
+  substeps, gives an `ArgumentError` before any substep.
+- **kind:** defect
+- **found:** 2026-11-26

@@ -137,11 +137,12 @@ end
 
 @doc raw"""
     _separable_kfield!(K̇, K, V, w::LowRankFields1D1V, a₁, b₁, a₂, b₂)
-    _separable_sfield!(Ṡ, X, S, V, w::LowRankFields1D1V, a₁, b₁, a₂, b₂)
-    _separable_lfield!(L̇, X, L, w::LowRankFields1D1V, a₁, b₁, a₂, b₂)
 
-Write the K-, S- or L-field of the bracket of the workspace `w` at the separable gradient
-``h = a_1 \otimes b_1 + a_2 \otimes b_2`` into the first argument and return it:
+Write the K-field of the bracket of the workspace `w` at the separable gradient
+``h = a_1 \otimes b_1 + a_2 \otimes b_2`` into `K̇` and return it.
+`_separable_sfield!(Ṡ, X, S, V, w, a₁, b₁, a₂, b₂)` and
+`_separable_lfield!(L̇, X, L, w, a₁, b₁, a₂, b₂)`, which this docstring documents too, write the
+S- and the L-field into their first argument and return it:
 
 ```math
 \dot{K} = h_v J(K V^\mathsf{T}, h) V , \qquad
@@ -215,15 +216,16 @@ end
 
 @doc raw"""
     _midpoint_kfield!(K̇, K, V, w, projected, c = _kcache(V, w, projected))
-    _midpoint_kproduct!(K̇w, K, W, V, w, projected, c = _kcache(V, w, projected))
-    _midpoint_sfield!(Ṡ, X, S, V, w, projected, c = _scache(X, V, w, projected))
-    _midpoint_sproduct!(Ṡw, X, S, W, V, w, projected, c = _scache(X, V, w, projected))
-    _midpoint_lfield!(L̇, X, L, w, projected, c = _lcache(X, w, projected))
-    _midpoint_lproduct!(L̇w, X, L, W, w, projected, c = _lcache(X, w, projected))
 
 The fields ``F`` of the K-, S- and L-substep of [`ImplicitMidpointSubsteps`](@ref), at the
 gradient ``Q h`` of the state of the substep, and their products ``dF(y) W``, written into the
-first argument, which is returned. ``Q`` is ``P_V``, ``P_X P_V`` and ``P_X`` for the K-, S- and
+first argument, which is returned. This docstring documents the six functions of the three
+substeps: `_midpoint_kfield!` and `_midpoint_kproduct!(K̇w, K, W, V, w, projected, c)` with
+`c = _kcache(V, w, projected)`, `_midpoint_sfield!(Ṡ, X, S, V, w, projected, c)` and
+`_midpoint_sproduct!(Ṡw, X, S, W, V, w, projected, c)` with `c = _scache(X, V, w, projected)`,
+and `_midpoint_lfield!(L̇, X, L, w, projected, c)` and
+`_midpoint_lproduct!(L̇w, X, L, W, w, projected, c)` with `c = _lcache(X, w, projected)`, each
+`c` the default of its argument. ``Q`` is ``P_V``, ``P_X P_V`` and ``P_X`` for the K-, S- and
 L-substep with `projected = true`, and the identity with `projected = false`. The fields are
 those of [`_separable_kfield!`](@ref) and its S- and L-twins; the potential ``\phi = G \rho`` is
 that of `K Vᵀ`, `X S Vᵀ` or `X Lᵀ`, from [`_potential!`](@ref). ``F`` is quadratic in the state,
