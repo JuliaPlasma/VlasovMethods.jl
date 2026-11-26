@@ -854,3 +854,18 @@ has left the file, or that lived only on a merged branch, stays taken.
   of `_midpoint_step` on a Float32 model gives `Float32`, so no step promotes on the branch.
 - **kind:** missing test
 - **found:** 2026-11-26
+
+### K134 · The macOS CI jobs of the test group `galerkin` take about 120 minutes, the timeout of the job, so the job "Julia 1 - macOS-latest - default - galerkin" is red on the weekly run, a tag and a run by hand.
+
+- **location:** `test/runtests.jl:71`
+- **evidence:** in the full-matrix CI run 45789228548 (`workflow_dispatch`), "Julia 1 -
+  macOS-latest - default - galerkin" was cancelled at its timeout of 120 minutes, and "Julia min -
+  macOS-latest - default - galerkin" passed in 119 min 51 s; the Windows jobs of the group took
+  82–87 minutes and the Ubuntu jobs 60–68 minutes. The group holds the four files
+  `test/verification/spline_galerkin_*.jl`: 10⁴ implicit midpoint steps in Float64 and in Float32,
+  and the Landau and two-stream rate runs on 64 × 128 splines in both precisions. `galerkin` is in
+  `once` of `test/ci-groups.toml`, so a pull request and a push run it on Ubuntu × Julia 1 only,
+  and the red shows only where every group runs on every entry. The user accepts this red: the
+  group is not split, the runs are not shortened, and the timeout does not change.
+- **kind:** defect
+- **found:** 2026-11-26, the full-matrix run of the spline Galerkin model's branch

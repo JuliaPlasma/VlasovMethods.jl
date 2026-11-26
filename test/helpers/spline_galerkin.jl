@@ -5,7 +5,7 @@
 # calls a function of the model except the long runs at the end, which four test files share:
 # `test/verification/spline_galerkin_energy.jl` (Float64), `spline_galerkin_energy_float32.jl`,
 # `spline_galerkin_landau_rates.jl` and `spline_galerkin_two_stream_rates.jl`. They are files of
-# their own so that the CI job of their group spreads them over its workers.
+# their own so that the CI job of their group can run them on separate workers.
 using HDF5: h5read
 using LinearAlgebra: Symmetric, cholesky, dot, norm
 using SimpleSplines: SplineQuadrature, basis_values, quadrature_nodes, quadrature_weights,

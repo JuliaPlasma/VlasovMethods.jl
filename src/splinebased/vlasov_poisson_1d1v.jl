@@ -234,8 +234,9 @@ W - \frac{\tau}{2} \mathbb{M}_x^{-1} \left( r_{\phi(W)}(\bar{f}) + r_{h(\bar{f})
 ```
 
 with ``r_h(f)`` the matrix ``r`` for the Hamiltonian ``h`` and the state ``f``; the first term
-takes ``h = \phi(W)``, without the kinetic energy. It stops at ``\|F\|_2 \le \mathrm{tol} \, \|A\|_2``, with the Euclidean norm of the entries,
-after at most `max_iterations` Newton iterations.
+takes ``h = \phi(W)``, without the kinetic energy. It stops at
+``\|F\|_2 \le \mathrm{tol} \, \|A\|_2``, with the Euclidean norm of the entries, after at most
+`max_iterations` Newton iterations.
 
 The method holds a copy of the coefficients of the distribution at construction, which every
 [`run!`](@ref) starts from. The constructor throws an `ArgumentError` when a coefficient is not
