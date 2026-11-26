@@ -127,10 +127,10 @@ function _hamiltonian_values(dist, φ̂, kinetic::Bool)
     return (transpose(X0) * φ̂ .+ k .* v .^ 2 ./ 2, transpose(X1) * φ̂, k .* v)
 end
 
-# r[i, j] = T̄(Φᵢⱼ, h, f) for the h of `_hamiltonian_values` and the f of A, with the three
-# terms grouped by the table that tests them:
+# r[i, j] = T̄(Φᵢⱼ, h, f) for the h of `_hamiltonian_values` and the f of A, the sum of
 #   T(Φ, h, f) = ∫ Φ (hₓ f_v − h_v fₓ),  T(h, f, Φ) = ∫ h (fₓ Φ_v − f_v Φₓ),
-#   T(f, Φ, h) = ∫ f (Φₓ h_v − Φ_v hₓ)
+#   T(f, Φ, h) = ∫ f (Φₓ h_v − Φ_v hₓ),
+# collected by the factor of the test function: G00 multiplies Φ, G01 Φ_v and G10 Φₓ
 function _averaged_bracket(dist, W, (h, hx, hv), A)
     f, fx, fv = _tensor_values(dist, A)
     X0, X1 = basis_values(dist.xquadrature, 0), basis_values(dist.xquadrature, 1)

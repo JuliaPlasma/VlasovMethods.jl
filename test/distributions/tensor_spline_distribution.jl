@@ -96,6 +96,10 @@ end
         y = evaluate(D, x, v)
         @test y isa T
         @test abs(y - ref) ≤ 64eps(T) * sum(abs, A) / 100
+        # the call of a DistributionFunction passes x and v as one-element vectors
+        @test D(x, v) isa T
+        @test isapprox(D(x, v), y; rtol = 8eps(T))
+        @test isapprox(D([x], [v]), y; rtol = 8eps(T))
         # x and v swapped give another value
         @test abs(evaluate(D, v + T(25), x) - ref) > 1000eps(T) * sum(abs, A) / 100
     end

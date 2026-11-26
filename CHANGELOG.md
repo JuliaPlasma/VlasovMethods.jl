@@ -33,7 +33,8 @@ their own, except for what they removed and narrowed, which is listed in full be
   periodic B-spline basis in `x` and a B-spline basis in `v` that reproduces `v²`, such as a
   clamped (`Free()`) cubic basis, with the `nx × nv` coefficient matrix `A` in the layout of a
   `GridDistribution`'s values. It is built from a coefficient matrix or as the L² projection of a
-  function `f(x, v)`, and `evaluate(dist, x, v)` evaluates it. `VlasovPoisson(dist, potential)`
+  function `f(x, v)`, and `dist(x, v)` or `evaluate(dist, x, v)` evaluates it, at numbers or at
+  one-element vectors as in `dist([x], [v])`. `VlasovPoisson(dist, potential)`
   on it, with a `PoissonSolverSpline` potential on its x-basis, is the spline Galerkin model of
   1D1V Vlasov–Poisson whose field is the cyclic average of the Galerkin form
   `T(a, b, c) = ∫∫ a {b, c} dx dv`: on clamped velocity splines `T` keeps boundary terms in `v`,

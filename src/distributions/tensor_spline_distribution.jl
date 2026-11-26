@@ -89,6 +89,6 @@ function Base.show(io::IO, dist::TensorSplineDistribution{DT}) where {DT}
     print(io, "TensorSplineDistribution{", DT, "}(", size(dist.coefficients), ")")
 end
 
-function evaluate(dist::TensorSplineDistribution, x::Number, v::Number)
-    evaluate(dist.xbasis ⊗ dist.vbasis, dist.coefficients, (x, v))
+function evaluate(dist::TensorSplineDistribution, x, v)
+    evaluate(dist.xbasis ⊗ dist.vbasis, dist.coefficients, (only(x), only(v)))
 end
