@@ -496,6 +496,18 @@ end
     end
 end
 
+@testset "the decided edges: a truncated matrix whose norm overflows, $T" for T in (
+    Float32, Float64)
+    (; Y) = fixture(T)
+    # every entry is finite, and √hx ‖K‖_F overflows to Inf
+    K = fill(floatmax(T) / 4, 16, size(Y.minus.V, 2))
+    @test all(isfinite, K) && !isfinite(sqrt(step(Y.minus.space.x)) * norm(K))
+    for tol in (zero(T), T(1e-8))
+        @test VlasovMethods._truncate_keeping_moments(Y.minus.space, K, Y.minus.V, 1;
+            tol, minrank = 6, rank = 6) === nothing
+    end
+end
+
 # one warm step, then the bytes of the next, through a function barrier
 function step_allocations(Y, method, field, τ)
     lowrank_step!(Y, method, field, 0, τ)

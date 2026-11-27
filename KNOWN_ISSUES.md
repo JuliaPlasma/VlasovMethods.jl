@@ -998,7 +998,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K142 · A state of large amplitude makes the low-rank parity splitting unstable at τ = 0.05, and its cores turn non-finite within a few steps.
 
-- **location:** `src/lowrank/parity.jl:408`
+- **location:** `src/lowrank/parity.jl:416`
 - **evidence:** the state `10⁴ (1 + 0.2 cos(x/2)) e^{-v²/2}/√(2π) (1 + 0.3 v)` on 16 × 32 nodes
   of [0, 4π) × [−7.5, 7.5], at rank (6, 6), with `LowRankParitySplitting((6, 6))` and τ = 0.05:
   the status `all(isfinite, Y.plus.S) && all(isfinite, Y.minus.S)` is false after step 3 in
@@ -1010,3 +1010,15 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** found late
 - **found:** 2026-11-27; the clause "The decided edges of the step", whose non-finite core the
   status reports
+
+### K143 · `_least_rank(σ, tol)` throws `ArgumentError: collection must be non-empty` from `first` for a tolerance that is `NaN` or negative, a message that names neither the tolerance nor the truncation.
+
+- **location:** `src/lowrank/bug.jl:119`
+- **evidence:** `VlasovMethods._least_rank([3.0, 1.0], NaN)` and
+  `VlasovMethods._least_rank([3.0, 1.0], -1.0)` throw `ArgumentError: collection must be
+  non-empty`, in Float32 and Float64: no rank `r` meets `norm(σ[r + 1:end]) ≤ tol`, so the
+  generator is empty. The truncation of the low-rank parity splitting returns `nothing` before
+  this call when the norm of its matrix is not finite, so a step does not reach it.
+- **kind:** defect
+- **found:** 2026-11-27; the fix of the overflow of the truncation's tolerance in the low-rank
+  parity part

@@ -189,17 +189,20 @@ least `r ≥ m` with ``(\sum_{j > r - m} \sigma_j^2)^{1/2} \le`` `tol` ``\|f\|``
 
 Returns `(X, S, V′)`: `X, S = orthonormalize_x(space, [K[:, 1:m]  K⊥ Q₁])`, so `S` is upper
 triangular, and `V′ = [V[:, 1:m]  V⊥ Q₁]`. So ``X S V'^\mathsf{T} h_v V_{:, 1:m} = K_{:, 1:m}``
-to round-off.
+to round-off. Returns `nothing` when ``\|f\|`` is not finite: when `K` holds a `NaN` or an `Inf`,
+or when its entries are finite and its norm overflows.
 """
 function _truncate_keeping_moments(space::GridFactorSpace, K::AbstractMatrix{T},
         V::AbstractMatrix{T}, nfixed; tol, minrank, rank) where {T}
     hx = step(space.x)
+    ν = sqrt(hx) * norm(K)
+    isfinite(ν) || return nothing
     m = nfixed
     K⊥ = K[:, (m + 1):end]
     F = svd(sqrt(hx) .* K⊥)
     n = length(F.S)
     lo, hi = min(minrank - m, n), min(rank - m, n)
-    r = clamp(_least_rank(F.S, tol * sqrt(hx) * norm(K)), lo, hi)
+    r = clamp(_least_rank(F.S, tol * ν), lo, hi)
     Q₁ = F.V[:, 1:r]
     X, S = orthonormalize_x(space, hcat(K[:, 1:m], K⊥ * Q₁))
     return X, S, hcat(V[:, 1:m], V[:, (m + 1):end] * Q₁)
@@ -242,8 +245,8 @@ end
 # The f⁻ substep of length τ: f⁻ + τ F(g), g = 1 ⊗ f0 + f⁺, on V, the odd orthonormal basis of
 # [V⁻ R] with R the velocity range of [f0 V⁺], the fixed mode first, then the truncation that
 # keeps the fixed mode. The rows of F(g) are odd and lie in span R, so F(g) = K_inc Vᵀ with
-# K_inc = F(g) hv V, and the sum is exact on V. A core that is not finite skips the truncation and
-# leaves a NaN core.
+# K_inc = F(g) hv V, and the sum is exact on V. When the norm of the truncated K is not finite,
+# the truncation returns nothing and the substep leaves a NaN core.
 function _parity_fminus_substep!(Y::LowRankParityDistribution{T}, method, field, τ) where {T}
     plus, minus = Y.plus, Y.minus
     space = minus.space
@@ -260,12 +263,13 @@ function _parity_fminus_substep!(Y::LowRankParityDistribution{T}, method, field,
     Kinc = K̇[:, (r⁺ + 2):end]
 
     K = X⁻ * (S⁻ * (hv .* (V⁻' * V))) .+ τ .* Kinc
-    if !all(isfinite, K)
+    t = _truncate_keeping_moments(space, K, V, 1;
+        tol = T(method.tol[2]), minrank = method.minrank[2], rank = method.rank[2])
+    if t === nothing
         minus.S = fill(T(NaN), size(S⁻))
         return Y
     end
-    X, S, V′ = _truncate_keeping_moments(space, K, V, 1;
-        tol = T(method.tol[2]), minrank = method.minrank[2], rank = method.rank[2])
+    X, S, V′ = t
     minus.X, minus.S, minus.V, minus.nfixed = X, S, _mirror!(V′, -1), 1
     return Y
 end
@@ -273,8 +277,8 @@ end
 # The f⁺ step of length τ with f⁻ frozen: the augmented BUG step of ḟ⁺ = F_ϕ(f⁻), ϕ the potential
 # of 1 ⊗ f0 + f⁺, with the S-step on the closed space and every substep an implicit midpoint step,
 # then the truncation that keeps the fixed modes. The cross terms of f⁻ and the bases of f⁺ are
-# the blocks of the fields on stacked factors. A core that is not finite skips the truncation and
-# leaves a NaN core.
+# the blocks of the fields on stacked factors. When the norm of the truncated Xa S₁ is not finite,
+# the truncation returns nothing and the step leaves a NaN core.
 function _parity_fplus_step!(Y::LowRankParityDistribution{T}, method, field, τ) where {T}
     plus, minus = Y.plus, Y.minus
     space = plus.space
@@ -316,12 +320,13 @@ function _parity_fplus_step!(Y::LowRankParityDistribution{T}, method, field, τ)
     end
     Ŝ₀ = (hx .* (Xa' * X₀)) * S₀ * (hv .* (V₀' * V̂))
     S₁ = _midpoint(sstep, Ŝ₀, τ)
-    if !all(isfinite, S₁)
+    t = _truncate_keeping_moments(space, Xa * S₁, V̂, 2;
+        tol = T(method.tol[1]), minrank = method.minrank[1], rank = method.rank[1])
+    if t === nothing
         plus.S = fill(T(NaN), size(S₀))
         return Y
     end
-    X, S, V′ = _truncate_keeping_moments(space, Xa * S₁, V̂, 2;
-        tol = T(method.tol[1]), minrank = method.minrank[1], rank = method.rank[1])
+    X, S, V′ = t
     plus.X, plus.S, plus.V, plus.nfixed = X, S, _mirror!(V′, +1), 2
     return Y
 end
@@ -403,7 +408,10 @@ state, and `τ < 0` steps back. A `field` with another closure than the periodic
 of `method` above `min(nx, cld(nv, 2))` for ``f^+`` or `min(nx, fld(nv, 2))` for ``f^-``,
 throw an `ArgumentError` before any write. A substep whose core is not finite does not throw: it
 skips its truncation and writes a core of `NaN` at the input rank of its part, with the input
-`X` and `V`, so `all(isfinite, Y.plus.S) && all(isfinite, Y.minus.S)` is the status.
+`X` and `V`, so `all(isfinite, Y.plus.S) && all(isfinite, Y.minus.S)` is the status. The core
+is the matrix that the truncation reads, and a core whose norm is not finite takes the same
+path: one with a `NaN` or `Inf` entry, and one whose entries are finite and whose norm
+overflows.
 """
 function lowrank_step!(Y::LowRankParityDistribution{T}, method::LowRankParitySplitting,
         field::LowRankFields1D1V{T}, t, τ) where {T}
