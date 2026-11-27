@@ -19,7 +19,7 @@ function _lowrank_potential(X, L, w::LowRankFields1D1V{T}, t) where {T}
 end
 
 """
-    ProjectorSplitting(composition)
+    ProjectorSplitting(composition; substeps = nothing)
 
 The projector-splitting integrator of dynamical low rank (Lubich and Oseledets 2014,
 doi:10.1007/s10543-013-0454-0), a method for [`lowrank_step!`](@ref). `composition` is `:lie`, the
@@ -28,15 +28,27 @@ midpoint potential of Einkemmer and Lubich 2018 (doi:10.1137/18m116383x, Algorit
 compositions are instances of two different types. Each substep is one step of the classical RK4
 tableau over the substep's interval.
 
-Throws an `ArgumentError` for any other `composition`, a `String` included.
+The keyword `substeps` is stored in the field `substeps`, whose type is the second type parameter
+`B` of `ProjectorSplitting{C, B}`. Its default `nothing` is the RK4 substeps above; an
+[`ImplicitMidpointSubsteps`](@ref) makes each substep an implicit-midpoint step, with the
+compositions of its own [`lowrank_step!`](@ref) method.
+
+Throws an `ArgumentError` for any other `composition`, a `String` included, and for `substeps`
+other than `nothing` and an `ImplicitMidpointSubsteps`.
 """
-struct ProjectorSplitting{C}
-    function ProjectorSplitting(composition)
+struct ProjectorSplitting{C, B}
+    substeps::B
+
+    function ProjectorSplitting(composition; substeps = nothing)
         composition === :lie || composition === :strang ||
             throw(ArgumentError(
                 "the composition of a projector splitting is :lie or :strang; got " *
                 repr(composition)))
-        new{composition}()
+        substeps === nothing || substeps isa ImplicitMidpointSubsteps ||
+            throw(ArgumentError(
+                "the substeps of a projector splitting are nothing or ImplicitMidpointSubsteps; " *
+                "got " * repr(substeps)))
+        new{composition, typeof(substeps)}(substeps)
     end
 end
 
@@ -59,7 +71,8 @@ function _lstep(X, L, field, t, τ, ϕ)
 end
 
 @doc raw"""
-    lowrank_step!(Y::LowRankDistribution, method::ProjectorSplitting, field, t, τ)
+    lowrank_step!(Y::LowRankDistribution, method::ProjectorSplitting{C, Nothing},
+                  field, t, τ)
 
 Advance the low-rank state `Y` by one step of length `τ` from the time `t`, in place, and return
 `Y`. `field` is the right-hand side, such as the [`LowRankFields1D1V`](@ref) of the state's grid.

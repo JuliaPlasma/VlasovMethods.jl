@@ -39,6 +39,13 @@ Modules = [VlasovMethods]
 Pages = ["lowrank/projector_splitting.jl"]
 ```
 
+## The implicit-midpoint substeps
+
+```@autodocs
+Modules = [VlasovMethods]
+Pages = ["lowrank/projector_splitting_midpoint.jl"]
+```
+
 ## The low-rank parity splitting
 
 ```@autodocs
