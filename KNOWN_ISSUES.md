@@ -998,7 +998,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K142 · A state of large amplitude makes the low-rank parity splitting unstable at τ = 0.05, and its cores turn non-finite within a few steps.
 
-- **location:** `src/lowrank/parity.jl:416`
+- **location:** `src/lowrank/parity.jl:422`
 - **evidence:** the state `10⁴ (1 + 0.2 cos(x/2)) e^{-v²/2}/√(2π) (1 + 0.3 v)` on 16 × 32 nodes
   of [0, 4π) × [−7.5, 7.5], at rank (6, 6), with `LowRankParitySplitting((6, 6))` and τ = 0.05:
   the status `all(isfinite, Y.plus.S) && all(isfinite, Y.minus.S)` is false after step 3 in
@@ -1022,3 +1022,20 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** defect
 - **found:** 2026-11-27; the fix of the overflow of the truncation's tolerance in the low-rank
   parity part
+
+### K144 · A step of a rank-adaptive `LowRankParitySplitting` that ends with a false status can return a part at another rank than it had before the step.
+
+- **location:** `src/lowrank/parity.jl:271`
+- **evidence:** the state `(1 + 0.2 cos(x/2)) e^{-v²/2}/√(2π) (1 + 0.3 v)` on 16 × 32 nodes of
+  [0, 4π) × [−7.5, 7.5] at rank (6, 6), with `Y.minus.S[1, 1] = 1.34e154` (Float64) or `1.0f19`
+  (Float32), and one step of τ = 0.05 with
+  `LowRankParitySplitting((6, 6); tol = (1e-8, 1e-8), minrank = (2, 1))`: the status
+  `all(isfinite, Y.plus.S) && all(isfinite, Y.minus.S)` is false, and the ranks go from (6, 6) to
+  (3, 1) in Float64 and to (6, 2) in Float32. The first f⁻ substep truncates a finite core to a
+  lower rank, and a later substep, whose core is not finite, writes its `NaN` core at the rank
+  that its part has when that substep starts. The step docstring states this rule per substep;
+  the clause on a non-finite state decides the ranks only for the default method, with a `NaN`
+  or `Inf` entry.
+- **kind:** found late
+- **found:** 2026-11-27; the critic of the fix of the overflow of the truncation's tolerance in
+  the low-rank parity part

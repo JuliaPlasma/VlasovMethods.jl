@@ -222,6 +222,24 @@ end
                 Y, LowRankParitySplitting(rank; minrank = (2, 1)), field, 0, 0.05)
             @test factors(Y) == before
         end
+        # a state below minrank is refused before any write: its trial spaces cannot reach it
+        for (rank, pattern) in ((
+            (2, 6), r"^ArgumentError: the rank 2 of f⁺ is below minrank"),
+            ((8, 1), r"^ArgumentError: the rank 1 of f⁻ is below minrank"))
+            (; Y, field) = fixture(T; rank)
+            before = factors(Y)
+            for τ in (0.05, 0)
+                @test_throws pattern lowrank_step!(
+                    Y, LowRankParitySplitting((8, 8)), field, 0, τ)
+                @test factors(Y) == before
+            end
+        end
+        # a state at minrank steps, and grows to the ranks of the method
+        (; Y, field) = fixture(T)
+        lowrank_step!(Y, LowRankParitySplitting((8, 8); minrank = (6, 6)), field, 0, 0.05)
+        @test status(Y)
+        @test ranks(Y) == (8, 8)
+        @test eltype(Y.plus.S) == eltype(Y.minus.S) == T
     end
 end
 
@@ -369,6 +387,18 @@ end
     # with tol = 0 the tail of exact zeros is dropped: σ = (σ₁, 0, …, 0) keeps one column
     Kz = hcat(K[:, 1:3], zeros(T, size(K, 1), 9))
     @test size(trunc(Kz; tol = zero(T), minrank = 2, rank = 12)[2], 1) == 3
+    # a tol < 1 whose least rank, 3 here, is below minrank: the clamp gives minrank
+    @test size(trunc(Kz; tol = zero(T), minrank = 5, rank = 12)[2], 1) == 5
+    # a tol ≥ 1 gives minrank, also where tol ‖f‖ is Inf ⋅ 0
+    for tol in (one(T), T(10), T(Inf))
+        @test size(trunc(K; tol, minrank = 3, rank = 12)[2], 1) == 3
+        _, S, _ = trunc(zero(K); tol, minrank = 3, rank = 12)
+        @test size(S, 1) == 3 && eltype(S) == T
+    end
+    # minrank beyond the singular values of K⊥, two here: the rank is m plus their number
+    X, S, V′ = VlasovMethods._truncate_keeping_moments(space, K[:, 1:4], V[:, 1:4], 2;
+        tol = zero(T), minrank = 6, rank = 6)
+    @test size(S) == (4, 4) && size(X, 2) == 4 && size(V′, 2) == 4
 end
 
 @testset "the closed space holds X̂, 1 and G X̂, $T" for T in (Float32, Float64)
@@ -468,6 +498,19 @@ end
         lowrank_step!(Y, LowRankParitySplitting((6, 6)), field, 0, 0)
         @test maximum(abs, values_of(Y) - f₀) ≤ 8 * eps(T) * maximum(abs, f₀)
 
+        # a zero step of a rank-adaptive method returns the state unchanged, untruncated
+        a = fixture(T; rank = (4, 3))
+        before = factors(a.Y)
+        adaptive = LowRankParitySplitting((4, 3); tol = (10, 10), minrank = (2, 1))
+        for τ in (0, -0.0)
+            @test lowrank_step!(a.Y, adaptive, a.field, 0, τ) === a.Y
+            @test factors(a.Y) == before
+            @test ranks(a.Y) == (4, 3)
+        end
+        # the control: a step of 0.05 truncates to minrank
+        lowrank_step!(a.Y, adaptive, a.field, 0, 0.05)
+        @test ranks(a.Y) == (2, 1)
+
         # τ < 0 is accepted, and a step back returns close to the start
         lowrank_step!(Y, LowRankParitySplitting((6, 6)), field, 0, 0.05)
         lowrank_step!(Y, LowRankParitySplitting((6, 6)), field, 0.05, -0.05)
@@ -494,6 +537,31 @@ end
         @test !status(Y)
         @test ranks(Y) == r
     end
+    # each substep alone writes the NaN core of its own part, at its input rank
+    method = LowRankParitySplitting((6, 6))
+    (; Y, field) = fixture(T)
+    Y.minus.S[1, 1] = T(NaN)
+    X⁻, V⁻ = copy(Y.minus.X), copy(Y.minus.V)
+    VlasovMethods._parity_fminus_substep!(Y, method, field, T(0.025))
+    @test size(Y.minus.S) == (6, 6) && all(isnan, Y.minus.S)
+    @test Y.minus.X == X⁻ && Y.minus.V == V⁻
+    (; Y, field) = fixture(T)
+    Y.plus.S[1, 1] = T(NaN)
+    X⁺, V⁺ = copy(Y.plus.X), copy(Y.plus.V)
+    VlasovMethods._parity_fplus_step!(Y, method, field, T(0.05))
+    @test size(Y.plus.S) == (6, 6) && all(isnan, Y.plus.S)
+    @test Y.plus.X == X⁺ && Y.plus.V == V⁺
+end
+
+@testset "the decided edges: a tolerance that converts to Inf, $T" for T in (Float32, Float64)
+    # the zero state: ‖f‖ = 0, and 1e39 is Inf in Float32; floatmax is finite in Float64
+    (; Y, field) = fixture(T; f₀ = (x, v) -> zero(T))
+    huge = T == Float32 ? 1e39 : floatmax(Float64)
+    method = LowRankParitySplitting((6, 6); tol = (huge, huge), minrank = (2, 1))
+    @test lowrank_step!(Y, method, field, 0, 0.05) === Y
+    @test status(Y)
+    @test ranks(Y) == (2, 1)
+    @test eltype(Y.plus.S) == eltype(Y.minus.S) == T
 end
 
 @testset "the decided edges: a truncated matrix whose norm overflows, $T" for T in (
@@ -515,7 +583,8 @@ function step_allocations(Y, method, field, τ)
 end
 allocations(f::F, a::A) where {F, A} = (f(a); @allocated f(a))
 
-@testset "no step forms an nx × nv array, $T" for T in (Float32, Float64)
+@testset "at the fixed rank (4, 4) the bytes of a step grow with nx + nv, not nx nv, $T" for T in (
+    Float32, Float64)
     # skipped where a run forces --check-bounds=yes
     if Base.JLOptions().check_bounds != 1
         method = LowRankParitySplitting((4, 4))

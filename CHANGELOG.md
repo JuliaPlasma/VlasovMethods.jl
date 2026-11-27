@@ -72,12 +72,15 @@ their own, except for what they removed and narrowed, which is listed in full be
   S-step on the closed spatial space `[X̂, 1, G X̂]`, and a second half step of `f⁻`. Its substeps
   are implicit midpoint steps, solved exactly by two fixed-point iterations, and its truncations
   keep the moments of the fixed modes exactly and leave an upper triangular `S`, so the step keeps
-  the energy and the mass to round-off by its formulation, keeps `nfixed`, and forms no
-  `nx × nv` array. `LowRankParitySplitting(rank; tol, minrank)` takes the ranks, the
+  the energy and the mass to round-off by its formulation, keeps `nfixed`, and evaluates its
+  fields on the factors without a reconstruction of `f`; its workspace depends on the augmented
+  ranks. `LowRankParitySplitting(rank; tol, minrank)` takes the ranks, the
   tolerances relative to the norm of each part, and the least ranks of `f⁺` and `f⁻`; the ranks
-  stay fixed by default. The step runs on the fields of the periodic velocity closure only, and
-  refuses another closure. A step that leaves a non-finite core does not throw: the part keeps
-  its rank, with a core of `NaN`.
+  stay fixed by default, and a tolerance of 1 or more keeps the least rank. The step runs on the
+  fields of the periodic velocity closure only, and refuses another closure and a state with a
+  rank below `minrank`. A step of `τ = 0` returns the state unchanged. A substep that leaves
+  a non-finite core does not throw: its part keeps the rank that it has at the start of the
+  substep, with a core of `NaN`.
 - **`ImplicitMidpointSubsteps`, implicit-midpoint substeps of `ProjectorSplitting`**, a reference
   method for the energy. `ProjectorSplitting(composition; substeps = ImplicitMidpointSubsteps())`
   makes each K-, S- and L-substep one implicit-midpoint step of the bracket at the Hamiltonian

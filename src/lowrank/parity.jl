@@ -185,7 +185,8 @@ exactly. The rest ``K_\perp V_\perp^\mathsf{T}`` is truncated by the weighted SV
 ``\sqrt{h_x} K_\perp = U \Sigma Q^\mathsf{T}`` to ``r_1 - m`` columns, with
 `r₁ = clamp(r*, minrank, rank)`, capped at `m` plus the number of singular values, and `r*` the
 least `r ≥ m` with ``(\sum_{j > r - m} \sigma_j^2)^{1/2} \le`` `tol` ``\|f\|``,
-``\|f\| = \sqrt{h_x} \|K\|_F``: `tol` is relative to the norm of `f`.
+``\|f\| = \sqrt{h_x} \|K\|_F``: `tol` is relative to the norm of `f`. The whole tail is at most
+``\|f\|``, so a `tol ≥ 1`, `Inf` included, gives `r₁ = minrank` with the same cap.
 
 Returns `(X, S, V′)`: `X, S = orthonormalize_x(space, [K[:, 1:m]  K⊥ Q₁])`, so `S` is upper
 triangular, and `V′ = [V[:, 1:m]  V⊥ Q₁]`. So ``X S V'^\mathsf{T} h_v V_{:, 1:m} = K_{:, 1:m}``
@@ -202,7 +203,8 @@ function _truncate_keeping_moments(space::GridFactorSpace, K::AbstractMatrix{T},
     F = svd(sqrt(hx) .* K⊥)
     n = length(F.S)
     lo, hi = min(minrank - m, n), min(rank - m, n)
-    r = clamp(_least_rank(F.S, tol * ν), lo, hi)
+    # the whole tail is at most ‖f‖, so a tol ≥ 1 keeps the least rank; tol ν can be Inf ⋅ 0
+    r = tol ≥ 1 ? lo : clamp(_least_rank(F.S, tol * ν), lo, hi)
     Q₁ = F.V[:, 1:r]
     X, S = orthonormalize_x(space, hcat(K[:, 1:m], K⊥ * Q₁))
     return X, S, hcat(V[:, 1:m], V[:, (m + 1):end] * Q₁)
@@ -400,13 +402,17 @@ The energy ``H = h_x h_v \sum f v^2/2 + (h_x/2) \rho^\mathsf{T} G \rho`` depends
 alone. Step 1 does not change ``f^+``; the trial space of the S-step holds
 ``G \rho \otimes 1 + 1 \otimes v^2/2`` at every point of it, so its midpoint step keeps ``H``;
 the truncation keeps ``\rho`` and ``\sum v^2 f^+``. So the step keeps ``H`` to round-off, with no
-projection or correction, and it keeps the mass. It forms no ``n_x \times n_v`` array.
+projection or correction, and it keeps the mass. It evaluates the fields on the factors and
+does not reconstruct ``f``; the sizes of its temporaries depend on the augmented ranks, and at
+the ranks `(cld(nv, 2), fld(nv, 2))` some of them are ``n_x \times n_v``.
 
 `τ` is converted to the element type `T` of `Y`, and a `τ` that is not finite in `T` throws the
-`ArgumentError` of the generic [`lowrank_step!`](@ref) before any write; `τ = 0` keeps the
-state, and `τ < 0` steps back. A `field` with another closure than the periodic one, and a rank
-of `method` above `min(nx, cld(nv, 2))` for ``f^+`` or `min(nx, fld(nv, 2))` for ``f^-``,
-throw an `ArgumentError` before any write. A substep whose core is not finite does not throw: it
+`ArgumentError` of the generic [`lowrank_step!`](@ref) before any write; `τ = 0` returns `Y`
+unchanged, with no truncation, and `τ < 0` steps back. A `field` with another closure than the
+periodic one, a rank of `method` above `min(nx, cld(nv, 2))` for ``f^+`` or
+`min(nx, fld(nv, 2))` for ``f^-``, and a state whose rank of ``f^+`` or ``f^-`` is below
+`minrank[1]` or `minrank[2]` throw an `ArgumentError` before any write. A state above `rank` is
+truncated down. A substep whose core is not finite does not throw: it
 skips its truncation and writes a core of `NaN` at the input rank of its part, with the input
 `X` and `V`, so `all(isfinite, Y.plus.S) && all(isfinite, Y.minus.S)` is the status. The core
 is the matrix that the truncation reads, and a core whose norm is not finite takes the same
@@ -421,6 +427,12 @@ function lowrank_step!(Y::LowRankParityDistribution{T}, method::LowRankParitySpl
         "$(typeof(field.closure))"))
     nx, nv = size(Y)
     _check_parity_ranks(method.rank, nx, nv)
+    r⁺, r⁻ = size(Y.plus.S, 1), size(Y.minus.S, 1)
+    r⁺ ≥ method.minrank[1] || throw(ArgumentError(
+        "the rank $r⁺ of f⁺ is below minrank[1] = $(method.minrank[1]) of the method"))
+    r⁻ ≥ method.minrank[2] || throw(ArgumentError(
+        "the rank $r⁻ of f⁻ is below minrank[2] = $(method.minrank[2]) of the method"))
+    iszero(τ) && return Y
     _parity_fminus_substep!(Y, method, field, τ / 2)
     _parity_fplus_step!(Y, method, field, τ)
     _parity_fminus_substep!(Y, method, field, τ / 2)
