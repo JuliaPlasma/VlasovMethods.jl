@@ -46,9 +46,9 @@ the kinetic energy of `f` at every x node.
 Throws an `ArgumentError` for a v-grid that is not symmetric,
 ``|v_j + v_{n_v + 1 - j}| > 10 \, \mathrm{eps}(T) \max(|v_1|, |v_{n_v}|)`` for some ``j``; for a
 background that is a matrix or neither `nothing` nor a vector, that is not even
-(``10 \, \mathrm{eps}(T) \max |f_0|``), or that holds a `NaN` or an `Inf`; for values that hold a `NaN` or an `Inf`; and for `r⁺` outside
-`2:min(nx, cld(nv, 2))` or `r⁻` outside `1:min(nx, fld(nv, 2))`. Throws a `DimensionMismatch`
-for a background of another length than `nv`.
+(``10 \, \mathrm{eps}(T) \max |f_0|``), or that holds a `NaN` or an `Inf`; for values that hold
+a `NaN` or an `Inf`; and for `r⁺` outside `2:min(nx, cld(nv, 2))` or `r⁻` outside
+`1:min(nx, fld(nv, 2))`. Throws a `DimensionMismatch` for a background of another length than `nv`.
 """
 struct LowRankParityDistribution{T, ST <: AbstractFactorSpace{T}} <:
        DistributionFunction{T, 1, 1}
