@@ -271,6 +271,56 @@ method = ParitySplitting(model, (0.0, 10.0), 0.05)
 run!(method, "parity.h5")
 ```
 
+## Splines
+
+A [`TensorSplineDistribution`](@ref) holds ``f(x, v) = \sum_{ij} A_{ij} B_i(x) C_j(v)`` on a
+periodic B-spline basis ``B_i`` in ``x`` and a clamped (`Free()`) B-spline basis ``C_j`` in ``v``,
+which reproduces ``1``, ``v`` and ``v^2``. With a spline potential on its ``x``-basis,
+[`VlasovPoisson`](@ref)`(dist, potential)` is the Galerkin model
+
+```math
+\mathbb{M}_x \dot{A} \, \mathbb{M}_v = r , \qquad r_{ij} = \bar{T}(B_i C_j, h, f) , \qquad
+h = \phi + \frac{v^2}{2} ,
+```
+
+with the mass matrices ``\mathbb{M}_x`` and ``\mathbb{M}_v`` of the two bases and the potential
+``\phi`` of the spline solver of PoissonSolvers. The Galerkin form
+``T(a, b, c) = \int\!\!\int a \, \{b, c\} \, dx \, dv`` of the canonical bracket
+``\{b, c\} = \partial_x b \, \partial_v c - \partial_v b \, \partial_x c`` is antisymmetric in
+``(b, c)``, but on the clamped velocity basis not in ``(a, b)``: boundary terms at the ends
+``\pm V`` of the velocity domain remain. Its cyclic average
+
+```math
+\bar{T}(a, b, c) = \frac{1}{3} \left( T(a, b, c) + T(b, c, a) + T(c, a, b) \right)
+```
+
+is totally antisymmetric, the Galerkin analogue of Arakawa's bracket. The energy
+
+```math
+H = \int\!\!\int \frac{v^2}{2} f \, dx \, dv + \frac{1}{2} \int (\phi')^2 \, dx
+```
+
+is quadratic in ``A`` with the gradient ``\mathbb{M}_x \hat{h} \, \mathbb{M}_v``, so its rate
+``\bar{T}(h, h, f)`` vanishes. The mass is not kept: its rate
+``\bar{T}(1, h, f) = \frac{1}{3} \int \phi'(x) \, (f(x, V) - f(x, -V)) \, dx`` is a flux through the
+ends of the velocity domain, which vanishes while ``f`` vanishes there.
+
+[`GalerkinMidpoint`](@ref)`(model, tspan, tstep)` steps the model by the implicit midpoint rule,
+which keeps the quadratic energy to the tolerance of its Newton–GMRES solve, and
+[`run!`](@ref) writes the coefficient matrix of every state as a column of the dataset `z`:
+
+```julia
+using PoissonSolvers: Potential
+using VlasovMethods
+
+xbasis = PeriodicBSplineBasis(UniformMesh(16, 0.0 .. 4π), 3)
+vbasis = BSplineBasis(UniformMesh(97, -25.0 .. 25.0), 3, Free())
+landau(x, v) = (1 + 0.2 * cos(x / 2)) * exp(-v^2 / 2) / sqrt(2π)
+dist = TensorSplineDistribution(xbasis, vbasis, landau)
+model = VlasovPoisson(dist, Potential(xbasis))
+run!(GalerkinMidpoint(model, (0.0, 2.0), 0.05), tempname(; suffix = ".hdf5"))
+```
+
 ## Reduced tensors
 
 The bracket of the grid model is a tensor of three indices on the grid. A Galerkin reduction of

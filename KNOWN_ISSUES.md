@@ -768,7 +768,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K124 · The CI job "Julia 1 - ubuntu-latest - default - verification" takes about 70 minutes on a normal runner, so a runner about 1.6 times slower or more takes it past its timeout of 120 minutes.
 
-- **location:** `test/runtests.jl:60`
+- **location:** `test/runtests.jl:63`
 - **evidence:** `split = true` gives the `verification` group a job of its own, but the group
   alone holds about 104 minutes of test time on two workers. In CI run 45340940249 (westus, a
   head without "Projector Splitting Rates") the job took 56 minutes: 14 minutes of setup and
@@ -838,6 +838,70 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** not verified
 - **found:** 2026-11-25; the clause "The parity Strang step", whose step 2 decides the solve
 
+### K130 · The `GalerkinMidpoint` constructor accepts a time span that no time grid can hold, and `run!` then raises an `InexactError` from `TimeSeries` instead of an `ArgumentError` of a guard.
+
+- **location:** `src/splinebased/vlasov_poisson_1d1v.jl:265`
+- **evidence:** the constructor checks `tstep`, not `tspan`. With the Landau state on 16 × 100
+  splines, `GalerkinMidpoint(model, (0.0, Inf), 0.05)`, `(0.0, NaN)` and `(NaN, 1.0)` construct,
+  and `run!` raises `InexactError: Int64(Inf)` or `Int64(NaN)` from
+  `GeometricIntegrators.TimeSeries`, in Float64 and Float32; a Float32 span `(0, 1e39)` gives
+  `Int64(Inf)`, and `tstep = nextfloat(0)` gives `Int64(Inf)` in Float32 and `Int64(7.1e44)` in
+  Float64. A reversed span raises the `ArgumentError` of `TimeSeries` at `run!`. No file is
+  created in these cases. The spec of the method decides the checks of `tstep`, `tol` and
+  `max_iterations`, and none of `tspan`.
+- **kind:** found late
+- **found:** 2026-11-26
+
+### K131 · `GalerkinMidpoint` accepts `tol = Inf`, and `run!` then returns with the state unmoved and no error.
+
+- **location:** `src/splinebased/vlasov_poisson_1d1v.jl:276`
+- **evidence:** the guard refuses a negative and a `NaN` tolerance, as the spec of the method
+  decides, so `tol = Inf` passes; the target `tol ‖A‖₂` is `Inf`, the start of every solve meets
+  it, and one step of `τ = 0.05` from the Landau state returns `A` unchanged without an error. A
+  Float32 `tol = 1e39` converts to `Inf` in the same way.
+- **kind:** found late
+- **found:** 2026-11-26
+
+### K132 · `evaluate` on a Float32 `TensorSplineDistribution` with Float64 arguments returns a Float64.
+
+- **location:** `src/distributions/tensor_spline_distribution.jl:92`
+- **evidence:** on 16 × 100 Float32 splines with random coefficients,
+  `typeof(evaluate(dist, 1.3, -7.1))` is `Float64`, and `Float32` for `1.3f0, -7.1f0`; a
+  `BigFloat` coordinate, `evaluate(dist, big(1.0), 1)`, gives a `BigFloat` in both precisions.
+  The spec of the distribution decides no result type for arguments of another precision, and no
+  test passes arguments of a wider precision than the distribution's.
+- **kind:** found late
+- **found:** 2026-11-26
+
+### K133 · The element-type assertions of the run, step and stopping testsets of the spline Galerkin model cannot fail, and the step testset asserts none.
+
+- **location:** `test/splinebased/vlasov_poisson_1d1v.jl:438`
+- **evidence:** `run!(::GalerkinMidpoint, h5file)` creates the datasets `z` and `t` with the
+  element type `T` of the distribution (`src/splinebased/vlasov_poisson_1d1v.jl:361-362`), and
+  writes the last state into the typed coefficient field of the distribution, so
+  `eltype(z) === T`, `eltype(times) === T` and `eltype(dist.coefficients) === T` hold whatever
+  type a step computes. A step that promoted would raise no error there: it would be rounded on
+  the write. The step testset asserts no element type; the field, residual and Jacobian-vector
+  testsets of the same file assert the element type of the computed matrices. The critic's probe
+  of `_midpoint_step` on a Float32 model gives `Float32`, so no step promotes on the branch.
+- **kind:** missing test
+- **found:** 2026-11-26
+
+### K134 · The macOS CI jobs of the test group `galerkin` take about 120 minutes, the timeout of the job, so the job "Julia 1 - macOS-latest - default - galerkin" is red on the weekly run, a tag and a run by hand.
+
+- **location:** `test/runtests.jl:73`
+- **evidence:** in the full-matrix CI run 45789228548 (`workflow_dispatch`), "Julia 1 -
+  macOS-latest - default - galerkin" was cancelled at its timeout of 120 minutes, and "Julia min -
+  macOS-latest - default - galerkin" passed in 119 min 51 s; the Windows jobs of the group took
+  82–87 minutes and the Ubuntu jobs 60–68 minutes. The group holds the four files
+  `test/verification/spline_galerkin_*.jl`: 10⁴ implicit midpoint steps in Float64 and in Float32,
+  and the Landau and two-stream rate runs on 64 × 128 splines in both precisions. `galerkin` is in
+  `once` of `test/ci-groups.toml`, so a pull request and a push run it on Ubuntu × Julia 1 only,
+  and the red shows only where every group runs on every entry. The user accepts this red: the
+  group is not split, the runs are not shortened, and the timeout does not change.
+- **kind:** defect
+- **found:** 2026-11-26, the full-matrix run of the spline Galerkin model's branch
+
 ### K135 · The default background of `ParitySplitting` overflows in its sum over x when the even part of finite initial values sums past `floatmax(T)` in a column, so the constructor throws an `ArgumentError` that calls the finite values not finite.
 
 - **location:** `src/gridbased/parity.jl:161`
@@ -865,3 +929,28 @@ has left the file, or that lived only on a merged branch, stays taken.
   `background = -M` catches the mutant.
 - **kind:** missing test
 - **found:** PR #160
+
+### K138 · `evaluate` on a `TensorSplineDistribution` raises an `InexactError` from SimpleSplines at a non-finite coordinate, and returns 0 at a velocity outside the domain of its velocity basis.
+
+- **location:** `src/distributions/tensor_spline_distribution.jl:92`
+- **evidence:** on 16 periodic cubic x-splines of [0, 4π) and 100 clamped cubic v-splines of
+  [−25, 25], with the projection of `1 + v/3 + v²/5`, `evaluate(dist, NaN, 0)` and
+  `evaluate(dist, Inf, 0)` throw `InexactError`, in Float64 and Float32, and
+  `evaluate(dist, 1, 30)` returns `0.0` where the projected function is 191. The method passes the
+  point to SimpleSplines' `evaluate` without a check, and the docstring says only that it returns
+  `f(x, v)`; the spec of the distribution decides no behaviour outside the velocity domain and at
+  a non-finite point, and no test reaches either case.
+- **kind:** found late
+- **found:** PR #161
+
+### K139 · No test runs `GalerkinMidpoint` on a nonuniform x-mesh; the nonuniform testset checks the energy rate of the field by a central difference only.
+
+- **location:** `test/splinebased/vlasov_poisson_1d1v.jl:255`
+- **evidence:** the testset "nonuniform x-mesh" checks the potential, the energy and the rate
+  `H(A + εȦ) − H(A − εȦ)` on 16 cells of [0, 4π) of widths between 0.52 and 1.48 times the mean,
+  and calls no `run!`. A probe of 40 implicit midpoint steps of `τ = 0.05` from the Landau state
+  on that mesh, with the default `tol`, keeps the energy to `6.5e-16` (Float64) and `1.4e-7`
+  (Float32), so the step holds there; a step that breaks only on a nonuniform mesh passes the
+  suite.
+- **kind:** missing test
+- **found:** PR #161
