@@ -30,9 +30,8 @@ replaced by ``(f_0 + \mathrm{reverse}(f_0)) / 2``. With
 
  1. the first columns of `plus.V` are the weighted orthonormal basis ``V_m`` of
     ``\{1, v^2\}``, then follow the leading right singular vectors of
-    ``\sqrt{h_x h_v} (f^+ - h_v f^+ V_m V_m^\mathsf{T})``, as many as the smaller of `r⁺ - 2`
-    and the number of singular values above ``\max(n_x, n_v) \, \epsilon \, \sigma_1``, with
-    ``\epsilon`` = `eps(T)`, then a completion of the even subspace to `r⁺` columns;
+    ``\sqrt{h_x h_v} (f^+ - h_v f^+ V_m V_m^\mathsf{T})``, `r⁺ - 2` of them, so that the
+    vectors of vanishing singular values complete the even basis to `r⁺` columns;
  2. `plus.X, plus.S = orthonormalize_x(space, h_v f⁺ V)`, so `plus.S` is upper triangular;
  3. `minus` is built the same way from ``f^-``, with the fixed mode ``v`` and `r⁻` columns.
 
@@ -163,18 +162,15 @@ function _parity_fixed_modes(space::GridFactorSpace{T}, parity) where {T}
     return _parity_basis(space, zeros(T, length(v), 0), A, parity)
 end
 
-# the factors of the part f of the given parity at the rank r: the fixed modes, the leading right
-# singular vectors of the part of f outside them, and a completion of the parity subspace
-function _parity_factors(space::GridFactorSpace{T}, f, parity, r) where {T}
-    nx, nv = size(space)
+# the factors of the part f of the given parity at the rank r: the fixed modes, then the basis that
+# the half-grid QR makes of the r - m leading right singular vectors of the part of f outside
+# them, which completes the parity subspace where the singular values vanish
+function _parity_factors(space::GridFactorSpace, f, parity, r)
     hx, hv = step(space.x), step(space.v)
     Vm = _parity_fixed_modes(space, parity)
     m = size(Vm, 2)
     g = f - (hv .* (f * Vm)) * Vm'
-    F = svd(sqrt(hx * hv) .* g)
-    q = min(r - m, count(>(max(nx, nv) * eps(T) * first(F.S)), F.S))
-    A = hcat(F.V[:, 1:q] ./ sqrt(hv), zeros(T, nv, r - m - q))
-    V = _parity_basis(space, Vm, A, parity)
+    V = _parity_basis(space, Vm, svd(sqrt(hx * hv) .* g).V[:, 1:(r - m)] ./ sqrt(hv), parity)
     X, S = orthonormalize_x(space, hv .* (f * V))
     return LowRankDistribution(space, X, S, V; nfixed = m)
 end
@@ -201,29 +197,12 @@ function _truncate_keeping_moments(space::GridFactorSpace, K::AbstractMatrix{T},
     m = nfixed
     K⊥ = K[:, (m + 1):end]
     F = svd(sqrt(hx) .* K⊥)
-    r = _kept_rank(F.S, tol * sqrt(hx) * norm(K), minrank - m, rank - m)
+    n = length(F.S)
+    lo, hi = min(minrank - m, n), min(rank - m, n)
+    r = clamp(_least_rank(F.S, tol * sqrt(hx) * norm(K)), lo, hi)
     Q₁ = F.V[:, 1:r]
     X, S = orthonormalize_x(space, hcat(K[:, 1:m], K⊥ * Q₁))
     return X, S, hcat(V[:, 1:m], V[:, (m + 1):end] * Q₁)
-end
-
-# the least r in 0:n with ‖σ[r+1:n]‖ ≤ abstol, clamped to lo:hi and to 0:n
-function _kept_rank(σ, abstol, lo, hi)
-    n = length(σ)
-    r, tail² = n, zero(eltype(σ))
-    while r > 0 && sqrt(tail² + σ[r]^2) ≤ abstol
-        tail² += σ[r]^2
-        r -= 1
-    end
-    return clamp(r, min(max(lo, 0), n), min(hi, n))
-end
-
-# the x-basis of A, orthonormal in the weighted product, or of the whole x-space for as many
-# columns of A as nodes or more
-function _orthonormal_x_capped(space::GridFactorSpace{T}, A) where {T}
-    nx = length(space.x)
-    size(A, 2) ≥ nx && return Matrix{T}(I, nx, nx) ./ sqrt(step(space.x))
-    return first(orthonormalize_x(space, A))
 end
 
 """
@@ -235,7 +214,7 @@ has `size(X̂, 2) + 1 + size(X̂, 2)` columns, or `nx`, the whole x-space, when 
 or more.
 """
 function _closed_space(space::GridFactorSpace{T}, X̂, G) where {T}
-    return _orthonormal_x_capped(space, hcat(X̂, ones(T, length(space.x)), G * X̂))
+    return _basis(hcat(X̂, ones(T, length(space.x)), G * X̂), step(space.x))
 end
 
 # the implicit midpoint step y₁ = y₀ + τ R((y₀ + y₁)/2) by two fixed-point iterations from
@@ -319,7 +298,7 @@ function _parity_fplus_step!(Y::LowRankParityDistribution{T}, method, field, τ)
     lstep(L) = _lfield!(L̇, Xc, Lc, field, _parity_potential(field, f0, X₀, L))[:, tail(r₀)]
     L₁ = _midpoint(lstep, V₀ * S₀', τ)
 
-    X̂ = _orthonormal_x_capped(space, hcat(K₁, X₀))
+    X̂ = _basis(hcat(K₁, X₀), hx)
     V̂ = _parity_basis(space, V₀[:, 1:2], hcat(V₀[:, 3:end], L₁), +1)
     Xa = _closed_space(space, X̂, field.G)
 
@@ -327,8 +306,7 @@ function _parity_fplus_step!(Y::LowRankParityDistribution{T}, method, field, τ)
     # [V⁻ V̂ 0], padded with zero columns to one rank
     na, nb = size(Xa, 2), size(V̂, 2)
     n = max(na, nb)
-    Xs = hcat(X⁻, Xa, zeros(T, nx, n - na))
-    Vs = hcat(V⁻, V̂, zeros(T, nv, n - nb))
+    Xs, Vs = hcat(X⁻, _pad(Xa, n)), hcat(V⁻, _pad(V̂, n))
     Ss = zeros(T, r⁻ + n, r⁻ + n)
     Ss[1:r⁻, 1:r⁻] .= S⁻
     Ṡ = similar(Ss)

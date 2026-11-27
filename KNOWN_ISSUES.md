@@ -865,3 +865,41 @@ has left the file, or that lived only on a merged branch, stays taken.
   `background = -M` catches the mutant.
 - **kind:** missing test
 - **found:** PR #160
+
+### K140 · The constructor of `LowRankParityDistribution` repeats the finiteness check, the evenness check and the symmetrisation of the background that the constructor of `ParitySplitting` makes.
+
+- **location:** `src/lowrank/parity.jl:73`
+- **evidence:** lines 73–79 of `src/lowrank/parity.jl` are lines 144–150 of
+  `src/gridbased/parity.jl` with the two messages changed. One helper beside
+  `_parity_background` in `src/gridbased/parity.jl` would hold both copies; the low-rank parity
+  part does not change that file.
+- **kind:** defect
+- **found:** 2026-11-27; the files of the low-rank parity part, which leave
+  `src/gridbased/parity.jl` unchanged
+
+### K141 · The default background of `LowRankParityDistribution` overflows in its sum over x as that of `ParitySplitting` does, so the constructor throws an `ArgumentError` that calls finite values not finite.
+
+- **location:** `src/gridbased/parity.jl:161`
+- **evidence:** on 16 × 32 nodes of [0, 4π) × [−7.5, 7.5], from
+  `(1 + 0.2 cos(x/2)) e^{-v²/2}/√(2π) (1 + 0.3 v)` with rows 1 and 2 of the columns 3 and
+  `nv − 2` set to `floatmax(T)`, every value is finite, and
+  `LowRankParityDistribution(dist, (4, 3))` throws `ArgumentError: the values and the background
+  of the low-rank parity distribution must be finite`, in Float32 and Float64. The constructor
+  takes the background from `_parity_background(values, nothing)`, whose sum overflows.
+- **kind:** found late
+- **found:** 2026-11-27; K135, whose fix closes this one too
+
+### K142 · A state of large amplitude makes the low-rank parity splitting unstable at τ = 0.05, and its cores turn non-finite within a few steps.
+
+- **location:** `src/lowrank/parity.jl:408`
+- **evidence:** the state `10⁴ (1 + 0.2 cos(x/2)) e^{-v²/2}/√(2π) (1 + 0.3 v)` on 16 × 32 nodes
+  of [0, 4π) × [−7.5, 7.5], at rank (6, 6), with `LowRankParitySplitting((6, 6))` and τ = 0.05:
+  the status `all(isfinite, Y.plus.S) && all(isfinite, Y.minus.S)` is false after step 3 in
+  Float32 and after step 5 in Float64. The dense transcription of the algorithm in
+  `test/helpers/dense_parity.jl` grows the norm of `f⁻` to 1.6e12, 1.8e22, 9.0e54 and 1.8e206
+  over the first four steps in Float64, and its SVD fails at step 5. The plasma frequency grows
+  with the square root of the amplitude, to about 100 here, so `ω_p τ ≈ 5`; the step has no
+  step-size control.
+- **kind:** found late
+- **found:** 2026-11-27; the clause "The decided edges of the step", whose non-finite core the
+  status reports

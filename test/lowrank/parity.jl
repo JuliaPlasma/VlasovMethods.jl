@@ -97,6 +97,18 @@ end
     for (a, b) in zip(velocity_moments(g), velocity_moments(dist))
         @test maximum(abs, a - b) ≤ 200 * eps(T) * maximum(abs, b)
     end
+    # the columns after the fixed modes are the leading right singular vectors of the part outside
+    # them, so the weighted error of each part is the tail of the singular values of that part
+    hx, hv = step(dist.x), step(dist.v)
+    for (o, fpart, r) in zip((Y.plus, Y.minus), parity_split(dist.values, Y.f0), (4, 3))
+        m = o.nfixed
+        Vm = o.V[:, 1:m]
+        σ = svdvals(sqrt(hx * hv) .* (fpart - (hv .* (fpart * Vm)) * Vm'))
+        err = sqrt(hx * hv) * norm(fpart - o.X * o.S * o.V')
+        @test norm(σ[(r - m + 1):end]) > 1e-5 * σ[1]
+        @test abs(err - norm(σ[(r - m + 1):end])) ≤
+              10 * eps(T) * sqrt(hx * hv) * norm(fpart)
+    end
 end
 
 @testset "the parity of the bases, bit for bit, $T, nv = $nv" for T in (Float32, Float64),
@@ -162,6 +174,8 @@ end
     Yb = LowRankParityDistribution(dist, (4, 3); background = b)
     @test Yb.f0 == Yb.f0[end:-1:1]
     @test maximum(abs, Yb.f0 - M) ≤ 4 * eps(T) * maximum(M)
+    # the evenness bound takes the largest absolute value, so a negative background is accepted
+    @test LowRankParityDistribution(dist, (4, 3); background = -M).f0 == -M
 end
 
 @testset "the method object and its guards" begin
@@ -234,16 +248,37 @@ end
             @test eltype(o.X) == eltype(o.S) == eltype(o.V) == T
         end
     end
-    # A state of high rank on 16 × 64 whose density and drift are sums of eight Fourier modes in x
-    # with seeded coefficients, so that no span of a few x factors holds the others, with other
-    # ranks, tolerances and least ranks per part. A truncation to a fixed rank drops the
-    # directions of a smaller trial space to second order in τ, and tolerances of 1e-10 keep
-    # them; in Float32 a tolerance below eps(T) sets the rank by round-off, so it takes 1e-5.
-    ε = T == Float64 ? 1e-10 : 1e-5
+    # A state of high rank whose density and drift are sums of eight Fourier modes in x with
+    # seeded coefficients, so that no span of a few x factors holds the others.
     rng = Xoshiro(7)
     a, b, φ = T.(0.05 .* randn(rng, 8)), T.(0.2 .* randn(rng, 8)), T.(2π .* rand(rng, 8))
     profile(c, x) = sum(c[k] * cos(k * x / 2 + φ[k]) for k in 1:8)
     generic(x, v) = (1 + profile(a, x)) * maxwellian(v - profile(b, x))
+    # On 64 × 128 at rank (4, 4) the closed space has 17 of 64 columns, so the K-step reaches the
+    # result; on 16 × 256 at rank (6, 6) the odd basis of the f⁻ substep has 90 of 128 columns,
+    # so the velocity range of the increment does. The oracle state and the state of high rank
+    # are stepped on both grids.
+    oracle(x, v) = (1 + T(0.2) * cos(x / 2)) * maxwellian(v) * (1 + T(0.3) * v)
+    for (nx, nv, rank) in ((64, 128, (4, 4)), (16, 256, (6, 6))), f₀ in (oracle, generic)
+
+        (; Y, field, G) = fixture(T; nx, nv, rank, f₀)
+        d = dense_parity_case(Y.plus.space, G, Y.f0)
+        op, om = dense_objects(Y)
+        op, om = dense_parity_step(d, op, om, T(0.05);
+            tol = (zero(T), zero(T)), rmax = rank, rmin = rank)
+        lowrank_step!(Y, LowRankParitySplitting(rank), field, 0, 0.05)
+        @test rel(Y.plus.X * Y.plus.S * Y.plus.V', dense_object(op)) ≤ bound
+        @test rel(Y.minus.X * Y.minus.S * Y.minus.V', dense_object(om)) ≤ bound
+        @test ranks(Y) == (size(op.S, 1), size(om.S, 1)) == rank
+        for o in (Y.plus, Y.minus)
+            @test eltype(o.X) == eltype(o.S) == eltype(o.V) == T
+        end
+    end
+    # The state of high rank on 16 × 64, with other ranks, tolerances and least ranks per part. A
+    # truncation to a fixed rank drops the directions of a smaller trial space to second order in
+    # τ, and tolerances of 1e-10 keep them; in Float32 a tolerance below eps(T) sets the rank by
+    # round-off, so it takes 1e-5.
+    ε = T == Float64 ? 1e-10 : 1e-5
     for (method, rmax, rmin, tol) in (
         (LowRankParitySplitting((4, 4)), (4, 4), (4, 4), (zero(T), zero(T))),
         (LowRankParitySplitting((6, 5); tol = (1e-4, 1e-3), minrank = (3, 2)),
