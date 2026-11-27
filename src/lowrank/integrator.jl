@@ -15,7 +15,7 @@ factors to `Y`, possibly of another rank, and sets `nfixed = 0`; the step of
 `LowRankParitySplitting` keeps the fixed modes of both parts of its state, `nfixed = 2` and `1`.
 The entries of `Y` are not checked.
 
-[`LowRankIntegrator`](@ref) and [`run!`](@ref) take a run of steps.
+[`LowRankIntegrator`](@ref) and [`run!`](@ref) take a run of steps of a `LowRankDistribution`.
 """
 function lowrank_step! end
 
