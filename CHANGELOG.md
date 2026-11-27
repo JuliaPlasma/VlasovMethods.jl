@@ -21,11 +21,20 @@ their own, except for what they removed and narrowed, which is listed in full be
 
 - **`[compat] julia` rises from 1.12 to 1.13, and GeometricSolvers is a new dependency.** The
   module loads GeometricSolvers with `import GeometricSolvers`, for the nonlinear and linear
-  solves; `ParitySplitting` calls it for its `f⁺` solve, and `GalerkinMidpoint` for its
-  Newton–GMRES solve. GeometricSolvers 0.1.0 requires Julia 1.13, so a caller on Julia 1.12 can
-  no longer install this release. GeometricSolvers is bounded by `"0.1"`. It is not registered
-  yet, so `Project.toml` takes it from its repository at a fixed commit through `[sources]`; the
-  entry is removed before this release, once GeometricSolvers is registered.
+  solves: `ParitySplitting` calls it for its `f⁺` solve, `ImplicitMidpointSubsteps` for the
+  solves of its substeps, and `GalerkinMidpoint` for its Newton–GMRES solve. GeometricSolvers
+  0.1.0 requires Julia 1.13, so a caller on Julia 1.12 can no longer install this release.
+  GeometricSolvers is bounded by `"0.1"`. It is not registered yet, so `Project.toml` takes it
+  from its repository at a fixed commit through `[sources]`; the entry is removed before this
+  release, once GeometricSolvers is registered.
+- **`ProjectorSplitting{C}` is no longer a concrete type.** `ProjectorSplitting` gains a second
+  type parameter and a field, the `substeps` of New Features below. So
+  `typeof(ProjectorSplitting(:lie))` is `ProjectorSplitting{:lie, Nothing}`, where it was
+  `ProjectorSplitting{:lie}`, and `isconcretetype(ProjectorSplitting{:lie})` is `false`. A method
+  or an `isa` on `ProjectorSplitting{:lie}` or `ProjectorSplitting{:strang}` still matches. Code
+  that compares the type with `===` or `==`, keys a collection on it, or dispatches on the exact
+  `Type{ProjectorSplitting{:lie}}` now needs `ProjectorSplitting{:lie, Nothing}`, or `<:` to
+  cover every `B`.
 
 ### New Features
 
@@ -47,6 +56,34 @@ their own, except for what they removed and narrowed, which is listed in full be
 - **`parity_split`** splits grid values `f` into the even part `f⁺` about a background `f0` and
   the odd part `f⁻`, by the reflection `v ↦ -v` of the velocity nodes.
 - **`parity_merge`** returns `1 ⊗ f0 + f⁺ + f⁻`, and inverts `parity_split`.
+- **`ImplicitMidpointSubsteps`, implicit-midpoint substeps of `ProjectorSplitting`**, a reference
+  method for the energy. `ProjectorSplitting(composition; substeps = ImplicitMidpointSubsteps())`
+  makes each K-, S- and L-substep one implicit-midpoint step of the bracket at the Hamiltonian
+  gradient projected onto the factors that the substep keeps fixed, `P_V h`, `P_X P_V h` and
+  `P_X h`, so each substep keeps the discrete Hamiltonian and the L² norm up to the tolerance of
+  its solve. `:lie` is K(τ) S(τ) L(τ), and `:strang` the symmetric K(τ/2) S(τ/2) L(τ) S(τ/2)
+  K(τ/2) with self-consistent fields, in place of the frozen-potential Strang of the RK4
+  substeps. `projected = false` takes the plain gradient, which does not keep the energy: the
+  control. Each substep solves with GeometricSolvers' `Newton` and `GMRES` under
+  `EisenstatWalkerChoice2`, through the analytic product of the quadratic field, from the explicit
+  Euler predictor, with the residual test `max(tol ‖y₀‖₂, tol ‖R(y_pred)‖₂)`; `tol` is
+  `32 eps(T)` by default, and `max_iterations` 50. A solve that does not return `SUCCESS` throws
+  an `ErrorException` that names the substep, the return code and `‖R‖₂/‖y₀‖₂`, and leaves the
+  state as it was. A step refuses, with an `ArgumentError` and before any solve, a non-finite `τ`
+  and a `τ` that is zero in the element type of the state (`1e-50` in `Float32`), a non-finite
+  entry of `X`, `S` or `V`, a `tol` outside `[eps(T), 1)`, a field of another type than
+  `LowRankFields1D1V`, and a field of the `BoundedVelocityClosure`. The
+  fields are evaluated on the factors for a separable gradient of rank 2, without the `nx × nv`
+  array; each substep computes the terms of the factor that it keeps fixed once for its solve.
+  Over 10⁴ steps of `τ = 0.05` on an 8 × 16 grid
+  at rank 4, the largest relative drift of the energy and of the L² norm stays below
+  `8 · (substeps per step) · (steps) · eps(T)`, in `Float64` at `tol = 1e-14` and in `Float32` at
+  the default `tol`; the plain-gradient control drifts by more than ten times that.
+- **`ProjectorSplitting` takes the keyword `substeps`**, stored in the field `substeps` whose type
+  is the new second type parameter, `ProjectorSplitting{C, B}`. Its default `nothing` keeps the RK4
+  substeps and their results; `ProjectorSplitting{:lie}` and `ProjectorSplitting{:strang}` still
+  match every `B`. Any other value than `nothing` or an `ImplicitMidpointSubsteps` throws an
+  `ArgumentError`.
 - **`TensorSplineDistribution`** is a 1D1V distribution `f(x, v) = Σᵢⱼ A[i, j] Bᵢ(x) Cⱼ(v)` on a
   periodic B-spline basis in `x` and a B-spline basis in `v` that reproduces `v²`, such as a
   clamped (`Free()`) cubic basis, with the `nx × nv` coefficient matrix `A` in the layout of a
