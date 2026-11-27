@@ -411,8 +411,8 @@ the ranks `(cld(nv, 2), fld(nv, 2))` some of them are ``n_x \times n_v``.
 unchanged, with no truncation, and `τ < 0` steps back. A `field` with another closure than the
 periodic one, a rank of `method` above `min(nx, cld(nv, 2))` for ``f^+`` or
 `min(nx, fld(nv, 2))` for ``f^-``, and a state whose rank of ``f^+`` or ``f^-`` is below
-`minrank[1]` or `minrank[2]` throw an `ArgumentError` before any write. A state above `rank` is
-truncated down. A substep whose core is not finite does not throw: it
+`minrank[1]` or `minrank[2]` throw an `ArgumentError` before any write. A step of `τ ≠ 0`
+truncates a state above `rank` down. A substep whose core is not finite does not throw: it
 skips its truncation and writes a core of `NaN` at the input rank of its part, with the input
 `X` and `V`, so `all(isfinite, Y.plus.S) && all(isfinite, Y.minus.S)` is the status. The core
 is the matrix that the truncation reads, and a core whose norm is not finite takes the same
