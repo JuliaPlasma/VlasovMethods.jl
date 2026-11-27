@@ -132,6 +132,8 @@ const NEW_EXPORTS = Symbol[
     :GridFactorSpace,
     :LowRankDistribution,
     :LowRankIntegrator,
+    :LowRankParityDistribution,
+    :LowRankParitySplitting,
     :MidpointBUG,
     :ParitySplitting,
     :PeriodicVelocityClosure,

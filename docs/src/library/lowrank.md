@@ -38,3 +38,10 @@ Pages = ["lowrank/bug.jl"]
 Modules = [VlasovMethods]
 Pages = ["lowrank/projector_splitting.jl"]
 ```
+
+## The low-rank parity splitting
+
+```@autodocs
+Modules = [VlasovMethods]
+Pages = ["lowrank/parity.jl"]
+```

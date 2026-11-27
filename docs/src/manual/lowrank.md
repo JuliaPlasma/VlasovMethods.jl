@@ -171,3 +171,37 @@ end
 The step takes any field with methods of the internal functions `_lowrank_kfield!`,
 `_lowrank_sfield!` and `_lowrank_lfield!`, and for `:strang` also `_lowrank_potential`, which the
 docstring of [`lowrank_step!`](@ref) lists.
+
+## The low-rank parity splitting
+
+On a velocity grid symmetric about 0, [`LowRankParityDistribution`](@ref) holds the state
+``f = 1 \otimes f_0 + f^+ + f^-`` of the parity splitting [`ParitySplitting`](@ref) in low-rank
+form: the even background ``f_0`` over ``v``, and two `LowRankDistribution`s, the even part
+``f^+`` with the fixed modes ``\{1, v^2\}`` and the odd part ``f^-`` with the fixed mode ``v``.
+Every column of the two velocity bases has its parity bit for bit. The energy
+``H = h_x h_v \sum f v^2/2 + (h_x/2) \rho^\mathsf{T} G \rho`` depends on ``f^+`` alone, and the
+momentum on ``f^-`` alone.
+
+[`LowRankParitySplitting`](@ref)`(rank; tol, minrank)` is its method, with the ranks, the
+relative tolerances and the least ranks of ``f^+`` and ``f^-``. A step of
+[`lowrank_step!`](@ref) is a half step of ``f^-``, which adds the exact low-rank increment of its
+constant right-hand side, a step of ``f^+`` with ``f^-`` frozen, an augmented BUG step whose
+S-step runs on the closed spatial space ``[\hat{X}, 1, G \hat{X}]``, and a second half step of
+``f^-``. Its substeps are implicit midpoint steps, and its truncations keep the fixed modes'
+moments exactly, so the step keeps ``H`` and the mass to round-off, by its formulation, and keeps
+`nfixed`:
+
+```@example lowrank
+Y = LowRankParityDistribution(dist, (6, 6))
+field = VlasovMethods.LowRankFields1D1V(Y.plus.space, model.work)
+method = LowRankParitySplitting((6, 6))
+energy(f) = (ρ = step(dist.v) .* vec(sum(f; dims = 2));
+             step(dist.x) * (step(dist.v) * sum(f .* (collect(dist.v)' .^ 2 ./ 2)) +
+                             ρ' * model.work * ρ / 2))
+H₀ = energy(GridDistribution(Y).values)
+for n in 0:9
+    lowrank_step!(Y, method, field, 0.05n, 0.05)
+end
+(ranks = (size(Y.plus.S, 1), size(Y.minus.S, 1)), nfixed = (Y.plus.nfixed, Y.minus.nfixed),
+ energy_drift = abs(energy(GridDistribution(Y).values) - H₀) / H₀)
+```

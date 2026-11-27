@@ -225,6 +225,11 @@ include("gridbased/parity.jl")
 
 export ParitySplitting, parity_split, parity_merge
 
+# The low-rank parity splitting calls `parity_split` and `_parity_background` of the full-rank one.
+include("lowrank/parity.jl")
+
+export LowRankParityDistribution, LowRankParitySplitting
+
 # The particle-based reduction: the snapshots of a sweep, the reduced bases of the particle and
 # of the field snapshot matrix they hold, and the reduced electric field over the full-order
 # field of `src/electric_field.jl`.

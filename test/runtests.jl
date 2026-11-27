@@ -25,6 +25,7 @@ const TESTS = [
         "Vlasov–Poisson Advection" => "models/vlasov_poisson.jl",
         "Grid 1D1V Vlasov–Poisson" => "gridbased/vlasov_poisson_1d1v.jl",
         "Parity Splitting" => "gridbased/parity.jl",
+        "Low-Rank Parity Splitting" => "lowrank/parity.jl",
         "Snapshots" => "particles/snapshots.jl",
         "Electric Field" => "electric_field.jl",
         "Reduced Electric Field" => "particles/electric_field.jl",
@@ -44,7 +45,8 @@ const TESTS = [
         "Bump-on-tail Runs" => "integration/bump_on_tail_runs.jl",
         "HNN" => "hnn.jl",
         "Multi-modal Vlasov Frontends" => "rom/multimodal_vlasov_frontends.jl",
-        "GeometricIntegrators Scaling" => "integration/geometric_integrators_scaling.jl"
+        "GeometricIntegrators Scaling" => "integration/geometric_integrators_scaling.jl",
+        "Low-Rank Parity Splitting Runs" => "verification/lowrank_parity.jl"
     ],
     "collisions" => [
         "Landau Solver" => "integration/landau_solver.jl",
