@@ -5,6 +5,7 @@ const TESTS = [
     "core" => [
         "Spline Distribution" => "distributions/spline_distribution.jl",
         "Grid Distribution" => "distributions/grid_distribution.jl",
+        "Tensor Spline Distribution" => "distributions/tensor_spline_distribution.jl",
         "Low-Rank Distribution" => "lowrank/distribution.jl",
         "Low-Rank Fields" => "lowrank/fields.jl",
         "Low-Rank BUG" => "lowrank/bug.jl",
@@ -26,6 +27,7 @@ const TESTS = [
         "Vlasov–Poisson Advection" => "models/vlasov_poisson.jl",
         "Grid 1D1V Vlasov–Poisson" => "gridbased/vlasov_poisson_1d1v.jl",
         "Parity Splitting" => "gridbased/parity.jl",
+        "Spline 1D1V Vlasov–Poisson" => "splinebased/vlasov_poisson_1d1v.jl",
         "Snapshots" => "particles/snapshots.jl",
         "Electric Field" => "electric_field.jl",
         "Reduced Electric Field" => "particles/electric_field.jl",
@@ -68,12 +70,19 @@ const TESTS = [
         "Low-Rank BUG Two-Stream Rates, Float32" => "verification/lowrank_bug_two_stream_rates_float32.jl",
         "Projector Splitting Rates" => "verification/projector_splitting_rates.jl",
         "Parity Splitting Runs" => "verification/parity.jl"
+    ],
+    "galerkin" => [
+        "Spline Galerkin Energy" => "verification/spline_galerkin_energy.jl",
+        "Spline Galerkin Energy, Float32" => "verification/spline_galerkin_energy_float32.jl",
+        "Spline Galerkin Landau Rates" => "verification/spline_galerkin_landau_rates.jl",
+        "Spline Galerkin Two-Stream Rates" => "verification/spline_galerkin_two_stream_rates.jl"
     ]
 ]
 
 const SELECTED = filter(!startswith("--"), ARGS)
 const GROUPS = isempty(SELECTED) ?
-               ["core", "quality", "slow", "collisions", "verification"] : SELECTED
+               ["core", "quality", "slow", "collisions", "verification", "galerkin"] :
+               SELECTED
 const UNKNOWN = setdiff(SELECTED, first.(TESTS))
 isempty(UNKNOWN) ||
     error("no test group ", join(UNKNOWN, ", "), " in runtests.jl; its groups are ", join(first.(TESTS), ", "))

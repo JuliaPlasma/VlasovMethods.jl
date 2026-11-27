@@ -21,11 +21,12 @@ their own, except for what they removed and narrowed, which is listed in full be
 
 - **`[compat] julia` rises from 1.12 to 1.13, and GeometricSolvers is a new dependency.** The
   module loads GeometricSolvers with `import GeometricSolvers`, for the nonlinear and linear
-  solves: `ParitySplitting` calls it for its `f⁺` solve, and `ImplicitMidpointSubsteps` for the
-  solves of its substeps. GeometricSolvers 0.1.0 requires Julia 1.13, so a caller on Julia 1.12
-  can no longer install this release. GeometricSolvers is bounded by `"0.1"`. It is not
-  registered yet, so `Project.toml` takes it from its repository at a fixed commit through
-  `[sources]`; the entry is removed before this release, once GeometricSolvers is registered.
+  solves: `ParitySplitting` calls it for its `f⁺` solve, `ImplicitMidpointSubsteps` for the
+  solves of its substeps, and `GalerkinMidpoint` for its Newton–GMRES solve. GeometricSolvers
+  0.1.0 requires Julia 1.13, so a caller on Julia 1.12 can no longer install this release.
+  GeometricSolvers is bounded by `"0.1"`. It is not registered yet, so `Project.toml` takes it
+  from its repository at a fixed commit through `[sources]`; the entry is removed before this
+  release, once GeometricSolvers is registered.
 - **`ProjectorSplitting{C}` is no longer a concrete type.** `ProjectorSplitting` gains a second
   type parameter and a field, the `substeps` of New Features below. So
   `typeof(ProjectorSplitting(:lie))` is `ProjectorSplitting{:lie, Nothing}`, where it was
@@ -83,6 +84,28 @@ their own, except for what they removed and narrowed, which is listed in full be
   substeps and their results; `ProjectorSplitting{:lie}` and `ProjectorSplitting{:strang}` still
   match every `B`. Any other value than `nothing` or an `ImplicitMidpointSubsteps` throws an
   `ArgumentError`.
+- **`TensorSplineDistribution`** is a 1D1V distribution `f(x, v) = Σᵢⱼ A[i, j] Bᵢ(x) Cⱼ(v)` on a
+  periodic B-spline basis in `x` and a B-spline basis in `v` that reproduces `v²`, such as a
+  clamped (`Free()`) cubic basis, with the `nx × nv` coefficient matrix `A` in the layout of a
+  `GridDistribution`'s values. It is built from a coefficient matrix or as the L² projection of a
+  function `f(x, v)`. `evaluate(dist, x, v)` evaluates it at real numbers or at one-element
+  vectors, and `dist(x, v)` or `dist([x], [v])` at those of its element type.
+  `VlasovPoisson(dist, potential)` on it, with a `PoissonSolverSpline` potential on its x-basis,
+  is the spline Galerkin model of 1D1V Vlasov–Poisson whose field is the cyclic average of the
+  Galerkin form `T(a, b, c) = ∫∫ a {b, c} dx dv`: on clamped velocity splines `T` keeps boundary
+  terms in `v`, and the average is totally antisymmetric, so the field keeps the quadratic energy.
+  The mass is not kept where `f` reaches the ends of the velocity domain: its rate is the boundary
+  flux `(1/3) ∫ φ' (f(x, V) − f(x, −V)) dx`.
+- **`GalerkinMidpoint`** is the implicit midpoint rule of the spline Galerkin model, with a
+  Newton–GMRES solve on GeometricSolvers to `‖F‖₂ ≤ tol ‖A‖₂`, `tol = 4eps(T)` by default. It keeps
+  the energy to the solve. The four files `test/verification/spline_galerkin_*.jl`, in a test
+  group `galerkin` of their own, assert a relative energy drift of at most `1e-12` in `Float64`
+  and `1e-4` in `Float32` over 10⁴ steps of `τ = 0.05` from a Landau state on 16 × 100 splines of
+  `[0, 4π) × [−25, 25]`, and the Landau and two-stream rates on 64 × 128 splines. The group runs
+  on Ubuntu × Julia 1 for a pull request and a push, and on every entry for the weekly, tag and
+  manual runs. `run!(method, h5file)` writes the states and the times as
+  `run!(::GeometricIntegrator, h5file)` does, and a solve that does not converge raises an error
+  that names its return code.
 
 ### Scripts
 

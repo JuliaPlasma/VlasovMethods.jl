@@ -9,7 +9,8 @@ CurrentModule = VlasovMethods
 ```@autodocs
 Modules = [VlasovMethods]
 Pages = ["distributions/particle_distribution.jl", "distributions/spline_distribution.jl",
-    "distributions/grid_distribution.jl", "distributions/maxwellian.jl",
+    "distributions/grid_distribution.jl", "distributions/tensor_spline_distribution.jl",
+    "distributions/maxwellian.jl",
     "entropies/collision_entropy.jl"]
 ```
 
