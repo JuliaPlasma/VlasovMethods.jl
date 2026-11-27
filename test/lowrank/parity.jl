@@ -332,13 +332,13 @@ end
 
 # an even orthonormal basis of 12 columns whose first two span {1, v²}, and the coefficients
 # K = g hv V of a seeded random even g
-function truncation_case(T)
+function truncation_case(T; seed = 3)
     (; dist) = fixture(T)
     space = GridFactorSpace(dist)
     nx, nv = size(space)
     hv = step(space.v)
     v = collect(space.v)
-    rng = Xoshiro(3)
+    rng = Xoshiro(seed)
     even(A) = (A .+ A[end:-1:1, :]) ./ 2
     g = permutedims(even(permutedims(T.(randn(rng, nx, nv)))))
     V, _ = orthonormalize_v(space, hcat(one.(v), v .^ 2, even(T.(randn(rng, nv, 10)))))
@@ -394,6 +394,15 @@ end
         @test size(trunc(K; tol, minrank = 3, rank = 12)[2], 1) == 3
         _, S, _ = trunc(zero(K); tol, minrank = 3, rank = 12)
         @test size(S, 1) == 3 && eltype(S) == T
+    end
+    # with zero moment columns the whole tail is ‖f‖, and at tol = 1 the threshold tol ‖f‖ keeps a
+    # column above minrank = m in about a third of the seeds by round-off; a tol ≥ 1 keeps none
+    for seed in 1:16
+        _, Vs, Ks = truncation_case(T; seed)
+        K0 = hcat(zeros(T, size(Ks, 1), 2), Ks[:, 3:end])
+        _, S, _ = VlasovMethods._truncate_keeping_moments(space, K0, Vs, 2;
+            tol = one(T), minrank = 2, rank = 12)
+        @test size(S, 1) == 2
     end
     # minrank beyond the singular values of K⊥, two here: the rank is m plus their number
     X, S, V′ = VlasovMethods._truncate_keeping_moments(space, K[:, 1:4], V[:, 1:4], 2;
