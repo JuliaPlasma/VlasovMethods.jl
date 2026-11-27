@@ -973,11 +973,12 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** missing test
 - **found:** PR #161
 
-### K140 · The constructor of `LowRankParityDistribution` repeats the finiteness check, the evenness check and the symmetrisation of the background that the constructor of `ParitySplitting` makes.
+### K140 · The constructor of `LowRankParityDistribution` repeats the symmetry check of the velocity grid, and the finiteness check, the evenness check and the symmetrisation of the background, that the constructor of `ParitySplitting` makes.
 
-- **location:** `src/lowrank/parity.jl:73`
-- **evidence:** lines 73–79 of `src/lowrank/parity.jl` are lines 144–150 of
-  `src/gridbased/parity.jl` with the two messages changed. One helper beside
+- **location:** `src/lowrank/parity.jl:66`
+- **evidence:** lines 66–70 of `src/lowrank/parity.jl` are lines 138–142 of
+  `src/gridbased/parity.jl` with the message changed and `v` read from the `GridFactorSpace`, and
+  lines 73–79 are lines 144–150 with the two messages changed. One helper beside
   `_parity_background` in `src/gridbased/parity.jl` would hold both copies; the low-rank parity
   part does not change that file.
 - **kind:** defect
