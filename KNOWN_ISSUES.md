@@ -694,12 +694,12 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K110 · The edge, rank-guard and run-driver testsets of the BUG tests run on 16, 24 or 32 nodes of `v ∈ [−10, 10]`, where f at `±10` does not stay below `1e-14` of its largest value.
 
-- **location:** `test/lowrank/bug.jl:242`
-- **evidence:** the fixtures of "a rank outside the bounds, $T" (`:168`), "the edges of the step,
-  $T" (`:242`, `:311`, `:333`, `:362`, `:371`, `:384`) and "the run driver, $T" (`:442`). After
+- **location:** `test/lowrank/bug.jl:252`
+- **evidence:** the fixtures of "a rank outside the bounds, $T" (`:178`), "the edges of the step,
+  $T" (`:252`, `:321`, `:343`, `:372`, `:381`, `:394`) and "the run driver, $T" (`:452`). After
   5 steps of `τ = 0.05` from the rank-3 factorisation `LowRankDistribution(dist, 3)` of
   `(1 + 0.3 cos(x/2)) M(v)` on `16 × 24` nodes of `[0, 4π) × [−10, 10]` with the model's Green's
-  matrix (the fixture of `:242` and `:442`), f at `±10` is `8.1e-14` (`BUG()`), `7.9e-14`
+  matrix (the fixture of `:252` and `:452`), f at `±10` is `8.1e-14` (`BUG()`), `7.9e-14`
   (`AugmentedBUG()`) and `4.2e-12` (`MidpointBUG()`) of its largest value in Float64, and
   `8.3e-9`, `4.4e-6` and `1.2e-6` in Float32; at `t = 0` it is `2.1e-22`. The plan's velocity-domain rule asks for round-off, and
   its spec names `1e-14`; the fixtures of the numerical bounds run on 64 velocity nodes for this
@@ -809,7 +809,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K128 · The `f⁺` solve of `ParitySplitting` cannot meet its residual test on a state whose even part is zero or small against its odd part, so `run!` throws on the first step.
 
-- **location:** `src/gridbased/parity.jl:224`
+- **location:** `src/gridbased/parity.jl:234`
 - **evidence:** the solve stops at `‖F‖₂ ≤ tol ‖F0 + f⁺‖₂`, a bound that scales with the even part
   of the state alone, while the residual `y - f⁺ - τ P(f⁻, h)` also holds the odd part `f⁻`.
   In Float32 on 16 × 32 nodes of [0, 4π) × [−7.5, 7.5], with `τ = 0.1` and the default `tol` and
@@ -823,7 +823,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K129 · The `f⁺` solve of `ParitySplitting` stalls above its residual bound on a state scaled by 10² or more, and in Float32 on 64 × 128 nodes at τ = 0.2; the cause is not located.
 
-- **location:** `src/gridbased/parity.jl:221`
+- **location:** `src/gridbased/parity.jl:231`
 - **evidence:** 40 steps of `τ = 0.05` from `s (1 + 0.2 cos(x/2)) e^{-v²/2}/√(2π)` on 16 × 32 nodes of
   [0, 4π) × [−7.5, 7.5] with the default `tol` and `max_iterations` keep the energy to `3.4e-7`
   (Float32) and `1.0e-15` (Float64) at `s = 10`, and throw `MAXITERS` at `s = 10²`, with
@@ -902,27 +902,13 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** defect
 - **found:** 2026-11-26, the full-matrix run of the spline Galerkin model's branch
 
-### K135 · The default background of `ParitySplitting` overflows in its sum over x when the even part of finite initial values sums past `floatmax(T)` in a column, so the constructor throws an `ArgumentError` that calls the finite values not finite.
+### K136 · No test of `ParitySplitting` passes a background with negative values, so a mutant of the evenness bound that drops the absolute value survives the tests of `ParitySplitting`.
 
-- **location:** `src/gridbased/parity.jl:161`
-- **evidence:** `_parity_background(values, nothing)` halves each value before it adds the
-  mirrored value, but adds the `nx` rows before it divides by `nx`. On 16 × 32 and 16 × 33 nodes
-  of [0, 4π) × [−7.5, 7.5], from `(1 + 0.2 cos(x/2)) e^{-v²/2}/√(2π)` with rows 1 and 2 of the
-  columns 3 and `nv − 2` set to `floatmax(T)`, every value and the x-mean `sum(values ./ 16;
-  dims = 1)` are finite, and `ParitySplitting(model, (0, 1), 0.1)` throws `ArgumentError: the
-  initial values and the background of the parity splitting must be finite`, in Float32 and
-  Float64. A division before the sum, `vec(sum(values ./ (2nx) .+ values[:, end:-1:1] ./ (2nx);
-  dims = 1))`, gives a finite background, and the method constructs with it; on these values the
-  Hamiltonian `h` and the bracket term `P(f, h)` that `run!` evaluates are not finite.
-- **kind:** found late
-- **found:** 2026-11-26
-
-### K136 · No test of `ParitySplitting` passes a background with negative values, so a mutant of the evenness bound that drops the absolute value survives.
-
-- **location:** `src/gridbased/parity.jl:147`
-- **evidence:** the constructor tests the evenness of `f0` against `10 eps(T) maximum(abs, f0)`.
-  The mutant `maximum(abs, f0)` → `maximum(f0)` passes all 260 tests of
-  `test/gridbased/parity.jl`. On 16 × 32 nodes of [0, 4π) × [−7.5, 7.5], from
+- **location:** `src/gridbased/parity.jl:160`
+- **evidence:** `_parity_checks` tests the evenness of `f0` against `10 eps(T) maximum(abs, f0)`,
+  for `ParitySplitting` and `LowRankParityDistribution`. The mutant `maximum(abs, f0)` →
+  `maximum(f0)` passes all 286 tests of `test/gridbased/parity.jl`; `test/lowrank/parity.jl`
+  catches it with 2 errors, through its construction with `background = -M`. On 16 × 32 nodes of [0, 4π) × [−7.5, 7.5], from
   `(1 + 0.2 cos(x/2)) e^{-v²/2}/√(2π)`, the background `-e^{-v²/2}/√(2π)` constructs and is stored
   as given, in Float32 and Float64; the mutant's bound on it is `-2.9e-19` (Float32) and
   `-5.4e-28` (Float64), so the mutant refuses this even background. A test that constructs with
@@ -973,33 +959,9 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** missing test
 - **found:** PR #161
 
-### K140 · The constructor of `LowRankParityDistribution` repeats the symmetry check of the velocity grid, and the finiteness check, the evenness check and the symmetrisation of the background, that the constructor of `ParitySplitting` makes.
-
-- **location:** `src/lowrank/parity.jl:66`
-- **evidence:** lines 66–70 of `src/lowrank/parity.jl` are lines 138–142 of
-  `src/gridbased/parity.jl` with the message changed and `v` read from the `GridFactorSpace`, and
-  lines 73–79 are lines 144–150 with the two messages changed. One helper beside
-  `_parity_background` in `src/gridbased/parity.jl` would hold both copies; the low-rank parity
-  part does not change that file.
-- **kind:** defect
-- **found:** 2026-11-27; the files of the low-rank parity part, which leave
-  `src/gridbased/parity.jl` unchanged
-
-### K141 · The default background of `LowRankParityDistribution` overflows in its sum over x as that of `ParitySplitting` does, so the constructor throws an `ArgumentError` that calls finite values not finite.
-
-- **location:** `src/gridbased/parity.jl:161`
-- **evidence:** on 16 × 32 nodes of [0, 4π) × [−7.5, 7.5], from
-  `(1 + 0.2 cos(x/2)) e^{-v²/2}/√(2π) (1 + 0.3 v)` with rows 1 and 2 of the columns 3 and
-  `nv − 2` set to `floatmax(T)`, every value is finite, and
-  `LowRankParityDistribution(dist, (4, 3))` throws `ArgumentError: the values and the background
-  of the low-rank parity distribution must be finite`, in Float32 and Float64. The constructor
-  takes the background from `_parity_background(values, nothing)`, whose sum overflows.
-- **kind:** found late
-- **found:** 2026-11-27; K135, whose fix closes this one too
-
 ### K142 · A state of large amplitude makes the low-rank parity splitting unstable at τ = 0.05, and its cores turn non-finite within a few steps.
 
-- **location:** `src/lowrank/parity.jl:422`
+- **location:** `src/lowrank/parity.jl:412`
 - **evidence:** the state `10⁴ (1 + 0.2 cos(x/2)) e^{-v²/2}/√(2π) (1 + 0.3 v)` on 16 × 32 nodes
   of [0, 4π) × [−7.5, 7.5], at rank (6, 6), with `LowRankParitySplitting((6, 6))` and τ = 0.05:
   the status `all(isfinite, Y.plus.S) && all(isfinite, Y.minus.S)` is false after step 3 in
@@ -1012,21 +974,9 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **found:** 2026-11-27; the clause "The decided edges of the step", whose non-finite core the
   status reports
 
-### K143 · `_least_rank(σ, tol)` throws `ArgumentError: collection must be non-empty` from `first` for a tolerance that is `NaN` or negative, a message that names neither the tolerance nor the truncation.
-
-- **location:** `src/lowrank/bug.jl:119`
-- **evidence:** `VlasovMethods._least_rank([3.0, 1.0], NaN)` and
-  `VlasovMethods._least_rank([3.0, 1.0], -1.0)` throw `ArgumentError: collection must be
-  non-empty`, in Float32 and Float64: no rank `r` meets `norm(σ[r + 1:end]) ≤ tol`, so the
-  generator is empty. The truncation of the low-rank parity splitting returns `nothing` before
-  this call when the norm of its matrix is not finite, so a step does not reach it.
-- **kind:** defect
-- **found:** 2026-11-27; the fix of the overflow of the truncation's tolerance in the low-rank
-  parity part
-
 ### K144 · A step of a rank-adaptive `LowRankParitySplitting` that ends with a false status can return a part at another rank than it had before the step.
 
-- **location:** `src/lowrank/parity.jl:271`
+- **location:** `src/lowrank/parity.jl:261`
 - **evidence:** the state `(1 + 0.2 cos(x/2)) e^{-v²/2}/√(2π) (1 + 0.3 v)` on 16 × 32 nodes of
   [0, 4π) × [−7.5, 7.5] at rank (6, 6), with `Y.minus.S[1, 1] = 1.34e154` (Float64) or `1.0f19`
   (Float32), and one step of τ = 0.05 with
