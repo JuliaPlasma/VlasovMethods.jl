@@ -95,7 +95,9 @@ end
         drift = max(drift, abs(energy(dist, model.work, f) - H₀) / abs(H₀))
     end
     @test eltype(op.S) == T
-    @test drift ≥ 1e-4
+    # above the pass bound of the energy over 400 steps in test/lowrank/parity.jl; the explicit
+    # substeps drift by 5.6e-3 in both precisions on Julia 1.13.4
+    @test drift > (T == Float64 ? 1e-12 : 8 * 3 * 400 * eps(Float32))
 end
 
 # The Float64 RK4 solution of the model's right-hand side at τ = 10⁻³, at t = 2. Its own error, of

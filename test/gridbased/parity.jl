@@ -216,6 +216,14 @@ end
     e = thrown(() -> ParitySplitting(model, (0, 1), 0.1; background = b))
     @test e isa ArgumentError && occursin("finite", e.msg)
 
+    # the messages of these checks name the parity splitting
+    @test_throws r"^ArgumentError: the parity splitting needs a velocity grid symmetric about 0; got v from " ParitySplitting(
+        grid_model(T; vd = (-5, 6)), (0, 1), 0.1)
+    @test_throws r"^ArgumentError: the initial values and the background of the parity splitting must be finite$" ParitySplitting(
+        model, (0, 1), 0.1; background = b)
+    @test_throws r"^ArgumentError: the background f0 of the parity splitting is not even in v$" ParitySplitting(
+        model, (0, 1), 0.1; background = M .* (1 .+ T(0.1) .* v))
+
     # the step, the time span, the tolerance and the iterations
     # 1e39 is finite in Float64 and overflows to Inf in Float32
     for τ in (T == Float32 ? (-0.1, 0, NaN, Inf, -Inf, 1e39) : (-0.1, 0, NaN, Inf, -Inf))
@@ -255,9 +263,8 @@ end
 end
 
 @testset "construction: a background and values at floatmax(T), $T" for T in (Float32, Float64)
-    # the symmetrisation and the default background halve before they add, so neither overflows
-    # in that sum; the default still overflows in its sum over x when the even part of a column
-    # sums past floatmax(T), as at floatmax(T) in two rows of a column and its mirror (K135)
+    # the symmetrisation halves before it adds, and the default background divides by 2nx before
+    # it sums, so neither overflows
     model = grid_model(T)
     nx, nv = size(model.distribution.values)
     b = fill(floatmax(T), nv)
@@ -274,6 +281,23 @@ end
     @test all(isfinite, f0)
     @test f0 == reverse(f0)
     @test isapprox(f0[3], floatmax(T) / nx; rtol = 8 * eps(T))
+
+    # two rows at floatmax(T) in a column and its mirror: the even part of the column sums past
+    # floatmax(T), its x-mean does not; the reference mean is taken in BigFloat
+    for nv in (32, 33)
+        model = grid_model(T, nv)
+        f = model.distribution.values
+        f[1:2, 3] .= floatmax(T)
+        f[1:2, nv - 2] .= floatmax(T)
+        @test all(isfinite, f)
+        g = copy(f)
+        f0 = ParitySplitting(model, (0, 1), 0.1).background
+        @test eltype(f0) == T
+        @test all(isfinite, f0)
+        @test f0 == reverse(f0)
+        mean = T.(vec(sum(big.(g) .+ big.(g[:, end:-1:1]); dims = 1)) ./ (2 * nx))
+        @test isapprox(f0, mean; rtol = 8 * eps(T))
+    end
 end
 
 @testset "construction: the default background of a state with an odd part, $T" for T in (Float32,

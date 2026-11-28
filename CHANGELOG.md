@@ -148,6 +148,34 @@ their own, except for what they removed and narrowed, which is listed in full be
   1. `scripts/lenard_bernstein.jl` prints the seed in its status line, and `scripts/profile.jl`
   writes `--seed` in its report.
 
+### Internal
+
+- **The default background of `ParitySplitting` and `LowRankParityDistribution` divides before it
+  sums (K135, K141).** The x-mean of the even part divided by `nx` after the sum over x, so finite
+  values whose even part sums past `floatmax(T)` in a column, such as `floatmax(T)` in two rows of
+  a column and its mirror, made a non-finite background, and both constructors refused the finite
+  values as not finite. Each value is now divided by `2nx` before the sum, and both constructors
+  accept such values, in `Float32` and `Float64`. On such values the Hamiltonian and the bracket
+  term that `run!` evaluates are still not finite.
+- **The two parity constructors share their checks (K140).** One helper beside
+  `_parity_background` checks the symmetry of the velocity grid, the finiteness of the values
+  and of the background and the evenness of the background, and symmetrises the background, for
+  `ParitySplitting` and `LowRankParityDistribution`. Each constructor keeps its messages.
+  `LowRankParityDistribution` now checks the background before the ranks, so an input with both a
+  bad background and a bad rank gets the message of the background.
+- **The truncation rank of `AugmentedBUG` and `LowRankParitySplitting` names a tolerance that is
+  `NaN` or negative (K143).** `_least_rank` throws
+  `ArgumentError: the tolerance of the truncation is a real ≥ 0; got …` where it threw
+  `collection must be non-empty`. Neither method passes such a tolerance to it.
+- **The `Float32` energy bound of the 400-step testset of `LowRankParitySplitting` scales with
+  its own steps.** The bound of "an odd number of velocity nodes and the least ranks" in
+  `test/lowrank/parity.jl` was `8 · 3 · 10⁴ eps(Float32) = 2.9e-2`, the bound of the 10⁴-step
+  verification file. The round-off model of the step gives about `0.25 eps(T)` per step, of three
+  substeps, so the bound is now `8 · 3 · 400 eps(Float32) = 1.1e-3` for the 400 steps of the
+  testset, against at most `6.7e-6` measured on Julia 1.13.4; the `Float64` bound stays `1e-12`.
+  The explicit control of `test/verification/lowrank_parity.jl` asserts a drift above this pass
+  bound, where it asserted `≥ 1e-4`; it drifts by `5.6e-3` in both precisions.
+
 ## [0.5.1] — 2026-11-25
 
 ### Internal

@@ -229,7 +229,7 @@ include("gridbased/parity.jl")
 
 export ParitySplitting, parity_split, parity_merge
 
-# The low-rank parity splitting calls `parity_split` and `_parity_background` of the full-rank one.
+# The low-rank parity splitting calls `parity_split` and `_parity_checks` of the full-rank one.
 include("lowrank/parity.jl")
 
 export LowRankParityDistribution, LowRankParitySplitting

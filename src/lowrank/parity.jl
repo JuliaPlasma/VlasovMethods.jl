@@ -63,20 +63,9 @@ function LowRankParityDistribution(
     space = GridFactorSpace(dist)
     nx, nv = size(space)
     values = dist.values
-    v = space.v
-    vmax = max(abs(v[1]), abs(v[nv]))
-    all(j -> abs(v[j] + v[nv + 1 - j]) ≤ 10 * eps(T) * vmax, 1:nv) || throw(ArgumentError(
-        "the low-rank parity distribution needs a velocity grid symmetric about 0; got v from " *
-        "$(v[1]) to $(v[nv])"))
+    f0 = _parity_checks(values, space.v, background, "the low-rank parity distribution",
+        "the values")
     _check_parity_ranks(rank, nx, nv)
-
-    f0 = _parity_background(values, background)
-    all(isfinite, values) && all(isfinite, f0) || throw(ArgumentError(
-        "the values and the background of the low-rank parity distribution must be finite"))
-    f0bound = 10 * eps(T) * maximum(abs, f0)
-    all(j -> abs(f0[j] - f0[nv + 1 - j]) ≤ f0bound, 1:nv) || throw(ArgumentError(
-        "the background f0 of the low-rank parity distribution is not even in v"))
-    f0 = f0 ./ 2 .+ reverse(f0) ./ 2
 
     fp, fm = parity_split(values, f0)
     plus = _parity_factors(space, fp, +1, rank[1])

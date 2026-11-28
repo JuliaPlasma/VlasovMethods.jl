@@ -176,6 +176,18 @@ end
     @test maximum(abs, Yb.f0 - M) ≤ 4 * eps(T) * maximum(M)
     # the evenness bound takes the largest absolute value, so a negative background is accepted
     @test LowRankParityDistribution(dist, (4, 3); background = -M).f0 == -M
+
+    # two rows at floatmax(T) in a column and its mirror: the even part of the column sums past
+    # floatmax(T), its x-mean does not; the reference mean is taken in BigFloat
+    w = copy(vals)
+    w[1:2, 3] .= floatmax(T)
+    w[1:2, nv - 2] .= floatmax(T)
+    @test all(isfinite, w)
+    Yw = LowRankParityDistribution(GridDistribution(dist.x, dist.v, w), (4, 3))
+    mean = T.(vec(sum(big.(w) .+ big.(w[:, end:-1:1]); dims = 1)) ./ (2 * nx))
+    @test eltype(Yw.f0) == T
+    @test all(isfinite, Yw.f0)
+    @test isapprox(Yw.f0, mean; rtol = 8 * eps(T))
 end
 
 @testset "the method object and its guards" begin
@@ -428,7 +440,11 @@ end
 
 @testset "an odd number of velocity nodes and the least ranks: energy over 400 steps, $T" for T in (
     Float32, Float64)
-    bound = T == Float64 ? 1e-12 : 8 * 3 * 10^4 * eps(Float32)
+    # the substeps are implicit midpoint steps solved exactly, so the energy drifts by round-off,
+    # about 0.25 eps(T) per step, of three substeps; the Float32 bound takes 8 eps per substep over
+    # the 400 steps of this testset, 8 · 3 · 400 eps(Float32) = 1.1e-3, against at most 6.7e-6
+    # measured on Julia 1.13.4, and the Float64 bound is 1e-12, against at most 3.7e-14
+    bound = T == Float64 ? 1e-12 : 8 * 3 * 400 * eps(Float32)
     for (nv, rank) in ((33, (6, 6)), (32, (2, 1)))
         (; dist, Y, field, G) = fixture(T; nv, β = 0, rank)
         method = LowRankParitySplitting(rank)
