@@ -998,9 +998,11 @@ has left the file, or that lived only on a merged branch, stays taken.
   the step keeps the total energy `H` to round-off on every state of a sweep of 33 states; on a
   rich state 79 % of `h` lies outside the space of MU3, and `H` drifts by 2e-15. `H` depends on
   `f⁺` only through `ρ` and `κ = hv Σ k f`, its moments on the fixed modes `{1, v²}`. The S-step
-  loses `⟨Gρ, (I − Πₓ) ρ̇⟩ + ⟨1, (I − Πₓ) κ̇⟩`, and both terms vanish, because `ρ̇` and `κ̇` lie in
-  `X̂ = orth[K₁ X₀]` through the fixed-mode columns of `K₁`; the K-step keeps `H` because `h` lies
-  in `L²ₓ ⊗ span V₀`, and the truncation keeps both moments. Without `v²` in the fixed modes the
+  starts from `f⁺` exactly, because `X̂` holds `X₀` and `V̂` holds `V₀`, and its midpoint step loses
+  `⟨Gρ, (I − Πₓ) ρ̇⟩ + ⟨1, (I − Πₓ) κ̇⟩` at its midpoint. Both terms vanish, because `ρ̇` and `κ̇`
+  lie in `X̂ = orth[K₁ X₀]` through the fixed-mode columns of `K₁`: `ρ̇` does not depend on the
+  state, and `κ̇` lies there only at the midpoint, whose density, and so potential, is that of the
+  midpoint of the K-step. The truncation keeps both moments. Without `v²` in the fixed modes the
   field energy behaves as at full rank and the total drifts by 6.7e-3, all of it kinetic, so the
   energy needs both fixed modes. Against the full-rank `ParitySplitting`, the L² error of `f`
   under MU2 is that of the unchanged step within −10 % to +15 % at the ranks (4, 4) to
