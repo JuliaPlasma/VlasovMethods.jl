@@ -131,6 +131,25 @@ their own, except for what they removed and narrowed, which is listed in full be
   manual runs. `run!(method, h5file)` writes the states and the times as
   `run!(::GeometricIntegrator, h5file)` does, and a solve that does not converge raises an error
   that names its return code.
+- **`SplineFactorSpace`** is the second factor space of `LowRankDistribution`: the coefficient
+  vectors of the periodic x-basis and of the velocity basis of a `TensorSplineDistribution`, with
+  the L² inner products of the two mass matrices. `SplineFactorSpace(xbasis, vbasis)` and
+  `SplineFactorSpace(dist)` take the bases that `TensorSplineDistribution` takes and refuse the
+  others with the same exception types; the factors are orthonormal in the mass matrices, by the Householder QR
+  of the upper Cholesky factor times the factor. `LowRankDistribution(space, F, r; fixed)` and
+  `LowRankDistribution(dist::TensorSplineDistribution, r; fixed)` factorise a coefficient matrix
+  with the algorithm of the grid factorisation in the L² norm, so the velocity modes of `fixed`,
+  such as the coefficients of `1`, `v` and `v²`, keep their moments; `TensorSplineDistribution(d)`
+  forms the coefficients `X S Vᵀ`. The unexported workspace `SplineLowRankFields1D1V(space)` adds
+  methods of `_kfield!`, `_lfield!`, `_sfield!` and `_potential!` that evaluate the projections of
+  the field of the spline Galerkin model on the factors, without the `nx × nv` array, and the
+  methods through which `lowrank_step!(Y, ProjectorSplitting(c), w, t, τ)` steps a spline state;
+  BUG, the implicit-midpoint substeps and the low-rank parity splitting still take the grid only.
+  The projected field keeps the energy when `1` and `v²` lie in the span of `V`, and moves the
+  mass by the full-order boundary flux when `1` does. The unexported `reflect_v(space, A)`
+  reverses velocity coefficients, the reflection `v ↦ -v` on a uniform velocity mesh of a
+  symmetric interval, and the fields on factors of one parity have the grading of the parity
+  splitting.
 
 ### Scripts
 

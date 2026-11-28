@@ -103,6 +103,40 @@ and `L` are read as zero, and rows ``1`` and ``n_v`` of ``\dot{L}`` are zero. No
 ``f``. With `X` and `V` orthonormal and the end rows of `V` zero, the DLR field keeps the energy
 when ``\chi`` and ``\chi \circ v^2`` lie in the span of `V`.
 
+## The spline factor space
+
+[`SplineFactorSpace`](@ref) is the factor space of the coefficients of a
+[`TensorSplineDistribution`](@ref): a factor is a matrix of coefficient vectors in the periodic
+x-basis ``\{\varphi_i\}`` or in the clamped velocity basis ``\{\psi_j\}``, and the inner products
+are those of ``L^2``, ``\langle a, b \rangle_x = a^\mathsf{T} M_x b`` and
+``\langle a, b \rangle_v = a^\mathsf{T} M_v b``, with the mass matrices of the two bases. The
+orthonormalisations take the Householder QR of ``U A``, with the upper Cholesky factor ``U`` of
+``M = U^\mathsf{T} U``, and return ``Q = U^{-1} \tilde{Q}`` and ``R``, so
+``Q^\mathsf{T} M Q = I``. `LowRankDistribution(space, F, r; fixed)` factorises a coefficient
+matrix ``F`` as the grid factorisation does, in the ``L^2`` norm; with `fixed` the coefficients
+of ``1``, ``v`` and ``v^2``, it keeps the density, the momentum and the kinetic energy of ``F``.
+`TensorSplineDistribution(d)` forms the coefficients `X S Vᵀ`, for tests and diagnostics.
+
+The workspace `VlasovMethods.SplineLowRankFields1D1V(space)` gives the K-, L- and S-fields of the
+spline Galerkin model of [`VlasovPoisson`](@ref) on the factors:
+``\dot{K} = \dot{F}(K V^\mathsf{T}) M_v V``, ``\dot{L} = \dot{F}(X L^\mathsf{T})^\mathsf{T} M_x X``
+and ``\dot{S} = X^\mathsf{T} M_x \dot{F}(X S V^\mathsf{T}) M_v V``, with the full-order field
+``\dot F = M_x^{-1} B(F) M_v^{-1}`` of the cyclically averaged Galerkin form. On three tensor
+products the form is a difference of two products of one-dimensional integrals, ``h`` has rank 2
+and ``f`` rank `r`, so each field is a sum of products of quadratures of the factors, at a cost of
+``O((n_x + n_v) r^2)`` beyond the Poisson solve, and no field forms ``f``. The projector
+splitting steps a spline state with this workspace, `lowrank_step!(Y, ProjectorSplitting(c), w,
+t, τ)`; the BUG integrators, the implicit-midpoint substeps and the low-rank parity splitting
+take a grid state only.
+
+The averaged form is totally antisymmetric, so the projected field keeps the energy when ``1``
+and ``v^2`` lie in the span of `V`. The mass is not kept: with ``1`` in the span of `V` the
+projected field moves it by the boundary flux of the full-order model. On a uniform velocity mesh
+of a symmetric interval the clamped basis is symmetric under ``v \mapsto -v``, and
+`VlasovMethods.reflect_v(space, A)` reverses the velocity coefficients; on a `V` whose columns
+are all even, or all odd, the K- and S-fields vanish and the L-field has the other parity, to
+round-off.
+
 ## The BUG integrators
 
 The basis-update & Galerkin (BUG) integrators are the reference methods of dynamical low rank.

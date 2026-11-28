@@ -15,7 +15,7 @@ using ProgressMeter
 using Random
 using ReducedBasisMethods: ReducedTensor
 using Sobol
-using SparseArrays: SparseMatrixCSC, nonzeros, nzrange, rowvals
+using SparseArrays: SparseMatrixCSC, nonzeros, nzrange, rowvals, sparse
 using SpecialFunctions
 using StaticArrays
 
@@ -101,6 +101,8 @@ include("distributions/tensor_spline_distribution.jl")
 include("lowrank/grid_space.jl")
 include("lowrank/distribution.jl")
 include("lowrank/fields.jl")
+include("lowrank/spline_space.jl")
+include("lowrank/spline_fields.jl")
 include("lowrank/integrator.jl")
 include("lowrank/bug.jl")
 include("lowrank/projector_splitting.jl")
@@ -111,6 +113,7 @@ export SplineDistribution
 export GridDistribution, velocity_moments
 export TensorSplineDistribution
 export LowRankDistribution, GridFactorSpace
+export SplineFactorSpace
 export BUG, AugmentedBUG, MidpointBUG, lowrank_step!, LowRankIntegrator
 export ProjectorSplitting
 export ImplicitMidpointSubsteps

@@ -11,6 +11,7 @@ const TESTS = [
         "Low-Rank BUG" => "lowrank/bug.jl",
         "Projector Splitting" => "lowrank/projector_splitting.jl",
         "Projector Splitting, Implicit Midpoint" => "lowrank/projector_splitting_midpoint.jl",
+        "Low-Rank Spline Space" => "lowrank/spline_space.jl",
         "Particle Distribution" => "distributions/particle_distribution.jl",
         "Projections" => "projections/projections.jl",
         "Reduced Tensors" => "gridbased/reduced_tensors.jl",

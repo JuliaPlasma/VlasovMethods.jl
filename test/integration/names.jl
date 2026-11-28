@@ -139,6 +139,7 @@ const NEW_EXPORTS = Symbol[
     :ParitySplitting,
     :PeriodicVelocityClosure,
     :ProjectorSplitting,
+    :SplineFactorSpace,
     :TensorSplineDistribution,
     :build_grid_parity_factors,
     :build_spline_parity_factors,

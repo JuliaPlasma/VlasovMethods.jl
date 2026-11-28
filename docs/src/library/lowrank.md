@@ -18,6 +18,13 @@ Modules = [VlasovMethods]
 Pages = ["lowrank/fields.jl"]
 ```
 
+## The spline factor space and its fields
+
+```@autodocs
+Modules = [VlasovMethods]
+Pages = ["lowrank/spline_space.jl", "lowrank/spline_fields.jl"]
+```
+
 ## The step and the run driver
 
 ```@autodocs
