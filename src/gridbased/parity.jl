@@ -136,29 +136,39 @@ function ParitySplitting(model::VlasovPoisson{1, 1, <:GridDistribution}, tspan::
         "max_iterations is not between 0 and typemax(Int32); got $max_iterations"))
 
     v = dist.v
-    vmax = max(abs(v[1]), abs(v[nv]))
-    all(j -> abs(v[j] + v[nv + 1 - j]) ≤ 10 * eps(T) * vmax, 1:nv) || throw(ArgumentError(
-        "the parity splitting needs a velocity grid symmetric about 0; got v from $(v[1]) to " *
-        "$(v[nv])"))
-
-    f0 = _parity_background(values, background)
-    all(isfinite, values) && all(isfinite, f0) || throw(ArgumentError(
-        "the initial values and the background of the parity splitting must be finite"))
-    f0bound = 10 * eps(T) * maximum(abs, f0)
-    all(j -> abs(f0[j] - f0[nv + 1 - j]) ≤ f0bound, 1:nv) ||
-        throw(ArgumentError("the background f0 of the parity splitting is not even in v"))
-    f0 = f0 ./ 2 .+ reverse(f0) ./ 2
+    f0 = _parity_checks(values, v, background, "the parity splitting", "the initial values")
 
     arakawa = Arakawa(nx, nv, step(dist.x), step(v))
     return ParitySplitting(model, (t₀, t₁), τ, f0, Matrix{T}(values), T(tol),
         Int(max_iterations), arakawa)
 end
 
+# The checks of a parity construction, `subject`, on `values` at the velocity nodes `v`: a
+# velocity grid symmetric about 0, finite `values` (named `values_noun` in the message) and a
+# finite background that is even in v. Returns the background of `_parity_background`,
+# symmetrised.
+function _parity_checks(values::AbstractMatrix{T}, v, background, subject,
+        values_noun) where {T}
+    nv = size(values, 2)
+    vmax = max(abs(v[1]), abs(v[nv]))
+    all(j -> abs(v[j] + v[nv + 1 - j]) ≤ 10 * eps(T) * vmax, 1:nv) || throw(ArgumentError(
+        "$subject needs a velocity grid symmetric about 0; got v from $(v[1]) to $(v[nv])"))
+
+    f0 = _parity_background(values, background)
+    all(isfinite, values) && all(isfinite, f0) || throw(ArgumentError(
+        "$values_noun and the background of $subject must be finite"))
+    f0bound = 10 * eps(T) * maximum(abs, f0)
+    all(j -> abs(f0[j] - f0[nv + 1 - j]) ≤ f0bound, 1:nv) ||
+        throw(ArgumentError("the background f0 of $subject is not even in v"))
+    return f0 ./ 2 .+ reverse(f0) ./ 2
+end
+
 # The background `f0` of `ParitySplitting` in the element type of `values`: the x-mean of the
-# even part of `values` for `nothing`, the given vector, converted, otherwise.
+# even part of `values` for `nothing`, the given vector, converted, otherwise. The division by
+# `2nx` before the sum keeps the mean of finite values from overflowing in the sum.
 function _parity_background(values::AbstractMatrix{T}, ::Nothing) where {T}
     nx = size(values, 1)
-    return vec(sum(values ./ 2 .+ values[:, end:-1:1] ./ 2; dims = 1)) ./ nx
+    return vec(sum(values ./ (2nx) .+ values[:, end:-1:1] ./ (2nx); dims = 1))
 end
 
 function _parity_background(values::AbstractMatrix{T}, f0::AbstractVector) where {T}

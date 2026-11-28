@@ -115,8 +115,10 @@ function _augmented(X, S, V, w, hx, hv, t, τ)
     return X̂, _sstep(X̂, Ŝ₀, V̂, w, t, τ), V̂
 end
 
-# the least r with ‖σ[r+1:end]‖ ≤ tol; r = k gives the empty tail, so one exists
+# the least r with ‖σ[r+1:end]‖ ≤ tol; r = k gives the empty tail, so one exists for tol ≥ 0
 function _least_rank(σ, tol)
+    tol ≥ 0 ||
+        throw(ArgumentError("the tolerance of the truncation is a real ≥ 0; got $tol"))
     first(r for r in 0:length(σ) if norm(view(σ, (r + 1):length(σ))) ≤ tol)
 end
 

@@ -63,20 +63,9 @@ function LowRankParityDistribution(
     space = GridFactorSpace(dist)
     nx, nv = size(space)
     values = dist.values
-    v = space.v
-    vmax = max(abs(v[1]), abs(v[nv]))
-    all(j -> abs(v[j] + v[nv + 1 - j]) ≤ 10 * eps(T) * vmax, 1:nv) || throw(ArgumentError(
-        "the low-rank parity distribution needs a velocity grid symmetric about 0; got v from " *
-        "$(v[1]) to $(v[nv])"))
+    f0 = _parity_checks(values, space.v, background, "the low-rank parity distribution",
+        "the values")
     _check_parity_ranks(rank, nx, nv)
-
-    f0 = _parity_background(values, background)
-    all(isfinite, values) && all(isfinite, f0) || throw(ArgumentError(
-        "the values and the background of the low-rank parity distribution must be finite"))
-    f0bound = 10 * eps(T) * maximum(abs, f0)
-    all(j -> abs(f0[j] - f0[nv + 1 - j]) ≤ f0bound, 1:nv) || throw(ArgumentError(
-        "the background f0 of the low-rank parity distribution is not even in v"))
-    f0 = f0 ./ 2 .+ reverse(f0) ./ 2
 
     fp, fm = parity_split(values, f0)
     plus = _parity_factors(space, fp, +1, rank[1])
@@ -399,12 +388,25 @@ momentum at every x node, and its `S` is upper triangular. The step keeps `nfixe
 the parity of every column of `V` bit for bit.
 
 The energy ``H = h_x h_v \sum f v^2/2 + (h_x/2) \rho^\mathsf{T} G \rho`` depends on ``f^+``
-alone. Step 1 does not change ``f^+``; the trial space of the S-step holds
-``G \rho \otimes 1 + 1 \otimes v^2/2`` at every point of it, so its midpoint step keeps ``H``;
-the truncation keeps ``\rho`` and ``\sum v^2 f^+``. So the step keeps ``H`` to round-off, with no
-projection or correction, and it keeps the mass. It evaluates the fields on the factors and
-does not reconstruct ``f``; the sizes of its temporaries depend on the augmented ranks, and at
-the ranks `(cld(nv, 2), fld(nv, 2))` some of them are ``n_x \times n_v``.
+alone, and on it only through its moments on the fixed modes ``\{1, v^2\}``: the density
+``\rho`` and ``\kappa = h_v \sum_j f_{\cdot j} v_j^2/2``. Step 1 does not change ``f^+``. The
+K-step and the L-step only make the bases, and the S-step starts from ``f^+`` exactly, because
+the span of `X̂` holds ``X_0`` and that of `V̂` holds ``V_0``. ``H`` is quadratic and `V̂` holds
+the fixed modes, so the midpoint S-step loses
+``\tau h_x ((G \rho)^\mathsf{T} (I - \Pi_x) \dot{\rho} + 1^\mathsf{T} (I - \Pi_x) \dot{\kappa})``,
+with ``\rho``, ``\dot{\rho}`` and ``\dot{\kappa}`` at its midpoint and ``\Pi_x`` the orthogonal
+projection onto the span of `Xa`. ``\dot{\rho}`` does not depend on the state, and the column
+of ``K(\tau)`` on the fixed mode 1 puts it in the span of `X̂`. The midpoint of the S-step has
+the density of the midpoint of the K-step, so it has its potential, and the column of
+``K(\tau)`` on ``v^2`` puts ``\dot{\kappa}`` at that midpoint in the span of `X̂`, which in
+general does not hold it at the ends of the step. So both terms vanish, and the truncation
+keeps ``\rho`` and ``\kappa``. The closed space `Xa` makes both terms vanish with the column on
+the fixed mode 1 alone, a second, sufficient argument: the constant clears the second term, and
+that column keeps ``\rho`` in the span of `X̂` and the constant, so `G X̂` and the constant hold
+``G \rho`` and clear the first. So the step keeps ``H`` to round-off, with no projection or
+correction, and it keeps the mass. It evaluates the fields on the factors and does not
+reconstruct ``f``; the sizes of its temporaries depend on the augmented ranks, and at the ranks
+`(cld(nv, 2), fld(nv, 2))` some of them are ``n_x \times n_v``.
 
 `τ` is converted to the element type `T` of `Y`, and a `τ` that is not finite in `T` throws the
 `ArgumentError` of the generic [`lowrank_step!`](@ref) before any write; `τ = 0` returns `Y`

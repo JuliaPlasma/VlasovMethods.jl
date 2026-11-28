@@ -142,6 +142,16 @@ for T in (Float64, Float32)
         @test discarded ≤ tol
         @test abs(discarded - norm(σ[(r₁ + 1):end])) ≤ 64 * eps(T) * norm(σ)
         @test norm(σ[r₁:end]) > tol
+
+        # the least rank refuses a tolerance that is NaN or negative, and takes 0 and Inf
+        σ₂ = T[3, 1]
+        for bad in (T(NaN), -eps(T), -one(T))
+            @test_throws r"^ArgumentError: the tolerance of the truncation is a real ≥ 0; got " VlasovMethods._least_rank(
+                σ₂, bad)
+        end
+        @test VlasovMethods._least_rank(σ₂, zero(T)) == 2
+        @test VlasovMethods._least_rank(σ₂, one(T)) == 1
+        @test VlasovMethods._least_rank(σ₂, T(Inf)) == 0
     end
 end
 
