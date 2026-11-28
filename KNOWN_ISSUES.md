@@ -1012,3 +1012,48 @@ has left the file, or that lived only on a merged branch, stays taken.
   closed space is left for later.
 - **kind:** found late
 - **found:** 2026-11-28; the measurement of the structural mutants of the energy test, at 819f3f2
+
+### K146 · The messages of `_parity_background` name "the parity splitting" also when `LowRankParityDistribution` calls it.
+
+- **location:** `src/gridbased/parity.jl:176`
+- **evidence:** `_parity_checks` puts the subject phrase of each constructor into its own three
+  messages, but `_parity_background`, which it calls, takes no subject. Its `DimensionMismatch`
+  for a background of another length (`:176`) and its `ArgumentError` for a matrix background
+  (`:183`) and for a background of another type (`:190`) name "the parity splitting" for both
+  constructors. On 16 × 32 nodes,
+  `LowRankParityDistribution(dist, (4, 3); background = M[1:(nv - 1)])` throws
+  `DimensionMismatch: the background of the parity splitting takes nv = 32 values; got 31`;
+  `test/lowrank/parity.jl:137` pins this message, and `test/lowrank/parity.jl:135` pins the
+  message of the matrix background. `main` has the same wording. A fix passes the subject to
+  `_parity_background` and changes the two patterns.
+- **kind:** defect
+- **found:** PR #164
+
+### K147 · No test or script reproduces the measurements of K145, and no test catches MU2 or MU3 through the energy.
+
+- **location:** `test/lowrank/parity.jl:441`
+- **evidence:** K145 rests on a sweep of 33 states with `G X̂` (MU2) or the constant (MU3) left
+  out of `_closed_space`, and on the L² error of `f` against the full-rank `ParitySplitting` at
+  the ranks (4, 4) to (12, 12). No file under `test/` or `scripts/` holds this sweep or names MU2
+  or MU3. The testset "an odd number of velocity nodes and the least ranks: energy over 400 steps"
+  passes both mutants: their largest drift is 5.0e-6 and 7.9e-6 (MU2) and 4.0e-6 and 6.8e-6 (MU3)
+  in Float32, 1.3e-14 and 3.1e-14 (MU2) and 9.6e-15 and 3.1e-14 (MU3) in Float64, at the level of
+  the unchanged step, against the bounds 1.1e-3 and 1e-12. The testset "the closed space holds X̂,
+  1 and G X̂" (`test/lowrank/parity.jl:425`) catches them through the span of `Xa`.
+- **kind:** missing test
+- **found:** PR #164, from the measurement of K145
+
+### K148 · No test or docstring states the check order of `LowRankParityDistribution`: the checks of the background run before the checks of the ranks.
+
+- **location:** `src/lowrank/parity.jl:66`
+- **evidence:** `_parity_checks` runs before `_check_parity_ranks`. On 16 × 32 nodes, in Float32
+  and Float64, `LowRankParityDistribution(dist, (1, 3); background = ones(T, 31))` throws
+  `DimensionMismatch: the background of the parity splitting takes nv = 32 values; got 31`, not
+  the `ArgumentError: the rank 1 of f⁺ is not in 2:16 on a grid of 16 × 32 nodes` that the same
+  rank gives with the default background. The testset "construction: refused inputs and the
+  default background" (`test/lowrank/parity.jl:125`) passes a bad background with a valid rank,
+  or a bad rank with a valid background, never both, and the docstring
+  (`src/lowrank/parity.jl:46`) lists the errors without an order. With the two checks swapped, `test/gridbased/parity.jl`
+  passes 286/286 and `test/lowrank/parity.jl` 936/936.
+- **kind:** missing test
+- **found:** PR #164, which moves `_parity_checks` before `_check_parity_ranks`
