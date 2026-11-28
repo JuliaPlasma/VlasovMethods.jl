@@ -395,11 +395,12 @@ K-step keeps ``H``, because ``h = G \rho \otimes 1 + 1 \otimes v^2/2`` lies in
 ``\dot{\rho}`` and ``\dot{\kappa}`` outside its trial space; the fixed-mode columns of
 ``K(\tau)`` put both rates in the span of `X̂`, so the midpoint S-step keeps ``H``. The
 truncation keeps ``\rho`` and ``\kappa``. That `Xa` holds ``h`` at every point of the S-step is
-a second, sufficient argument, which does not depend on the fixed-mode columns of the K-step. So
-the step keeps ``H`` to round-off, with no projection or correction, and it keeps the mass. It
-evaluates the fields on the factors and does not reconstruct ``f``; the sizes of its temporaries
-depend on the augmented ranks, and at the ranks `(cld(nv, 2), fld(nv, 2))` some of them are
-``n_x \times n_v``.
+a second, sufficient argument, which needs only the column of ``K(\tau)`` on the fixed mode 1:
+that column keeps ``\rho`` in the span of `X̂` and the constant, so `G X̂` and the constant hold
+``G \rho`` and the x-factor of ``1 \otimes v^2/2``. So the step keeps ``H`` to round-off,
+with no projection or correction, and it keeps the mass. It evaluates the fields on the factors
+and does not reconstruct ``f``; the sizes of its temporaries depend on the augmented ranks, and
+at the ranks `(cld(nv, 2), fld(nv, 2))` some of them are ``n_x \times n_v``.
 
 `τ` is converted to the element type `T` of `Y`, and a `τ` that is not finite in `T` throws the
 `ArgumentError` of the generic [`lowrank_step!`](@ref) before any write; `τ = 0` returns `Y`
