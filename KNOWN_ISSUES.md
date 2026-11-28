@@ -908,11 +908,11 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **evidence:** `_parity_checks` tests the evenness of `f0` against `10 eps(T) maximum(abs, f0)`,
   for `ParitySplitting` and `LowRankParityDistribution`. The mutant `maximum(abs, f0)` →
   `maximum(f0)` passes all 286 tests of `test/gridbased/parity.jl`; `test/lowrank/parity.jl`
-  catches it with 2 errors, through its construction with `background = -M`. On 16 × 32 nodes of [0, 4π) × [−7.5, 7.5], from
-  `(1 + 0.2 cos(x/2)) e^{-v²/2}/√(2π)`, the background `-e^{-v²/2}/√(2π)` constructs and is stored
-  as given, in Float32 and Float64; the mutant's bound on it is `-2.9e-19` (Float32) and
-  `-5.4e-28` (Float64), so the mutant refuses this even background. A test that constructs with
-  `background = -M` catches the mutant.
+  catches it with 2 errors, through its construction with `background = -M`. On 16 × 32 nodes
+  of [0, 4π) × [−7.5, 7.5], from `(1 + 0.2 cos(x/2)) e^{-v²/2}/√(2π)`, the background
+  `-e^{-v²/2}/√(2π)` constructs and is stored as given, in Float32 and Float64; the mutant's
+  bound on it is `-2.9e-19` (Float32) and `-5.4e-28` (Float64), so the mutant refuses this even
+  background. A test that constructs with `background = -M` catches the mutant.
 - **kind:** missing test
 - **found:** PR #160
 
@@ -961,7 +961,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K142 · A state of large amplitude makes the low-rank parity splitting unstable at τ = 0.05, and its cores turn non-finite within a few steps.
 
-- **location:** `src/lowrank/parity.jl:412`
+- **location:** `src/lowrank/parity.jl:411`
 - **evidence:** the state `10⁴ (1 + 0.2 cos(x/2)) e^{-v²/2}/√(2π) (1 + 0.3 v)` on 16 × 32 nodes
   of [0, 4π) × [−7.5, 7.5], at rank (6, 6), with `LowRankParitySplitting((6, 6))` and τ = 0.05:
   the status `all(isfinite, Y.plus.S) && all(isfinite, Y.minus.S)` is false after step 3 in
@@ -976,7 +976,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K144 · A step of a rank-adaptive `LowRankParitySplitting` that ends with a false status can return a part at another rank than it had before the step.
 
-- **location:** `src/lowrank/parity.jl:261`
+- **location:** `src/lowrank/parity.jl:260`
 - **evidence:** the state `(1 + 0.2 cos(x/2)) e^{-v²/2}/√(2π) (1 + 0.3 v)` on 16 × 32 nodes of
   [0, 4π) × [−7.5, 7.5] at rank (6, 6), with `Y.minus.S[1, 1] = 1.34e154` (Float64) or `1.0f19`
   (Float32), and one step of τ = 0.05 with
