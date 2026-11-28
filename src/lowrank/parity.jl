@@ -388,12 +388,18 @@ momentum at every x node, and its `S` is upper triangular. The step keeps `nfixe
 the parity of every column of `V` bit for bit.
 
 The energy ``H = h_x h_v \sum f v^2/2 + (h_x/2) \rho^\mathsf{T} G \rho`` depends on ``f^+``
-alone. Step 1 does not change ``f^+``; the trial space of the S-step holds
-``G \rho \otimes 1 + 1 \otimes v^2/2`` at every point of it, so its midpoint step keeps ``H``;
-the truncation keeps ``\rho`` and ``\sum v^2 f^+``. So the step keeps ``H`` to round-off, with no
-projection or correction, and it keeps the mass. It evaluates the fields on the factors and
-does not reconstruct ``f``; the sizes of its temporaries depend on the augmented ranks, and at
-the ranks `(cld(nv, 2), fld(nv, 2))` some of them are ``n_x \times n_v``.
+alone, and on it only through its moments on the fixed modes ``\{1, v^2\}``: the density
+``\rho`` and ``\kappa = h_v \sum_j f_{\cdot j} v_j^2/2``. Step 1 does not change ``f^+``. The
+K-step keeps ``H``, because ``h = G \rho \otimes 1 + 1 \otimes v^2/2`` lies in
+``L^2_x \otimes \mathrm{span}\, V_0``. The S-step can lose energy only through the parts of
+``\dot{\rho}`` and ``\dot{\kappa}`` outside its trial space; the fixed-mode columns of
+``K(\tau)`` put both rates in the span of `X̂`, so the midpoint S-step keeps ``H``. The
+truncation keeps ``\rho`` and ``\kappa``. That `Xa` holds ``h`` at every point of the S-step is
+a second, sufficient argument, which does not depend on the fixed-mode columns of the K-step. So
+the step keeps ``H`` to round-off, with no projection or correction, and it keeps the mass. It
+evaluates the fields on the factors and does not reconstruct ``f``; the sizes of its temporaries
+depend on the augmented ranks, and at the ranks `(cld(nv, 2), fld(nv, 2))` some of them are
+``n_x \times n_v``.
 
 `τ` is converted to the element type `T` of `Y`, and a `τ` that is not finite in `T` throws the
 `ArgumentError` of the generic [`lowrank_step!`](@ref) before any write; `τ = 0` returns `Y`

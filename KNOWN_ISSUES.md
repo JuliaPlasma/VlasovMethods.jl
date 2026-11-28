@@ -961,7 +961,7 @@ has left the file, or that lived only on a merged branch, stays taken.
 
 ### K142 · A state of large amplitude makes the low-rank parity splitting unstable at τ = 0.05, and its cores turn non-finite within a few steps.
 
-- **location:** `src/lowrank/parity.jl:411`
+- **location:** `src/lowrank/parity.jl:417`
 - **evidence:** the state `10⁴ (1 + 0.2 cos(x/2)) e^{-v²/2}/√(2π) (1 + 0.3 v)` on 16 × 32 nodes
   of [0, 4π) × [−7.5, 7.5], at rank (6, 6), with `LowRankParitySplitting((6, 6))` and τ = 0.05:
   the status `all(isfinite, Y.plus.S) && all(isfinite, Y.minus.S)` is false after step 3 in
@@ -990,3 +990,23 @@ has left the file, or that lived only on a merged branch, stays taken.
 - **kind:** found late
 - **found:** 2026-11-27; the critic of the fix of the overflow of the truncation's tolerance in
   the low-rank parity part
+
+### K145 · The closed space `[X̂ 1 G X̂]` of the S-step of `LowRankParitySplitting` is sufficient for the energy but not necessary; without `G X̂` the solution changes, but its error against full rank does not change systematically.
+
+- **location:** `src/lowrank/parity.jl:210`
+- **evidence:** with `G X̂` left out of `_closed_space` (MU2), or the constant left out (MU3),
+  the step keeps the total energy `H` to round-off on every state of a sweep of 33 states; on a
+  rich state 79 % of `h` lies outside the space of MU3, and `H` drifts by 2e-15. `H` depends on
+  `f⁺` only through `ρ` and `κ = hv Σ k f`, its moments on the fixed modes `{1, v²}`. The S-step
+  loses `⟨Gρ, (I − Πₓ) ρ̇⟩ + ⟨1, (I − Πₓ) κ̇⟩`, and both terms vanish, because `ρ̇` and `κ̇` lie in
+  `X̂ = orth[K₁ X₀]` through the fixed-mode columns of `K₁`; the K-step keeps `H` because `h` lies
+  in `L²ₓ ⊗ span V₀`, and the truncation keeps both moments. Without `v²` in the fixed modes the
+  field energy behaves as at full rank and the total drifts by 6.7e-3, all of it kinetic, so the
+  energy needs both fixed modes. Against the full-rank `ParitySplitting`, the L² error of `f`
+  under MU2 is that of the unchanged step within −10 % to +15 % at the ranks (4, 4) to (12, 12), on rich,
+  Landau and two-stream states, in Float32 and Float64; `ϕ`, `E`, the momentum and the adaptive
+  ranks show no systematic change, and only the error of the field energy moves, by 0.65 to 1.9
+  times in either direction, on multi-mode states. Whether to drop `G X̂` from the closed space is
+  left for later.
+- **kind:** found late
+- **found:** 2026-11-28; the measurement of the structural mutants of the energy test, at 819f3f2
