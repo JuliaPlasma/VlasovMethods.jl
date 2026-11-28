@@ -5,15 +5,17 @@ Advance the [`LowRankDistribution`](@ref) `Y` by one step of length `τ` from th
 dynamical low-rank `method`, in place, and return `Y`. `field` is the right-hand side of the
 method. The methods are [`BUG`](@ref), [`AugmentedBUG`](@ref) and [`MidpointBUG`](@ref), and
 [`ProjectorSplitting`](@ref); the docstring of each method names its algorithm and the fields
-that it takes.
+that it takes. The step of [`LowRankParitySplitting`](@ref) advances a
+[`LowRankParityDistribution`](@ref) in place of a `LowRankDistribution`.
 
 `t` and `τ` are converted to the element type `T` of `Y` before their first use. A `τ` that is not
 finite in `T` throws an `ArgumentError` before any write, whose message prints `τ` as it was
 given: on a `Float32` state, the finite `τ = 1e300` reads `got τ = 1.0e300`. The step assigns new
-factors to `Y`, possibly of another rank, and sets `nfixed = 0`. The entries of `Y` are not
-checked.
+factors to `Y`, possibly of another rank, and sets `nfixed = 0`; the step of
+`LowRankParitySplitting` keeps the fixed modes of both parts of its state, `nfixed = 2` and `1`.
+The entries of `Y` are not checked.
 
-[`LowRankIntegrator`](@ref) and [`run!`](@ref) take a run of steps.
+[`LowRankIntegrator`](@ref) and [`run!`](@ref) take a run of steps of a `LowRankDistribution`.
 """
 function lowrank_step! end
 

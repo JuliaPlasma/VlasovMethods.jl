@@ -45,3 +45,10 @@ Pages = ["lowrank/projector_splitting.jl"]
 Modules = [VlasovMethods]
 Pages = ["lowrank/projector_splitting_midpoint.jl"]
 ```
+
+## The low-rank parity splitting
+
+```@autodocs
+Modules = [VlasovMethods]
+Pages = ["lowrank/parity.jl"]
+```

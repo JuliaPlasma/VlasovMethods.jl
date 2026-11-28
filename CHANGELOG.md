@@ -56,6 +56,31 @@ their own, except for what they removed and narrowed, which is listed in full be
 - **`parity_split`** splits grid values `f` into the even part `f⁺` about a background `f0` and
   the odd part `f⁻`, by the reflection `v ↦ -v` of the velocity nodes.
 - **`parity_merge`** returns `1 ⊗ f0 + f⁺ + f⁻`, and inverts `parity_split`.
+- **`LowRankParityDistribution`** is the state of the parity splitting in low-rank form: the even
+  background `f0` and two `LowRankDistribution`s, the even part `f⁺` with the fixed velocity
+  modes `{1, v²}` (`nfixed = 2`) and the odd part `f⁻` with the fixed mode `v` (`nfixed = 1`).
+  Every column of the two velocity bases is even or odd bit for bit, by a weighted QR on the half
+  grid. `LowRankParityDistribution(dist, (r⁺, r⁻); background)` factorises a `GridDistribution`
+  with the background rule of `ParitySplitting`, and keeps the density, the momentum and the
+  kinetic energy at every x node; it refuses a velocity grid that is not symmetric, a background
+  that is not even, depends on `x` or is not a vector of `nv` values, non-finite input, and ranks
+  outside `2:min(nx, cld(nv, 2))` and `1:min(nx, fld(nv, 2))`. `GridDistribution(Y)` forms the
+  values.
+- **`LowRankParitySplitting`** is the low-rank parity splitting, a method for `lowrank_step!` on
+  a `LowRankParityDistribution`: a half step of `f⁻` that adds the exact low-rank increment of its
+  constant right-hand side, a step of `f⁺` with `f⁻` frozen that is an augmented BUG step with its
+  S-step on the closed spatial space `[X̂, 1, G X̂]`, and a second half step of `f⁻`. Its substeps
+  are implicit midpoint steps, solved exactly by two fixed-point iterations, and its truncations
+  keep the moments of the fixed modes exactly and leave an upper triangular `S`, so the step keeps
+  the energy and the mass to round-off by its formulation, keeps `nfixed`, and evaluates its
+  fields on the factors without a reconstruction of `f`; its workspace depends on the augmented
+  ranks. `LowRankParitySplitting(rank; tol, minrank)` takes the ranks, the
+  tolerances relative to the norm of each part, and the least ranks of `f⁺` and `f⁻`; the ranks
+  stay fixed by default, and a tolerance of 1 or more keeps the least rank. The step runs on the
+  fields of the periodic velocity closure only, and refuses another closure and a state with a
+  rank below `minrank`. A step of `τ = 0` returns the state unchanged. A substep that leaves
+  a non-finite core does not throw: its part keeps the rank that it has at the start of the
+  substep, with a core of `NaN`.
 - **`ImplicitMidpointSubsteps`, implicit-midpoint substeps of `ProjectorSplitting`**, a reference
   method for the energy. `ProjectorSplitting(composition; substeps = ImplicitMidpointSubsteps())`
   makes each K-, S- and L-substep one implicit-midpoint step of the bracket at the Hamiltonian
